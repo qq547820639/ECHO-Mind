@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.db
+.env
+.coverage
+htmlcov/
+
+# Android
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime
+runtime/
+exports/

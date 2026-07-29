@@ -1,0 +1,42 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://echo:${POSTGRES_PASSWORD:-echo-local}@db:5432/echo
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-please-32-bytes}
+      FIELD_ENCRYPTION_SECRET: ${FIELD_ENCRYPTION_SECRET:-dev-field-encryption-secret-change-me}
+      BOOTSTRAP_KEY: ${BOOTSTRAP_KEY:-local-bootstrap-only}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: echo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-echo-local}
+      POSTGRES_DB: echo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - echo_pg:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  echo_pg:

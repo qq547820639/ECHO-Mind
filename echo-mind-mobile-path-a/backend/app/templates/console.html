@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ECHO Mind 人工接管工作台</title>
+<style>
+:root{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:#292725;background:#f6f5f2}
+body{margin:0}header{padding:22px 28px;background:white;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2}
+main{padding:22px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:white;border:1px solid #ddd;border-radius:14px;padding:18px;margin:12px 0}.red{border-left:7px solid #9b2020}.warn{background:#fff5e8}
+button{padding:9px 14px;margin:4px;border-radius:9px;border:1px solid #777;background:#fff;cursor:pointer}.primary{background:#292725;color:white}
+input{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px}.muted{color:#6b6762;font-size:14px}.status{font-weight:700}.breach{color:#9b2020;font-weight:700}
+</style>
+</head>
+<body>
+<header><h1>ECHO Mind 人工接管工作台 <small>v{{ version }}</small></h1><p>仅供授权值班人员使用。最终专业判断和处置由机构人员承担。</p></header>
+<main>
+<section class="card"><label>Bearer Token（仅存于当前浏览器会话）</label><br><input id="token" type="password" placeholder="粘贴 on_call/professional token"><button class="primary" onclick="saveToken();loadAll()">连接</button><button onclick="sessionStorage.clear();location.reload()">清除</button></section>
+<section id="metrics" class="grid"></section>
+<div id="queue"></div>
+</main>
+<script>
+const tokenInput=document.getElementById('token');tokenInput.value=sessionStorage.getItem('echo_token')||'';
+const headers=()=>({"Authorization":"Bearer "+tokenInput.value,"Content-Type":"application/json","X-Request-ID":"console_"+crypto.randomUUID()});
+function saveToken(){sessionStorage.setItem('echo_token',tokenInput.value)}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+async function loadAll(){saveToken();await Promise.all([loadMetrics(),loadQueue()])}
+async function loadMetrics(){
+ const r=await fetch('/v1/escalations/metrics',{headers:headers()});if(!r.ok){return}
+ const x=await r.json();document.getElementById('metrics').innerHTML=`<div class="card"><b>事件总数</b><div>${x.total}</div></div><div class="card"><b>处理中</b><div>${x.open}</div></div><div class="card"><b>ACK P50</b><div>${x.ack_p50_seconds??'—'} 秒</div></div><div class="card"><b>接管 P50</b><div>${x.takeover_p50_seconds??'—'} 秒</div></div>`
+}
+async function loadQueue(){
+ const r=await fetch('/v1/escalations',{headers:headers()});
+ if(!r.ok){document.getElementById('queue').innerHTML='<div class="card">加载失败：'+esc(await r.text())+'</div>';return}
+ const data=await r.json();
+ document.getElementById('queue').innerHTML=data.map(x=>`<article class="card red ${x.ack_sla_breached||x.takeover_sla_breached?'warn':''}"><div class="status">${esc(x.level)} · ${esc(x.status)}</div><h3>${esc(x.trigger)}</h3><p>${esc(x.evidence_summary)}</p><p class="muted">用户：${esc(x.user_id)}　开启：${esc(x.opened_at)}　负责人：${esc(x.assigned_to||'未分配')}</p>${x.ack_sla_breached?'<p class="breach">ACK SLA 已超时</p>':''}${x.takeover_sla_breached?'<p class="breach">接管 SLA 已超时</p>':''}<button onclick="act('${x.id}','ack')">确认</button><button onclick="act('${x.id}','takeover')">接管</button><button onclick="closeEsc('${x.id}')">关闭</button><button onclick="reviewEsc('${x.id}')">复盘</button></article>`).join('') || '<div class="card">当前无事件</div>';
+}
+async function act(id,action){const r=await fetch(`/v1/escalations/${id}/${action}`,{method:'POST',headers:headers()});alert(r.ok?'已更新':await r.text());loadAll()}
+async function closeEsc(id){const disposition=prompt('请输入人工处置结论（必填）');if(!disposition)return;const r=await fetch(`/v1/escalations/${id}/close`,{method:'POST',headers:headers(),body:JSON.stringify({disposition})});alert(r.ok?'已关闭':await r.text());loadAll()}
+async function reviewEsc(id){const review_notes=prompt('请输入复盘结论（事件必须先关闭）');if(!review_notes)return;const r=await fetch(`/v1/escalations/${id}/review`,{method:'POST',headers:headers(),body:JSON.stringify({review_notes})});alert(r.ok?'已复盘':await r.text());loadAll()}
+if(tokenInput.value)loadAll();
+</script>
+</body>
+</html>

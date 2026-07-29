@@ -1,0 +1,32 @@
+name: backend-ci
+on:
+  pull_request:
+  push:
+    branches: [main, "feat/**", "release/**"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
+      - run: cd backend && ruff check app tests
+      - run: cd backend && pytest -q
+      - run: python scripts/validate_content_packs.py
+      - run: python scripts/claim_scan.py
+      - run: python scripts/check_dynamic_code.py
+      - run: python scripts/safety_eval.py
+      - run: cd backend && python scripts/export_openapi.py
+      - run: |
+          cd backend
+          rm -f /tmp/echo-migration.db
+          DATABASE_URL=sqlite:////tmp/echo-migration.db alembic upgrade head
+          DATABASE_URL=sqlite:////tmp/echo-migration.db alembic downgrade base
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-and-safety-reports
+          path: |
+            docs/openapi.json
+            safety-eval/evaluation_report.v1.json
+            content-packs/MANIFEST.generated.json

@@ -1,0 +1,1869 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ECHO Mind Path A API",
+    "description": "心理健康记录、筛查提示、审核练习、人工接管与审计。非诊断、非紧急服务替代。",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/v1/tenants": {
+      "post": {
+        "summary": "Create Tenant",
+        "operationId": "create_tenant_v1_tenants_post",
+        "parameters": [
+          {
+            "name": "x-bootstrap-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Bootstrap-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users": {
+      "post": {
+        "summary": "Create User",
+        "operationId": "create_user_v1_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/onboarding/consents": {
+      "post": {
+        "summary": "Create Consent",
+        "operationId": "create_consent_v1_onboarding_consents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/onboarding/consents/latest": {
+      "get": {
+        "summary": "Get Latest Consents",
+        "operationId": "get_latest_consents_v1_onboarding_consents_latest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/onboarding/l0": {
+      "post": {
+        "summary": "Create L0",
+        "operationId": "create_l0_v1_onboarding_l0_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/L0ScreeningCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/onboarding/emergency-contact": {
+      "post": {
+        "summary": "Create Emergency Contact",
+        "operationId": "create_emergency_contact_v1_onboarding_emergency_contact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyContactCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/checkins": {
+      "post": {
+        "summary": "Create Checkin",
+        "operationId": "create_checkin_v1_checkins_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckinCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/journals": {
+      "post": {
+        "summary": "Create Journal",
+        "operationId": "create_journal_v1_journals_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Journals",
+        "operationId": "list_journals_v1_journals_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/journals/{logical_id}/revisions": {
+      "post": {
+        "summary": "Revise Journal",
+        "operationId": "revise_journal_v1_journals__logical_id__revisions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "logical_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Logical Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalRevise"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/journals/{logical_id}": {
+      "delete": {
+        "summary": "Delete Journal",
+        "operationId": "delete_journal_v1_journals__logical_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "logical_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Logical Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/safety/check": {
+      "post": {
+        "summary": "Safety Check",
+        "operationId": "safety_check_v1_safety_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreeTextSafetyCheck"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/questionnaires/{code}/responses": {
+      "post": {
+        "summary": "Questionnaire",
+        "operationId": "questionnaire_v1_questionnaires__code__responses_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionnaireCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/practices/completions": {
+      "post": {
+        "summary": "Practice Completion",
+        "operationId": "practice_completion_v1_practices_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeCompletionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/trends/summary": {
+      "get": {
+        "summary": "Trends",
+        "operationId": "trends_v1_trends_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 7,
+              "default": 14,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations": {
+      "post": {
+        "summary": "Create Escalation",
+        "operationId": "create_escalation_v1_escalations_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Escalations",
+        "operationId": "list_escalations_v1_escalations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/metrics": {
+      "get": {
+        "summary": "Escalation Metrics",
+        "operationId": "escalation_metrics_v1_escalations_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/escalations/{escalation_id}/ack": {
+      "post": {
+        "summary": "Ack Escalation",
+        "operationId": "ack_escalation_v1_escalations__escalation_id__ack_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/{escalation_id}/takeover": {
+      "post": {
+        "summary": "Takeover",
+        "operationId": "takeover_v1_escalations__escalation_id__takeover_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/{escalation_id}/close": {
+      "post": {
+        "summary": "Close Escalation",
+        "operationId": "close_escalation_v1_escalations__escalation_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalationClose"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/{escalation_id}/review": {
+      "post": {
+        "summary": "Review Escalation",
+        "operationId": "review_escalation_v1_escalations__escalation_id__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalationReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data-subject-requests": {
+      "post": {
+        "summary": "Create Dsr",
+        "operationId": "create_dsr_v1_data_subject_requests_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataSubjectRequestCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Dsr",
+        "operationId": "list_dsr_v1_data_subject_requests_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/data-subject-requests/{request_id}/complete": {
+      "post": {
+        "summary": "Complete Dsr",
+        "operationId": "complete_dsr_v1_data_subject_requests__request_id__complete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataSubjectRequestComplete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/events": {
+      "get": {
+        "summary": "Audit Events",
+        "operationId": "audit_events_v1_audit_events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/verify": {
+      "get": {
+        "summary": "Audit Verify",
+        "operationId": "audit_verify_v1_audit_verify_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Ready",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console": {
+      "get": {
+        "summary": "Console",
+        "operationId": "console_console_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CheckinCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "mood": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Mood"
+          },
+          "stress": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Stress"
+          },
+          "energy": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Energy"
+          },
+          "sleep_recovery": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Sleep Recovery"
+          },
+          "event_flag": {
+            "type": "boolean",
+            "title": "Event Flag",
+            "default": false
+          },
+          "help_requested": {
+            "type": "boolean",
+            "title": "Help Requested",
+            "default": false
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "client_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Time"
+          },
+          "device_timezone": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Device Timezone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "mood",
+          "stress",
+          "energy",
+          "sleep_recovery",
+          "client_time",
+          "device_timezone"
+        ],
+        "title": "CheckinCreate"
+      },
+      "ConsentCreate": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "consent_type": {
+            "type": "string",
+            "enum": [
+              "psychological_data",
+              "emergency_contact",
+              "voice_features",
+              "research"
+            ],
+            "title": "Consent Type"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "granted": {
+            "type": "boolean",
+            "title": "Granted"
+          },
+          "evidence_hash": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Evidence Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "consent_type",
+          "version",
+          "granted",
+          "evidence_hash"
+        ],
+        "title": "ConsentCreate"
+      },
+      "DataSubjectRequestComplete": {
+        "properties": {
+          "result_summary": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 2,
+            "title": "Result Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result_summary"
+        ],
+        "title": "DataSubjectRequestComplete"
+      },
+      "DataSubjectRequestCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "request_type": {
+            "type": "string",
+            "enum": [
+              "export",
+              "delete",
+              "revoke_service"
+            ],
+            "title": "Request Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "request_type"
+        ],
+        "title": "DataSubjectRequestCreate"
+      },
+      "EmergencyContactCreate": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 5,
+            "title": "Phone"
+          },
+          "relationship": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Relationship"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "name",
+          "phone",
+          "relationship"
+        ],
+        "title": "EmergencyContactCreate"
+      },
+      "EscalationClose": {
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 2,
+            "title": "Disposition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "disposition"
+        ],
+        "title": "EscalationClose"
+      },
+      "EscalationCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "L2",
+              "L3"
+            ],
+            "title": "Level",
+            "default": "L3"
+          },
+          "trigger": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Trigger"
+          },
+          "evidence_summary": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 2,
+            "title": "Evidence Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "trigger",
+          "evidence_summary"
+        ],
+        "title": "EscalationCreate"
+      },
+      "EscalationReview": {
+        "properties": {
+          "review_notes": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 2,
+            "title": "Review Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "review_notes"
+        ],
+        "title": "EscalationReview"
+      },
+      "FreeTextSafetyCheck": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "text"
+        ],
+        "title": "FreeTextSafetyCheck"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JournalCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "logical_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Logical Id"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "event_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Event Tags"
+          },
+          "client_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "logical_id",
+          "body",
+          "client_time"
+        ],
+        "title": "JournalCreate"
+      },
+      "JournalRevise": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "event_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Event Tags"
+          },
+          "client_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "body",
+          "client_time"
+        ],
+        "title": "JournalRevise"
+      },
+      "L0ScreeningCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "current_danger": {
+            "type": "boolean",
+            "title": "Current Danger",
+            "default": false
+          },
+          "prior_attempt_or_admission": {
+            "type": "boolean",
+            "title": "Prior Attempt Or Admission",
+            "default": false
+          },
+          "psychosis_or_mania": {
+            "type": "boolean",
+            "title": "Psychosis Or Mania",
+            "default": false
+          },
+          "substance_impairment": {
+            "type": "boolean",
+            "title": "Substance Impairment",
+            "default": false
+          },
+          "has_professional_support": {
+            "type": "boolean",
+            "title": "Has Professional Support",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id"
+        ],
+        "title": "L0ScreeningCreate"
+      },
+      "PracticeCompletionCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "practice_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Practice Id"
+          },
+          "content_version": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Content Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Duration Seconds",
+            "default": 0
+          },
+          "client_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "practice_id",
+          "content_version",
+          "status",
+          "client_time"
+        ],
+        "title": "PracticeCompletionCreate"
+      },
+      "QuestionnaireCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "1.0"
+          },
+          "answers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Answers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "answers"
+        ],
+        "title": "QuestionnaireCreate"
+      },
+      "TenantCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TenantCreate"
+      },
+      "UserCreate": {
+        "properties": {
+          "external_ref": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 2,
+            "title": "External Ref"
+          },
+          "age_band": {
+            "type": "string",
+            "const": "18_plus",
+            "title": "Age Band",
+            "default": "18_plus"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "Asia/Shanghai"
+          }
+        },
+        "type": "object",
+        "required": [
+          "external_ref"
+        ],
+        "title": "UserCreate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "status": "draft_requires_clinical_review",
+  "items": [
+    {
+      "id": "breathing-01",
+      "version": "1.0",
+      "title": "两分钟缓慢呼吸",
+      "duration_minutes": 2,
+      "contraindications": [
+        "明显呼吸困难时停止并寻求医疗帮助"
+      ],
+      "steps": [
+        "坐稳或站稳，双脚有支撑",
+        "按舒适节奏缓慢吸气",
+        "呼气稍长于吸气，不憋气",
+        "不适时立即停止"
+      ]
+    },
+    {
+      "id": "grounding-01",
+      "version": "1.0",
+      "title": "五感锚定",
+      "duration_minutes": 4,
+      "steps": [
+        "说出5个看到的东西",
+        "说出4个能触碰到的感觉",
+        "说出3个听到的声音",
+        "说出2个闻到的气味",
+        "说出1个能支持自己的事实"
+      ]
+    },
+    {
+      "id": "activation-01",
+      "version": "1.0",
+      "title": "一个最小行动",
+      "duration_minutes": 5,
+      "steps": [
+        "选择一个5分钟内可完成的小行动",
+        "把行动拆成第一步",
+        "设置明确结束点",
+        "完成后记录感受，不评价好坏"
+      ]
+    },
+    {
+      "id": "sleep-01",
+      "version": "1.0",
+      "title": "睡前降速",
+      "duration_minutes": 8,
+      "steps": [
+        "降低屏幕亮度",
+        "写下明天再处理的事项",
+        "做两分钟舒缓伸展",
+        "在固定时间结束互动"
+      ]
+    }
+  ]
+}

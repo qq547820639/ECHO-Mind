@@ -1,0 +1,25 @@
+{
+  "schema_version": "content-manifest.v1",
+  "records": [
+    {
+      "path": "content-packs/practices/practices.v1.json",
+      "sha256": "cd1f3959b4feca099f10e2e75078760bdfe1b6b8af0abf2a439b2b8d0dfeb880",
+      "status": "draft_requires_clinical_review"
+    },
+    {
+      "path": "content-packs/questionnaires/gad7.v1.json",
+      "sha256": "976b48551ed2a7755959da6bb334705d2c15137e6aa13ffcd327cca7cea1d6f6",
+      "status": "versioned_static"
+    },
+    {
+      "path": "content-packs/questionnaires/phq9.v1.json",
+      "sha256": "6f33eb6936b145e0f62094a6816b5a13423c25a9b7baad9a0fc51060b8d59e83",
+      "status": "versioned_static"
+    },
+    {
+      "path": "content-packs/safety/l2-stabilization.v1.json",
+      "sha256": "072bca8f3fab1a28b9ebde8770b52d52e08873f7d3ab33aee5d96e93246128fc",
+      "status": "draft_requires_clinical_review"
+    }
+  ]
+}

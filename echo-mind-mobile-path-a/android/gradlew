@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+VERSION=8.13
+SHA256=20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78
+BASE="${GRADLE_USER_HOME:-$HOME/.gradle}/echo-bootstrap"
+DIST="$BASE/gradle-$VERSION"
+ZIP="$BASE/gradle-$VERSION-bin.zip"
+if [ ! -x "$DIST/bin/gradle" ]; then
+  mkdir -p "$BASE"
+  if [ ! -f "$ZIP" ]; then
+    command -v curl >/dev/null 2>&1 || { echo "需要 curl 下载 Gradle" >&2; exit 1; }
+    curl -fL "https://services.gradle.org/distributions/gradle-$VERSION-bin.zip" -o "$ZIP"
+  fi
+  ACTUAL=$(sha256sum "$ZIP" | awk '{print $1}')
+  [ "$ACTUAL" = "$SHA256" ] || { echo "Gradle 校验失败" >&2; rm -f "$ZIP"; exit 1; }
+  command -v unzip >/dev/null 2>&1 || { echo "需要 unzip" >&2; exit 1; }
+  rm -rf "$DIST"
+  unzip -q "$ZIP" -d "$BASE"
+fi
+exec "$DIST/bin/gradle" "$@"

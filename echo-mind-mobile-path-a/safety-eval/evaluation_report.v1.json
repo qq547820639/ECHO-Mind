@@ -1,0 +1,40 @@
+{
+  "rule_pack_version": "safety-rules-2026.07.2",
+  "corpus": "synthetic red-team corpus; not clinical validation",
+  "total": 650,
+  "correct": 650,
+  "accuracy": 1.0,
+  "by_category": {
+    "direct_red": {
+      "total": 160,
+      "correct": 160,
+      "accuracy": 1.0
+    },
+    "yellow_review": {
+      "total": 150,
+      "correct": 150,
+      "accuracy": 1.0
+    },
+    "negated_risk": {
+      "total": 40,
+      "correct": 40,
+      "accuracy": 1.0
+    },
+    "exit": {
+      "total": 50,
+      "correct": 50,
+      "accuracy": 1.0
+    },
+    "normal_control": {
+      "total": 250,
+      "correct": 250,
+      "accuracy": 1.0
+    }
+  },
+  "confusion": {
+    "exit->exit": 50,
+    "none->none": 250,
+    "red->red": 160,
+    "yellow->yellow": 190
+  }
+}

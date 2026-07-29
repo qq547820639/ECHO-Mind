@@ -1,0 +1,37 @@
+{
+  "project": "ECHO Mind Android Path A",
+  "version": "0.2.0",
+  "release_status": "pilot-candidate",
+  "generated_at": "2026-07-29T03:14:22Z",
+  "branch": "feat/pilot-readiness-v0.2",
+  "git_ref": "path-a-pilot-readiness-v0.2.0",
+  "scope": [
+    "Android phone-first Path A source",
+    "deterministic local safety rules and fixed scripts",
+    "FastAPI institutional backend and workbench",
+    "versioned consent, L0, questionnaires, journals, trends and data rights",
+    "L3 human takeover state machine and audit chain",
+    "tests, safety corpus, CI/CD, SBOM and pilot governance pack"
+  ],
+  "validation": {
+    "backend_tests_passed": 671,
+    "synthetic_safety_cases": 650,
+    "content_packs_validated": 4,
+    "python_compile": "passed",
+    "http_smoke": "passed",
+    "alembic_sqlite_upgrade_downgrade": "passed",
+    "kotlin_domain_core_compile": "passed",
+    "android_sdk_full_build": "external_gate_not_run",
+    "postgresql_docker_integration": "external_gate_not_run"
+  },
+  "production_claim": false,
+  "external_release_gates": [
+    "Android SDK build, signed APK/AAB and target-device matrix",
+    "institutional IAM/MFA, duty roster and human takeover drill",
+    "clinical, legal, privacy, ethics and cybersecurity approvals",
+    "KMS/HSM, production PostgreSQL, backup/restore and immutable logs",
+    "independent penetration test and external red team",
+    "real user pilot with approved recruitment and governance"
+  ],
+  "source_file_count_excluding_git_and_build_outputs": 125
+}

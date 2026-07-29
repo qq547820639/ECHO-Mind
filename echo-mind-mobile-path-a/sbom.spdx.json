@@ -1,0 +1,284 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "ECHO-Mind-Path-A-v0.2.0-source-SBOM",
+  "documentNamespace": "https://example.invalid/echo-mind/path-a/v0.2.0/sbom",
+  "creationInfo": {
+    "created": "2026-07-29T03:13:41Z",
+    "creators": [
+      "Tool: scripts/generate_sbom.py"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Python-fastapi",
+      "name": "fastapi",
+      "versionInfo": ">=0.128,<0.141",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-uvicorn",
+      "name": "uvicorn",
+      "versionInfo": "[standard]>=0.35,<0.36",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-pydantic",
+      "name": "pydantic",
+      "versionInfo": ">=2.12,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-pydantic-settings",
+      "name": "pydantic-settings",
+      "versionInfo": ">=2.10,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-sqlalchemy",
+      "name": "sqlalchemy",
+      "versionInfo": ">=2.0.45,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-alembic",
+      "name": "alembic",
+      "versionInfo": ">=1.16,<2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-PyJWT",
+      "name": "PyJWT",
+      "versionInfo": ">=2.10,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-jinja2",
+      "name": "jinja2",
+      "versionInfo": ">=3.1,<4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-python-multipart",
+      "name": "python-multipart",
+      "versionInfo": ">=0.0.20,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-psycopg",
+      "name": "psycopg",
+      "versionInfo": "[binary]>=3.2,<4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-cryptography",
+      "name": "cryptography",
+      "versionInfo": ">=46,<47",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-pytest",
+      "name": "pytest",
+      "versionInfo": ">=9,<10",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-httpx",
+      "name": "httpx",
+      "versionInfo": ">=0.28,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-ruff",
+      "name": "ruff",
+      "versionInfo": ">=0.12,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-mypy",
+      "name": "mypy",
+      "versionInfo": ">=1.17,<2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-core-ktx",
+      "name": "androidx.core:core-ktx",
+      "versionInfo": "1.16.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-activity-compose",
+      "name": "androidx.activity:activity-compose",
+      "versionInfo": "1.13.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-lifecycle-runtime",
+      "name": "androidx.lifecycle:lifecycle-runtime-ktx",
+      "versionInfo": "2.11.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-lifecycle-viewmodel-compose",
+      "name": "androidx.lifecycle:lifecycle-viewmodel-compose",
+      "versionInfo": "2.11.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-bom",
+      "name": "androidx.compose:compose-bom",
+      "versionInfo": "2026.06.00",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-ui",
+      "name": "androidx.compose.ui:ui",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-ui-tooling",
+      "name": "androidx.compose.ui:ui-tooling",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-ui-tooling-preview",
+      "name": "androidx.compose.ui:ui-tooling-preview",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-material3",
+      "name": "androidx.compose.material3:material3",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-room-runtime",
+      "name": "androidx.room:room-runtime",
+      "versionInfo": "2.8.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-room-ktx",
+      "name": "androidx.room:room-ktx",
+      "versionInfo": "2.8.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-room-compiler",
+      "name": "androidx.room:room-compiler",
+      "versionInfo": "2.8.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-work-runtime",
+      "name": "androidx.work:work-runtime-ktx",
+      "versionInfo": "2.10.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-junit",
+      "name": "junit:junit",
+      "versionInfo": "4.13.2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    }
+  ],
+  "annotations": [
+    {
+      "annotationType": "OTHER",
+      "annotator": "Tool: scripts/generate_sbom.py",
+      "annotationDate": "2026-07-29T03:13:41Z",
+      "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
+    }
+  ]
+}
