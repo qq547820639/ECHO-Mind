@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.api.routes import router
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
+from app.services import immutability  # noqa: F401  registers the append-only ORM guard
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))

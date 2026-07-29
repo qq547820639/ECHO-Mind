@@ -79,7 +79,17 @@ def test_escalation_review_state(client, user_headers, professional_headers):
     }, headers=user_headers)
     esc_id = opened.json()["id"]
     client.post(f"/v1/escalations/{esc_id}/takeover", headers=professional_headers)
-    client.post(f"/v1/escalations/{esc_id}/close", json={"disposition": "已按流程联系"}, headers=professional_headers)
+    client.post(f"/v1/escalations/{esc_id}/close", json={
+        "disposition": "已按流程联系",
+        "contact_method": "电话",
+        "contact_succeeded": True,
+        "safety_status": "情绪平稳",
+        "emergency_contact_called": False,
+        "referred_12356": True,
+        "called_emergency_services": False,
+        "follow_up_plan": "24 小时内随访",
+        "operator_signature": "值班员甲",
+    }, headers=professional_headers)
     reviewed = client.post(f"/v1/escalations/{esc_id}/review", json={"review_notes": "流程符合要求"}, headers=professional_headers)
     assert reviewed.status_code == 200
     assert reviewed.json()["status"] == "reviewed"

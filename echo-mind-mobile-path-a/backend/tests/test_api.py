@@ -43,5 +43,15 @@ def test_escalation_requires_takeover_before_close(client, user_headers, profess
     close = client.post(f"/v1/escalations/{esc_id}/close", json={"disposition": "已完成"}, headers=professional_headers)
     assert close.status_code == 409
     client.post(f"/v1/escalations/{esc_id}/takeover", headers=professional_headers)
-    close = client.post(f"/v1/escalations/{esc_id}/close", json={"disposition": "已联系并按机构流程处理"}, headers=professional_headers)
+    close = client.post(f"/v1/escalations/{esc_id}/close", json={
+        "disposition": "已联系并按机构流程处理",
+        "contact_method": "电话",
+        "contact_succeeded": True,
+        "safety_status": "情绪平稳",
+        "emergency_contact_called": False,
+        "referred_12356": True,
+        "called_emergency_services": False,
+        "follow_up_plan": "24 小时内随访",
+        "operator_signature": "值班员甲",
+    }, headers=professional_headers)
     assert close.status_code == 200

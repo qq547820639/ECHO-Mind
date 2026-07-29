@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
     external_ref: str = Field(min_length=2, max_length=160)
     age_band: Literal["18_plus"] = "18_plus"
     timezone: str = "Asia/Shanghai"
+    city: str | None = Field(default=None, max_length=120)
 
 
 class ConsentCreate(BaseModel):
@@ -107,7 +108,16 @@ class EscalationCreate(BaseModel):
 
 
 class EscalationClose(BaseModel):
-    disposition: str = Field(min_length=2, max_length=4000)
+    # 全部字段可空提交，由 close 端点统一校验必填并指出缺失字段（422）。
+    disposition: str | None = Field(default=None, min_length=2, max_length=4000)
+    contact_method: str | None = Field(default=None, min_length=2, max_length=80)
+    contact_succeeded: bool | None = None
+    safety_status: str | None = Field(default=None, min_length=2, max_length=200)
+    emergency_contact_called: bool | None = None
+    referred_12356: bool | None = None
+    called_emergency_services: bool | None = None
+    follow_up_plan: str | None = Field(default=None, min_length=2, max_length=4000)
+    operator_signature: str | None = Field(default=None, min_length=2, max_length=120)
 
 
 class EscalationReview(BaseModel):

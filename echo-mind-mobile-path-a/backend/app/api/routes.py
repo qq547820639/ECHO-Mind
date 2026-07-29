@@ -7,7 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import Principal, get_principal, require_roles
+from app.auth import (
+    NON_DATA_ROLES,
+    PSYCH_CONTENT_ROLES,
+    READ_ONLY_ROLES,
+    Principal,
+    get_principal,
+    require_roles,
+)
 from app.config import get_settings
 from app.database import get_db
 from app.models import (
@@ -45,7 +52,8 @@ from app.schemas import (
 )
 from app.services.audit import append_audit, verify_audit_chain
 from app.services.crypto import decrypt_text, encrypt_text
-from app.services.safety import RULE_PACK_VERSION, evaluate_text
+from app.services.escalation import scan_sla_breaches
+from app.services.safety import RULE_PACK_VERSION, evaluate_text, resolve_rule_ids
 from app.services.scoring import score_gad7, score_phq9
 from app.services.trends import build_trend
 
@@ -54,8 +62,60 @@ DB = Annotated[Session, Depends(get_db)]
 PRINCIPAL = Annotated[Principal, Depends(get_principal)]
 settings = get_settings()
 
+# 队列展示的风险类型标签；未登记的 trigger 原样透传，保证可溯源。
+RISK_TYPE_LABELS = {
+    "l0_current_danger": "准入当前危险",
+    "help_requested": "用户主动求助",
+    "text_red_signal": "文本红色信号",
+    "journal_red_signal": "日记红色信号",
+    "phq9_item9_positive": "PHQ-9 高风险题项",
+}
+
+
+def forbid(
+    db: Session,
+    principal: Principal,
+    *,
+    action: str,
+    object_type: str,
+    object_id: str,
+    detail: str,
+) -> None:
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action=action,
+        object_type=object_type,
+        object_id=object_id,
+    )
+    db.commit()
+    raise HTTPException(status_code=403, detail=detail)
+
+
+def require_write_role(db: Session, principal: Principal, *, object_type: str) -> None:
+    if principal.role in READ_ONLY_ROLES or principal.role in NON_DATA_ROLES:
+        forbid(db, principal, action="authz.write_denied", object_type=object_type,
+               object_id=principal.subject, detail="role is not permitted to write")
+
+
+def require_psych_content_role(db: Session, principal: Principal, *, user_id: str) -> None:
+    if principal.role not in PSYCH_CONTENT_ROLES:
+        forbid(db, principal, action="authz.psych_content_denied", object_type="user",
+               object_id=user_id, detail="role cannot access psychological content")
+
+
+def require_step_up(db: Session, principal: Principal, *, object_type: str, object_id: str) -> None:
+    if not principal.step_up:
+        forbid(db, principal, action="authz.step_up_denied", object_type=object_type,
+               object_id=object_id, detail="step-up authentication required")
+
 
 def ensure_user(db: Session, principal: Principal, user_id: str) -> User:
+    if principal.role in NON_DATA_ROLES:
+        forbid(db, principal, action="authz.denied", object_type="user",
+               object_id=user_id, detail="role has no data access")
     user = db.get(User, user_id)
     if not user or user.tenant_id != principal.tenant_id:
         raise HTTPException(status_code=404, detail="user not found")
@@ -113,6 +173,8 @@ def open_escalation(
         level="L3",
         trigger=trigger,
         evidence_summary=evidence_summary,
+        # 服务端接收事件即视为送达确认；与人工接管（ack/takeover）严格区分。
+        delivery_confirmed_at=datetime.now(timezone.utc),
     )
     db.add(row)
     db.flush()
@@ -153,6 +215,7 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL):
         external_ref=payload.external_ref,
         age_band=payload.age_band,
         timezone=payload.timezone,
+        city=payload.city,
     )
     db.add(user)
     db.flush()
@@ -176,6 +239,7 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL):
 
 @router.post("/onboarding/consents")
 def create_consent(payload: ConsentCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="consent")
     ensure_user(db, principal, payload.user_id)
     now = datetime.now(timezone.utc)
     consent = Consent(
@@ -226,6 +290,7 @@ def get_latest_consents(user_id: str, db: DB, principal: PRINCIPAL):
 
 @router.post("/onboarding/l0")
 def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="onboarding_screening")
     user = ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(OnboardingScreening).where(
         OnboardingScreening.tenant_id == principal.tenant_id,
@@ -277,6 +342,7 @@ def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL):
 
 @router.post("/onboarding/emergency-contact")
 def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="emergency_contact")
     ensure_user(db, principal, payload.user_id)
     consent = latest_consent(db, principal.tenant_id, payload.user_id, "emergency_contact")
     if not consent or not consent.granted or consent.revoked_at:
@@ -305,6 +371,7 @@ def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal:
 
 @router.post("/checkins")
 def create_checkin(payload: CheckinCreate, request: Request, db: DB, principal: PRINCIPAL):
+    require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
     require_psychological_consent(db, principal, payload.user_id)
     existing = db.scalar(select(Checkin).where(
@@ -356,6 +423,7 @@ def create_checkin(payload: CheckinCreate, request: Request, db: DB, principal: 
 
 @router.post("/journals")
 def create_journal(payload: JournalCreate, db: DB, principal: PRINCIPAL):
+    require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
     require_psychological_consent(db, principal, payload.user_id)
     existing = db.scalar(select(JournalEntry).where(
@@ -409,6 +477,7 @@ def revise_journal(logical_id: str, payload: JournalRevise, db: DB, principal: P
     ).order_by(JournalEntry.revision.desc()).limit(1))
     if not latest:
         raise HTTPException(status_code=404, detail="journal not found")
+    require_psych_content_role(db, principal, user_id=latest.user_id)
     ensure_user(db, principal, latest.user_id)
     existing = db.scalar(select(JournalEntry).where(
         JournalEntry.tenant_id == principal.tenant_id,
@@ -444,6 +513,7 @@ def delete_journal(logical_id: str, db: DB, principal: PRINCIPAL):
     ).order_by(JournalEntry.revision.desc()).limit(1))
     if not latest:
         raise HTTPException(status_code=404, detail="journal not found")
+    require_psych_content_role(db, principal, user_id=latest.user_id)
     ensure_user(db, principal, latest.user_id)
     row = JournalEntry(
         event_id=f"evt_{uuid4().hex}",
@@ -468,6 +538,7 @@ def delete_journal(logical_id: str, db: DB, principal: PRINCIPAL):
 
 @router.get("/journals")
 def list_journals(user_id: str, db: DB, principal: PRINCIPAL, limit: int = Query(50, ge=1, le=200)):
+    require_psych_content_role(db, principal, user_id=user_id)
     ensure_user(db, principal, user_id)
     rows = db.scalars(select(JournalEntry).where(
         JournalEntry.tenant_id == principal.tenant_id,
@@ -492,6 +563,7 @@ def list_journals(user_id: str, db: DB, principal: PRINCIPAL, limit: int = Query
 
 @router.post("/safety/check")
 def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL):
+    require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
     result = evaluate_text(payload.text)
     signal = RiskSignal(
@@ -524,6 +596,7 @@ def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL):
 
 @router.post("/questionnaires/{code}/responses")
 def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PRINCIPAL):
+    require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
     require_psychological_consent(db, principal, payload.user_id)
     existing = db.scalar(select(QuestionnaireResult).where(
@@ -572,6 +645,7 @@ def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PR
 
 @router.post("/practices/completions")
 def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="practice_completion")
     ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(PracticeCompletion).where(
         PracticeCompletion.tenant_id == principal.tenant_id,
@@ -600,12 +674,14 @@ def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PR
 
 @router.get("/trends/summary")
 def trends(user_id: str, db: DB, principal: PRINCIPAL, days: int = Query(14, ge=7, le=90)):
+    require_psych_content_role(db, principal, user_id=user_id)
     ensure_user(db, principal, user_id)
     return build_trend(db, principal.tenant_id, user_id, days)
 
 
 @router.post("/escalations")
 def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="escalation")
     ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(Escalation).where(
         Escalation.tenant_id == principal.tenant_id,
@@ -629,7 +705,9 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL):
 @router.get("/escalations")
 def list_escalations(
     db: DB,
-    principal: Annotated[Principal, Depends(require_roles("on_call", "professional", "admin", "auditor"))],
+    principal: Annotated[Principal, Depends(require_roles(
+        "on_call", "professional", "admin", "auditor", "quality_reviewer", "security_auditor",
+    ))],
     status: str | None = None,
 ):
     query = select(Escalation).where(Escalation.tenant_id == principal.tenant_id)
@@ -640,20 +718,51 @@ def list_escalations(
     def age_seconds(value: datetime) -> float:
         aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
         return (now - aware).total_seconds()
+    user_ids = {x.user_id for x in rows}
+    users: dict[str, User] = {}
+    contact_status: dict[str, str] = {}
+    if user_ids:
+        users = {u.id: u for u in db.scalars(select(User).where(
+            User.tenant_id == principal.tenant_id, User.id.in_(user_ids),
+        )).all()}
+        contacts = db.scalars(select(EmergencyContact).where(
+            EmergencyContact.tenant_id == principal.tenant_id,
+            EmergencyContact.user_id.in_(user_ids),
+        )).all()
+        for contact in contacts:
+            # 任一联系人可用即"可用"；登记过但全部停用为"不可用"；未登记另行标注。
+            if contact.active:
+                contact_status[contact.user_id] = "可用"
+            else:
+                contact_status.setdefault(contact.user_id, "不可用")
     return [{
         "id": x.id,
         "user_id": x.user_id,
         "level": x.level,
         "status": x.status,
         "trigger": x.trigger,
-        "evidence_summary": x.evidence_summary,
+        "risk_type": RISK_TYPE_LABELS.get(x.trigger, x.trigger),
+        # 高危证据摘要仅在持有 step-up 声明时可见；队列元数据不受限。
+        "evidence_summary": x.evidence_summary if principal.step_up else None,
         "opened_at": x.opened_at,
+        "waiting_seconds": int(age_seconds(x.opened_at)),
         "ack_at": x.ack_at,
         "takeover_at": x.takeover_at,
         "closed_at": x.closed_at,
         "reviewed_at": x.reviewed_at,
         "assigned_to": x.assigned_to,
         "disposition": x.disposition,
+        # 升级链路状态：通知不等于接管；链路失效单独标识。
+        "escalation_level": x.escalation_level,
+        "second_duty_notified": x.notified_l1_at is not None,
+        "notified_l1_at": x.notified_l1_at,
+        "notified_l2_at": x.notified_l2_at,
+        "chain_broken": x.chain_broken_at is not None,
+        # 仅表示服务端已确认接收事件；不得解读为"人工已收到"。
+        "delivery_confirmed": x.delivery_confirmed_at is not None,
+        "delivery_confirmed_at": x.delivery_confirmed_at,
+        "user_city": users[x.user_id].city if x.user_id in users else None,
+        "emergency_contact_status": contact_status.get(x.user_id, "未登记"),
         "ack_sla_breached": x.ack_at is None and age_seconds(x.opened_at) > settings.ack_sla_seconds,
         "takeover_sla_breached": x.takeover_at is None and age_seconds(x.opened_at) > settings.takeover_sla_seconds,
     } for x in rows]
@@ -662,7 +771,9 @@ def list_escalations(
 @router.get("/escalations/metrics")
 def escalation_metrics(
     db: DB,
-    principal: Annotated[Principal, Depends(require_roles("professional", "admin", "auditor"))],
+    principal: Annotated[Principal, Depends(require_roles(
+        "professional", "admin", "auditor", "quality_reviewer", "security_auditor",
+    ))],
 ):
     rows = db.scalars(select(Escalation).where(Escalation.tenant_id == principal.tenant_id)).all()
     ack_seconds = [(x.ack_at - x.opened_at).total_seconds() for x in rows if x.ack_at]
@@ -675,6 +786,259 @@ def escalation_metrics(
         "takeover_p50_seconds": sorted(takeover_seconds)[len(takeover_seconds)//2] if takeover_seconds else None,
         "ack_sla_seconds": settings.ack_sla_seconds,
         "takeover_sla_seconds": settings.takeover_sla_seconds,
+    }
+
+
+@router.post("/escalations/sla-scan")
+def sla_scan(
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("on_call", "admin"))],
+):
+    """运维定时触发的 SLA 扫描：推进未确认红色事件的自动升级链路。
+
+    幂等：每一档升级由各自的时间戳守卫，重复调用不会重复通知。扫描只写
+    通知/失效等生命周期字段，绝不改变 ack/takeover 接管状态。
+    """
+    summary = scan_sla_breaches(db, tenant_id=principal.tenant_id, actor_id=principal.subject)
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="escalation.sla_scan",
+        object_type="escalation",
+        object_id="sla-scan",
+        metadata={
+            "scanned": summary["scanned"],
+            "notified_second_duty": len(summary["notified_second_duty"]),
+            "notified_org_lead": len(summary["notified_org_lead"]),
+            "chain_broken": len(summary["chain_broken"]),
+        },
+    )
+    db.commit()
+    return summary
+
+
+@router.get("/escalations/{escalation_id}")
+def escalation_detail(
+    escalation_id: str,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles(
+        "on_call", "professional", "admin", "auditor", "quality_reviewer", "security_auditor",
+    ))],
+):
+    row = get_escalation(db, principal, escalation_id)
+    require_step_up(db, principal, object_type="escalation", object_id=row.id)
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "level": row.level,
+        "status": row.status,
+        "trigger": row.trigger,
+        "evidence_summary": row.evidence_summary,
+        "opened_at": row.opened_at,
+        "ack_at": row.ack_at,
+        "takeover_at": row.takeover_at,
+        "closed_at": row.closed_at,
+        "reviewed_at": row.reviewed_at,
+        "assigned_to": row.assigned_to,
+        "disposition": row.disposition,
+        "review_notes": row.review_notes,
+        "escalation_level": row.escalation_level,
+        "notified_l1_at": row.notified_l1_at,
+        "notified_l2_at": row.notified_l2_at,
+        "chain_broken_at": row.chain_broken_at,
+        "delivery_confirmed_at": row.delivery_confirmed_at,
+        "contact_method": row.contact_method,
+        "contact_succeeded": row.contact_succeeded,
+        "safety_status": row.safety_status,
+        "emergency_contact_called": row.emergency_contact_called,
+        "referred_12356": row.referred_12356,
+        "called_emergency_services": row.called_emergency_services,
+        "follow_up_plan": row.follow_up_plan,
+        "operator_signature": row.operator_signature,
+    }
+
+
+@router.get("/escalations/{escalation_id}/user-status")
+def escalation_user_status(
+    escalation_id: str,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("user", "on_call", "professional", "admin"))],
+):
+    """用户侧状态查询：只暴露送达确认与接管状态，不暴露内部升级细节。
+
+    human_acknowledged 仅由显式 ack/takeover 决定；系统通知（notified_*）与
+    送达确认（delivery_confirmed）都不得被当作"人工已收到/已接管"。
+    """
+    row = get_escalation(db, principal, escalation_id)
+    if principal.role == "user" and principal.subject != row.user_id:
+        raise HTTPException(status_code=403, detail="cannot access another user")
+    human_acknowledged = row.ack_at is not None or row.takeover_at is not None
+    return {
+        "escalation_id": row.id,
+        "delivery_confirmed": row.delivery_confirmed_at is not None,
+        "human_acknowledged": human_acknowledged,
+        # 未接管时始终显示主动拨号入口。
+        "dial_entry_visible": not human_acknowledged,
+        "chain_broken": row.chain_broken_at is not None,
+    }
+
+
+# 个案复核证据链仅对复核类角色开放；on_call 在此映射 spec 中的 clinical_lead。
+CASE_REVIEW_ROLES = ("professional", "on_call", "quality_reviewer")
+
+
+@router.get("/escalations/{escalation_id}/case-review")
+def escalation_case_review(escalation_id: str, db: DB, principal: PRINCIPAL):
+    """个案复核证据链视图。
+
+    区块化返回完整证据：用户直接表达、规则触发依据、安全分类器结果、
+    PHQ-9/GAD-7 原始答案、最近签到趋势、数据质量、历史风险事件与人工处置
+    记录。需要 step-up 二次认证；admin 等心理内容受限角色一律拒绝并留痕
+    （沿用 Task 1 守卫语义），绝不只输出单一"AI 风险分数"。
+    """
+    row = get_escalation(db, principal, escalation_id)
+    if principal.role not in CASE_REVIEW_ROLES:
+        forbid(db, principal, action="authz.psych_content_denied", object_type="escalation",
+               object_id=row.id, detail="role cannot access case review evidence")
+    require_step_up(db, principal, object_type="escalation", object_id=row.id)
+    tenant_id = principal.tenant_id
+    user_id = row.user_id
+
+    checkins = db.scalars(select(Checkin).where(
+        Checkin.tenant_id == tenant_id, Checkin.user_id == user_id,
+    ).order_by(Checkin.created_at.desc()).limit(5)).all()
+    journals = db.scalars(select(JournalEntry).where(
+        JournalEntry.tenant_id == tenant_id,
+        JournalEntry.user_id == user_id,
+        JournalEntry.deleted.is_(False),
+    ).order_by(JournalEntry.created_at.desc()).limit(5)).all()
+    direct_expressions = [
+        {
+            "source": "checkin",
+            "record_id": c.id,
+            "client_time": c.client_time,
+            "text": decrypt_text(c.note_ciphertext, aad=f"{tenant_id}:{user_id}:checkin"),
+        }
+        for c in checkins if c.note_ciphertext
+    ] + [
+        {
+            "source": "journal",
+            "record_id": j.id,
+            "client_time": j.client_time,
+            "text": decrypt_text(j.body_ciphertext, aad=f"{tenant_id}:{user_id}:journal"),
+        }
+        for j in journals if j.body_ciphertext
+    ]
+
+    signals = db.scalars(select(RiskSignal).where(
+        RiskSignal.tenant_id == tenant_id, RiskSignal.user_id == user_id,
+    ).order_by(RiskSignal.created_at.desc()).limit(20)).all()
+    rule_hits = [{
+        "signal_id": s.id,
+        "source": s.source,
+        "severity": s.severity,
+        "rule_pack_version": s.rule_pack_version,
+        "matched_rules": resolve_rule_ids(s.evidence_refs),
+        "labels": s.labels,
+        "created_at": s.created_at,
+    } for s in signals]
+    latest_signal = signals[0] if signals else None
+    safety_classifier = {
+        "latest_severity": latest_signal.severity if latest_signal else None,
+        "latest_labels": latest_signal.labels if latest_signal else [],
+        "current_rule_pack_version": RULE_PACK_VERSION,
+        "signal_count": len(signals),
+        "red_signal_count": sum(1 for s in signals if s.severity == "red"),
+    }
+
+    questionnaires = db.scalars(select(QuestionnaireResult).where(
+        QuestionnaireResult.tenant_id == tenant_id,
+        QuestionnaireResult.user_id == user_id,
+    ).order_by(QuestionnaireResult.created_at.desc()).limit(10)).all()
+
+    trend = build_trend(db, tenant_id, user_id, 14)
+    data_quality = {
+        "window_days": trend["window_days"],
+        "data_days": trend["data_days"],
+        "coverage": trend["coverage"],
+        "baseline_ready": trend["baseline_ready"],
+        "questionnaire_count": len(questionnaires),
+        "risk_signal_count": len(signals),
+    }
+
+    history = db.scalars(select(Escalation).where(
+        Escalation.tenant_id == tenant_id, Escalation.user_id == user_id,
+    ).order_by(Escalation.opened_at.desc()).limit(20)).all()
+
+    trail = db.scalars(select(AuditEvent).where(
+        AuditEvent.tenant_id == tenant_id,
+        AuditEvent.object_type == "escalation",
+        AuditEvent.object_id == row.id,
+    ).order_by(AuditEvent.occurred_at)).all()
+
+    return {
+        "escalation": {
+            "id": row.id,
+            "user_id": row.user_id,
+            "level": row.level,
+            "status": row.status,
+            "trigger": row.trigger,
+            "risk_type": RISK_TYPE_LABELS.get(row.trigger, row.trigger),
+            "evidence_summary": row.evidence_summary,
+            "opened_at": row.opened_at,
+            "escalation_level": row.escalation_level,
+            "chain_broken": row.chain_broken_at is not None,
+            "delivery_confirmed": row.delivery_confirmed_at is not None,
+        },
+        "direct_expressions": direct_expressions,
+        "rule_hits": rule_hits,
+        "safety_classifier": safety_classifier,
+        "questionnaires": [{
+            "id": q.id,
+            "instrument": q.instrument,
+            "version": q.version,
+            "answers": q.answers,
+            "score": q.score,
+            "interpretation": q.interpretation,
+            "created_at": q.created_at,
+        } for q in questionnaires],
+        "recent_trend": trend,
+        "data_quality": data_quality,
+        "risk_history": [{
+            "id": h.id,
+            "trigger": h.trigger,
+            "status": h.status,
+            "opened_at": h.opened_at,
+            "closed_at": h.closed_at,
+            "disposition": h.disposition,
+            "is_current": h.id == row.id,
+        } for h in history],
+        "human_handling": {
+            "ack_at": row.ack_at,
+            "takeover_at": row.takeover_at,
+            "assigned_to": row.assigned_to,
+            "closed_at": row.closed_at,
+            "reviewed_at": row.reviewed_at,
+            "disposition": row.disposition,
+            "review_notes": row.review_notes,
+            "contact_method": row.contact_method,
+            "contact_succeeded": row.contact_succeeded,
+            "safety_status": row.safety_status,
+            "emergency_contact_called": row.emergency_contact_called,
+            "referred_12356": row.referred_12356,
+            "called_emergency_services": row.called_emergency_services,
+            "follow_up_plan": row.follow_up_plan,
+            "operator_signature": row.operator_signature,
+            "audit_trail": [{
+                "occurred_at": e.occurred_at,
+                "actor_type": e.actor_type,
+                "actor_id": e.actor_id,
+                "action": e.action,
+            } for e in trail],
+        },
+        "boundary": "证据链仅供人工复核溯源，不构成诊断；最终专业判断由机构人员承担。",
     }
 
 
@@ -718,6 +1082,20 @@ def takeover(
     return {"id": row.id, "status": row.status, "takeover_at": row.takeover_at}
 
 
+# 关闭事件时必填的接管处置记录字段；布尔字段 False 是有效作答，仅 None 视为缺失。
+CLOSE_REQUIRED_FIELDS = (
+    "disposition",
+    "contact_method",
+    "contact_succeeded",
+    "safety_status",
+    "emergency_contact_called",
+    "referred_12356",
+    "called_emergency_services",
+    "follow_up_plan",
+    "operator_signature",
+)
+
+
 @router.post("/escalations/{escalation_id}/close")
 def close_escalation(
     escalation_id: str,
@@ -730,9 +1108,16 @@ def close_escalation(
         raise HTTPException(status_code=409, detail="takeover required before close")
     if row.status == "reviewed":
         raise HTTPException(status_code=409, detail="already reviewed")
+    missing = [name for name in CLOSE_REQUIRED_FIELDS if getattr(payload, name) is None]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={"missing_fields": missing, "message": "close requires a complete takeover record"},
+        )
     row.status = "closed"
     row.closed_at = row.closed_at or datetime.now(timezone.utc)
-    row.disposition = payload.disposition
+    for name in CLOSE_REQUIRED_FIELDS:
+        setattr(row, name, getattr(payload, name))
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="escalation.close", object_type="escalation", object_id=row.id)
     db.commit()
@@ -760,6 +1145,7 @@ def review_escalation(
 
 @router.post("/data-subject-requests")
 def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL):
+    require_write_role(db, principal, object_type="data_subject_request")
     ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(DataSubjectRequest).where(
         DataSubjectRequest.tenant_id == principal.tenant_id,
@@ -829,7 +1215,7 @@ def complete_dsr(
 @router.get("/audit/events")
 def audit_events(
     db: DB,
-    principal: Annotated[Principal, Depends(require_roles("auditor", "admin"))],
+    principal: Annotated[Principal, Depends(require_roles("auditor", "admin", "security_auditor"))],
     limit: int = Query(100, ge=1, le=1000),
 ):
     rows = db.scalars(select(AuditEvent).where(
@@ -851,6 +1237,67 @@ def audit_events(
 @router.get("/audit/verify")
 def audit_verify(
     db: DB,
-    principal: Annotated[Principal, Depends(require_roles("auditor", "admin"))],
+    principal: Annotated[Principal, Depends(require_roles("auditor", "admin", "security_auditor"))],
 ):
     return verify_audit_chain(db, principal.tenant_id)
+
+
+def reject_immutable_mutation(
+    db: Session,
+    request: Request,
+    principal: Principal,
+    method: str,
+    object_type: str,
+    object_id: str,
+) -> None:
+    """Explicitly refuse DELETE/PATCH on append-only resources for every role.
+
+    Risk events and audit events are never modified or removed; the attempt itself
+    is appended to the audit log before the request is rejected.
+    """
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="security.immutable_mutation_attempt",
+        object_type=object_type,
+        object_id=object_id,
+        metadata={"method": method},
+        request_id=request.headers.get("x-request-id"),
+    )
+    db.commit()
+    raise HTTPException(
+        status_code=405,
+        detail=f"{object_type} records are append-only; {method} is not allowed",
+    )
+
+
+@router.delete("/escalations/{escalation_id}")
+def delete_escalation(escalation_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "DELETE", "escalation", escalation_id)
+
+
+@router.patch("/escalations/{escalation_id}")
+def patch_escalation(escalation_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "PATCH", "escalation", escalation_id)
+
+
+@router.delete("/risk-signals/{signal_id}")
+def delete_risk_signal(signal_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "DELETE", "risk_signal", signal_id)
+
+
+@router.patch("/risk-signals/{signal_id}")
+def patch_risk_signal(signal_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "PATCH", "risk_signal", signal_id)
+
+
+@router.delete("/audit/events/{event_id}")
+def delete_audit_event(event_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "DELETE", "audit_event", event_id)
+
+
+@router.patch("/audit/events/{event_id}")
+def patch_audit_event(event_id: str, request: Request, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, request, principal, "PATCH", "audit_event", event_id)

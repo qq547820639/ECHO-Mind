@@ -45,6 +45,32 @@ def _match(text: str, patterns: list[str], prefix: str) -> list[str]:
             if re.search(pattern, normalized, flags=re.IGNORECASE)]
 
 
+_RULE_PACKS = {
+    "RED": RED_PATTERNS,
+    "YELLOW": YELLOW_PATTERNS,
+    "EXIT": EXIT_PATTERNS,
+    "GUARD": NEGATION_GUARDS,
+}
+
+
+def resolve_rule_ids(rule_ids: list[str]) -> list[dict]:
+    """Map stored rule identifiers (e.g. "RED-003") back to their pack patterns.
+
+    Keeps rule-hit evidence traceable: a reviewer can see exactly which pattern
+    in which rule pack fired, instead of an opaque id. Synthetic ids that do not
+    map to a pack pattern (e.g. "YELLOW-NEGATED-RISK") resolve to pattern=None.
+    """
+    resolved = []
+    for rule_id in rule_ids:
+        prefix, _, suffix = rule_id.rpartition("-")
+        patterns = _RULE_PACKS.get(prefix)
+        if patterns and suffix.isdigit() and 1 <= int(suffix) <= len(patterns):
+            resolved.append({"rule_id": rule_id, "pattern": patterns[int(suffix) - 1]})
+        else:
+            resolved.append({"rule_id": rule_id, "pattern": None})
+    return resolved
+
+
 def evaluate_text(text: str) -> SafetyResult:
     exit_ids = _match(text, EXIT_PATTERNS, "EXIT")
     if exit_ids:
