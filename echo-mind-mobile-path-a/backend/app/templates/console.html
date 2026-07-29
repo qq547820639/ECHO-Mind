@@ -10,7 +10,10 @@ body{margin:0}header{padding:22px 28px;background:white;border-bottom:1px solid 
 main{padding:22px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .card{background:white;border:1px solid #ddd;border-radius:14px;padding:18px;margin:12px 0}.red{border-left:7px solid #9b2020}.warn{background:#fff5e8}
 button{padding:9px 14px;margin:4px;border-radius:9px;border:1px solid #777;background:#fff;cursor:pointer}.primary{background:#292725;color:white}
-input{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px}.muted{color:#6b6762;font-size:14px}.status{font-weight:700}.breach{color:#9b2020;font-weight:700}
+input,select{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px;margin:4px 0}input[type=checkbox]{width:auto}
+.muted{color:#6b6762;font-size:14px}.status{font-weight:700}.breach{color:#9b2020;font-weight:700}
+.block{border-top:1px dashed #ccc;padding-top:10px;margin-top:10px}.tag{display:inline-block;background:#eee;border-radius:6px;padding:2px 8px;margin:2px;font-size:13px}
+code{background:#f0efec;border-radius:4px;padding:1px 5px}
 </style>
 </head>
 <body>
@@ -19,12 +22,17 @@ input{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px}
 <section class="card"><label>Bearer Token（仅存于当前浏览器会话）</label><br><input id="token" type="password" placeholder="粘贴 on_call/professional token"><button class="primary" onclick="saveToken();loadAll()">连接</button><button onclick="sessionStorage.clear();location.reload()">清除</button></section>
 <section id="metrics" class="grid"></section>
 <div id="queue"></div>
+<section id="closePanel"></section>
+<section id="caseReview"></section>
 </main>
 <script>
 const tokenInput=document.getElementById('token');tokenInput.value=sessionStorage.getItem('echo_token')||'';
 const headers=()=>({"Authorization":"Bearer "+tokenInput.value,"Content-Type":"application/json","X-Request-ID":"console_"+crypto.randomUUID()});
 function saveToken(){sessionStorage.setItem('echo_token',tokenInput.value)}
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+const LEVEL_LABELS=['第一值班人','第二值班人','机构负责人'];
+const yn=v=>v===null||v===undefined?'—':(v?'是':'否');
+function fmtWait(s){if(s===null||s===undefined)return '—';const m=Math.floor(s/60);if(m<1)return s+' 秒';if(m<60)return m+' 分钟';return Math.floor(m/60)+' 小时 '+(m%60)+' 分钟'}
 async function loadAll(){saveToken();await Promise.all([loadMetrics(),loadQueue()])}
 async function loadMetrics(){
  const r=await fetch('/v1/escalations/metrics',{headers:headers()});if(!r.ok){return}
@@ -34,11 +42,55 @@ async function loadQueue(){
  const r=await fetch('/v1/escalations',{headers:headers()});
  if(!r.ok){document.getElementById('queue').innerHTML='<div class="card">加载失败：'+esc(await r.text())+'</div>';return}
  const data=await r.json();
- document.getElementById('queue').innerHTML=data.map(x=>`<article class="card red ${x.ack_sla_breached||x.takeover_sla_breached?'warn':''}"><div class="status">${esc(x.level)} · ${esc(x.status)}</div><h3>${esc(x.trigger)}</h3><p>${esc(x.evidence_summary)}</p><p class="muted">用户：${esc(x.user_id)}　开启：${esc(x.opened_at)}　负责人：${esc(x.assigned_to||'未分配')}</p>${x.ack_sla_breached?'<p class="breach">ACK SLA 已超时</p>':''}${x.takeover_sla_breached?'<p class="breach">接管 SLA 已超时</p>':''}<button onclick="act('${x.id}','ack')">确认</button><button onclick="act('${x.id}','takeover')">接管</button><button onclick="closeEsc('${x.id}')">关闭</button><button onclick="reviewEsc('${x.id}')">复盘</button></article>`).join('') || '<div class="card">当前无事件</div>';
+ document.getElementById('queue').innerHTML=data.map(x=>{
+  const lvl=LEVEL_LABELS[x.escalation_level]||x.escalation_level;
+  // 仅表示服务端接收确认，与人工确认/接管严格区分。
+  const delivery=x.delivery_confirmed?'服务端已确认送达':'<span class="breach">未送达</span>';
+  const secondDuty=x.second_duty_notified?`已通知 ${esc(x.notified_l1_at||'')}`:'未通知';
+  return `<article class="card red ${x.ack_sla_breached||x.takeover_sla_breached?'warn':''}"><div class="status">${esc(x.level)} · ${esc(x.status)} · 升级层级：${esc(lvl)}</div><h3>${esc(x.risk_type)} <span class="muted">(${esc(x.trigger)})</span></h3><p>${esc(x.evidence_summary)}</p><p class="muted">用户：${esc(x.user_id)}　城市：${esc(x.user_city||'未登记')}　开启：${esc(x.opened_at)}　已等待：${fmtWait(x.waiting_seconds)}　负责人：${esc(x.assigned_to||'未分配')}</p><p class="muted">送达：${delivery}　紧急联系人：${esc(x.emergency_contact_status)}　第二值班：${secondDuty}</p>${x.chain_broken?'<p class="breach">机构链路失效（chain broken）</p>':''}${x.ack_sla_breached?'<p class="breach">ACK SLA 已超时</p>':''}${x.takeover_sla_breached?'<p class="breach">接管 SLA 已超时</p>':''}<button onclick="act('${x.id}','ack')">确认</button><button onclick="act('${x.id}','takeover')">接管</button><button onclick="openCloseForm('${x.id}')">关闭</button><button onclick="reviewEsc('${x.id}')">复盘</button><button onclick="caseReview('${x.id}')">个案复核</button></article>`
+ }).join('') || '<div class="card">当前无事件</div>';
 }
 async function act(id,action){const r=await fetch(`/v1/escalations/${id}/${action}`,{method:'POST',headers:headers()});alert(r.ok?'已更新':await r.text());loadAll()}
-async function closeEsc(id){const disposition=prompt('请输入人工处置结论（必填）');if(!disposition)return;const r=await fetch(`/v1/escalations/${id}/close`,{method:'POST',headers:headers(),body:JSON.stringify({disposition})});alert(r.ok?'已关闭':await r.text());loadAll()}
+function openCloseForm(id){
+ document.getElementById('closePanel').innerHTML=`<div class="card"><h3>关闭事件 ${esc(id)}：接管处置记录（全部必填）</h3>
+ <label>联系方式</label><br><select id="c_method"><option value="">请选择</option><option>电话</option><option>短信</option><option>App 内联系</option><option>现场</option></select><br>
+ <label>是否联系成功</label><br><select id="c_succeeded"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select><br>
+ <label>当前安全状况</label><br><input id="c_safety" placeholder="例如：情绪平稳，无即时危险"><br>
+ <label><input type="checkbox" id="c_ec"> 已联系紧急联系人</label>　<label><input type="checkbox" id="c_12356"> 已转介 12356 心理援助热线</label>　<label><input type="checkbox" id="c_ems"> 已联系 110/120</label><br>
+ <label>后续随访计划</label><br><input id="c_follow" placeholder="例如：24 小时内电话随访"><br>
+ <label>人工签名</label><br><input id="c_sign" placeholder="值班人员签名"><br>
+ <label>最终处置</label><br><input id="c_disp" placeholder="最终处置结论"><br>
+ <button class="primary" onclick="submitClose('${id}')">提交关闭</button><button onclick="document.getElementById('closePanel').innerHTML=''">取消</button></div>`;
+ document.getElementById('closePanel').scrollIntoView();
+}
+async function submitClose(id){
+ const val=i=>document.getElementById(i).value.trim();
+ const sel=document.getElementById('c_succeeded').value;
+ const body={disposition:val('c_disp')||null,contact_method:val('c_method')||null,contact_succeeded:sel===''?null:sel==='true',safety_status:val('c_safety')||null,emergency_contact_called:document.getElementById('c_ec').checked,referred_12356:document.getElementById('c_12356').checked,called_emergency_services:document.getElementById('c_ems').checked,follow_up_plan:val('c_follow')||null,operator_signature:val('c_sign')||null};
+ const r=await fetch(`/v1/escalations/${id}/close`,{method:'POST',headers:headers(),body:JSON.stringify(body)});
+ if(r.ok){alert('已关闭');document.getElementById('closePanel').innerHTML=''}
+ else{let msg;try{const j=await r.json();msg=j.detail&&j.detail.missing_fields?'缺失字段：'+j.detail.missing_fields.join(', '):JSON.stringify(j.detail)}catch(e){msg='请求失败'}alert('关闭失败：'+msg)}
+ loadAll();
+}
 async function reviewEsc(id){const review_notes=prompt('请输入复盘结论（事件必须先关闭）');if(!review_notes)return;const r=await fetch(`/v1/escalations/${id}/review`,{method:'POST',headers:headers(),body:JSON.stringify({review_notes})});alert(r.ok?'已复盘':await r.text());loadAll()}
+async function caseReview(id){
+ const r=await fetch(`/v1/escalations/${id}/case-review`,{headers:headers()});
+ const el=document.getElementById('caseReview');
+ if(!r.ok){el.innerHTML='<div class="card">个案复核加载失败（需 professional/on_call/quality_reviewer 角色并完成二次认证）：'+esc(await r.text())+'</div>';el.scrollIntoView();return}
+ const x=await r.json();
+ el.innerHTML=`<div class="card red"><h2>个案复核证据链 · ${esc(x.escalation.id)}</h2>
+ <div class="block"><h3>事件与触发</h3><p>${esc(x.escalation.level)} · ${esc(x.escalation.status)} · ${esc(x.escalation.risk_type)}（${esc(x.escalation.trigger)}）</p><p>${esc(x.escalation.evidence_summary)}</p><p class="muted">开启：${esc(x.escalation.opened_at)}　升级层级：${esc(LEVEL_LABELS[x.escalation.escalation_level]||x.escalation.escalation_level)}　链路失效：${yn(x.escalation.chain_broken)}　送达：${x.escalation.delivery_confirmed?'服务端已确认送达':'未送达'}</p></div>
+ <div class="block"><h3>用户直接表达</h3>${x.direct_expressions.map(d=>`<p><span class="tag">${esc(d.source)}</span> ${esc(d.text)} <span class="muted">${esc(d.client_time)}</span></p>`).join('')||'<p class="muted">无</p>'}</div>
+ <div class="block"><h3>规则触发依据</h3>${x.rule_hits.map(h=>`<p><span class="tag">${esc(h.severity)}</span> <code>${esc(h.rule_pack_version)}</code> ${h.matched_rules.map(m=>`<code>${esc(m.rule_id)}</code>${m.pattern?` <span class="muted">${esc(m.pattern)}</span>`:''}`).join('；')||'<span class="muted">无命中明细</span>'} <span class="muted">${esc(h.created_at)}</span></p>`).join('')||'<p class="muted">无规则命中记录</p>'}</div>
+ <div class="block"><h3>安全分类器结果</h3><p>最近严重度：${esc(x.safety_classifier.latest_severity??'—')}　标签：${(x.safety_classifier.latest_labels||[]).map(esc).join(', ')||'—'}</p><p class="muted">当前规则包：${esc(x.safety_classifier.current_rule_pack_version)}　信号总数：${x.safety_classifier.signal_count}　红色信号：${x.safety_classifier.red_signal_count}</p></div>
+ <div class="block"><h3>量表原始答案（筛查不是诊断）</h3>${x.questionnaires.map(q=>`<p><span class="tag">${esc(q.instrument)} v${esc(q.version)}</span> 分数 ${q.score} · ${esc(q.interpretation)}<br><span class="muted">原始答案：${esc(JSON.stringify(q.answers))}　${esc(q.created_at)}</span></p>`).join('')||'<p class="muted">无量表记录</p>'}</div>
+ <div class="block"><h3>最近签到趋势（${x.recent_trend.window_days} 天）</h3>${x.recent_trend.points.map(p=>`<p class="muted">${esc(p.date)}：情绪 ${p.mood} / 压力 ${p.stress} / 精力 ${p.energy} / 睡眠恢复 ${p.sleep_recovery}</p>`).join('')||'<p class="muted">窗口内无签到</p>'}<p class="muted">${esc(x.recent_trend.neutral_message)}</p></div>
+ <div class="block"><h3>数据质量</h3><p class="muted">覆盖天数：${x.data_quality.data_days}/${x.data_quality.window_days}（覆盖率 ${x.data_quality.coverage}）　基线就绪：${yn(x.data_quality.baseline_ready)}　量表记录：${x.data_quality.questionnaire_count}　风险信号：${x.data_quality.risk_signal_count}</p></div>
+ <div class="block"><h3>历史风险事件</h3>${x.risk_history.map(h=>`<p class="muted">${h.is_current?'<b>【当前】</b> ':''}${esc(h.opened_at)} · ${esc(h.trigger)} · ${esc(h.status)}${h.disposition?` · ${esc(h.disposition)}`:''}</p>`).join('')||'<p class="muted">无</p>'}</div>
+ <div class="block"><h3>人工处置记录</h3><p class="muted">确认：${esc(x.human_handling.ack_at||'—')}　接管：${esc(x.human_handling.takeover_at||'—')}　负责人：${esc(x.human_handling.assigned_to||'—')}　关闭：${esc(x.human_handling.closed_at||'—')}　复盘：${esc(x.human_handling.reviewed_at||'—')}</p><p class="muted">联系方式：${esc(x.human_handling.contact_method||'—')}　联系成功：${yn(x.human_handling.contact_succeeded)}　当前安全状况：${esc(x.human_handling.safety_status||'—')}</p><p class="muted">联系紧急联系人：${yn(x.human_handling.emergency_contact_called)}　转介 12356：${yn(x.human_handling.referred_12356)}　联系 110/120：${yn(x.human_handling.called_emergency_services)}</p><p class="muted">最终处置：${esc(x.human_handling.disposition||'—')}　随访计划：${esc(x.human_handling.follow_up_plan||'—')}　人工签名：${esc(x.human_handling.operator_signature||'—')}</p>${x.human_handling.audit_trail.map(a=>`<p class="muted">${esc(a.occurred_at)} · ${esc(a.actor_type)}/${esc(a.actor_id)} · ${esc(a.action)}</p>`).join('')}</div>
+ <p class="muted">${esc(x.boundary)}</p></div>`;
+ el.scrollIntoView();
+}
 if(tokenInput.value)loadAll();
 </script>
 </body>

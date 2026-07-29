@@ -38,5 +38,38 @@ services:
       - echo_pg:/var/lib/postgresql/data
     security_opt:
       - no-new-privileges:true
+  # ------------------------------------------------------------------
+  # pilot 环境数据库隔离示例
+  #
+  # 隔离原则：development / safety-test / staging / pilot 四套环境的
+  # 数据库必须完全隔离——独立 service、独立数据库名、独立数据卷、
+  # 独立环境变量前缀（PILOT_*），互不共用凭据与数据卷，禁止跨环境
+  # 直连或把一套环境的备份直接恢复到另一套。development 使用上面的
+  # db 服务（POSTGRES_* / echo_pg）；safety-test 与 staging 参照本
+  # 示例复制并改用各自前缀（SAFETY_TEST_* / STAGING_*）。
+  #
+  # 本服务挂在 pilot profile 下，默认不随开发环境启动：
+  #   docker compose --profile pilot up db-pilot
+  # 正式试点时 PILOT_POSTGRES_PASSWORD 必须由密钥管理系统注入，
+  # 不得使用下方的本地占位默认值。
+  # ------------------------------------------------------------------
+  db-pilot:
+    image: postgres:17-alpine
+    profiles: ["pilot"]
+    environment:
+      POSTGRES_USER: echo_pilot
+      POSTGRES_PASSWORD: ${PILOT_POSTGRES_PASSWORD:-pilot-local-placeholder-change-me}
+      POSTGRES_DB: echo_pilot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echo_pilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - echo_pg_pilot:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
 volumes:
   echo_pg:
+  # pilot 环境专用数据卷，与 development 的 echo_pg 物理隔离
+  echo_pg_pilot:

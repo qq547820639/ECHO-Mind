@@ -31,6 +31,8 @@ class User(Base):
     external_ref: Mapped[str] = mapped_column(String(160), nullable=False)
     age_band: Mapped[str] = mapped_column(String(40), default="18_plus")
     timezone: Mapped[str] = mapped_column(String(80), default="Asia/Shanghai")
+    # 用户所在城市（可选登记），用于机构工作台调度属地资源。
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("tenant_id", "external_ref", name="uq_user_external"),)
@@ -174,9 +176,26 @@ class Escalation(Base):
     takeover_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # SLA 自动升级状态机（lifecycle 字段，允许更新；通知不等于接管）：
+    # 0=第一值班人 1=第二值班人 2=机构负责人；notified_* 仅表示系统已通知对应层级。
+    escalation_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    notified_l1_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notified_l2_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    chain_broken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 服务端已确认接收事件的时间；与人工接管（ack/takeover）严格区分。
+    delivery_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(String(120), nullable=True)
     disposition: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 接管处置记录（lifecycle 字段，close 时必填并一次性写入）：
+    contact_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    contact_succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    safety_status: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    emergency_contact_called: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    referred_12356: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    called_emergency_services: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    follow_up_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    operator_signature: Mapped[str | None] = mapped_column(String(120), nullable=True)
     __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_escalation_tenant_event"),)
 
 

@@ -15,12 +15,36 @@ class Principal:
     subject: str
     tenant_id: str
     role: str
+    step_up: bool = False
 
 
-ALLOWED_ROLES = {"user", "on_call", "professional", "auditor", "admin"}
+ALLOWED_ROLES = {
+    "user",
+    "on_call",
+    "professional",
+    "auditor",
+    "admin",
+    "quality_reviewer",
+    "security_auditor",
+    "vendor_support",
+}
+
+# Roles allowed to read psychological content (dialog text, raw scale answers, notes).
+PSYCH_CONTENT_ROLES = {"user", "professional"}
+# Roles restricted to read-only access; any write attempt is rejected.
+READ_ONLY_ROLES = {"auditor", "quality_reviewer", "security_auditor"}
+# Roles with no access to identity or psychological data (system health/version only).
+NON_DATA_ROLES = {"vendor_support"}
 
 
-def create_access_token(subject: str, tenant_id: str, role: str, minutes: int | None = None) -> str:
+def create_access_token(
+    subject: str,
+    tenant_id: str,
+    role: str,
+    minutes: int | None = None,
+    *,
+    step_up: bool = False,
+) -> str:
     if role not in ALLOWED_ROLES:
         raise ValueError("invalid role")
     settings = get_settings()
@@ -29,6 +53,7 @@ def create_access_token(subject: str, tenant_id: str, role: str, minutes: int | 
         "sub": subject,
         "tenant_id": tenant_id,
         "role": role,
+        "step_up": step_up,
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
         "iat": now,
@@ -54,7 +79,12 @@ def get_principal(
         role = str(payload["role"])
         if role not in ALLOWED_ROLES:
             raise ValueError("role")
-        return Principal(subject=str(payload["sub"]), tenant_id=str(payload["tenant_id"]), role=role)
+        return Principal(
+            subject=str(payload["sub"]),
+            tenant_id=str(payload["tenant_id"]),
+            role=role,
+            step_up=bool(payload.get("step_up", False)),
+        )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token") from exc
 

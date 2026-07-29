@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     consent_required_version: str = "path-a-consent-2026.07"
     ack_sla_seconds: int = 60
     takeover_sla_seconds: int = 180
+    # 机构负责人层级超时（自事件创建起算），超过则标记机构链路失效。
+    org_lead_sla_seconds: int = 600
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
