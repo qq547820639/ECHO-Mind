@@ -2,7 +2,7 @@
   "project": "ECHO Mind Android Path A",
   "version": "0.2.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-07-29T03:14:22Z",
+  "generated_at": "2026-07-30T19:21:22Z",
   "branch": "feat/pilot-readiness-v0.2",
   "git_ref": "path-a-pilot-readiness-v0.2.0",
   "scope": [
@@ -33,5 +33,5 @@
     "independent penetration test and external red team",
     "real user pilot with approved recruitment and governance"
   ],
-  "source_file_count_excluding_git_and_build_outputs": 125
+  "source_file_count_excluding_git_and_build_outputs": 146
 }
