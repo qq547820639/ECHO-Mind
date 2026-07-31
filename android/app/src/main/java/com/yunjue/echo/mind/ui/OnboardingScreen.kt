@@ -11,6 +11,17 @@ import com.yunjue.echo.mind.data.SyncWorker
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
+/**
+ * T12.6 L0 准入门禁：currentDanger / psychosisOrMania / substanceImpairment 任一为真即阻断进入。
+ *
+ * 抽成纯函数便于单测断言「阻断逻辑不变」；与 OnboardingScreen 按钮 enabled 条件共享同一判定。
+ */
+internal fun l0OnboardingBlocked(
+    currentDanger: Boolean,
+    psychosisOrMania: Boolean,
+    substanceImpairment: Boolean
+): Boolean = currentDanger || psychosisOrMania || substanceImpairment
+
 @Composable
 fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -29,6 +40,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     var emergencyName by remember { mutableStateOf("") }
     var emergencyPhone by remember { mutableStateOf("") }
     var emergencyConsent by remember { mutableStateOf(false) }
+    var passiveSensingConsent by remember { mutableStateOf(false) }
     var showSafety by remember { mutableStateOf(false) }
 
     if (showSafety) {
@@ -61,6 +73,19 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         OutlinedTextField(emergencyName, { emergencyName = it }, label = { Text("姓名") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(emergencyPhone, { emergencyPhone = it }, label = { Text("电话") }, modifier = Modifier.fillMaxWidth())
         CheckLine(emergencyConsent, { emergencyConsent = it }, "我单独同意在危机人工接管范围内处理该联系人信息")
+
+        HorizontalDivider()
+        Text("被动采集（可选）", style = MaterialTheme.typography.titleMedium)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Switch(checked = passiveSensingConsent, onCheckedChange = { passiveSensingConsent = it })
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("授权被动采集传感器 / 屏幕 / 通知 / App 活跃数据")
+                Text(
+                    "原始数据仅在本机内存中处理，不上云不落盘。可随时关闭。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
         if (currentDanger || psychosisOrMania || substanceImpairment) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
@@ -95,13 +120,25 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                         )
                         container.repository.saveEmergencyContact(emergencyName, emergencyPhone, "用户指定联系人")
                     }
+                    // passive_sensing 分项同意（可选）
+                    val passiveEvidence = MessageDigest.getInstance("SHA-256")
+                        .digest("passive-sensing-consent-2026.07:$userId:$passiveSensingConsent".toByteArray())
+                        .joinToString("") { "%02x".format(it) }
+                    container.repository.saveConsent(
+                        granted = passiveSensingConsent,
+                        evidenceHash = passiveEvidence,
+                        consentType = "passive_sensing",
+                        version = "passive-sensing-consent-2026.07",
+                        priority = 600
+                    )
+                    container.preferences.setPassiveSensingEnabled(passiveSensingConsent)
                     container.preferences.onboardingCompleted = true
                     SyncWorker.enqueue(context)
                     onComplete()
                 }
             },
             enabled = ageConfirmed && boundaryConfirmed && consentConfirmed && institutionCode.isNotBlank() && userId.isNotBlank() &&
-                !currentDanger && !psychosisOrMania && !substanceImpairment &&
+                !l0OnboardingBlocked(currentDanger, psychosisOrMania, substanceImpairment) &&
                 ((emergencyName.isBlank() && emergencyPhone.isBlank()) || (emergencyName.isNotBlank() && emergencyPhone.isNotBlank() && emergencyConsent)),
             modifier = Modifier.fillMaxWidth()
         ) { Text("进入应用") }

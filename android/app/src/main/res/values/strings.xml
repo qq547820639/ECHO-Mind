@@ -1,1 +1,12 @@
-<resources><string name="app_name">ECHO Mind</string></resources>
+<resources>
+    <string name="app_name">ECHO Mind</string>
+
+    <!-- P3 冷启动兜底文案分阶段 -->
+    <string name="cold_start_stage_0">系统正在了解你，能力卡片将逐渐出现</string>
+    <string name="cold_start_stage_1_3">已采集 %1$d 天数据，能力即将出现</string>
+    <string name="cold_start_stage_4_7">画像成型中，敬请期待</string>
+    <string name="cold_start_stage_7_plus">暂无新能力，系统持续观察中</string>
+    <string name="cold_start_load_failed">加载失败</string>
+    <string name="cold_start_retry">重试</string>
+    <string name="skills_delivery_paused">能力下发已暂停</string>
+</resources>

@@ -1,9 +1,9 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -21,6 +21,17 @@ class Tenant(Base):
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("t"))
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # P5 灰度回滚：租户级 feature flag，控制被动感知范式的启停。
+    # 默认三开关全开，admin 可通过 PUT /v1/tenant/flags 调整用于灰度回滚。
+    feature_flags: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "passive_sensing_enabled": True,
+            "sandbox_enabled": True,
+            "skills_delivery_enabled": True,
+        },
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -213,6 +224,46 @@ class DataSubjectRequest(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_dsr_tenant_event"),)
 
 
+class DerivedFeature(Base):
+    """端侧派生特征（向量/摘要）；后端不存任何原始传感 payload。"""
+    __tablename__ = "derived_features"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("df"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    event_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(40))
+    source: Mapped[str] = mapped_column(String(40))
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    summary: Mapped[str] = mapped_column(Text)
+    vector: Mapped[list[float]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_df_tenant_event"),)
+
+
+class DailyNarrative(Base):
+    __tablename__ = "daily_narratives"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("dn"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    events: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    mood_hint: Mapped[str] = mapped_column(String(120), default="平稳")
+    gaps: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint("tenant_id", "user_id", "date", name="uq_dn_tenant_user_date"),)
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("up"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    traits: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("aud"))
@@ -229,3 +280,62 @@ class AuditEvent(Base):
     previous_event_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     event_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_audit_tenant_event"),)
+
+
+class Skill(Base):
+    """自进化沙箱产物：技能包。draft/reviewed/signed/retired 生命周期。"""
+    __tablename__ = "skills"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("sk"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    trigger_conditions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    guardrails: Mapped[list[str]] = mapped_column(JSON, default=list)
+    steps: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(40), default="draft")
+    content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "name", "version", name="uq_skill_tenant_user_name_version"),
+    )
+
+
+class Tool(Base):
+    """自进化沙箱产物：工具调用契约。可绑定到某个 Skill 也可独立。"""
+    __tablename__ = "tools"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("tl"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    skill_id: Mapped[str | None] = mapped_column(ForeignKey("skills.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    parameters_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    returns_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(40), default="draft")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "name", name="uq_tool_tenant_user_name"),
+    )
+
+
+class SandboxRun(Base):
+    """自进化沙箱每日运行记录。状态机 pending→running→completed/failed。"""
+    __tablename__ = "sandbox_runs"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("sr"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    run_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="pending")
+    gaps_found: Mapped[list[str]] = mapped_column(JSON, default=list)
+    tools_generated: Mapped[int] = mapped_column(Integer, default=0)
+    tools_validated: Mapped[int] = mapped_column(Integer, default=0)
+    skills_inducted: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "run_date", name="uq_sandbox_tenant_user_date"),
+    )

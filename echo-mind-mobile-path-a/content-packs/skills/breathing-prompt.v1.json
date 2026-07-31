@@ -1,0 +1,43 @@
+{
+  "id": "breathing-prompt",
+  "version": 1,
+  "trigger_conditions": [
+    {
+      "field": "narrative.mood_hint",
+      "op": "eq",
+      "value": "偏低",
+      "reason": "当日叙事情绪偏低时，引导用户进行一次缓慢呼吸练习"
+    },
+    {
+      "field": "passive_feature.summary",
+      "op": "contains_any",
+      "value": ["疲惫", "压力", "焦虑"],
+      "reason": "被动特征摘要出现疲劳/压力/焦虑词时，提供轻量干预"
+    }
+  ],
+  "guardrails": [
+    "绝不声称可替代医疗或心理治疗",
+    "用户表达自伤/自杀意图时立即停止引导并转人工",
+    "不收集原始生理信号，仅依赖端侧派生特征",
+    "练习中出现明显不适（如呼吸困难）应建议停止并就医",
+    "引导内容不评价用户情绪好坏，不做诊断推断"
+  ],
+  "steps": [
+    {
+      "key": "invite",
+      "text": "检测到你今天可能有些疲惫，要不要一起做两分钟缓慢呼吸？",
+      "allow_skip": true
+    },
+    {
+      "key": "pace",
+      "text": "按舒适节奏缓慢吸气，呼气稍长于吸气，不憋气。",
+      "duration_minutes": 2
+    },
+    {
+      "key": "debrief",
+      "text": "练习结束。你的感受不会被评价，可随时记录一句话。",
+      "allow_skip": true
+    }
+  ],
+  "status": "draft"
+}

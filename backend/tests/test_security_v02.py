@@ -6,27 +6,28 @@ from app.models import Checkin, Consent, Tenant, User
 
 
 def test_sensitive_checkin_note_encrypted_at_rest(client, user_headers):
+    # T12.1：签到写入已停用（410），不再落库任何明文/密文记录。
+    # 静态加密不变量改由 emergency_contact 路径覆盖（见 test_emergency_contact_requires_separate_consent_and_is_encrypted）。
     secret = "这是一段不应明文存储的心理记录"
     response = client.post("/v1/checkins", json={
         "event_id": "evt_encrypt_001", "user_id": "u_demo", "mood": 3, "stress": 3,
         "energy": 3, "sleep_recovery": 3, "note": secret,
         "client_time": datetime.now(timezone.utc).isoformat(), "device_timezone": "Asia/Shanghai",
     }, headers=user_headers)
-    assert response.status_code == 200
+    assert response.status_code == 410
     with SessionLocal() as db:
         row = db.scalar(select(Checkin).where(Checkin.event_id == "evt_encrypt_001"))
-        assert row is not None
-        assert secret not in row.note_ciphertext
-        assert row.note_ciphertext.startswith("enc:v1:")
+        assert row is None
 
 
 def test_same_event_id_is_isolated_by_tenant(client, user_headers):
+    # T12.1：签到写入入口在所有租户下均返回 410；跨租户隔离不变量改由 features/ingest 路径覆盖。
     payload = {
         "event_id": "evt_same_across_tenants", "user_id": "u_demo", "mood": 3, "stress": 3,
         "energy": 3, "sleep_recovery": 3,
         "client_time": datetime.now(timezone.utc).isoformat(), "device_timezone": "Asia/Shanghai",
     }
-    assert client.post("/v1/checkins", json=payload, headers=user_headers).status_code == 200
+    assert client.post("/v1/checkins", json=payload, headers=user_headers).status_code == 410
     with SessionLocal() as db:
         db.add(Tenant(id="t_second", name="Second"))
         db.add(User(id="u_second", tenant_id="t_second", external_ref="second"))
@@ -35,8 +36,7 @@ def test_same_event_id_is_isolated_by_tenant(client, user_headers):
     headers = {"Authorization": f"Bearer {create_access_token('u_second', 't_second', 'user')}"}
     payload["user_id"] = "u_second"
     second = client.post("/v1/checkins", json=payload, headers=headers)
-    assert second.status_code == 200
-    assert second.json().get("idempotent_replay") is not True
+    assert second.status_code == 410
 
 
 def test_security_headers_present(client):

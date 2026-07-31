@@ -43,3 +43,33 @@ def staff_headers():
 @pytest.fixture
 def professional_headers():
     return {"Authorization": f"Bearer {create_access_token('pro', 't_demo', 'professional')}"}
+
+
+@pytest.fixture
+def admin_headers():
+    """admin 角色 headers（subject=admin_demo，tenant=t_demo）。"""
+    return {"Authorization": f"Bearer {create_access_token('admin_demo', 't_demo', 'admin')}"}
+
+
+@pytest.fixture
+def auditor_headers():
+    """auditor 角色 headers（subject=auditor_demo，tenant=t_demo）。"""
+    return {"Authorization": f"Bearer {create_access_token('auditor_demo', 't_demo', 'auditor')}"}
+
+
+@pytest.fixture
+def passive_sensing_consent(client, user_headers):
+    """预置 u_demo 的 passive_sensing 同意（granted=True）。
+
+    参考 test_passive_sensing.py L23-31 的 grant 模式；测试依赖此 fixture 时
+    无需再单独 grant，可直接 ingest 派生特征。
+    """
+    response = client.post("/v1/onboarding/consents", json={
+        "user_id": "u_demo",
+        "consent_type": "passive_sensing",
+        "version": "test-v1",
+        "granted": True,
+        "evidence_hash": "a" * 64,
+    }, headers=user_headers)
+    assert response.status_code == 200
+    return response.json()

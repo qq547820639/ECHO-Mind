@@ -29,13 +29,20 @@ def open_escalation(client, user_headers, event_id: str = "evt_esc_immutable") -
 
 
 def create_risk_signal(client, user_headers) -> str:
-    response = client.post("/v1/safety/check", json={
-        "user_id": "u_demo", "text": "今天情绪平稳，完成了散步",
-    }, headers=user_headers)
-    assert response.status_code == 200
+    # /safety/check 已停用（410），直接通过 DB 插入 RiskSignal 供不可变性测试使用。
+    from app.services.safety import RULE_PACK_VERSION
     with SessionLocal() as db:
-        signal = db.scalar(select(RiskSignal).order_by(RiskSignal.created_at.desc()).limit(1))
-        assert signal is not None
+        signal = RiskSignal(
+            tenant_id="t_demo",
+            user_id="u_demo",
+            source="free_text",
+            severity="none",
+            rule_pack_version=RULE_PACK_VERSION,
+            evidence_refs=[],
+            labels=[],
+        )
+        db.add(signal)
+        db.commit()
         return signal.id
 
 
@@ -88,13 +95,9 @@ def test_risk_signal_delete_and_patch_rejected(client, user_headers):
 
 
 def test_audit_event_delete_and_patch_rejected_and_chain_stays_valid(client, user_headers):
-    client.post("/v1/checkins", json={
-        "event_id": "evt_audit_immutable", "user_id": "u_demo", "mood": 3, "stress": 3,
-        "energy": 3, "sleep_recovery": 3,
-        "client_time": datetime.now(timezone.utc).isoformat(), "device_timezone": "Asia/Shanghai",
-    }, headers=user_headers)
+    open_escalation(client, user_headers, event_id="evt_audit_immutable")
     events = client.get("/v1/audit/events", headers=headers_for("auditor")).json()
-    target = next(e for e in events if e["action"] == "checkin.create")
+    target = next(e for e in events if e["action"] == "escalation.open")
     deleted = client.delete(f"/v1/audit/events/{target['event_id']}", headers=headers_for("admin"))
     patched = client.patch(f"/v1/audit/events/{target['event_id']}", json={"action": "tampered"}, headers=headers_for("admin"))
     assert deleted.status_code == 405
@@ -102,7 +105,7 @@ def test_audit_event_delete_and_patch_rejected_and_chain_stays_valid(client, use
     with SessionLocal() as db:
         row = db.scalar(select(AuditEvent).where(AuditEvent.event_id == target["event_id"]))
         assert row is not None
-        assert row.action == "checkin.create"
+        assert row.action == "escalation.open"
         assert verify_audit_chain(db, "t_demo")["valid"] is True
     assert len(audit_attempts(client, "audit_event", target["event_id"])) == 2
 
@@ -182,7 +185,7 @@ def test_migration_replays_on_sqlite(tmp_path, monkeypatch):
             }
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert {"escalations", "risk_signals", "audit_events"} <= tables
-        assert head == "20260729_0004"
+        assert head == "20260731_0002"
         command.downgrade(cfg, "base")
         with create_engine(f"sqlite:///{db_file}").connect() as conn:
             remaining = conn.execute(

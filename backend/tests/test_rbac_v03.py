@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 import pytest
 
 from app.auth import ALLOWED_ROLES, create_access_token
+from app.database import SessionLocal
+from app.models import JournalEntry
+from app.services.crypto import encrypt_text
 
 ALL_ROLES = [
     "user",
@@ -56,11 +59,18 @@ def test_escalation_queue_access_matrix(client, role):
 
 
 def test_tenant_admin_cannot_read_psychological_content(client, user_headers):
-    created = client.post("/v1/journals", json={
-        "event_id": "evt_rbac_journal", "user_id": "u_demo", "logical_id": "journal_rbac_001",
-        "body": "这是一段心理对话正文", "client_time": datetime.now(timezone.utc).isoformat(),
-    }, headers=user_headers)
-    assert created.status_code == 200
+    with SessionLocal() as db:
+        db.add(JournalEntry(
+            event_id="evt_rbac_journal",
+            tenant_id="t_demo",
+            user_id="u_demo",
+            logical_id="journal_rbac_001",
+            revision=1,
+            body_ciphertext=encrypt_text("这是一段心理对话正文", aad="t_demo:u_demo:journal"),
+            event_tags=[],
+            client_time=datetime.now(timezone.utc),
+        ))
+        db.commit()
     admin = role_headers("admin")
     assert client.get("/v1/journals?user_id=u_demo", headers=admin).status_code == 403
     answers = client.post("/v1/questionnaires/phq9/responses", json={

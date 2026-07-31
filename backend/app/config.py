@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     takeover_sla_seconds: int = 180
     # 机构负责人层级超时（自事件创建起算），超过则标记机构链路失效。
     org_lead_sla_seconds: int = 600
+    sandbox_timeout_seconds: int = 120
+    sandbox_max_concurrent: int = 4
+    sandbox_rate_limit_per_hour: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

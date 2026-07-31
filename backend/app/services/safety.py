@@ -71,6 +71,19 @@ def resolve_rule_ids(rule_ids: list[str]) -> list[dict]:
     return resolved
 
 
+# 被动派生特征摘要的确定性高危词（小集合；命中即红，不做程度推断）。
+PASSIVE_RED_TERMS = ("自杀", "自残", "结束生命", "活不下去", "不想活")
+
+
+def evaluate_passive(features: list) -> tuple[str, list[str]]:
+    """对派生特征摘要做确定性红色规则匹配。返回 (severity, matched_terms)。"""
+    matched = [term for feature in features for term in PASSIVE_RED_TERMS
+               if term in _normalize(feature.summary)]
+    if matched:
+        return "red", sorted(set(matched))
+    return "green", []
+
+
 def evaluate_text(text: str) -> SafetyResult:
     exit_ids = _match(text, EXIT_PATTERNS, "EXIT")
     if exit_ids:

@@ -19,8 +19,6 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         val client = ApiClient { container.preferences.accessToken }
         if (container.preferences.accessToken.isNullOrBlank()) return Result.success()
         for (event in dao.pendingOutbox()) {
-            val payload = runCatching { container.cipher.decrypt(event.payloadCiphertext) }
-                .getOrElse { return Result.failure() }
             val path = when {
                 event.eventType == "checkin" -> "/v1/checkins"
                 event.eventType == "escalation" -> "/v1/escalations"
@@ -31,8 +29,15 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                 event.eventType.startsWith("questionnaire:") -> "/v1/questionnaires/${event.eventType.substringAfter(':')}/responses"
                 event.eventType == "practice" -> "/v1/practices/completions"
                 event.eventType == "dsr" -> "/v1/data-subject-requests"
+                event.eventType == "derived_feature" -> "/v1/features/ingest"
                 else -> { dao.deleteOutbox(event.eventId); continue }
             }
+            // 速率限制：derived_feature 每分钟最多 20 条
+            if (event.eventType == "derived_feature" && !acquireDerivedFeatureSlot(applicationContext)) {
+                return Result.retry()
+            }
+            val payload = runCatching { container.cipher.decrypt(event.payloadCiphertext) }
+                .getOrElse { return Result.failure() }
             val code = runCatching { client.post(path, payload) }.getOrElse {
                 dao.incrementAttempts(event.eventId)
                 return Result.retry()
@@ -57,6 +62,35 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     }
 
     companion object {
+        private const val RATE_LIMIT_PREFS = "echo_mind_sync_ratelimit"
+        private const val KEY_DF_WINDOW_START = "df_window_start"
+        private const val KEY_DF_COUNT = "df_count"
+        private const val DF_WINDOW_MS = 60_000L
+        private const val DF_MAX_PER_WINDOW = 20
+
+        /**
+         * derived_feature 上传速率限制：滑动 1 分钟窗口，最多 [DF_MAX_PER_WINDOW] 条。
+         * 超限返回 false，调用方应 Result.retry() 延迟发送。
+         */
+        @Synchronized
+        private fun acquireDerivedFeatureSlot(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(RATE_LIMIT_PREFS, Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            val windowStart = prefs.getLong(KEY_DF_WINDOW_START, 0L)
+            val count = prefs.getInt(KEY_DF_COUNT, 0)
+            if (now - windowStart > DF_WINDOW_MS) {
+                // 进入新窗口
+                prefs.edit()
+                    .putLong(KEY_DF_WINDOW_START, now)
+                    .putInt(KEY_DF_COUNT, 1)
+                    .apply()
+                return true
+            }
+            if (count >= DF_MAX_PER_WINDOW) return false
+            prefs.edit().putInt(KEY_DF_COUNT, count + 1).apply()
+            return true
+        }
+
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

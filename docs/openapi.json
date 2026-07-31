@@ -1119,6 +1119,148 @@
         }
       }
     },
+    "/v1/features/ingest": {
+      "post": {
+        "summary": "Ingest Derived Feature",
+        "operationId": "ingest_derived_feature_v1_features_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DerivedFeatureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/profile/{user_id}": {
+      "get": {
+        "summary": "Get Profile",
+        "operationId": "get_profile_v1_profile__user_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/narratives": {
+      "get": {
+        "summary": "Get Daily Narrative",
+        "operationId": "get_daily_narrative_v1_narratives_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/audit/events": {
       "get": {
         "summary": "Audit Events",
@@ -1174,6 +1316,367 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/sandbox/runs": {
+      "post": {
+        "summary": "Schedule Sandbox",
+        "description": "触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。",
+        "operationId": "schedule_sandbox_v1_sandbox_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxRunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/sandbox/runs/{run_id}": {
+      "get": {
+        "summary": "Get Sandbox Run",
+        "description": "查询单个沙箱运行记录。受 ensure_user 校验目标用户归属。",
+        "operationId": "get_sandbox_run_v1_sandbox_runs__run_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/skills": {
+      "get": {
+        "summary": "List Skills",
+        "description": "用户拉取已 reviewed/signed 的 Skill 列表（脱敏后下发）。\n\nuser_id 缺省取 principal.subject（普通用户只能看自己的）。\ndraft / retired 状态的 Skill 不下发。",
+        "operationId": "list_skills_v1_skills_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/skills/{skill_id}": {
+      "get": {
+        "summary": "Get Skill",
+        "description": "用户拉取单个 Skill 详情（脱敏后下发）。\n\n校验 skill 属于当前 tenant+user，status IN ('reviewed','signed')。",
+        "operationId": "get_skill_v1_skills__skill_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/skills/{skill_id}/transition": {
+      "post": {
+        "summary": "Transition Skill",
+        "description": "Skill 治理状态机转换：draft→reviewed→signed→retired。\n\n不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。",
+        "operationId": "transition_skill_v1_skills__skill_id__transition_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillTransition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenant/portrait": {
+      "get": {
+        "summary": "Tenant Portrait",
+        "description": "机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。\n\n聚合维度：mood_hint 分布、observation_days 统计、近 7 天活跃用户数、\nescalation 计数、Skill 下发数。\n去标识保护：任何聚合桶计数 < 5 时合并到 \"other\" 桶，防重标识；\n不返回单个用户 ID/特征。",
+        "operationId": "tenant_portrait_v1_tenant_portrait_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantPortraitOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/config/flags": {
+      "get": {
+        "summary": "Get Config Flags",
+        "description": "用户拉取本租户的 feature flags（用于端侧灰度联动）。\n\n任何登录用户可访问；返回的 flags 经 [get_tenant_flags] 与默认值合并，\n保证端侧拿到的字段集合稳定。",
+        "operationId": "get_config_flags_v1_config_flags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/tenant/flags": {
+      "put": {
+        "summary": "Update Tenant Flags",
+        "description": "admin 修改本租户的 feature flag（灰度回滚入口）。\n\nbody={\"flag_key\": \"passive_sensing_enabled\", \"value\": false}；\n调 [set_tenant_flag] 更新 + commit，并记录审计 action=\"tenant.flags.update\"。",
+        "operationId": "update_tenant_flags_v1_tenant_flags_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantFlagUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/skills/batch-retire": {
+      "post": {
+        "summary": "Batch Retire Skills",
+        "description": "admin 批量回滚 Skill：把指定 skill_ids 的 status 转为 retired。\n\n- 仅本租户的 Skill 会被影响（跨租户忽略，不报错）\n- 已是 retired 的 Skill 幂等跳过\n- 记录审计 action=\"skill.batch_retire\"\n- 返回 {\"retired\": N}（N 为本次实际转为 retired 的数量）",
+        "operationId": "batch_retire_skills_v1_skills_batch_retire_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillBatchRetire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -1333,7 +1836,8 @@
               "psychological_data",
               "emergency_contact",
               "voice_features",
-              "research"
+              "research",
+              "passive_sensing"
             ],
             "title": "Consent Type"
           },
@@ -1406,6 +1910,73 @@
           "request_type"
         ],
         "title": "DataSubjectRequestCreate"
+      },
+      "DerivedFeatureIn": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version",
+            "default": "feat-v1"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "accel",
+              "gyro",
+              "screen",
+              "notification",
+              "app_activity",
+              "health",
+              "mic_opt"
+            ],
+            "title": "Source"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window End"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Summary"
+          },
+          "vector": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 256,
+            "title": "Vector"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "source",
+          "window_start",
+          "window_end",
+          "summary"
+        ],
+        "title": "DerivedFeatureIn",
+        "description": "端侧派生特征契约：只接收摘要/向量，绝不携带原始传感 payload。"
       },
       "EmergencyContactCreate": {
         "properties": {
@@ -1777,6 +2348,70 @@
         ],
         "title": "QuestionnaireCreate"
       },
+      "SandboxRunCreate": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "run_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "SandboxRunCreate",
+        "description": "触发沙箱运行的入参。run_date 缺省为当天（UTC）。"
+      },
+      "SkillBatchRetire": {
+        "properties": {
+          "skill_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Skill Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "skill_ids"
+        ],
+        "title": "SkillBatchRetire",
+        "description": "P5 灰度回滚：批量回滚 Skill 入参。"
+      },
+      "SkillTransition": {
+        "properties": {
+          "new_status": {
+            "type": "string",
+            "enum": [
+              "reviewed",
+              "signed",
+              "retired"
+            ],
+            "title": "New Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_status"
+        ],
+        "title": "SkillTransition",
+        "description": "Skill 治理状态机转换入参。new_status 仅允许 reviewed/signed/retired。"
+      },
       "TenantCreate": {
         "properties": {
           "name": {
@@ -1791,6 +2426,70 @@
           "name"
         ],
         "title": "TenantCreate"
+      },
+      "TenantFlagUpdate": {
+        "properties": {
+          "flag_key": {
+            "type": "string",
+            "enum": [
+              "passive_sensing_enabled",
+              "sandbox_enabled",
+              "skills_delivery_enabled"
+            ],
+            "title": "Flag Key"
+          },
+          "value": {
+            "type": "boolean",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flag_key",
+          "value"
+        ],
+        "title": "TenantFlagUpdate",
+        "description": "P5 灰度回滚：admin 修改租户 feature flag 入参。\n\nflag_key 仅允许 passive_sensing_enabled / sandbox_enabled / skills_delivery_enabled。"
+      },
+      "TenantPortraitOut": {
+        "properties": {
+          "mood_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Mood Distribution"
+          },
+          "observation_stats": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Observation Stats"
+          },
+          "active_users_7d": {
+            "type": "integer",
+            "title": "Active Users 7D",
+            "default": 0
+          },
+          "escalation_metrics": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Escalation Metrics"
+          },
+          "skill_count": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Skill Count"
+          }
+        },
+        "type": "object",
+        "title": "TenantPortraitOut",
+        "description": "机构去标识群体画像输出契约。\n\n仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 \"other\"。"
       },
       "UserCreate": {
         "properties": {

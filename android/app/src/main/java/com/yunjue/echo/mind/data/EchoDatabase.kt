@@ -66,6 +66,38 @@ data class OutboxEventEntity(
     val attempts: Int = 0
 )
 
+/**
+ * 原始信号样本缓冲（仅端侧落盘，不上云）。
+ * value 存储序列化样本（如 JSON {"x":0.1,"y":0.2,"z":0.3}），兼容不同维度传感器。
+ */
+@Entity(tableName = "sensor_samples")
+data class SensorSampleEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val source: String,
+    val timestamp: Long,
+    val value: String,
+    val createdAt: Long
+)
+
+/**
+ * 派生特征本地缓存（summary 字段加密）。
+ * vector 存储为 JSON 数组字符串。synced 标记是否已成功上传。
+ */
+@Entity(tableName = "feature_vectors")
+data class FeatureVectorEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val schemaVersion: String,
+    val source: String,
+    val windowStart: Long,
+    val windowEnd: Long,
+    val summaryCiphertext: String,
+    val vector: String,
+    val synced: Boolean = false,
+    val createdAt: Long
+)
+
 @Dao
 interface EchoDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertCheckin(value: CheckinEntity)
@@ -82,11 +114,61 @@ interface EchoDao {
     @Query("DELETE FROM outbox_events WHERE eventId = :eventId") suspend fun deleteOutbox(eventId: String)
     @Query("UPDATE outbox_events SET attempts = attempts + 1 WHERE eventId = :eventId") suspend fun incrementAttempts(eventId: String)
     @Query("SELECT COUNT(*) FROM outbox_events") fun observePendingCount(): Flow<Int>
+
+    // ===== T04 派生特征 DAO =====
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFeatureVector(value: FeatureVectorEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertSensorSample(value: SensorSampleEntity)
+    @Query("SELECT * FROM feature_vectors WHERE synced = 0 ORDER BY windowStart ASC") suspend fun pendingFeatureVectors(): List<FeatureVectorEntity>
+    @Query("UPDATE feature_vectors SET synced = 1 WHERE id = :id") suspend fun markFeatureVectorSynced(id: String)
+    @Query("DELETE FROM sensor_samples WHERE timestamp < :before") suspend fun deleteSensorSamplesBefore(before: Long)
+}
+
+/**
+ * 同意记录（本地持久化）。
+ *
+ * T04 已统一注册到 @Database entities 列表，v2→v3 迁移建表。
+ */
+@Entity(tableName = "consents")
+data class ConsentEntity(
+    @PrimaryKey val eventId: String,
+    val userId: String,
+    val consentType: String,
+    val version: String,
+    val granted: Boolean,
+    val grantedAt: Long,
+    val evidenceHash: String
+)
+
+@Dao
+interface ConsentDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertConsent(value: ConsentEntity)
+
+    @Query("SELECT * FROM consents WHERE consentType = :type ORDER BY grantedAt DESC LIMIT 1")
+    suspend fun latestConsent(type: String): ConsentEntity?
+
+    @Query("SELECT * FROM consents WHERE consentType = :type ORDER BY grantedAt DESC")
+    suspend fun consentsByType(type: String): List<ConsentEntity>
+
+    @Query("SELECT COUNT(*) FROM consents WHERE consentType = :type AND granted = 1")
+    suspend fun grantedCount(type: String): Int
 }
 
 @Database(
-    entities = [CheckinEntity::class, JournalEntity::class, QuestionnaireEntity::class, PracticeCompletionEntity::class, OutboxEventEntity::class],
-    version = 2,
+    entities = [
+        CheckinEntity::class,
+        JournalEntity::class,
+        QuestionnaireEntity::class,
+        PracticeCompletionEntity::class,
+        OutboxEventEntity::class,
+        ConsentEntity::class,
+        SensorSampleEntity::class,
+        FeatureVectorEntity::class
+    ],
+    version = 3,
     exportSchema = true
 )
-abstract class EchoDatabase : RoomDatabase() { abstract fun dao(): EchoDao }
+abstract class EchoDatabase : RoomDatabase() {
+    abstract fun dao(): EchoDao
+    abstract fun consentDao(): ConsentDao
+}

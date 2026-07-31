@@ -1,5 +1,27 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- ===== T02 被动采集相关权限 ===== -->
+    <!-- 传感器（加速度 / 陀螺仪） -->
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <!-- 步数 / 身体活动识别 -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- 前台服务通知（Android 13+ 需运行时申请） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <!-- 保持唤醒 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- App 活跃统计（需用户在系统设置中授权"使用情况访问"） -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- T03 麦克风采集（可选模块，默认关闭；危险权限，运行时请求） -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <application
         android:name=".EchoMindApplication"
         android:allowBackup="false"
@@ -13,5 +35,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 被动采集前台服务（specialUse：端侧数据采集） -->
+        <service
+            android:name=".sensing.PassiveSensingService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="passive_sensing_data_collection" />
+        </service>
+
+        <!-- 通知监听服务（仅记录时间戳 / 包名 / category，不记录内容） -->
+        <service
+            android:name=".sensing.NotificationCollector"
+            android:exported="false"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

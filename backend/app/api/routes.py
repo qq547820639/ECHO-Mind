@@ -1,4 +1,6 @@
-from datetime import datetime, timezone
+import threading
+import time
+from datetime import date as date_cls, datetime, timezone
 from typing import Annotated
 from uuid import uuid4
 
@@ -21,7 +23,9 @@ from app.models import (
     AuditEvent,
     Checkin,
     Consent,
+    DailyNarrative,
     DataSubjectRequest,
+    DerivedFeature,
     EmergencyContact,
     Escalation,
     JournalEntry,
@@ -29,14 +33,18 @@ from app.models import (
     PracticeCompletion,
     QuestionnaireResult,
     RiskSignal,
+    SandboxRun,
+    Skill,
     Tenant,
     User,
+    UserProfile,
 )
 from app.schemas import (
     CheckinCreate,
     ConsentCreate,
     DataSubjectRequestComplete,
     DataSubjectRequestCreate,
+    DerivedFeatureIn,
     EmergencyContactCreate,
     EscalationClose,
     EscalationCreate,
@@ -47,14 +55,25 @@ from app.schemas import (
     L0ScreeningCreate,
     PracticeCompletionCreate,
     QuestionnaireCreate,
+    SandboxRunCreate,
+    SandboxRunOut,
+    SkillBatchRetire,
+    SkillTransition,
     TenantCreate,
+    TenantFlagUpdate,
+    TenantPortraitOut,
     UserCreate,
 )
 from app.services.audit import append_audit, verify_audit_chain
 from app.services.crypto import decrypt_text, encrypt_text
 from app.services.escalation import scan_sla_breaches
-from app.services.safety import RULE_PACK_VERSION, evaluate_text, resolve_rule_ids
+from app.services.feature_flags import get_tenant_flags, set_tenant_flag
+from app.services.profile import build_daily_narrative, ingest_feature, update_profile
+from app.services.safety import RULE_PACK_VERSION, evaluate_passive, evaluate_text, resolve_rule_ids
+from app.services.sandbox import schedule_sandbox_run
+from app.services.sandbox.sanitizer import sanitize_skill, sanitize_skills
 from app.services.scoring import score_gad7, score_phq9
+from app.services.tenant_portrait import build_tenant_portrait
 from app.services.trends import build_trend
 
 router = APIRouter(prefix="/v1")
@@ -140,6 +159,40 @@ def require_psychological_consent(db: Session, principal: Principal, user_id: st
     row = latest_consent(db, principal.tenant_id, user_id, "psychological_data")
     if not row or not row.granted or row.revoked_at is not None:
         raise HTTPException(status_code=412, detail="active psychological-data consent required")
+
+
+def require_passive_sensing_consent(db: Session, principal: Principal, user_id: str) -> None:
+    row = latest_consent(db, principal.tenant_id, user_id, "passive_sensing")
+    if not row or not row.granted or row.revoked_at is not None:
+        raise HTTPException(status_code=412, detail="active passive-sensing consent required")
+
+
+def require_voice_features_consent(db: Session, principal: Principal, user_id: str) -> None:
+    """mic_opt 派生特征专用：当前用户/租户必须有有效 voice_features consent。
+
+    复用 [latest_consent] 查询模式：granted=true 且 revoked_at 为空才算有效。
+    """
+    row = latest_consent(db, principal.tenant_id, user_id, "voice_features")
+    if not row or not row.granted or row.revoked_at is not None:
+        raise HTTPException(status_code=412, detail="active voice-features consent required")
+
+
+def require_feature_flag(flag_key: str):
+    """P5 灰度回滚：FastAPI 依赖工厂，校验当前租户某 feature flag 是否开启。
+
+    关闭则返回 410 Gone（资源已停用），与路由层 idempotent 410 语义一致。
+    复用 [get_principal] / [get_db] 依赖解析当前 principal 与 db session。
+    """
+    from app.services.feature_flags import is_flag_enabled
+
+    def dependency(
+        db: Annotated[Session, Depends(get_db)],
+        principal: Annotated[Principal, Depends(get_principal)],
+    ) -> None:
+        if not is_flag_enabled(db, principal.tenant_id, flag_key):
+            raise HTTPException(status_code=410, detail=f"{flag_key} disabled for tenant")
+
+    return dependency
 
 
 def get_escalation(db: Session, principal: Principal, escalation_id: str) -> Escalation:
@@ -371,169 +424,32 @@ def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal:
 
 @router.post("/checkins")
 def create_checkin(payload: CheckinCreate, request: Request, db: DB, principal: PRINCIPAL):
-    require_psych_content_role(db, principal, user_id=payload.user_id)
+    # T12.1 主动签到录入入口已停用：改由被动感知范式（POST /v1/features/ingest）处理。
+    # 保留路由定义与认证链（PRINCIPAL + ensure_user），有效身份返回 410 Gone 而非 404。
     ensure_user(db, principal, payload.user_id)
-    require_psychological_consent(db, principal, payload.user_id)
-    existing = db.scalar(select(Checkin).where(
-        Checkin.tenant_id == principal.tenant_id,
-        Checkin.event_id == payload.event_id,
-    ))
-    if existing:
-        return {"id": existing.id, "idempotent_replay": True}
-    safety = evaluate_text(payload.note or "") if payload.note else None
-    checkin = Checkin(
-        event_id=payload.event_id,
-        tenant_id=principal.tenant_id,
-        user_id=payload.user_id,
-        mood=payload.mood,
-        stress=payload.stress,
-        energy=payload.energy,
-        sleep_recovery=payload.sleep_recovery,
-        event_flag=payload.event_flag,
-        help_requested=payload.help_requested,
-        note_ciphertext=encrypt_text(payload.note, aad=f"{principal.tenant_id}:{payload.user_id}:checkin"),
-        client_time=payload.client_time,
-        device_timezone=payload.device_timezone,
-    )
-    db.add(checkin)
-    db.flush()
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="checkin.create",
-        object_type="checkin",
-        object_id=checkin.id,
-        request_id=request.headers.get("x-request-id"),
-    )
-    escalation_id = None
-    if payload.help_requested or (safety and safety.severity == "red"):
-        escalation_id = open_escalation(
-            db,
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            trigger="help_requested" if payload.help_requested else "text_red_signal",
-            evidence_summary="用户主动请求人工帮助" if payload.help_requested else "文本命中确定性红色规则",
-            actor_id="mobile_rules",
-        ).id
-    db.commit()
-    return {"id": checkin.id, "safety": safety.__dict__ if safety else None, "escalation_id": escalation_id}
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.post("/journals")
 def create_journal(payload: JournalCreate, db: DB, principal: PRINCIPAL):
+    # T12.1 主动日记录入入口已停用：改由被动感知范式（POST /v1/features/ingest）处理。
+    # 保留路由定义与认证链（PRINCIPAL + ensure_user），有效身份返回 410 Gone 而非 404。
+    # GET /v1/journals 仍可查询历史日记（只读）。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
-    require_psychological_consent(db, principal, payload.user_id)
-    existing = db.scalar(select(JournalEntry).where(
-        JournalEntry.tenant_id == principal.tenant_id,
-        JournalEntry.event_id == payload.event_id,
-    ))
-    if existing:
-        return {"id": existing.id, "logical_id": existing.logical_id, "revision": existing.revision, "idempotent_replay": True}
-    safety = evaluate_text(payload.body)
-    row = JournalEntry(
-        event_id=payload.event_id,
-        tenant_id=principal.tenant_id,
-        user_id=payload.user_id,
-        logical_id=payload.logical_id,
-        revision=1,
-        body_ciphertext=encrypt_text(payload.body, aad=f"{principal.tenant_id}:{payload.user_id}:journal"),
-        event_tags=payload.event_tags,
-        client_time=payload.client_time,
-    )
-    db.add(row)
-    db.flush()
-    escalation_id = None
-    if safety.severity == "red":
-        escalation_id = open_escalation(
-            db,
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            trigger="journal_red_signal",
-            evidence_summary="日记文本命中确定性红色规则；正文不写入审计日志。",
-            actor_id="journal_rules",
-        ).id
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="journal.create",
-        object_type="journal",
-        object_id=row.id,
-        metadata={"logical_id": row.logical_id, "revision": row.revision, "safety": safety.severity},
-    )
-    db.commit()
-    return {"id": row.id, "logical_id": row.logical_id, "revision": 1, "safety": safety.__dict__, "escalation_id": escalation_id}
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.post("/journals/{logical_id}/revisions")
 def revise_journal(logical_id: str, payload: JournalRevise, db: DB, principal: PRINCIPAL):
-    latest = db.scalar(select(JournalEntry).where(
-        JournalEntry.tenant_id == principal.tenant_id,
-        JournalEntry.logical_id == logical_id,
-    ).order_by(JournalEntry.revision.desc()).limit(1))
-    if not latest:
-        raise HTTPException(status_code=404, detail="journal not found")
-    require_psych_content_role(db, principal, user_id=latest.user_id)
-    ensure_user(db, principal, latest.user_id)
-    existing = db.scalar(select(JournalEntry).where(
-        JournalEntry.tenant_id == principal.tenant_id,
-        JournalEntry.event_id == payload.event_id,
-    ))
-    if existing:
-        return {"id": existing.id, "revision": existing.revision, "idempotent_replay": True}
-    row = JournalEntry(
-        event_id=payload.event_id,
-        tenant_id=principal.tenant_id,
-        user_id=latest.user_id,
-        logical_id=logical_id,
-        revision=latest.revision + 1,
-        body_ciphertext=encrypt_text(payload.body, aad=f"{principal.tenant_id}:{latest.user_id}:journal"),
-        event_tags=payload.event_tags,
-        client_time=payload.client_time,
-        supersedes_id=latest.id,
-    )
-    db.add(row)
-    db.flush()
-    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="journal.revise", object_type="journal", object_id=row.id,
-                 metadata={"logical_id": logical_id, "revision": row.revision})
-    db.commit()
-    return {"id": row.id, "revision": row.revision}
+    # T12.1 日记修订入口已停用：保留路由定义与认证链（PRINCIPAL），有效身份返回 410 Gone。
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.delete("/journals/{logical_id}")
 def delete_journal(logical_id: str, db: DB, principal: PRINCIPAL):
-    latest = db.scalar(select(JournalEntry).where(
-        JournalEntry.tenant_id == principal.tenant_id,
-        JournalEntry.logical_id == logical_id,
-    ).order_by(JournalEntry.revision.desc()).limit(1))
-    if not latest:
-        raise HTTPException(status_code=404, detail="journal not found")
-    require_psych_content_role(db, principal, user_id=latest.user_id)
-    ensure_user(db, principal, latest.user_id)
-    row = JournalEntry(
-        event_id=f"evt_{uuid4().hex}",
-        tenant_id=principal.tenant_id,
-        user_id=latest.user_id,
-        logical_id=logical_id,
-        revision=latest.revision + 1,
-        body_ciphertext=None,
-        event_tags=[],
-        deleted=True,
-        client_time=datetime.now(timezone.utc),
-        supersedes_id=latest.id,
-    )
-    db.add(row)
-    db.flush()
-    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="journal.delete_tombstone", object_type="journal", object_id=row.id,
-                 metadata={"logical_id": logical_id, "revision": row.revision})
-    db.commit()
-    return {"logical_id": logical_id, "deleted": True, "revision": row.revision}
+    # T12.1 日记删除入口已停用：保留路由定义与认证链（PRINCIPAL），有效身份返回 410 Gone。
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.get("/journals")
@@ -563,113 +479,25 @@ def list_journals(user_id: str, db: DB, principal: PRINCIPAL, limit: int = Query
 
 @router.post("/safety/check")
 def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL):
+    # T12.1 主动文本安全检查入口已停用：改由被动感知范式处理。保留认证链，有效身份返回 410。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
-    result = evaluate_text(payload.text)
-    signal = RiskSignal(
-        tenant_id=principal.tenant_id,
-        user_id=payload.user_id,
-        source="free_text",
-        severity=result.severity,
-        rule_pack_version=RULE_PACK_VERSION,
-        evidence_refs=result.matched_rule_ids,
-        labels=result.labels,
-    )
-    db.add(signal)
-    db.flush()
-    escalation_id = None
-    if result.severity == "red":
-        escalation_id = open_escalation(
-            db,
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            trigger="text_red_signal",
-            evidence_summary="文本命中确定性红色规则；原文不写入审计日志。",
-            actor_id="rules",
-        ).id
-    append_audit(db, tenant_id=principal.tenant_id, actor_type="safety_service", actor_id="rules",
-                 action="safety.evaluate", object_type="risk_signal", object_id=signal.id,
-                 metadata={"severity": result.severity, "rules": result.matched_rule_ids})
-    db.commit()
-    return {**result.__dict__, "rule_pack_version": RULE_PACK_VERSION, "escalation_id": escalation_id}
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.post("/questionnaires/{code}/responses")
 def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PRINCIPAL):
+    # T12.1 问卷录入入口已停用：改由被动感知范式处理。保留认证链，有效身份返回 410。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
-    require_psychological_consent(db, principal, payload.user_id)
-    existing = db.scalar(select(QuestionnaireResult).where(
-        QuestionnaireResult.tenant_id == principal.tenant_id,
-        QuestionnaireResult.event_id == payload.event_id,
-    ))
-    if existing:
-        return {"id": existing.id, "score": existing.score, "idempotent_replay": True}
-    code = code.lower()
-    if code == "phq9":
-        result = score_phq9(payload.answers)
-    elif code == "gad7":
-        result = score_gad7(payload.answers)
-    else:
-        raise HTTPException(status_code=404, detail="unsupported questionnaire")
-    row = QuestionnaireResult(
-        event_id=payload.event_id,
-        tenant_id=principal.tenant_id,
-        user_id=payload.user_id,
-        instrument=code,
-        version=payload.version,
-        answers=payload.answers,
-        score=result.score,
-        interpretation=result.interpretation,
-    )
-    db.add(row)
-    db.flush()
-    escalation_id = None
-    if result.urgent_item:
-        escalation_id = open_escalation(
-            db,
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            trigger="phq9_item9_positive",
-            evidence_summary="PHQ-9 高风险题项非零，需立即人工复核；分数本身不构成诊断。",
-            actor_id="questionnaire_rules",
-        ).id
-    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="questionnaire.score", object_type="questionnaire_result", object_id=row.id,
-                 metadata={"instrument": code, "score": result.score, "urgent_item": result.urgent_item})
-    db.commit()
-    return {"id": row.id, "score": result.score, "interpretation": result.interpretation,
-            "urgent_item": result.urgent_item, "escalation_id": escalation_id,
-            "boundary": "筛查结果不是诊断。"}
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.post("/practices/completions")
 def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PRINCIPAL):
-    require_write_role(db, principal, object_type="practice_completion")
+    # T12.1 练习完成录入入口已停用：改由被动感知范式处理。保留认证链，有效身份返回 410。
     ensure_user(db, principal, payload.user_id)
-    existing = db.scalar(select(PracticeCompletion).where(
-        PracticeCompletion.tenant_id == principal.tenant_id,
-        PracticeCompletion.event_id == payload.event_id,
-    ))
-    if existing:
-        return {"id": existing.id, "idempotent_replay": True}
-    row = PracticeCompletion(
-        event_id=payload.event_id,
-        tenant_id=principal.tenant_id,
-        user_id=payload.user_id,
-        practice_id=payload.practice_id,
-        content_version=payload.content_version,
-        status=payload.status,
-        duration_seconds=payload.duration_seconds,
-        client_time=payload.client_time,
-    )
-    db.add(row)
-    db.flush()
-    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="practice.record", object_type="practice_completion", object_id=row.id,
-                 metadata={"practice_id": payload.practice_id, "status": payload.status})
-    db.commit()
-    return {"id": row.id, "status": row.status}
+    raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.get("/trends/summary")
@@ -1205,9 +1033,22 @@ def complete_dsr(
     row.status = "completed"
     row.completed_at = datetime.now(timezone.utc)
     row.result_summary = payload.result_summary
+    # DSR delete：清理该用户的被动感知数据（DerivedFeature + RiskSignal）。
+    # 仅清理被动感知产物，审计链（AuditEvent）按合规要求保留不可删除。
+    deleted_counts: dict[str, int] = {}
+    if row.request_type == "delete":
+        df_count = db.query(DerivedFeature).filter(
+            DerivedFeature.tenant_id == principal.tenant_id,
+            DerivedFeature.user_id == row.user_id,
+        ).delete(synchronize_session=False)
+        risk_count = db.query(RiskSignal).filter(
+            RiskSignal.tenant_id == principal.tenant_id,
+            RiskSignal.user_id == row.user_id,
+        ).delete(synchronize_session=False)
+        deleted_counts = {"derived_features": df_count, "risk_signals": risk_count}
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="dsr.complete", object_type="data_subject_request", object_id=row.id,
-                 metadata={"request_type": row.request_type})
+                 metadata={"request_type": row.request_type, "deleted": deleted_counts})
     db.commit()
     return {"id": row.id, "status": row.status, "completed_at": row.completed_at}
 
@@ -1240,6 +1081,458 @@ def audit_verify(
     principal: Annotated[Principal, Depends(require_roles("auditor", "admin", "security_auditor"))],
 ):
     return verify_audit_chain(db, principal.tenant_id)
+
+
+# ---------- T12 被动感知范式：特征摄入 + 画像 + 叙事 ----------
+
+@router.post("/features/ingest")
+def ingest_derived_feature(
+    payload: DerivedFeatureIn,
+    request: Request,
+    db: DB,
+    principal: PRINCIPAL,
+    _flag: Annotated[None, Depends(require_feature_flag("passive_sensing_enabled"))],
+):
+    ensure_user(db, principal, payload.user_id)
+    require_passive_sensing_consent(db, principal, payload.user_id)
+    if payload.source == "mic_opt":
+        # 麦克风派生特征需额外校验 voice_features consent 有效（撤销则 412）
+        require_voice_features_consent(db, principal, payload.user_id)
+    row, replay = ingest_feature(db, tenant_id=principal.tenant_id, user_id=payload.user_id, feature=payload)
+    if replay:
+        return {"id": row.id, "idempotent_replay": True, "escalation_id": None}
+    escalation_id = None
+    severity, matched = evaluate_passive([payload])
+    if severity == "red":
+        signal = RiskSignal(
+            tenant_id=principal.tenant_id,
+            user_id=payload.user_id,
+            source="passive_feature",
+            severity="red",
+            rule_pack_version=RULE_PACK_VERSION,
+            evidence_refs=matched,
+            labels=["passive"],
+        )
+        db.add(signal)
+        db.flush()
+        append_audit(db, tenant_id=principal.tenant_id, actor_type="safety_service", actor_id="passive_rules",
+                     action="safety.passive_red", object_type="risk_signal", object_id=signal.id,
+                     metadata={"source": payload.source})
+        db.flush()  # 确保下一条审计事件正确链接哈希链前驱
+        escalation_id = open_escalation(
+            db,
+            tenant_id=principal.tenant_id,
+            user_id=payload.user_id,
+            trigger="passive_red_signal",
+            evidence_summary="被动特征命中确定性红色规则；原文不写入审计。",
+            actor_id="passive_rules",
+        ).id
+        db.flush()
+    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
+                 action="feature.ingest", object_type="derived_feature", object_id=row.id,
+                 metadata={"source": payload.source},
+                 request_id=request.headers.get("x-request-id"))
+    db.commit()
+    return {"id": row.id, "idempotent_replay": False, "escalation_id": escalation_id}
+
+
+@router.get("/profile/{user_id}")
+def get_profile(user_id: str, db: DB, principal: PRINCIPAL):
+    ensure_user(db, principal, user_id)
+    row = update_profile(db, tenant_id=principal.tenant_id, user_id=user_id)
+    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
+                 action="profile.update", object_type="user_profile", object_id=row.id)
+    db.commit()
+    return {"user_id": user_id, "traits": row.traits, "version": row.version, "updated_at": row.updated_at}
+
+
+@router.get("/narratives")
+def get_daily_narrative(
+    user_id: str,
+    db: DB,
+    principal: PRINCIPAL,
+    date: date_cls | None = Query(default=None),
+):
+    ensure_user(db, principal, user_id)
+    target_date = date or datetime.now(timezone.utc).date()
+    narrative = build_daily_narrative(db, tenant_id=principal.tenant_id, user_id=user_id, date=target_date)
+    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
+                 action="narrative.generate", object_type="daily_narrative", object_id=narrative.id,
+                 metadata={"date": str(target_date)})
+    db.commit()
+    return {
+        "id": narrative.id,
+        "user_id": user_id,
+        "date": str(narrative.date),
+        "events": narrative.events,
+        "mood_hint": narrative.mood_hint,
+        "gaps": narrative.gaps,
+    }
+
+
+# ---------- T08 自进化沙箱骨架 ----------
+
+def _sandbox_run_to_out(run: SandboxRun) -> SandboxRunOut:
+    return SandboxRunOut(
+        id=run.id,
+        user_id=run.user_id,
+        run_date=run.run_date,
+        status=run.status,
+        gaps_found=list(run.gaps_found or []),
+        tools_generated=run.tools_generated or 0,
+        tools_validated=run.tools_validated or 0,
+        skills_inducted=run.skills_inducted or 0,
+        error_message=run.error_message,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+    )
+
+
+# 沙箱速率限制：内存计数器，按 tenant+user 记录 1 小时内时间戳窗口
+_sandbox_rate: dict[str, list[float]] = {}
+_sandbox_rate_lock = threading.Lock()
+_SANDBOX_RATE_WINDOW_SECONDS = 3600.0
+
+
+def _check_sandbox_rate(tenant_id: str, user_id: str) -> bool:
+    """检查并记录沙箱 run 速率；窗口内超限返回 False。"""
+    key = f"{tenant_id}:{user_id}"
+    now = time.time()
+    cutoff = now - _SANDBOX_RATE_WINDOW_SECONDS
+    with _sandbox_rate_lock:
+        bucket = _sandbox_rate.setdefault(key, [])
+        bucket[:] = [ts for ts in bucket if ts >= cutoff]
+        if len(bucket) >= settings.sandbox_rate_limit_per_hour:
+            return False
+        bucket.append(now)
+        return True
+
+
+@router.post("/sandbox/runs")
+def schedule_sandbox(
+    payload: SandboxRunCreate,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("admin", "professional"))],
+    _flag: Annotated[None, Depends(require_feature_flag("sandbox_enabled"))],
+):
+    """触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。"""
+    ensure_user(db, principal, payload.user_id)
+    if not _check_sandbox_rate(principal.tenant_id, payload.user_id):
+        raise HTTPException(status_code=429, detail="sandbox rate limit exceeded")
+    run = schedule_sandbox_run(
+        db,
+        tenant_id=principal.tenant_id,
+        user_id=payload.user_id,
+        run_date=payload.run_date,
+    )
+    if run is None:
+        raise HTTPException(status_code=429, detail="sandbox concurrency limit reached")
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="sandbox.schedule",
+        object_type="sandbox_run",
+        object_id=run.id,
+        metadata={"user_id": payload.user_id, "run_date": str(run.run_date), "status": run.status},
+    )
+    db.commit()
+    db.refresh(run)
+    return _sandbox_run_to_out(run)
+
+
+@router.get("/sandbox/runs/{run_id}")
+def get_sandbox_run(
+    run_id: str,
+    db: DB,
+    principal: PRINCIPAL,
+    _flag: Annotated[None, Depends(require_feature_flag("sandbox_enabled"))],
+):
+    """查询单个沙箱运行记录。受 ensure_user 校验目标用户归属。"""
+    run = db.get(SandboxRun, run_id)
+    if not run or run.tenant_id != principal.tenant_id:
+        raise HTTPException(status_code=404, detail="sandbox run not found")
+    ensure_user(db, principal, run.user_id)
+    return _sandbox_run_to_out(run)
+
+
+# ---------- T10 Skill 合成 + 脱敏 + 下发 ----------
+
+# Skill 治理状态机：仅允许相邻正向转换，不能跳级、不能逆转
+SKILL_TRANSITIONS: dict[str, str] = {
+    "draft": "reviewed",
+    "reviewed": "signed",
+    "signed": "retired",
+}
+
+# 用户可下发的 Skill 状态（draft 不下发）
+DELIVERABLE_SKILL_STATUSES: tuple[str, ...] = ("reviewed", "signed")
+
+
+def _cold_start_stage(observation_days: int) -> str:
+    """根据 observation_days 推荐冷启动文案阶段 key。
+
+    - 0 天 → stage_0（系统正在了解你）
+    - 1-3 天 → stage_1_3（已采集 N 天数据）
+    - 4-7 天 → stage_4_7（画像成型中）
+    - 7+ 天 → stage_7_plus（持续观察中）
+    """
+    if observation_days <= 0:
+        return "stage_0"
+    if observation_days <= 3:
+        return "stage_1_3"
+    if observation_days <= 7:
+        return "stage_4_7"
+    return "stage_7_plus"
+
+
+def _get_owned_skill(db: Session, principal: Principal, skill_id: str) -> Skill:
+    """读取 Skill 并校验租户归属；跨租户返回 404。"""
+    row = db.get(Skill, skill_id)
+    if not row or row.tenant_id != principal.tenant_id:
+        raise HTTPException(status_code=404, detail="skill not found")
+    return row
+
+
+@router.get("/skills")
+def list_skills(
+    db: DB,
+    principal: PRINCIPAL,
+    _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
+    user_id: str | None = Query(default=None),
+):
+    """用户拉取已 reviewed/signed 的 Skill 列表（脱敏后下发）。
+
+    user_id 缺省取 principal.subject（普通用户只能看自己的）。
+    draft / retired 状态的 Skill 不下发。
+    """
+    target_user_id = user_id or principal.subject
+    ensure_user(db, principal, target_user_id)
+    rows = db.scalars(
+        select(Skill).where(
+            Skill.tenant_id == principal.tenant_id,
+            Skill.user_id == target_user_id,
+            Skill.status.in_(DELIVERABLE_SKILL_STATUSES),
+        ).order_by(Skill.updated_at.desc())
+    ).all()
+    sanitized = sanitize_skills(list(rows))
+    # 冷启动兜底：列表为空时按 observation_days 推荐分阶段文案 key
+    cold_start_hint: str | None = None
+    observation_days = 0
+    if not sanitized:
+        profile = db.scalar(
+            select(UserProfile).where(
+                UserProfile.tenant_id == principal.tenant_id,
+                UserProfile.user_id == target_user_id,
+            )
+        )
+        if profile and profile.traits:
+            observation_days = int(profile.traits.get("observation_days", 0) or 0)
+        cold_start_hint = _cold_start_stage(observation_days)
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="skill.list",
+        object_type="skill",
+        object_id=target_user_id,
+        metadata={"count": len(sanitized), "user_id": target_user_id},
+    )
+    db.commit()
+    return {
+        "skills": sanitized,
+        "cold_start_hint": cold_start_hint,
+        "observation_days": observation_days,
+    }
+
+
+@router.get("/skills/{skill_id}")
+def get_skill(
+    skill_id: str,
+    db: DB,
+    principal: PRINCIPAL,
+    _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
+):
+    """用户拉取单个 Skill 详情（脱敏后下发）。
+
+    校验 skill 属于当前 tenant+user，status IN ('reviewed','signed')。
+    """
+    row = _get_owned_skill(db, principal, skill_id)
+    ensure_user(db, principal, row.user_id)
+    if row.status not in DELIVERABLE_SKILL_STATUSES:
+        raise HTTPException(status_code=404, detail="skill not deliverable")
+    sanitized = sanitize_skill(row)
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="skill.detail",
+        object_type="skill",
+        object_id=row.id,
+        metadata={"status": row.status},
+    )
+    db.commit()
+    return sanitized
+
+
+@router.post("/skills/{skill_id}/transition")
+def transition_skill(
+    skill_id: str,
+    payload: SkillTransition,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("admin", "professional"))],
+):
+    """Skill 治理状态机转换：draft→reviewed→signed→retired。
+
+    不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。
+    """
+    row = _get_owned_skill(db, principal, skill_id)
+    old_status = row.status
+    new_status = payload.new_status
+    expected = SKILL_TRANSITIONS.get(old_status)
+    if expected is None or expected != new_status:
+        raise HTTPException(
+            status_code=409,
+            detail=f"invalid transition: {old_status} -> {new_status}",
+        )
+    row.status = new_status
+    row.updated_at = datetime.now(timezone.utc)
+    db.flush()
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="skill.transition",
+        object_type="skill",
+        object_id=row.id,
+        metadata={"old_status": old_status, "new_status": new_status},
+    )
+    db.commit()
+    db.refresh(row)
+    return {"id": row.id, "status": row.status, "previous_status": old_status}
+
+
+# ---------- P4 机构去标识群体画像 ----------
+
+@router.get("/tenant/portrait", response_model=TenantPortraitOut)
+def tenant_portrait(
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("admin", "professional", "auditor"))],
+):
+    """机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。
+
+    聚合维度：mood_hint 分布、observation_days 统计、近 7 天活跃用户数、
+    escalation 计数、Skill 下发数。
+    去标识保护：任何聚合桶计数 < 5 时合并到 "other" 桶，防重标识；
+    不返回单个用户 ID/特征。
+    """
+    portrait = build_tenant_portrait(db, principal.tenant_id)
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="tenant.portrait.view",
+        object_type="tenant",
+        object_id=principal.tenant_id,
+    )
+    db.commit()
+    return portrait
+
+
+# ---------- P5 灰度回滚方案 ----------
+
+@router.get("/config/flags")
+def get_config_flags(db: DB, principal: PRINCIPAL):
+    """用户拉取本租户的 feature flags（用于端侧灰度联动）。
+
+    任何登录用户可访问；返回的 flags 经 [get_tenant_flags] 与默认值合并，
+    保证端侧拿到的字段集合稳定。
+    """
+    return get_tenant_flags(db, principal.tenant_id)
+
+
+@router.put("/tenant/flags")
+def update_tenant_flags(
+    payload: TenantFlagUpdate,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("admin"))],
+):
+    """admin 修改本租户的 feature flag（灰度回滚入口）。
+
+    body={"flag_key": "passive_sensing_enabled", "value": false}；
+    调 [set_tenant_flag] 更新 + commit，并记录审计 action="tenant.flags.update"。
+    """
+    try:
+        updated = set_tenant_flag(db, principal.tenant_id, payload.flag_key, payload.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="tenant.flags.update",
+        object_type="tenant",
+        object_id=principal.tenant_id,
+        metadata={"flag_key": payload.flag_key, "value": payload.value},
+    )
+    db.commit()
+    return updated
+
+
+@router.post("/skills/batch-retire")
+def batch_retire_skills(
+    payload: SkillBatchRetire,
+    db: DB,
+    principal: Annotated[Principal, Depends(require_roles("admin"))],
+):
+    """admin 批量回滚 Skill：把指定 skill_ids 的 status 转为 retired。
+
+    - 仅本租户的 Skill 会被影响（跨租户忽略，不报错）
+    - 已是 retired 的 Skill 幂等跳过
+    - 记录审计 action="skill.batch_retire"
+    - 返回 {"retired": N}（N 为本次实际转为 retired 的数量）
+    """
+    rows = db.scalars(
+        select(Skill).where(
+            Skill.tenant_id == principal.tenant_id,
+            Skill.id.in_(payload.skill_ids),
+        )
+    ).all()
+    retired_count = 0
+    retired_ids: list[str] = []
+    previous_statuses: dict[str, str] = {}
+    for row in rows:
+        if row.status == "retired":
+            continue
+        previous_statuses[row.id] = row.status
+        row.status = "retired"
+        row.updated_at = datetime.now(timezone.utc)
+        retired_ids.append(row.id)
+        retired_count += 1
+    db.flush()
+    if retired_count > 0:
+        append_audit(
+            db,
+            tenant_id=principal.tenant_id,
+            actor_type=principal.role,
+            actor_id=principal.subject,
+            action="skill.batch_retire",
+            object_type="skill",
+            object_id=",".join(retired_ids),
+            metadata={
+                "skill_ids": retired_ids,
+                "previous_statuses": previous_statuses,
+                "new_status": "retired",
+            },
+        )
+    db.commit()
+    return {"retired": retired_count}
 
 
 def reject_immutable_mutation(

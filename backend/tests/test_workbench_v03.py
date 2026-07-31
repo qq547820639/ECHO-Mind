@@ -3,7 +3,10 @@ from pathlib import Path
 
 from app.auth import create_access_token
 from app.database import SessionLocal
-from app.models import EmergencyContact, Escalation, User
+from app.models import Checkin, EmergencyContact, Escalation, QuestionnaireResult, RiskSignal, User
+from app.services.crypto import encrypt_text
+from app.services.safety import RULE_PACK_VERSION
+from app.services.scoring import score_phq9
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 CONSOLE_HTML = BACKEND_DIR / "app" / "templates" / "console.html"
@@ -107,23 +110,49 @@ def test_no_human_received_wording_anywhere(client, user_headers):
 
 
 def test_case_review_evidence_blocks_complete_and_traceable(client, user_headers):
-    checkin = client.post("/v1/checkins", json={
-        "event_id": "evt_wb_checkin", "user_id": "u_demo", "mood": 2, "stress": 5,
-        "energy": 2, "sleep_recovery": 2, "note": "最近状态很平稳",
-        "client_time": datetime.now(timezone.utc).isoformat(), "device_timezone": "Asia/Shanghai",
-    }, headers=user_headers)
-    assert checkin.status_code == 200
+    with SessionLocal() as db:
+        db.add(Checkin(
+            event_id="evt_wb_checkin",
+            tenant_id="t_demo",
+            user_id="u_demo",
+            mood=2, stress=5, energy=2, sleep_recovery=2,
+            event_flag=False, help_requested=False,
+            note_ciphertext=encrypt_text("最近状态很平稳", aad="t_demo:u_demo:checkin"),
+            client_time=datetime.now(timezone.utc),
+            device_timezone="Asia/Shanghai",
+        ))
+        db.commit()
     safety = client.post("/v1/safety/check", json={
         "user_id": "u_demo", "text": "我想死",
     }, headers=user_headers)
-    assert safety.status_code == 200
-    assert safety.json()["severity"] == "red"
-    esc_id = safety.json()["escalation_id"]
+    assert safety.status_code == 410
+    # /safety/check 已停用，通过 API 创建 escalation（含审计轨迹）+ DB 插入 red RiskSignal。
+    esc_id = open_escalation(client, user_headers, event_id="evt_wb_safety_esc")
     answers = [0, 0, 0, 0, 0, 0, 0, 0, 1]
-    phq = client.post("/v1/questionnaires/phq9/responses", json={
-        "event_id": "evt_wb_phq9", "user_id": "u_demo", "answers": answers,
-    }, headers=user_headers)
-    assert phq.status_code == 200
+    with SessionLocal() as db:
+        signal = RiskSignal(
+            tenant_id="t_demo",
+            user_id="u_demo",
+            source="free_text",
+            severity="red",
+            rule_pack_version=RULE_PACK_VERSION,
+            evidence_refs=["RED-001"],
+            labels=["immediate_safety_risk"],
+        )
+        db.add(signal)
+        db.flush()
+        phq_result = score_phq9(answers)
+        db.add(QuestionnaireResult(
+            event_id="evt_wb_phq9",
+            tenant_id="t_demo",
+            user_id="u_demo",
+            instrument="phq9",
+            version="phq9-v1",
+            answers=answers,
+            score=phq_result.score,
+            interpretation=phq_result.interpretation,
+        ))
+        db.commit()
 
     review = client.get(
         f"/v1/escalations/{esc_id}/case-review",
