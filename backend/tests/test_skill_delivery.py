@@ -154,28 +154,31 @@ def test_sanitize_skill_keeps_user_own_id_and_capability():
 
 # ---------- T10.4 权限隔离 + 状态下发控制 ----------
 
-def test_user_lists_only_own_reviewed_signed_skills(client, user_headers):
-    """普通用户只能看自己的 reviewed/signed Skill，看不到 draft / retired。"""
-    # u_demo: reviewed + draft + retired
+def test_user_lists_only_own_signed_skills(client, user_headers):
+    """普通用户只能看自己的 signed Skill，看不到 reviewed/draft/retired（v0.6 signed-only）。"""
+    # u_demo: signed + reviewed + draft + retired
+    _make_skill(name="own_signed", status="signed", user_id="u_demo")
     _make_skill(name="own_reviewed", status="reviewed", user_id="u_demo")
     _make_skill(name="own_draft", status="draft", user_id="u_demo")
     _make_skill(name="own_retired", status="retired", user_id="u_demo")
-    # u_other: reviewed（其他用户的不应出现）
-    _make_skill(name="other_reviewed", status="reviewed", user_id="u_other")
+    # u_other: signed（其他用户的不应出现）
+    _make_skill(name="other_signed", status="signed", user_id="u_other")
 
     response = client.get("/v1/skills", headers=user_headers)
     assert response.status_code == 200
     items = response.json()["skills"]
     names = [item["name"] for item in items]
-    assert "own_reviewed" in names
-    # draft / retired 不下发
+    assert "own_signed" in names
+    # reviewed / draft / retired 不下发
+    assert "own_reviewed" not in names
     assert "own_draft" not in names
     assert "own_retired" not in names
     # 其他用户的不出现
-    assert "other_reviewed" not in names
-    # 所有返回项都属于 u_demo
+    assert "other_signed" not in names
+    # 所有返回项都属于 u_demo 且均为 signed
     for item in items:
         assert item["user_id"] == "u_demo"
+        assert item["status"] == "signed"
 
 
 def test_draft_skill_not_in_delivery(client, user_headers):
@@ -194,14 +197,21 @@ def test_user_cannot_view_draft_skill_detail(client, user_headers):
     assert response.status_code == 404
 
 
-def test_user_can_view_reviewed_skill_detail(client, user_headers):
-    """用户能 GET /v1/skills/{id} 拉 reviewed Skill 详情（脱敏后）。"""
-    skill = _make_skill(name="visible_reviewed", status="reviewed", user_id="u_demo")
+def test_user_cannot_view_reviewed_skill_detail(client, user_headers):
+    """用户 GET /v1/skills/{id} 拉 reviewed Skill 返回 404（signed-only，reviewed 不下发）。"""
+    skill = _make_skill(name="hidden_reviewed", status="reviewed", user_id="u_demo")
+    response = client.get(f"/v1/skills/{skill.id}", headers=user_headers)
+    assert response.status_code == 404
+
+
+def test_user_can_view_signed_skill_detail(client, user_headers):
+    """用户能 GET /v1/skills/{id} 拉 signed Skill 详情（脱敏后）。"""
+    skill = _make_skill(name="visible_signed", status="signed", user_id="u_demo")
     response = client.get(f"/v1/skills/{skill.id}", headers=user_headers)
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == skill.id
-    assert body["status"] == "reviewed"
+    assert body["status"] == "signed"
     # 脱敏后不含内部字段
     assert "content_hash" not in body
     assert "tenant_id" not in body
@@ -275,11 +285,13 @@ def test_cannot_reverse_transition_signed_to_reviewed(client):
 
 
 def test_professional_can_transition_reviewed_to_signed(client):
-    """professional 能 reviewed→signed。"""
+    """professional 能 reviewed→signed（需 policy_version + review_evidence）。"""
     skill = _make_skill(name="trans_pro", status="reviewed", user_id="u_demo")
     response = client.post(
         f"/v1/skills/{skill.id}/transition",
-        json={"new_status": "signed"},
+        json={"new_status": "signed",
+              "policy_version": "policy-2026.08",
+              "review_evidence": {"reviewer": "pro", "notes": "ok"}},
         headers=_professional_headers(),
     )
     assert response.status_code == 200
@@ -324,7 +336,9 @@ def test_full_transition_chain_draft_to_retired(client):
     # reviewed → signed
     r2 = client.post(
         f"/v1/skills/{skill.id}/transition",
-        json={"new_status": "signed"},
+        json={"new_status": "signed",
+              "policy_version": "policy-2026.08",
+              "review_evidence": {"reviewer": "pro", "notes": "ok"}},
         headers=_professional_headers(),
     )
     assert r2.status_code == 200
@@ -348,7 +362,7 @@ def test_full_transition_chain_draft_to_retired(client):
 # ---------- T10.4 完整流程 ----------
 
 def test_full_flow_sandbox_to_delivery(client):
-    """沙箱创建 Skill(draft) → admin transition 到 reviewed → 用户 GET /v1/skills 能看到。"""
+    """沙箱创建 Skill(draft) → transition 到 signed → 用户 GET /v1/skills 能看到（signed-only）。"""
     today = datetime.now(timezone.utc).date()
     with SessionLocal() as db:
         # 1. 沙箱冷启动创建 draft Skill
@@ -375,7 +389,7 @@ def test_full_flow_sandbox_to_delivery(client):
     for sid in skill_ids:
         assert sid not in before_ids
 
-    # 3. admin 将第一个 draft Skill 转为 reviewed
+    # 3. admin 将第一个 draft Skill 转为 reviewed（reviewed 仍不下发）
     resp_trans = client.post(
         f"/v1/skills/{skill_ids[0]}/transition",
         json={"new_status": "reviewed"},
@@ -383,8 +397,20 @@ def test_full_flow_sandbox_to_delivery(client):
     )
     assert resp_trans.status_code == 200
     assert resp_trans.json()["status"] == "reviewed"
+    resp_reviewed = client.get("/v1/skills", headers=user_headers)
+    assert skill_ids[0] not in [item["id"] for item in resp_reviewed.json()["skills"]]
 
-    # 4. 用户 GET /v1/skills 能看到该 reviewed Skill
+    # 4. professional 再转 signed → 用户能看到
+    resp_signed = client.post(
+        f"/v1/skills/{skill_ids[0]}/transition",
+        json={"new_status": "signed",
+              "policy_version": "policy-2026.08",
+              "review_evidence": {"reviewer": "pro", "notes": "ok"}},
+        headers=_professional_headers(),
+    )
+    assert resp_signed.status_code == 200
+    assert resp_signed.json()["status"] == "signed"
+
     resp_after = client.get("/v1/skills", headers=user_headers)
     assert resp_after.status_code == 200
     after_ids = [item["id"] for item in resp_after.json()["skills"]]
@@ -393,12 +419,12 @@ def test_full_flow_sandbox_to_delivery(client):
     target = next(item for item in resp_after.json()["skills"] if item["id"] == skill_ids[0])
     assert "content_hash" not in target
     assert "tenant_id" not in target
-    assert target["status"] == "reviewed"
+    assert target["status"] == "signed"
 
 
 def test_admin_can_list_skills_for_other_user(client):
-    """admin/professional 可以通过 user_id query param 拉取指定用户的 Skill。"""
-    _make_skill(name="admin_view_other", status="reviewed", user_id="u_other")
+    """admin/professional 可以通过 user_id query param 拉取指定用户的 Skill（signed-only）。"""
+    _make_skill(name="admin_view_other", status="signed", user_id="u_other")
     response = client.get(
         "/v1/skills?user_id=u_other",
         headers=_admin_headers(),
@@ -481,7 +507,7 @@ def test_cold_start_hint_stage_7_plus_for_over_seven_days(client, user_headers):
 
 def test_non_empty_skill_list_has_null_cold_start_hint(client, user_headers):
     """非空列表时 cold_start_hint 为 null。"""
-    _make_skill(name="hint_null_when_nonempty", status="reviewed", user_id="u_demo")
+    _make_skill(name="hint_null_when_nonempty", status="signed", user_id="u_demo")
     response = client.get("/v1/skills", headers=user_headers)
     assert response.status_code == 200
     body = response.json()

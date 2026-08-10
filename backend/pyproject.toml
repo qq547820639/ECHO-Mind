@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "echo-mind-path-a"
-version = "0.2.0"
+version = "0.6.0"
 description = "ECHO Mind Path A mobile backend and clinician console"
 requires-python = ">=3.12"
 dependencies = [

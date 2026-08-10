@@ -147,7 +147,11 @@ class DataSubjectRequestCreate(BaseModel):
 
 
 class DataSubjectRequestComplete(BaseModel):
-    result_summary: str = Field(min_length=2, max_length=4000)
+    result_summary: str | None = Field(default=None, max_length=4000)
+
+
+#: 派生特征窗口内可声明的信号源集合（与 Android FeatureExtractor.sources_present 对齐）
+SOURCES_PRESENT_VALUES = ("accel", "gyro", "screen", "notification", "app_activity", "mic_opt", "health")
 
 
 class DerivedFeatureIn(BaseModel):
@@ -165,6 +169,10 @@ class DerivedFeatureIn(BaseModel):
     window_end: datetime
     summary: str = Field(max_length=4000)
     vector: list[float] = Field(default_factory=list, max_length=256)
+    # v0.6：窗口内实际存在的信号源（供 gap_finder 覆盖度判断；可选，缺省空）
+    sources_present: list[Literal["accel", "gyro", "screen", "notification", "app_activity", "mic_opt", "health"]] = (
+        Field(default_factory=list, max_length=16)
+    )
 
     @field_validator("schema_version")
     @classmethod
@@ -174,8 +182,18 @@ class DerivedFeatureIn(BaseModel):
         return value
 
 
+#: Skill action_type 白名单（PRD 契约点 4）：白名单外一律不校验通过、不下发、不执行。
+ACTION_TYPE_WHITELIST: tuple[str, ...] = (
+    "guided_steps",
+    "reflection_prompt",
+    "breathing",
+    "journaling",
+    "checklist",
+)
+
+
 class SkillOut(BaseModel):
-    """技能包输出契约。"""
+    """技能包输出契约（PRD 契约点 4/5）。"""
     id: str
     user_id: str
     name: str
@@ -184,8 +202,48 @@ class SkillOut(BaseModel):
     guardrails: list[str] = Field(default_factory=list)
     steps: list[dict[str, Any]] = Field(default_factory=list)
     status: str
+    # 执行契约字段（契约点 4）
+    action_type: str = "guided_steps"
+    estimated_duration: int | None = None
+    completion_schema: dict[str, Any] | None = None
+    safety_constraints: list[str] | None = None
+    # 治理字段（契约点 5）
+    signed_by: str | None = None
+    signed_at: datetime | None = None
+    policy_version: str | None = None
+    review_evidence: dict[str, Any] | None = None
+    revision: int = 1
+    supersedes_skill_id: str | None = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("action_type")
+    @classmethod
+    def validate_action_type(cls, value: str) -> str:
+        if value not in ACTION_TYPE_WHITELIST:
+            raise ValueError(f"action_type must be one of {ACTION_TYPE_WHITELIST}")
+        return value
+
+
+class SkillCompletionCreate(BaseModel):
+    """Skill 执行完成/停止上报入参（v0.6）。"""
+    event_id: str = Field(min_length=8, max_length=80)
+    user_id: str
+    skill_id: str
+    status: Literal["started", "completed", "stopped"]
+    duration_seconds: int = Field(default=0, ge=0, le=86400)
+    client_time: datetime
+
+
+class SkillCompletionOut(BaseModel):
+    """Skill 执行完成/停止上报输出。"""
+    id: str
+    user_id: str
+    skill_id: str
+    status: str
+    duration_seconds: int = 0
+    client_time: datetime
+    created_at: datetime
 
 
 class ToolOut(BaseModel):
@@ -222,20 +280,27 @@ class SandboxRunCreate(BaseModel):
 
 
 class SkillTransition(BaseModel):
-    """Skill 治理状态机转换入参。new_status 仅允许 reviewed/signed/retired。"""
+    """Skill 治理状态机转换入参。new_status 仅允许 reviewed/signed/retired。
+
+    转入 signed 时必须提供 policy_version 与 review_evidence（契约点 5 重签校验）。
+    """
     new_status: Literal["reviewed", "signed", "retired"]
+    policy_version: str | None = Field(default=None, min_length=1, max_length=80)
+    review_evidence: dict[str, Any] | None = None
 
 
 class TenantPortraitOut(BaseModel):
     """机构去标识群体画像输出契约。
 
-    仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 "other"。
+    仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 "other"（且 other<5 时不输出）。
+    suppression 标记各敏感维度的抑制状态（"ok" 或 "suppressed"）。
     """
     mood_distribution: dict[str, int] = Field(default_factory=dict)
     observation_stats: dict[str, float] = Field(default_factory=dict)
     active_users_7d: int = 0
     escalation_metrics: dict[str, int] = Field(default_factory=dict)
     skill_count: dict[str, int] = Field(default_factory=dict)
+    suppression: dict[str, str] = Field(default_factory=dict)
 
 
 class TenantFlagUpdate(BaseModel):

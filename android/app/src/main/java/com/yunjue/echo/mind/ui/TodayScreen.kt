@@ -29,37 +29,34 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.SyncState
 import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.model.Severity
+import com.yunjue.echo.mind.data.isNetworkAvailable
+import com.yunjue.echo.mind.data.mapSyncState
+import com.yunjue.echo.mind.data.syncStateText
 
 /**
  * 「今天」主界面（T11 改造）：无输入框。
  *
  * - 移除原 mood/stress/energy/sleep Slider、note 输入、PHQ-9/GAD-7 入口、人工帮助按钮。
- * - 改为渲染后端下发的 Skill 能力卡片（LazyColumn + [SkillCardHost]）。
+ * - 改为渲染后端下发的 Skill 能力卡片（LazyColumn + [SkillCardHost]），每个「开始」按钮有真实执行行为。
  * - Skill 列表为空时按 [SkillFetchResult.coldStartHint] 展示分阶段冷启动文案。
- * - 保留 safetyMode 旁路：passiveSafety 命中 RED 仍切 [SafetyScreen]。
- * - 保留待同步 AssistChip；底部保留小的「紧急支持」快捷入口（危机入口常驻在底部 SUPPORT tab）。
+ * - 同步状态按 [SyncState] 映射为用户文案（PRD 契约点 9），不暴露 HTTP status。
+ * - PRD 契约点 1 收口：不再由 passiveSafety RED 切 [SafetyScreen]（行为派生特征不触发危机 UI）。
  */
 @Composable
 fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit) {
-    var safetyMode by remember { mutableStateOf(false) }
-
-    // 被动特征安全状态：saveDerivedFeature 在后台触发 RED 时经 passiveSafety StateFlow 推送，
-    // 此处观察后切到 SafetyScreen（与原签到 RED 路径一致）。
-    val passiveSafety by repository.passiveSafety.collectAsState()
-    LaunchedEffect(passiveSafety) {
-        if (passiveSafety?.severity == Severity.RED) safetyMode = true
-    }
-
-    if (safetyMode) {
-        SafetyScreen("已在本机建立高优先级事件；只有服务端确认后才可视为人工已收到。") { safetyMode = false }
-        return
-    }
-
     val context = LocalContext.current
     val pending by repository.observePendingCount().collectAsState(initial = 0)
     val (skillState, retry) = rememberSkillList(repository)
+
+    val syncState = mapSyncState(
+        pendingCount = pending,
+        lastHttpCode = repository.lastSyncHttpCode(),
+        networkAvailable = isNetworkAvailable(context),
+        deadLetterCount = repository.deadLetterCount()
+    )
+    val syncLabel = syncStateText(syncState, pending)
 
     // P5 灰度回滚：拉取 feature flags 缓存 + 观察 skills_delivery_enabled。
     // flag 关闭时隐藏 Skill 卡片区，显示「能力下发已暂停」。
@@ -77,9 +74,9 @@ fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit) {
     ) {
         item { Text("今天", style = MaterialTheme.typography.headlineMedium) }
         item {
-            // 待同步提示保留：被动特征/历史事件未上行时提示用户
-            if (pending > 0) {
-                AssistChip(onClick = { SyncWorker.enqueue(context) }, label = { Text("待同步 $pending 项") })
+            // 同步状态文案 + 计数（PRD 契约点 9）：已同步时不打扰
+            if (pending > 0 || syncState != SyncState.SYNCED) {
+                AssistChip(onClick = { SyncWorker.enqueue(context) }, label = { Text(syncLabel) })
             }
         }
         when {
@@ -118,9 +115,8 @@ fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit) {
                 )
             }
             else -> items(skillState.skills) { skill ->
-                SkillCardHost(skill) {
-                    // T11 仅负责卡片渲染；Skill 执行流程不在本任务范围
-                }
+                // 每个「开始」按钮都有真实执行行为（SkillCardHost 内部状态机 + 上报）
+                SkillCardHost(skill, repository)
             }
         }
         // 底部小的紧急支持快捷入口：危机入口在 SUPPORT tab 常驻，此处提供一键跳转

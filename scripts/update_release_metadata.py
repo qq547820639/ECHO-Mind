@@ -18,11 +18,11 @@ for path in sorted(ROOT.rglob('*')):
 
 manifest = {
     'project': 'ECHO Mind Android Path A',
-    'version': '0.2.0',
+    'version': '0.6.0',
     'release_status': 'pilot-candidate',
     'generated_at': datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
     'branch': 'main',
-    'git_ref': 'path-a-pilot-candidate-v0.2.0',
+    'git_ref': 'path-a-pilot-candidate-v0.6.0',
     'scope': [
         'Android phone-first Path A source',
         'deterministic local safety rules and fixed scripts',
@@ -32,7 +32,7 @@ manifest = {
         'tests, safety corpus, CI/CD, SBOM and pilot governance pack',
     ],
     'validation': {
-        'backend_tests_passed': 781,
+        'backend_tests_passed': 874,
         'synthetic_safety_cases': 650,
         'content_packs_validated': 4,
         'python_compile': 'passed',

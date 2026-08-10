@@ -4,74 +4,72 @@ import com.yunjue.echo.mind.model.Severity
 import com.yunjue.echo.mind.security.SafetyEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * T05 被动特征安全评估单测：
+ * T05 被动安全语义收口单测（PRD v0.6 契约点 1，纯 JVM）。
  *
- * - 命中确定性红色关键词 → RED + freezeGeneration + scriptKey="l2_stabilization"
- * - 多关键词命中 → matchedRuleIds 含多条
- * - 否定语境仍触发 RED（被动信号保守策略，区别于主动文本 evaluate 的否定守卫）
- * - 正常 summary 不触发 → NONE
- * - 预处理：标点剥离后仍命中
+ * - SafetyEngine.evaluatePassive 已删除（反射断言：方法不存在即编译/运行期证明）；
+ * - passiveRedTerms 被动词表已删除；
+ * - 行为派生摘要（含旧被动词条）不再产生 RED / freezeGeneration（恒 NONE 语义）；
+ * - 主动文本 RED 是危机信号唯一来源白名单之一，原有语义保留（正控制）。
  */
 class SafetyEnginePassiveTest {
 
     @Test
-    fun passiveRedTermFreezesGeneration() {
-        val result = SafetyEngine.evaluatePassive("用户输入多次提及自杀倾向")
-        assertEquals(Severity.RED, result.severity)
-        assertTrue("被动 RED 必须冻结生成", result.freezeGeneration)
-        assertEquals("l2_stabilization", result.scriptKey)
-        // "自杀" 是列表首项 → PASSIVE-RED-001
-        assertEquals(listOf("PASSIVE-RED-001"), result.matchedRuleIds)
+    fun passiveEvaluationFunctionIsRemoved() {
+        // 编译期保证（下方不引用）+ 运行期断言：方法已删除
+        val method = runCatching {
+            SafetyEngine::class.java.getDeclaredMethod("evaluatePassive", String::class.java)
+        }.getOrNull()
+        assertNull("evaluatePassive 应已删除（PRD 契约点 1：行为特征不得触发危机判定）", method)
     }
 
     @Test
-    fun multiplePassiveRedTermsAllMatched() {
-        val result = SafetyEngine.evaluatePassive("最近不想活，多次出现自杀念头")
-        assertEquals(Severity.RED, result.severity)
-        assertTrue(result.freezeGeneration)
-        // "自杀" → 001，"不想活" → 005；按列表顺序编号，不按文本出现顺序
-        assertTrue(
-            "应同时命中两条规则，实际：${result.matchedRuleIds}",
-            result.matchedRuleIds.containsAll(listOf("PASSIVE-RED-001", "PASSIVE-RED-005"))
+    fun passiveRedTermListIsRemoved() {
+        val field = runCatching {
+            SafetyEngine::class.java.getDeclaredField("passiveRedTerms")
+        }.getOrNull()
+        assertNull("passiveRedTerms 被动词表应已删除（静态扫描：不存在行为→危机的映射词表）", field)
+    }
+
+    @Test
+    fun behavioralSummaryYieldsNoneWithoutPassiveEvaluator() {
+        // 行为派生摘要（即使含旧被动词条）经主动文本规则评估应为 NONE（恒 NONE 语义）
+        val decision = SafetyEngine.evaluate(
+            "过去5分钟活动量低，屏幕开启0次，收到0条通知。"
         )
-        assertEquals(2, result.matchedRuleIds.size)
+        assertEquals(Severity.NONE, decision.severity)
+        assertFalse("被动摘要不得冻结生成", decision.freezeGeneration)
+        assertTrue(decision.matchedRuleIds.isEmpty())
     }
 
-    /**
-     * 被动信号保守策略：即使 summary 含否定语境（如"没有自杀念头"），
-     * 仍判 RED。区别于主动文本 [SafetyEngine.evaluate] 的 NEGATION_GUARDS ——
-     * 被动摘要不像主动文本那样可靠地承载否定结构，保守起见命中即升级，
-     * 与后端 evaluate_passive 一致（后端只做 substring 匹配，无否定守卫）。
-     */
     @Test
-    fun negationContextStillTriggersRed() {
-        val result = SafetyEngine.evaluatePassive("用户多次表示没有自杀念头")
-        assertEquals(
-            "被动信号保守策略：含'自杀'即 RED，不做否定检查",
-            Severity.RED,
-            result.severity
+    fun behavioralSummaryWithOldRedTermDoesNotTrigger() {
+        // 即便摘要包含"自杀"字样（旧被动 RED 词条），主动文本规则下也不产生 RED——
+        // 该文本不是用户主动表达，不能触发危机链路
+        val decision = SafetyEngine.evaluate(
+            "过去5分钟活动量低，屏幕上无操作。用户被提及一次自杀倾向关键词。"
         )
-        assertTrue(result.freezeGeneration)
+        assertEquals(Severity.NONE, decision.severity)
+        assertFalse(decision.freezeGeneration)
     }
 
     @Test
-    fun normalSummaryDoesNotTrigger() {
-        val result = SafetyEngine.evaluatePassive("过去5分钟活动量低")
-        assertEquals(Severity.NONE, result.severity)
-        assertFalse(result.freezeGeneration)
-        assertTrue(result.matchedRuleIds.isEmpty())
+    fun activeTextRedRemainsTheWhitelistSource() {
+        // 主动文本 RED 是危机信号唯一来源白名单（契约点 1），保留原有语义
+        val decision = SafetyEngine.evaluate("我已经准备好工具，今晚结束生命")
+        assertEquals(Severity.RED, decision.severity)
+        assertTrue("主动文本命中 RED 应冻结生成", decision.freezeGeneration)
     }
 
     @Test
-    fun punctuationStrippedBeforeMatch() {
-        // 标点应被预处理剥离，与 evaluate 一致
-        val result = SafetyEngine.evaluatePassive("自杀。")
-        assertEquals(Severity.RED, result.severity)
-        assertTrue(result.freezeGeneration)
-        assertEquals(listOf("PASSIVE-RED-001"), result.matchedRuleIds)
+    fun negatedRiskStillRequestsHumanReview() {
+        // 既有主动文本语义不变：否定语境降级为 YELLOW（人工复核，不自动危机）
+        val decision = SafetyEngine.evaluate("我没有想死，但最近很难受")
+        assertEquals(Severity.YELLOW, decision.severity)
+        assertFalse(decision.freezeGeneration)
     }
 }

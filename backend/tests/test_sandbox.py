@@ -90,7 +90,8 @@ def test_audit_day_reads_daily_data():
 
         summary = audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today)
         assert summary["feature_count"] >= 1
-        assert summary["narrative_mood_hint"] == "偏低"
+        # PRD 契约点 2：无情绪推断（narrative_mood_hint 恒为 None）
+        assert summary["narrative_mood_hint"] is None
         assert summary["gaps"] == []
 
 

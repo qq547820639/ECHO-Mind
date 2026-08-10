@@ -16,6 +16,34 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Skill, Tool
+from app.schemas import ACTION_TYPE_WHITELIST
+
+#: 未显式匹配时的安全默认执行契约（PRD 契约点 4）
+DEFAULT_ESTIMATED_DURATION_SECONDS = 300
+DEFAULT_COMPLETION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["started", "completed", "stopped"]},
+        "duration_seconds": {"type": "integer", "minimum": 0},
+    },
+    "required": ["status"],
+}
+
+#: tool_type → action_type 映射（白名单内；未命中给安全默认 guided_steps）
+_TOOL_TYPE_TO_ACTION_TYPE: dict[str, str] = {
+    "data_check": "checklist",
+    "signal_probe": "checklist",
+    "observation_wait": "journaling",
+    "mood_check": "reflection_prompt",
+    "breathing": "breathing",
+}
+
+
+def _action_type_for(tool_type: str) -> str:
+    mapped = _TOOL_TYPE_TO_ACTION_TYPE.get(tool_type)
+    if mapped in ACTION_TYPE_WHITELIST:
+        return mapped
+    return "guided_steps"
 
 
 def induct_skills(
@@ -72,6 +100,12 @@ def induct_skills(
                 steps=steps,
                 status="draft",
                 content_hash=content_hash,
+                # PRD 契约点 4：归纳时填充执行契约安全默认值
+                action_type=_action_type_for(tool_type),
+                estimated_duration_seconds=DEFAULT_ESTIMATED_DURATION_SECONDS,
+                completion_schema=dict(DEFAULT_COMPLETION_SCHEMA),
+                safety_constraints=list(guardrails),
+                revision=1,
             )
             db.add(skill)
             db.flush()

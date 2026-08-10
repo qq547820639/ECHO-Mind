@@ -67,8 +67,9 @@ data class OutboxEventEntity(
 )
 
 /**
- * 原始信号样本缓冲（仅端侧落盘，不上云）。
- * value 存储序列化样本（如 JSON {"x":0.1,"y":0.2,"z":0.3}），兼容不同维度传感器。
+ * 原始信号样本缓冲历史类定义（Room v3 遗留，仅作历史，**不再注册**到 @Database）。
+ *
+ * v4 迁移（MIGRATION_3_4）已 DROP sensor_samples 表，落实"原始数据不落盘"承诺。
  */
 @Entity(tableName = "sensor_samples")
 data class SensorSampleEntity(
@@ -117,10 +118,8 @@ interface EchoDao {
 
     // ===== T04 派生特征 DAO =====
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFeatureVector(value: FeatureVectorEntity)
-    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertSensorSample(value: SensorSampleEntity)
     @Query("SELECT * FROM feature_vectors WHERE synced = 0 ORDER BY windowStart ASC") suspend fun pendingFeatureVectors(): List<FeatureVectorEntity>
     @Query("UPDATE feature_vectors SET synced = 1 WHERE id = :id") suspend fun markFeatureVectorSynced(id: String)
-    @Query("DELETE FROM sensor_samples WHERE timestamp < :before") suspend fun deleteSensorSamplesBefore(before: Long)
 }
 
 /**
@@ -162,10 +161,9 @@ interface ConsentDao {
         PracticeCompletionEntity::class,
         OutboxEventEntity::class,
         ConsentEntity::class,
-        SensorSampleEntity::class,
         FeatureVectorEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {

@@ -1,8 +1,8 @@
 package com.yunjue.echo.mind.ui
 
-import android.webkit.WebView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,77 +26,204 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.data.SkillFetchResult
+import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.model.SkillDisplay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Skill 执行状态（PRD v0.6 契约点 4：至少三态状态机）。 */
+enum class SkillRunStatus { IDLE, RUNNING, PAUSED, COMPLETED, STOPPED }
+
 /**
- * 卡片 WebView 安全沙箱配置：禁用 JS / 文件访问 / DOM 存储。
+ * 单次 Skill 执行会话状态机（纯 Kotlin，便于单测）。
  *
- * 卡片内容来自后端下发的 Skill 字段，虽经脱敏仍按不可信内容处理——
- * JS 与文件访问一律关闭，杜绝 XSS 或 file:// 越权读取。
+ * - start() → RUNNING；nextStep() 逐步推进；pause()/resume()；complete()/stop() 收口；
+ * - 完成/停止返回上报 status（"completed"/"stopped"），并计算 durationSeconds；
+ * - 每个可见「开始」按钮经 [SkillCardHost] 绑定本会话，确保点击有真实行为。
  */
-internal fun configureSandboxWebView(webView: WebView) {
-    with(webView.settings) {
-        javaScriptEnabled = false
-        allowFileAccess = false
-        domStorageEnabled = false
+internal class SkillRunSession(
+    val skillId: String,
+    private val nowProvider: () -> Long = System::currentTimeMillis
+) {
+    var status: SkillRunStatus = SkillRunStatus.IDLE
+        private set
+
+    var currentStep: Int = 0
+        private set
+
+    var durationSeconds: Int = 0
+        private set
+
+    private var startedAtMs: Long? = null
+
+    val isRunning: Boolean get() = status == SkillRunStatus.RUNNING
+
+    /** 开始执行（IDLE/已完成/已停止 均可重新开始）。 */
+    fun start() {
+        status = SkillRunStatus.RUNNING
+        currentStep = 0
+        startedAtMs = nowProvider()
+        durationSeconds = 0
+    }
+
+    /** 推进到下一步（不超过总步骤数-1；仅 RUNNING 状态生效）。 */
+    fun nextStep(totalSteps: Int) {
+        if (status != SkillRunStatus.RUNNING) return
+        if (totalSteps <= 0) return
+        currentStep = (currentStep + 1).coerceAtMost(totalSteps - 1)
+    }
+
+    fun pause() {
+        if (status == SkillRunStatus.RUNNING) status = SkillRunStatus.PAUSED
+    }
+
+    fun resume() {
+        if (status == SkillRunStatus.PAUSED) status = SkillRunStatus.RUNNING
+    }
+
+    /** 完成：返回上报 status "completed"（已停止后调用返回 "stopped"）。 */
+    fun complete(): String {
+        if (status == SkillRunStatus.STOPPED) return "stopped"
+        status = SkillRunStatus.COMPLETED
+        durationSeconds = computeDurationSeconds()
+        return "completed"
+    }
+
+    /** 停止：返回上报 status "stopped"（已完成后调用返回 "completed"）。 */
+    fun stop(): String {
+        if (status == SkillRunStatus.COMPLETED) return "completed"
+        status = SkillRunStatus.STOPPED
+        durationSeconds = computeDurationSeconds()
+        return "stopped"
+    }
+
+    /** 当前已耗时（秒），执行中实时展示用。 */
+    fun elapsedSeconds(): Int = startedAtMs?.let { ((nowProvider() - it).coerceAtLeast(0L) / 1000L).toInt() } ?: 0
+
+    private fun computeDurationSeconds(): Int = elapsedSeconds()
+}
+
+/**
+ * Skill 卡片宿主（原生 Compose，替代 WebView 静态展示）：
+ *
+ * - 移除 WebView：提升可访问性 / TalkBack / 字体缩放 / 暗色模式 / UI 一致性；
+ * - 步骤 step-by-step 展示 + 执行控制（开始 → 下一步/暂停 → 继续 → 完成/停止）；
+ * - 每个「开始」按钮都有真实行为（进入执行状态机）；
+ * - 完成/停止后调用 [LocalRepository.recordSkillCompletion] 本地记录 + 触发 SyncWorker 上传。
+ */
+@Composable
+fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val session = remember(skill.id) { SkillRunSession(skill.id) }
+
+    var uiStatus by remember(skill.id) { mutableStateOf(session.status) }
+    var uiStep by remember(skill.id) { mutableStateOf(session.currentStep) }
+    var uiDuration by remember(skill.id) { mutableStateOf(session.durationSeconds) }
+
+    fun syncUi() {
+        uiStatus = session.status
+        uiStep = session.currentStep
+        uiDuration = session.durationSeconds
+    }
+
+    // 执行中实时计时
+    LaunchedEffect(uiStatus) {
+        while (session.isRunning) {
+            delay(1000)
+            uiDuration = session.elapsedSeconds()
+        }
+    }
+
+    // 完成/停止：本地记录 + 可选 server sync
+    fun finish(terminal: () -> String) {
+        scope.launch {
+            val status = terminal()
+            syncUi()
+            runCatching { repository.recordSkillCompletion(skill.id, status, session.durationSeconds) }
+            runCatching { SyncWorker.enqueue(context) }
+        }
+    }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(skill.name, style = MaterialTheme.typography.titleMedium)
+            Text("v${skill.version} · ${skill.status}", style = MaterialTheme.typography.labelSmall)
+
+            if (skill.steps.isNotEmpty()) {
+                HorizontalDivider()
+                Text("步骤", style = MaterialTheme.typography.titleSmall)
+                skill.steps.forEachIndexed { index, step ->
+                    val marker = when {
+                        index < session.currentStep -> "✓"
+                        index == session.currentStep && session.isRunning -> "▶"
+                        else -> "•"
+                    }
+                    Text("$marker ${index + 1}. $step")
+                }
+            }
+
+            if (skill.guardrails.isNotEmpty()) {
+                HorizontalDivider()
+                Text("边界", style = MaterialTheme.typography.titleSmall)
+                skill.guardrails.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            }
+
+            HorizontalDivider()
+
+            when (uiStatus) {
+                SkillRunStatus.IDLE -> Button(
+                    onClick = { session.start(); syncUi() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("开始") }
+
+                SkillRunStatus.RUNNING -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { session.nextStep(skill.steps.size); syncUi() },
+                            enabled = skill.steps.size > 1 && session.currentStep < skill.steps.size - 1,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("下一步") }
+                        OutlinedButton(onClick = { session.pause(); syncUi() }, modifier = Modifier.weight(1f)) {
+                            Text("暂停")
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { finish { session.complete() } }, modifier = Modifier.weight(1f)) {
+                            Text("完成")
+                        }
+                        OutlinedButton(onClick = { finish { session.stop() } }, modifier = Modifier.weight(1f)) {
+                            Text("停止")
+                        }
+                    }
+                }
+
+                SkillRunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { session.resume(); syncUi() }, modifier = Modifier.weight(1f)) {
+                        Text("继续")
+                    }
+                    Button(onClick = { finish { session.complete() } }, modifier = Modifier.weight(1f)) {
+                        Text("完成")
+                    }
+                    OutlinedButton(onClick = { finish { session.stop() } }, modifier = Modifier.weight(1f)) {
+                        Text("停止")
+                    }
+                }
+
+                SkillRunStatus.COMPLETED -> Text("已完成 · 用时 ${uiDuration} 秒")
+                SkillRunStatus.STOPPED -> Text("已停止 · 用时 ${uiDuration} 秒")
+            }
+        }
     }
 }
-
-/**
- * 由 [SkillDisplay] 生成卡片内联 HTML（不依赖外部资源）。
- *
- * 含 name / triggerConditions / steps / guardrails；所有动态文本经 [escapeHtml]
- * 转义后注入，防止后端字段意外携带 HTML 注入。
- */
-internal fun buildSkillCardHtml(skill: SkillDisplay): String {
-    val triggersHtml = skill.triggerConditions
-        .joinToString("") { "<li>${escapeHtml(it)}</li>" }
-        .takeIf { it.isNotEmpty() }
-        ?.let { "<h3>触发条件</h3><ul>$it</ul>" }
-        .orEmpty()
-    val stepsHtml = skill.steps
-        .mapIndexed { index, step -> "<li>${index + 1}. ${escapeHtml(step)}</li>" }
-        .joinToString("")
-        .takeIf { it.isNotEmpty() }
-        ?.let { "<h3>步骤</h3><ul>$it</ul>" }
-        .orEmpty()
-    val guardrailsHtml = skill.guardrails
-        .joinToString("") { "<li>${escapeHtml(it)}</li>" }
-        .takeIf { it.isNotEmpty() }
-        ?.let { "<h3>边界</h3><ul class=\"guard\">$it</ul>" }
-        .orEmpty()
-    return """
-        <html><head><meta charset="utf-8"><style>
-        body{font-family:sans-serif;color:#1a1a1a;margin:0;padding:0;}
-        h2{font-size:18px;margin:0 0 6px 0;}
-        .meta{color:#666;font-size:12px;margin-bottom:8px;}
-        h3{font-size:14px;margin:12px 0 4px 0;}
-        ul{margin:0;padding-left:18px;}
-        li{font-size:14px;line-height:1.5;margin-bottom:4px;}
-        .guard li{color:#444;}
-        </style></head><body>
-        <h2>${escapeHtml(skill.name)}</h2>
-        <div class="meta">v${skill.version} · ${escapeHtml(skill.status)}</div>
-        $triggersHtml
-        $stepsHtml
-        $guardrailsHtml
-        </body></html>
-    """.trimIndent()
-}
-
-private fun escapeHtml(value: String): String = value
-    .replace("&", "&amp;")
-    .replace("<", "&lt;")
-    .replace(">", "&gt;")
-    .replace("\"", "&quot;")
 
 /**
  * P3 冷启动文案资源映射：按后端返回的 stage key 返回对应 [R.string] 资源 ID。
@@ -137,44 +266,12 @@ internal fun rememberSkillList(repository: LocalRepository): Pair<SkillFetchResu
 }
 
 /**
- * Skill 卡片宿主：用 [WebView] 安全沙箱渲染卡片内容，底部 Compose Button 触发 [onTrigger]。
- * "开始"按钮刻意放在 WebView 之外（原生 Compose），保证交互不依赖 JS。
- */
-@Composable
-fun SkillCardHost(skill: SkillDisplay, onTrigger: () -> Unit) {
-    val html = remember(skill) { buildSkillCardHtml(skill) }
-    Card(Modifier.fillMaxWidth()) {
-        Column {
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        configureSandboxWebView(this)
-                        // tag 记录当前已加载的 html，供 update 判重，避免无关重组重复加载
-                        tag = html
-                        loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
-                    }
-                },
-                update = { webview ->
-                    // 仅在 html 变化时重新加载（如 skill 切换），避免父组件重组引起的闪烁
-                    if (webview.tag != html) {
-                        webview.tag = html
-                        webview.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(220.dp)
-            )
-            Button(onClick = onTrigger, modifier = Modifier.fillMaxWidth()) { Text("开始") }
-        }
-    }
-}
-
-/**
  * 「能力」Tab 全页 Skill 列表：拉取已下发 Skill，区分三态。
  *
  * - 加载中（skills==null + 未失败）→ CircularProgressIndicator
  * - 加载失败（loadFailed）→「加载失败」+ 重试按钮
  * - 空列表（冷启动）→ 按 [SkillFetchResult.coldStartHint] 分阶段文案
- * - 非空 → Skill 卡片列表
+ * - 非空 → Skill 卡片列表（每个「开始」按钮绑定真实执行行为）
  *
  * 危机入口由全局紧急 FAB 常驻，此页不重复放置。
  */
@@ -229,7 +326,7 @@ fun SkillListScreen(repository: LocalRepository) {
                     Modifier.padding(top = 40.dp)
                 )
             }
-            else -> items(skillState.skills) { skill -> SkillCardHost(skill) {} }
+            else -> items(skillState.skills) { skill -> SkillCardHost(skill, repository) }
         }
         item { Spacer(Modifier.height(96.dp)) }
     }

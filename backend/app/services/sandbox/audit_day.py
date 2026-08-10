@@ -4,13 +4,14 @@
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime, time, timedelta
 from datetime import date as date_cls
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import DailyNarrative, DerivedFeature, UserProfile
+from app.models import DerivedFeature, UserProfile
 
 
 def audit_day(
@@ -22,27 +23,27 @@ def audit_day(
 ) -> dict[str, Any]:
     """读取当日 DerivedFeature + DailyNarrative + UserProfile，返回汇总 dict。
 
+    v0.6：使用时间范围查询（window_start >= 当日 00:00 AND < 次日 00:00），
+    禁止全量拉取后 Python 过滤。
+    PRD 契约点 2：不输出情绪推断（narrative_mood_hint 恒为 None）。
+
     返回字段：
     - feature_count：当日派生特征条数
-    - narrative_mood_hint：当日叙事情绪提示（无则为 None）
+    - narrative_mood_hint：恒为 None（情绪语义废弃）
     - profile_traits：当前用户画像 traits（无则为空 dict）
     - gaps：感知覆盖缺口（当前为空 list，T09 由 gap_finder 填充）
     """
+    start = datetime.combine(run_date, time.min, tzinfo=UTC)
+    end = start + timedelta(days=1)
     features = db.scalars(
         select(DerivedFeature).where(
             DerivedFeature.tenant_id == tenant_id,
             DerivedFeature.user_id == user_id,
+            DerivedFeature.window_start >= start,
+            DerivedFeature.window_start < end,
         )
     ).all()
-    day_features = [f for f in features if f.window_start.date() == run_date]
-
-    narrative = db.scalar(
-        select(DailyNarrative).where(
-            DailyNarrative.tenant_id == tenant_id,
-            DailyNarrative.user_id == user_id,
-            DailyNarrative.date == run_date,
-        )
-    )
+    day_features = list(features)
 
     profile = db.scalar(
         select(UserProfile).where(
@@ -56,7 +57,7 @@ def audit_day(
 
     return {
         "feature_count": len(day_features),
-        "narrative_mood_hint": narrative.mood_hint if narrative else None,
+        "narrative_mood_hint": None,
         "profile_traits": dict(profile.traits) if profile else {},
         "gaps": gaps,
     }

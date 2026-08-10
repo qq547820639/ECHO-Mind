@@ -1,15 +1,21 @@
 package com.yunjue.echo.mind.sensing
 
+import android.Manifest
+import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.Process
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.EchoMindApplication
 import com.yunjue.echo.mind.PassiveSensingPrefs
@@ -18,15 +24,19 @@ import com.yunjue.echo.mind.security.FieldCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * 被动采集前台服务：
- * - 拉起各 Collector（传感器 / 屏幕 / 前台 App 活跃 / 麦克风）
+ * - 拉起各 Collector（传感器 / 屏幕 / 前台 App 活跃 / 麦克风）+ [SensingWindowScheduler]（5 分钟窗口）
  * - 通过 startForeground 持续运行，避免被系统回收
- * - NotificationListenerService（NotificationCollector）由系统独立绑定，此处不直接管理其生命周期
+ * - NotificationListenerService（NotificationCollector）由系统独立绑定，事件经 [SensingEventHub] 共享层到达
  * - 原始数据仅在端侧内存缓冲，不落盘不上云；麦克风原始音频即时处理后丢弃
- * - P5 灰度回滚：启动前检查 passive_sensing_enabled flag，关闭则不启动（直接 stopSelf）
+ * - **三重门控**（02b 共享知识 1）：用户 consent granted + 租户 flag enabled + 必要权限符合，任一不满足不启动；
+ *   flag 无缓存默认 false（fail-closed）
+ * - 停止路径：停止 scheduler + 停止各 Collector + 清空 hub 缓冲
  *
  * 通知构建逻辑（buildNotification）暴露为 internal，便于单测验证。
  */
@@ -35,7 +45,13 @@ class PassiveSensingService : Service() {
     private var screenCollector: ScreenCollector? = null
     private var appActivityCollector: AppActivityCollector? = null
     private var micCollector: MicCollector? = null
+    private var scheduler: SensingWindowScheduler? = null
     private var started = false
+
+    private val hub: SensingEventHub = SensingEventHub.getInstance()
+
+    /** 调度协程 scope：SupervisorJob 避免单次回调异常影响后续。 */
+    private val sensingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** 权限撤回回调协程 scope：SupervisorJob 避免单次回调异常影响后续。 */
     private val revokeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -45,12 +61,12 @@ class PassiveSensingService : Service() {
     override fun onCreate() {
         super.onCreate()
         val prefs = PassiveSensingPrefs(this)
-        sensorCollector = SensorCollector(this)
-        screenCollector = ScreenCollector(this)
-        appActivityCollector = AppActivityCollector(this)
+        sensorCollector = SensorCollector(this, hub)
+        screenCollector = ScreenCollector(this, hub)
+        appActivityCollector = AppActivityCollector(this, hub)
         // 麦克风采集器：注入权限撤回回调，撤回时写 voice_features consent（granted=false）
         // 并触发 SyncWorker 上传，闭环 P1.2 + P1.3
-        val container = (application as? EchoMindApplication)?.container
+        val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
         micCollector = MicCollector(this, prefs) {
             container?.let { c ->
                 revokeScope.launch {
@@ -70,9 +86,10 @@ class PassiveSensingService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                // P5 灰度回滚：passive_sensing_enabled=false 时不启动采集，直接停止服务。
-                // flag 缓存由 LocalRepository.fetchFeatureFlags() 拉取后写入 AppPreferences。
-                if (!isPassiveSensingEnabled()) {
+                // 已运行时不重复启动（幂等）
+                if (started) return START_STICKY
+                // 三重门控：consent + 租户 flag + 必要权限；任一不满足不启动
+                if (!canStartSensing()) {
                     stopSelf()
                     return START_NOT_STICKY
                 }
@@ -89,17 +106,46 @@ class PassiveSensingService : Service() {
     }
 
     /**
+     * 三重门控（internal 便于单测）：
+     * 1. 用户 consent：PassiveSensingPrefs.passiveSensingEnabled（Onboarding/Support 写入）
+     * 2. 租户 feature flag：passive_sensing_enabled，无缓存/网络失败默认 false（fail-closed）
+     * 3. 必要权限：POST_NOTIFICATIONS（API 33+）/ BODY_SENSORS / 通知使用权 / 使用情况访问
+     */
+    internal fun canStartSensing(): Boolean {
+        val flagEnabled = isPassiveSensingEnabled()
+        val consentGranted = isUserConsentGranted()
+        val postNotificationsGranted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val bodySensorsGranted =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
+        return passiveSensingGatePasses(
+            flagEnabled = flagEnabled,
+            consentGranted = consentGranted,
+            postNotificationsGranted = postNotificationsGranted,
+            bodySensorsGranted = bodySensorsGranted,
+            notificationAccessGranted = hasNotificationAccess(this),
+            usageAccessGranted = hasUsageAccess(this)
+        )
+    }
+
+    /**
      * 读取本租户 feature flag 缓存中的 passive_sensing_enabled。
      *
-     * 同步读取 SharedPreferences 缓存（由 fetchFeatureFlags 异步写入）；
-     * 无缓存时默认 true（保守启用，避免网络问题导致采集不可用）。
+     * 无缓存/缺 key 时默认 false（fail-closed，02b 共享知识 2）：
+     * 隐私敏感 flag 在异常场景下停用而非启用。
      */
     private fun isPassiveSensingEnabled(): Boolean {
         val appPrefs = AppPreferences(this, FieldCipher(this))
-        return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: true
+        return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: false
     }
 
-    private fun startSensing() {
+    /** 用户 consent：读取 PassiveSensingPrefs（DataStore）同步当前值。 */
+    private fun isUserConsentGranted(): Boolean = runBlocking {
+        runCatching { PassiveSensingPrefs(this@PassiveSensingService).passiveSensingEnabled.first() }
+            .getOrDefault(false)
+    }
+
+    internal fun startSensing() {
         if (started) return
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -113,17 +159,38 @@ class PassiveSensingService : Service() {
         // 麦克风为可选模块：start() 内部检查 micEnabled + RECORD_AUDIO 权限，
         // 不满足时直接返回，不影响其他采集器
         micCollector?.start()
+
+        // 5 分钟窗口调度：窗口完成 → 落库 + 入 outbox + 触发 SyncWorker 上传
+        val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
+        val scheduler = SensingWindowScheduler(hub, micCollector = micCollector)
+        this.scheduler = scheduler
+        scheduler.start(sensingScope) { inputs ->
+            container?.let { c ->
+                for (input in inputs) {
+                    runCatching { c.repository.saveDerivedFeature(input) }
+                }
+                runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
+            }
+        }
+        container?.preferences?.sensingActive = true
         started = true
     }
 
-    private fun stopSensing() {
-        if (!started) return
+    internal fun stopSensing() {
+        scheduler?.stop()
+        scheduler = null
         sensorCollector?.stop()
         screenCollector?.stop()
         appActivityCollector?.stop()
         micCollector?.stop()
+        // 停止路径清空 hub 缓冲（进程内共享层，保证"后续零新特征"）
+        hub.clearAll()
+        runCatching { (application as? EchoMindApplication)?.container?.preferences?.sensingActive = false }
         started = false
     }
+
+    /** 调度器是否已启动（internal 便于单测断言 5 分钟调度接线）。 */
+    internal fun isSensingRunning(): Boolean = started
 
     /**
      * 构建被动采集持续通知。internal 便于单测验证渠道与内容。
@@ -153,6 +220,47 @@ class PassiveSensingService : Service() {
 
         const val ACTION_START = "com.yunjue.echo.mind.action.START_SENSING"
         const val ACTION_STOP = "com.yunjue.echo.mind.action.STOP_SENSING"
+
+        /**
+         * 三重门控纯函数（便于单测）：任一输入为 false 即不启动（fail-closed）。
+         */
+        internal fun passiveSensingGatePasses(
+            flagEnabled: Boolean,
+            consentGranted: Boolean,
+            postNotificationsGranted: Boolean,
+            bodySensorsGranted: Boolean,
+            notificationAccessGranted: Boolean,
+            usageAccessGranted: Boolean
+        ): Boolean = flagEnabled && consentGranted && postNotificationsGranted &&
+            bodySensorsGranted && notificationAccessGranted && usageAccessGranted
+
+        /** 通知使用权是否已授权（系统设置）。 */
+        internal fun hasNotificationAccess(context: Context): Boolean = runCatching {
+            NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        }.getOrDefault(false)
+
+        /** 使用情况访问（App usage access）是否已授权。 */
+        internal fun hasUsageAccess(context: Context): Boolean {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+            return try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        context.packageName
+                    ) == AppOpsManager.MODE_ALLOWED
+                } else {
+                    @Suppress("DEPRECATION")
+                    appOps.checkOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        context.packageName
+                    ) == AppOpsManager.MODE_ALLOWED
+                }
+            } catch (e: Exception) {
+                false
+            }
+        }
 
         /** 启动被动采集前台服务。 */
         fun start(context: Context) {

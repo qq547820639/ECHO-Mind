@@ -5,6 +5,19 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 
+/** HTTP 响应（code + 可选 Retry-After 秒数）。 */
+data class HttpResponse(
+    val code: Int,
+    val retryAfterSeconds: Int? = null
+)
+
+/**
+ * 解析 Retry-After 头（RFC 7231：可为秒数或 HTTP-date）。
+ * 端侧仅解析秒数形式；缺失 / 非数字 / 负数返回 null。
+ */
+internal fun parseRetryAfterSeconds(header: String?): Int? =
+    header?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
+
 /**
  * HTTP 客户端：基于 HttpURLConnection，支持 POST / GET。
  *
@@ -17,7 +30,7 @@ class ApiClient(
     private val connectTimeoutMs: Int = 10_000,
     private val readTimeoutMs: Int = 15_000
 ) {
-    fun post(path: String, jsonBody: String): Int {
+    fun post(path: String, jsonBody: String): HttpResponse {
         val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "POST"
@@ -28,7 +41,8 @@ class ApiClient(
             tokenProvider()?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             connection.doOutput = true
             connection.outputStream.use { it.write(jsonBody.toByteArray(Charsets.UTF_8)) }
-            connection.responseCode
+            val retryAfter = connection.getHeaderField("Retry-After")
+            HttpResponse(connection.responseCode, parseRetryAfterSeconds(retryAfter))
         } finally {
             connection.disconnect()
         }

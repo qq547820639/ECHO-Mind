@@ -9,8 +9,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
 from app.api.routes import router
-from app.config import get_settings
+from app.config import APP_VERSION, get_settings
 from app.database import Base, SessionLocal, engine
+from app.request_context import current_request_id
 from app.services import immutability  # noqa: F401  registers the append-only ORM guard
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ECHO Mind Path A API",
-    version="0.2.0",
+    version=APP_VERSION,
     description="心理健康记录、筛查提示、审核练习、人工接管与审计。非诊断、非紧急服务替代。",
     lifespan=lifespan,
 )
@@ -36,7 +37,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Bootstrap-Key"],
 )
 app.include_router(router)
@@ -45,7 +46,12 @@ app.include_router(router)
 @app.middleware("http")
 async def request_context_and_security_headers(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or f"req_{uuid4().hex}"
-    response = await call_next(request)
+    request.state.request_id = request_id
+    token = current_request_id.set(request_id)
+    try:
+        response = await call_next(request)
+    finally:
+        current_request_id.reset(token)
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -57,7 +63,7 @@ async def request_context_and_security_headers(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "echo-mind-path-a", "version": "0.2.0", "environment": settings.environment}
+    return {"status": "ok", "service": "echo-mind-path-a", "version": APP_VERSION, "environment": settings.environment}
 
 
 @app.get("/ready")
@@ -73,4 +79,4 @@ def ready(response: Response):
 
 @app.get("/console", response_class=HTMLResponse)
 def console(request: Request):
-    return TEMPLATES.TemplateResponse(request=request, name="console.html", context={"version": "0.2.0"})
+    return TEMPLATES.TemplateResponse(request=request, name="console.html", context={"version": APP_VERSION})

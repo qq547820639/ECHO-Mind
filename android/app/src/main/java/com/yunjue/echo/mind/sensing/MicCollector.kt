@@ -19,6 +19,17 @@ import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
+ * 麦克风派生特征消费接口（T02 窗口 flush 依赖的最小抽象）。
+ *
+ * SensingWindowScheduler 只依赖 [snapshotAndClear]（消费并清空派生缓冲），
+ * 便于纯 JVM 单测注入替身，避免依赖 AudioRecord/Context。
+ */
+interface MicDerivedFeatureSource {
+    /** 原子地取出全部派生特征并清空缓冲。 */
+    fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature>
+}
+
+/**
  * 麦克风采集器（T03.1）：
  *
  * - 仅当 micEnabled=true 且 RECORD_AUDIO 权限已授予时启动
@@ -43,7 +54,7 @@ class MicCollector(
     private val prefs: PassiveSensingPrefs,
     private val extractor: MicFeatureExtractor = MicFeatureExtractor(),
     private val onPermissionRevoked: () -> Unit = {}
-) {
+) : MicDerivedFeatureSource {
     private val appContext = context.applicationContext
 
     /** 派生特征内存缓冲（仅端侧，不落盘）。 */
@@ -211,6 +222,18 @@ class MicCollector(
 
     /** 派生特征快照（仅端侧，不落盘不上云）。 */
     fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature> = derivedBuffer.toList()
+
+    /**
+     * 消费并清空派生缓冲（T02 窗口 flush 使用，实现 [MicDerivedFeatureSource]）。
+     *
+     * 原子地取出全部派生特征并清空，避免"已消费但未清空"导致重复提取；
+     * 调用方（SensingWindowScheduler）把返回的派生特征转为 DerivedFeatureInput(source="mic_opt")。
+     */
+    override fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
+        val snapshot = derivedBuffer.toList()
+        derivedBuffer.clear()
+        return snapshot
+    }
 
     /** 清空派生缓冲（测试或回收）。 */
     fun clearBuffer() {

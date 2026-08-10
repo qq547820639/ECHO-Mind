@@ -10,10 +10,10 @@
 """
 from datetime import datetime, timedelta, timezone
 
+from app.auth import create_access_token
 from app.database import SessionLocal
-from app.models import Skill, Tenant, User
+from app.models import Skill, User
 from app.services.sandbox.runner import SandboxRunner
-from app.services.sandbox import schedule_sandbox_run
 
 
 def _feature_payload(event_id: str, summary: str, source: str = "screen") -> dict:
@@ -48,14 +48,14 @@ def test_full_sandbox_e2e_loop(
                         headers=user_headers)
         assert r.status_code == 200, f"ingest {source} 失败: {r.text}"
 
-    # 2. GET /v1/narratives 验证叙事生成
+    # 2. GET /v1/narratives 验证叙事生成（只读；PRD 契约点 2 无情绪标签）
     narrative = client.get("/v1/narratives", params={"user_id": "u_demo"}, headers=user_headers)
     assert narrative.status_code == 200
     narrative_body = narrative.json()
     assert len(narrative_body["events"]) >= 3  # 至少 3 条事件
-    # 至少有一条 mood_hint=偏低（含"疲惫"）
-    mood_hints = [e["mood_hint"] for e in narrative_body["events"]]
-    assert "偏低" in mood_hints
+    assert "mood_hint" not in narrative_body
+    for event in narrative_body["events"]:
+        assert "mood_hint" not in event
 
     # 3. POST /v1/sandbox/runs 触发沙箱
     run_resp = client.post("/v1/sandbox/runs", json={"user_id": "u_demo"}, headers=admin_headers)
@@ -95,7 +95,7 @@ def test_full_sandbox_e2e_loop(
     for sid in skill_ids:
         assert sid not in before_ids  # draft 不下发
 
-    # 7. admin transition 第一个 skill 到 reviewed
+    # 7. admin transition 第一个 skill 到 reviewed（reviewed 不下发普通用户）
     trans = client.post(
         f"/v1/skills/{skill_ids[0]}/transition",
         json={"new_status": "reviewed"},
@@ -104,7 +104,24 @@ def test_full_sandbox_e2e_loop(
     assert trans.status_code == 200
     assert trans.json()["status"] == "reviewed"
 
-    # 8. 用户 GET /v1/skills 现在能看到 reviewed skill
+    # 7b. reviewed 状态下普通用户仍不可见（signed-only）
+    skills_reviewed = client.get("/v1/skills", headers=user_headers)
+    reviewed_ids = [s["id"] for s in skills_reviewed.json()["skills"]]
+    assert skill_ids[0] not in reviewed_ids
+
+    # 7c. professional 再转 signed（需 policy_version + review_evidence）
+    professional_headers = {"Authorization": f"Bearer {create_access_token('pro', 't_demo', 'professional')}"}
+    trans_signed = client.post(
+        f"/v1/skills/{skill_ids[0]}/transition",
+        json={"new_status": "signed",
+              "policy_version": "policy-2026.08",
+              "review_evidence": {"reviewer": "pro", "notes": "ok"}},
+        headers=professional_headers,
+    )
+    assert trans_signed.status_code == 200
+    assert trans_signed.json()["status"] == "signed"
+
+    # 8. 用户 GET /v1/skills 现在能看到 signed skill
     skills_after = client.get("/v1/skills", headers=user_headers)
     assert skills_after.status_code == 200
     after_items = skills_after.json()["skills"]
@@ -117,7 +134,10 @@ def test_full_sandbox_e2e_loop(
     assert "content_hash" not in target_skill
     assert "tenant_id" not in target_skill
     # 状态正确
-    assert target_skill["status"] == "reviewed"
+    assert target_skill["status"] == "signed"
+    # 治理字段：signed 后应带签署人与签署时间
+    assert target_skill.get("signed_by")
+    assert target_skill.get("signed_at")
     # trigger_conditions 不含原始特征 summary 引用
     for cond in target_skill.get("trigger_conditions", []):
         field = cond.get("field", "")

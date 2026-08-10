@@ -43,12 +43,20 @@ class AppPreferences(
         .putLong("skill_cache_ts", System.currentTimeMillis())
         .apply()
 
+    // ===== 趋势叙事缓存（T05） =====
+    // GET /v1/narratives 批量响应的原始 JSON 缓存；网络失败时供 OFFLINE_CACHED 态使用。
+
+    fun setNarrativeCache(json: String) = prefs.edit().putString("narrative_cache_json", json).apply()
+    fun getNarrativeCacheJson(): String? = prefs.getString("narrative_cache_json", null)
+
     // ===== P5 灰度回滚：feature flags 缓存（SharedPreferences） =====
     // 移动端拉取 GET /v1/config/flags 后缓存，端侧灰度联动：
     // - passive_sensing_enabled=false → PassiveSensingService 不启动
     // - skills_delivery_enabled=false → 隐藏 Skill 卡片区
     // 缓存为 JSON 字符串（与后端返回格式一致），读取时解析为 Map。
-    // 无缓存时返回默认全 true（保守启用，避免网络问题导致功能不可用）。
+    // **fail-closed（02b 共享知识 2）**：无缓存 / 缺 key / 解析失败时，
+    // passive_sensing_enabled 与 sandbox_enabled 一律默认 false（隐私敏感不采集、不跑沙箱）；
+    // skills_delivery_enabled 非隐私敏感默认 true。
     // 使用 SharedPreferences 而非 DataStore，因 PassiveSensingService 需同步读取。
 
     private val _featureFlagsFlow = MutableStateFlow(getFeatureFlagsSnapshot())
@@ -63,7 +71,7 @@ class AppPreferences(
         _featureFlagsFlow.value = parseFlagsJson(json)
     }
 
-    /** 同步读取 feature flags 缓存；无缓存返回默认全 true。 */
+    /** 同步读取 feature flags 缓存；无缓存返回 fail-closed 默认（隐私 flag=false）。 */
     fun getFeatureFlagsSnapshot(): Map<String, Boolean> {
         val json = prefs.getString(KEY_FEATURE_FLAGS, null) ?: return defaultFlags()
         return parseFlagsJson(json)
@@ -72,17 +80,75 @@ class AppPreferences(
     private fun parseFlagsJson(json: String): Map<String, Boolean> = runCatching {
         val o = JSONObject(json)
         mapOf(
-            "passive_sensing_enabled" to o.optBoolean("passive_sensing_enabled", true),
-            "sandbox_enabled" to o.optBoolean("sandbox_enabled", true),
+            "passive_sensing_enabled" to o.optBoolean("passive_sensing_enabled", false),
+            "sandbox_enabled" to o.optBoolean("sandbox_enabled", false),
             "skills_delivery_enabled" to o.optBoolean("skills_delivery_enabled", true),
         )
     }.getOrDefault(defaultFlags())
 
     private fun defaultFlags() = mapOf(
-        "passive_sensing_enabled" to true,
-        "sandbox_enabled" to true,
+        "passive_sensing_enabled" to false,
+        "sandbox_enabled" to false,
         "skills_delivery_enabled" to true,
     )
+
+    // ===== 采集 / 同步状态（T02/T05） =====
+
+    /** 最近成功采集时间（epoch ms；saveDerivedFeature 落库时刷新）。 */
+    var lastCollectionTimestamp: Long
+        get() = prefs.getLong("last_collection_timestamp", 0L)
+        set(value) = prefs.edit().putLong("last_collection_timestamp", value).apply()
+
+    /** 最近成功同步时间（epoch ms；SyncWorker 处理完一批后刷新）。 */
+    var lastSyncTimestamp: Long
+        get() = prefs.getLong("last_sync_timestamp", 0L)
+        set(value) = prefs.edit().putLong("last_sync_timestamp", value).apply()
+
+    /** 最近一次同步批次末尾的 HTTP code（仅供 UI 映射 SyncState，不暴露给用户）。 */
+    var lastSyncHttpCode: Int?
+        get() = if (prefs.contains("last_sync_http_code")) prefs.getInt("last_sync_http_code", 0) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("last_sync_http_code") else edit.putInt("last_sync_http_code", value)
+            edit.apply()
+        }
+
+    /** 被动采集服务是否处于运行状态（服务 start/stop 时更新；UI 观察用）。 */
+    private val _sensingActiveFlow = MutableStateFlow(prefs.getBoolean("sensing_active", false))
+    val sensingActiveFlow: Flow<Boolean> = _sensingActiveFlow
+
+    var sensingActive: Boolean
+        get() = prefs.getBoolean("sensing_active", false)
+        set(value) {
+            prefs.edit().putBoolean("sensing_active", value).apply()
+            _sensingActiveFlow.value = value
+        }
+
+    // ===== SyncWorker 本地状态（dead-letter / 迁移 telemetry / Retry-After） =====
+
+    /** 已 dead-letter 的事件标记集合（毒丸保护：超限/永久失败不再重试）。 */
+    fun getDeadLetterEvents(): Set<String> = prefs.getStringSet("dead_letter_events", emptySet()) ?: emptySet()
+
+    fun addDeadLetterEvent(event: String) {
+        val current = prefs.getStringSet("dead_letter_events", emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.add(event)
+        prefs.edit().putStringSet("dead_letter_events", current).apply()
+    }
+
+    fun deadLetterCount(): Int = getDeadLetterEvents().size
+
+    /** 410 迁移 telemetry 计数（不敏感，如 {"event_type":"journal","migrated":true} 的计数）。 */
+    fun recordMigrationTelemetry(eventType: String) {
+        val key = "migrated_$eventType"
+        prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply()
+    }
+
+    fun migrationTelemetryCount(eventType: String): Int = prefs.getInt("migrated_$eventType", 0)
+
+    /** 记录 429 Retry-After 秒数（WorkManager 指数退避接管重试节奏）。 */
+    fun recordRetryAfter(eventType: String, seconds: Int) {
+        prefs.edit().putInt("${eventType}_retry_after", seconds).apply()
+    }
 
     // ===== 被动采集相关（DataStore 存储，委托给 PassiveSensingPrefs） =====
 
@@ -102,6 +168,7 @@ class AppPreferences(
     fun clearServiceState() {
         prefs.edit().clear().apply()
         _featureFlagsFlow.value = defaultFlags()
+        _sensingActiveFlow.value = false
     }
 
     companion object {

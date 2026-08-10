@@ -6,10 +6,12 @@ import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.model.JournalInput
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
+import com.yunjue.echo.mind.model.NarrativeFetchResult
 import com.yunjue.echo.mind.model.ProfileDisplay
 import com.yunjue.echo.mind.model.QuestionnaireScore
 import com.yunjue.echo.mind.model.SafetyDecision
 import com.yunjue.echo.mind.model.Severity
+import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.security.FieldCipher
 import com.yunjue.echo.mind.security.QuestionnaireScorer
@@ -27,6 +29,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 /**
@@ -59,10 +62,17 @@ class LocalRepository(
     // P5 灰度回滚：feature flags Flow，UI 观察后联动 Skill 卡片显示/隐藏。
     val featureFlagsFlow: Flow<Map<String, Boolean>> = preferences.featureFlagsFlow
 
-    // 被动特征安全状态：saveDerivedFeature 产出 SafetyDecision 后推送，UI 观察后切到 SafetyScreen。
-    // 主动文本（saveCheckin/saveJournal）通过返回值直接驱动 UI，无需经此 Flow。
+    // 被动特征安全状态（PRD v0.6 契约点 1 收口后恒为 NONE，不再触发危机 UI）。
     private val _passiveSafety = MutableStateFlow<SafetyDecision?>(null)
     val passiveSafety: StateFlow<SafetyDecision?> = _passiveSafety.asStateFlow()
+
+    // ===== UI 状态访问器（T05） =====
+
+    fun passiveSensingConsentFlow(): Flow<Boolean> = preferences.passiveSensingEnabledFlow()
+    fun lastSyncTimestamp(): Long = preferences.lastSyncTimestamp
+    fun lastCollectionTimestamp(): Long = preferences.lastCollectionTimestamp
+    fun lastSyncHttpCode(): Int? = preferences.lastSyncHttpCode
+    fun deadLetterCount(): Int = preferences.deadLetterCount()
 
     private fun basePayload(eventId: String, clientTime: Instant): JSONObject = JSONObject().apply {
         put("event_id", eventId)
@@ -241,13 +251,14 @@ class LocalRepository(
     }
 
     /**
-     * 保存派生特征：特征落库（summary 加密）+ 入 outbox + 调用 SafetyEngine.evaluatePassive。
+     * 保存派生特征：特征落库（summary 加密）+ 入 outbox。
      *
      * - eventType = "derived_feature"，priority = 20
-     * - 上传 payload 仅含 summary + vector，不含原始传感数据
-     * - 被动命中 RED 时 enqueue escalation（trigger="passive_red_signal"，priority=1000），
-     *   与现有 saveCheckin 文本 RED 路径一致
-     * - 同时把 SafetyDecision 推送到 [passiveSafety] StateFlow，供 UI 观察切到 SafetyScreen
+     * - 上传 payload 含 summary + vector + sources_present，不含原始传感数据
+     * - **被动安全语义已收口（PRD v0.6 契约点 1）**：行为派生特征不得用于推断自杀/自伤意图，
+     *   不再调用 SafetyEngine.evaluatePassive，不触发 passive_red_signal 升级链路；
+     *   返回恒 NONE 决策以兼容既有调用方签名
+     * - 更新最近成功采集时间（支持页展示）
      */
     suspend fun saveDerivedFeature(input: DerivedFeatureInput): SafetyDecision {
         val eventId = "feat_${UUID.randomUUID()}"
@@ -267,7 +278,7 @@ class LocalRepository(
                 createdAt = now.toEpochMilli()
             )
         )
-        // 入 outbox：payload 含 DerivedFeatureInput JSON
+        // 入 outbox：payload 含 DerivedFeatureInput JSON + sources_present
         val payload = basePayload(eventId, now).apply {
             put("schema_version", input.schemaVersion)
             put("source", input.source)
@@ -275,19 +286,41 @@ class LocalRepository(
             put("window_end", input.windowEnd.toString())
             put("summary", input.summary)
             put("vector", JSONArray(input.vector))
+            if (input.sourcesPresent.isNotEmpty()) {
+                put("sources_present", JSONArray(input.sourcesPresent))
+            }
         }
         enqueue(eventId, "derived_feature", payload, 20)
-        // 被动特征安全评估：命中确定性红色规则即冻结生成并升级
-        val decision = SafetyEngine.evaluatePassive(input.summary)
-        if (decision.severity == Severity.RED) {
-            enqueueEscalation(
-                trigger = "passive_red_signal",
-                evidence = "被动特征命中确定性红色规则"
-            )
-        }
-        // 推送到 StateFlow，UI 观察后在 severity==RED 时切到 SafetyScreen
+        preferences.lastCollectionTimestamp = now.toEpochMilli()
+        // 被动安全收口：恒 NONE，不触发危机 UI/升级（PRD 契约点 1）
+        val decision = SafetyDecision(Severity.NONE, emptyList(), false)
         _passiveSafety.value = decision
         return decision
+    }
+
+    /**
+     * 记录 Skill 执行完成（T05）：入 outbox eventType="skill_completion"。
+     *
+     * payload: {event_id, user_id, skill_id, status, duration_seconds, client_time}
+     * SyncWorker 映射到 POST /v1/skills/completions。
+     */
+    suspend fun recordSkillCompletion(input: SkillCompletionInput) {
+        val payload = JSONObject().apply {
+            put("event_id", input.eventId)
+            put("user_id", preferences.userId)
+            put("skill_id", input.skillId)
+            put("status", input.status)
+            put("duration_seconds", input.durationSeconds)
+            put("client_time", input.clientTime.toString())
+        }
+        enqueue(input.eventId, "skill_completion", payload, 30)
+    }
+
+    /** 便捷重载：status 取值 "completed" / "stopped" / "started"。 */
+    suspend fun recordSkillCompletion(skillId: String, status: String, durationSeconds: Int) {
+        recordSkillCompletion(
+            SkillCompletionInput(skillId = skillId, status = status, durationSeconds = durationSeconds)
+        )
     }
 
     suspend fun requestDataAction(type: String) {
@@ -320,7 +353,8 @@ class LocalRepository(
      * 拉取本租户的 feature flags（GET /v1/config/flags），缓存到 [AppPreferences]。
      *
      * - 网络成功：解析 JSON 为 Map<String, Boolean>，同步写入 AppPreferences 后返回。
-     * - 网络失败（异常 / 非 2xx / 解析失败）：返回 AppPreferences 缓存；无缓存返回默认全 true。
+     * - 网络失败（异常 / 非 2xx / 解析失败）：返回 AppPreferences 缓存；无缓存返回 **fail-closed 默认**
+     *   （passive_sensing_enabled / sandbox_enabled = false，skills_delivery_enabled = true）。
      *
      * 阻塞调用（HttpURLConnection），调用方须在 IO 线程执行。
      */
@@ -335,8 +369,8 @@ class LocalRepository(
                 runCatching {
                     val o = JSONObject(body)
                     val flags = mapOf(
-                        "passive_sensing_enabled" to o.optBoolean("passive_sensing_enabled", true),
-                        "sandbox_enabled" to o.optBoolean("sandbox_enabled", true),
+                        "passive_sensing_enabled" to o.optBoolean("passive_sensing_enabled", false),
+                        "sandbox_enabled" to o.optBoolean("sandbox_enabled", false),
                         "skills_delivery_enabled" to o.optBoolean("skills_delivery_enabled", true),
                     )
                     preferences.setFeatureFlags(flags)
@@ -386,35 +420,59 @@ class LocalRepository(
     }
 
     /**
-     * T12.4：拉取近 [days] 天的每日叙事（GET /v1/narratives），返回 [List]<[NarrativeDisplay]>。
+     * 批量拉取近 [days] 天每日叙事（T05，GET /v1/narratives?user_id=&from=&to=）。
      *
-     * 后端 /v1/narratives 按单日返回（date 参数），此处按 UTC 日期逐日拉取最近 [days] 天，
-     * 供趋势视图绘制 mood_hint 折线。任一日拉取失败则跳过该日；全部失败返回空列表。
+     * 替代旧实现逐日 7 次串行请求；响应支持数组 / {"narratives":[...]} / {"items":[...]} /
+     * {"results":[...]} / 单日对象等多种形态（后端 T03 收口前向后兼容）。
+     *
+     * 失败语义：
+     * - 网络/非 2xx/解析失败且无缓存 → loadFailed=true（趋势页 ERROR 态，不得伪装 no_data）
+     * - 网络/非 2xx 但存在缓存 → fromCache=true（OFFLINE_CACHED 态）
      *
      * 阻塞调用（HttpURLConnection），调用方须在 IO 线程执行。
      */
-    fun fetchNarratives(days: Int = 7): List<NarrativeDisplay> {
+    fun fetchNarratives(days: Int = 7): NarrativeFetchResult {
         val today = LocalDate.now(ZoneOffset.UTC)
-        val result = mutableListOf<NarrativeDisplay>()
-        for (i in days - 1 downTo 0) {
-            val day = today.minusDays(i.toLong())
-            val (code, body) = try {
-                apiClient.get("/v1/narratives?user_id=${preferences.userId}&date=$day")
-            } catch (e: Exception) {
-                continue
-            }
+        val from = today.minusDays((days - 1).toLong())
+        val to = today
+        return try {
+            val (code, body) = apiClient.get(
+                "/v1/narratives?user_id=${preferences.userId}&from=$from&to=$to"
+            )
             if (code in 200..299 && !body.isNullOrBlank()) {
-                parseNarrative(body)?.let { result.add(it) }
+                val result = parseNarrativeRange(body, from, to)
+                if (!result.loadFailed) {
+                    preferences.setNarrativeCache(body)
+                }
+                result
+            } else {
+                fromNarrativeCacheOrFail(from, to)
             }
+        } catch (e: Exception) {
+            fromNarrativeCacheOrFail(from, to)
         }
-        return result
+    }
+
+    private fun fromNarrativeCacheOrFail(from: LocalDate, to: LocalDate): NarrativeFetchResult {
+        val cached = preferences.getNarrativeCacheJson()
+        if (cached != null) {
+            return parseNarrativeRange(cached, from, to).copy(fromCache = true, loadFailed = false)
+        }
+        return NarrativeFetchResult(
+            narratives = emptyList(),
+            loadFailed = true,
+            fromCache = false,
+            dataCoverage = 0f,
+            missingDates = emptyList(),
+            isPartial = false
+        )
     }
 
     /**
-     * T12.4：拉取用户画像（GET /v1/profile/{user_id}），返回 [ProfileDisplay]。
+     * 拉取用户画像（GET /v1/profile/{user_id}），返回 [ProfileDisplay]。
      *
-     * traits 含 observation_days / narrative_days_last_7 / recent_mood_hint。
-     * 拉取失败（网络异常 / 非 2xx / 解析失败）返回缺省画像（观察天数 0、最近情绪「未知」）。
+     * 失败语义（T05）：网络异常 / 非 2xx / 解析失败返回 loadFailed=true 的缺省画像，
+     * 趋势页据此区分 error（loadFailed）与 no_data（真无数据）。
      *
      * 阻塞调用（HttpURLConnection），调用方须在 IO 线程执行。
      */
@@ -422,9 +480,9 @@ class LocalRepository(
         val (code, body) = try {
             apiClient.get("/v1/profile/${preferences.userId}")
         } catch (e: Exception) {
-            return defaultProfile()
+            return defaultProfile(loadFailed = true)
         }
-        if (code !in 200..299 || body.isNullOrBlank()) return defaultProfile()
+        if (code !in 200..299 || body.isNullOrBlank()) return defaultProfile(loadFailed = true)
         return runCatching {
             val o = JSONObject(body)
             val traits = o.optJSONObject("traits") ?: JSONObject()
@@ -433,19 +491,21 @@ class LocalRepository(
                 narrativeDaysLast7 = traits.optInt("narrative_days_last_7", 0),
                 recentMoodHint = traits.optString("recent_mood_hint", "未知"),
                 version = o.optInt("version", 1),
-                updatedAt = o.optString("updated_at").takeIf { it.isNotBlank() && it != "null" }
+                updatedAt = o.optString("updated_at").takeIf { it.isNotBlank() && it != "null" },
+                loadFailed = false
             )
-        }.getOrDefault(defaultProfile())
+        }.getOrDefault(defaultProfile(loadFailed = true))
     }
 
-    private fun defaultProfile() = ProfileDisplay(
+    private fun defaultProfile(loadFailed: Boolean = false) = ProfileDisplay(
         observationDays = 0,
         narrativeDaysLast7 = 0,
         recentMoodHint = "未知",
-        version = 0
+        version = 0,
+        loadFailed = loadFailed
     )
 
-    /** 解析 /v1/narratives 单日响应为 [NarrativeDisplay]；失败返回 null。 */
+    /** 解析 /v1/narratives 单日对象为 [NarrativeDisplay]；失败返回 null。 */
     private fun parseNarrative(json: String): NarrativeDisplay? = runCatching {
         val o = JSONObject(json)
         val events = o.optJSONArray("events")?.let { arr ->
@@ -465,6 +525,58 @@ class LocalRepository(
             gaps = o.optJSONArray("gaps")?.toStringList() ?: emptyList()
         )
     }.getOrNull()
+
+    /**
+     * 解析批量叙事响应为 [NarrativeFetchResult]（含 data coverage / missing dates）。
+     */
+    private fun parseNarrativeRange(json: String, from: LocalDate, to: LocalDate): NarrativeFetchResult =
+        runCatching {
+            val root = JSONObject(json)
+            val narratives = mutableListOf<NarrativeDisplay>()
+            val arr = when {
+                root.has("narratives") -> root.optJSONArray("narratives")
+                root.has("items") -> root.optJSONArray("items")
+                root.has("results") -> root.optJSONArray("results")
+                else -> null
+            }
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val item = arr.optJSONObject(i) ?: continue
+                    parseNarrative(item.toString())?.let { narratives.add(it) }
+                }
+            } else {
+                // 单日对象兜底
+                parseNarrative(json)?.let { narratives.add(it) }
+            }
+            val sorted = narratives.sortedBy { it.date }
+            val presentDates = sorted.map { it.date }.toSet()
+            val missingDates = generateSequence(from) { it.plusDays(1) }
+                .takeWhile { !it.isAfter(to) }
+                .map { it.toString() }
+                .filter { it !in presentDates }
+                .toList()
+            val totalDays = ChronoUnit.DAYS.between(from, to) + 1
+            val coverage = if (totalDays > 0) {
+                (sorted.size.toFloat() / totalDays.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            NarrativeFetchResult(
+                narratives = sorted,
+                loadFailed = false,
+                fromCache = false,
+                dataCoverage = coverage,
+                missingDates = missingDates,
+                isPartial = missingDates.isNotEmpty() && sorted.isNotEmpty()
+            )
+        }.getOrElse {
+            NarrativeFetchResult(
+                narratives = emptyList(),
+                loadFailed = true,
+                fromCache = false,
+                dataCoverage = 0f,
+                missingDates = emptyList(),
+                isPartial = false
+            )
+        }
 
     /**
      * 解析 /v1/skills 响应（P3 起为 JSON 对象 {"skills":[...], "cold_start_hint":..., "observation_days":N}）。

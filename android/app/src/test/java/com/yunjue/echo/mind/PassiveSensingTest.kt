@@ -2,6 +2,7 @@ package com.yunjue.echo.mind
 
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -11,6 +12,7 @@ import com.yunjue.echo.mind.data.ConsentEntity
 import com.yunjue.echo.mind.sensing.AppActivityCollector
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.ScreenCollector
+import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensorCollector
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -24,6 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 /**
@@ -31,6 +34,9 @@ import org.robolectric.annotation.Config
  * - 采集器启停逻辑（SensorCollector / ScreenCollector / AppActivityCollector）
  * - 同意开关联动（PassiveSensingPrefs DataStore + ConsentEntity 本地持久化）
  * - 前台服务通知构建（PassiveSensingService.buildNotification）
+ * - **三重门控**（consent + flag + 权限，fail-closed）
+ * - 停止清空 hub buffer
+ * - 5 分钟调度接线（startSensing 创建并启动 scheduler；重复 START 不重复启动）
  *
  * Robolectric 限定 SDK 35 运行，避免与 compileSdk=36 的 robolectric jar 不匹配。
  */
@@ -43,6 +49,7 @@ class PassiveSensingTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        SensingEventHub.resetForTest()
         // 重置 PassiveSensingPrefs（DataStore 单例跨测试保留状态，需手动复位）
         runBlocking {
             val prefs = PassiveSensingPrefs(context)
@@ -53,7 +60,9 @@ class PassiveSensingTest {
     }
 
     @After
-    fun tearDown() = Unit
+    fun tearDown() {
+        SensingEventHub.resetForTest()
+    }
 
     // ===== 采集器启停逻辑 =====
 
@@ -227,6 +236,165 @@ class PassiveSensingTest {
             "com.yunjue.echo.mind.action.STOP_SENSING",
             PassiveSensingService.ACTION_STOP
         )
+    }
+
+    // ===== T02 三重门控（consent + flag + 权限，fail-closed） =====
+
+    @Test
+    fun gateFailsWhenFlagDisabled() {
+        assertFalse(
+            "flag=false 时不应启动（fail-closed）",
+            PassiveSensingService.passiveSensingGatePasses(
+                flagEnabled = false,
+                consentGranted = true,
+                postNotificationsGranted = true,
+                bodySensorsGranted = true,
+                notificationAccessGranted = true,
+                usageAccessGranted = true
+            )
+        )
+    }
+
+    @Test
+    fun gateFailsWhenConsentNotGranted() {
+        assertFalse(
+            "无用户 consent 时不应启动",
+            PassiveSensingService.passiveSensingGatePasses(
+                flagEnabled = true,
+                consentGranted = false,
+                postNotificationsGranted = true,
+                bodySensorsGranted = true,
+                notificationAccessGranted = true,
+                usageAccessGranted = true
+            )
+        )
+    }
+
+    @Test
+    fun gateFailsWhenAnyPermissionMissing() {
+        val base = mapOf(
+            "flagEnabled" to true,
+            "consentGranted" to true,
+            "postNotificationsGranted" to true,
+            "bodySensorsGranted" to true,
+            "notificationAccessGranted" to true,
+            "usageAccessGranted" to true
+        )
+        // 逐一移除任一权限/授权 → 门控失败（fail-closed）
+        for (key in listOf("postNotificationsGranted", "bodySensorsGranted", "notificationAccessGranted", "usageAccessGranted")) {
+            val args = base + (key to false)
+            assertFalse(
+                "$key=false 时不应启动",
+                PassiveSensingService.passiveSensingGatePasses(
+                    flagEnabled = args.getValue("flagEnabled") as Boolean,
+                    consentGranted = args.getValue("consentGranted") as Boolean,
+                    postNotificationsGranted = args.getValue("postNotificationsGranted") as Boolean,
+                    bodySensorsGranted = args.getValue("bodySensorsGranted") as Boolean,
+                    notificationAccessGranted = args.getValue("notificationAccessGranted") as Boolean,
+                    usageAccessGranted = args.getValue("usageAccessGranted") as Boolean
+                )
+            )
+        }
+    }
+
+    @Test
+    fun gatePassesWhenAllPreconditionsMet() {
+        assertTrue(
+            "全部前置满足时应可通过门控",
+            PassiveSensingService.passiveSensingGatePasses(
+                flagEnabled = true,
+                consentGranted = true,
+                postNotificationsGranted = true,
+                bodySensorsGranted = true,
+                notificationAccessGranted = true,
+                usageAccessGranted = true
+            )
+        )
+    }
+
+    @Test
+    fun serviceFlagDefaultIsFailClosed() {
+        // 无 flag 缓存 → isPassiveSensingEnabled 默认 false（fail-closed，02b 共享知识 2）
+        val appPrefs = AppPreferences(context, com.yunjue.echo.mind.security.FieldCipher())
+        assertFalse(
+            "passive_sensing_enabled 无缓存应默认 false",
+            appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: true
+        )
+    }
+
+    @Test
+    fun serviceDoesNotStartWithoutConsent() {
+        // consent=false（默认）→ onStartCommand 应停止服务（stopSelf），不启动采集
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        val result = service.onStartCommand(
+            Intent(context, PassiveSensingService::class.java)
+                .setAction(PassiveSensingService.ACTION_START),
+            0, 1
+        )
+        assertFalse("无 consent 时不应启动采集", service.isSensingRunning())
+        assertTrue("无 consent 时应返回 START_NOT_STICKY", result == android.app.Service.START_NOT_STICKY)
+        controller.destroy()
+    }
+
+    // ===== T02 停止清空 buffer + 5 分钟调度接线 =====
+
+    @Test
+    fun stopSensingClearsHubBuffers() {
+        val hub = SensingEventHub.getInstance()
+        hub.onNotificationPosted(
+            com.yunjue.echo.mind.sensing.NotificationCollector.NotificationMeta(
+                System.currentTimeMillis(), "pkg", "social"
+            )
+        )
+        assertFalse("停止前 hub 不应为空", hub.isEmpty())
+
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        try {
+            service.startSensing()
+            service.stopSensing()
+            assertFalse("停止后不应运行", service.isSensingRunning())
+            assertTrue("停止后 hub 缓冲应清空", hub.isEmpty())
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    fun startSensingWiresFiveMinuteScheduler() {
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        try {
+            assertFalse(service.isSensingRunning())
+            service.startSensing()
+            assertTrue("startSensing 后应运行（含 5 分钟调度器接线）", service.isSensingRunning())
+            service.stopSensing()
+            assertFalse(service.isSensingRunning())
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    fun repeatedStartCommandDoesNotDoubleStart() {
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        try {
+            service.startSensing()
+            assertTrue(service.isSensingRunning())
+            // 已运行时的 ACTION_START 不应重复启动（幂等）
+            val shadow = Shadows.shadowOf(service)
+            service.onStartCommand(
+                Intent(context, PassiveSensingService::class.java)
+                    .setAction(PassiveSensingService.ACTION_START),
+                0, 2
+            )
+            assertTrue("已运行时仍保持运行", service.isSensingRunning())
+            assertFalse("已运行时不重复 stopSelf", shadow.isStoppedBySelf)
+        } finally {
+            controller.destroy()
+        }
     }
 }
 

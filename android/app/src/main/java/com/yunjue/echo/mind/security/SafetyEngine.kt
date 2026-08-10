@@ -42,30 +42,9 @@ object SafetyEngine {
         return SafetyDecision(Severity.NONE, emptyList(), false)
     }
 
-    // 被动派生特征摘要的确定性高危词（小集合；命中即红，不做程度推断）。
-    // 与后端 PASSIVE_RED_TERMS 对齐，顺序一致以便 PASSIVE-RED-{NNN} 编号稳定。
-    private val passiveRedTerms = listOf("自杀", "自残", "结束生命", "活不下去", "不想活")
-
-    /**
-     * 被动特征安全评估。
-     *
-     * 对端侧聚合的中文 summary 做确定性红色关键词匹配（与后端 evaluate_passive 对齐）。
-     * 预处理与 [evaluate] 一致：剥离空白与中英文标点。
-     *
-     * 命中任一关键词即返回 RED 并冻结生成，**不做否定语境检查** ——
-     * 被动信号不像主动文本那样包含"没有想死"这种否定结构，保守起见命中即触发升级
-     * （与后端 evaluate_passive 一致）。matchedRuleIds 形如 PASSIVE-RED-{001..}，
-     * 编号按 [passiveRedTerms] 列表顺序，与 [evaluate] 中 RED-NNN / YELLOW-NNN 风格一致。
-     */
-    fun evaluatePassive(summary: String): SafetyDecision {
-        val text = summary.replace(Regex("[\\s，,。.!！?？、]"), "")
-        val hits = passiveRedTerms.mapIndexedNotNull { i, term ->
-            if (text.contains(term)) "PASSIVE-RED-%03d".format(i + 1) else null
-        }
-        return if (hits.isNotEmpty()) {
-            SafetyDecision(Severity.RED, hits, freezeGeneration = true, scriptKey = "l2_stabilization")
-        } else {
-            SafetyDecision(Severity.NONE, emptyList(), false)
-        }
-    }
+    // ===== 被动安全语义收口（PRD v0.6 契约点 1） =====
+    // 行为派生特征（加速度/屏幕/通知/App usage/麦克风派生摘要）**不得**用于推断自杀/自伤意图，
+    // 也不得据此触发危机事件或冻结生成。
+    // 原 evaluatePassive() / passiveRedTerms 词表已删除（无生产调用方，死代码清理），
+    // 危机信号唯一来源为主动文本命中（evaluate）、用户主动求助、L0 准入与专业人员事件。
 }

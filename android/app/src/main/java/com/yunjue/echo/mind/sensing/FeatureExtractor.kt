@@ -39,6 +39,26 @@ class FeatureExtractor {
     )
 
     /**
+     * 从 [SensingEventHub] 共享缓冲提取并聚合窗口特征（T02 采集链路主路径）。
+     *
+     * NotificationCollector 由系统独立绑定，其数据经 hub 共享层到达此处；
+     * accel/gyro/screen/app_activity 亦由各 Collector 写入 hub。
+     */
+    fun extractFromHub(
+        windowStart: Instant,
+        windowEnd: Instant,
+        hub: SensingEventHub
+    ): List<DerivedFeatureInput> = extract(
+        windowStart = windowStart,
+        windowEnd = windowEnd,
+        accelSamples = hub.snapshotAccel(),
+        gyroSamples = hub.snapshotGyro(),
+        screenEvents = hub.snapshotScreen(),
+        notifications = hub.snapshotNotifications(),
+        appActivities = hub.snapshotAppActivity()
+    )
+
+    /**
      * 核心聚合逻辑（纯函数，便于单测）。
      *
      * 返回空列表表示窗口内无任何信号数据。
@@ -72,6 +92,14 @@ class FeatureExtractor {
         val vector = buildVector(accelInWindow, gyroInWindow, screenInWindow, notifInWindow, appInWindow, windowStartMs, windowEndMs)
         val summary = buildSummary(accelInWindow, gyroInWindow, screenInWindow, notifInWindow, appInWindow, windowStartMs, windowEndMs)
         val source = selectSource(accelInWindow, gyroInWindow, screenInWindow, notifInWindow, appInWindow)
+        // 窗口实际覆盖的 modality（与后端 gap_finder.EXPECTED_SOURCES 契约对齐，02b 共享知识 4）
+        val sourcesPresent = buildList {
+            if (accelInWindow.isNotEmpty()) add("accel")
+            if (gyroInWindow.isNotEmpty()) add("gyro")
+            if (screenInWindow.isNotEmpty()) add("screen")
+            if (notifInWindow.isNotEmpty()) add("notification")
+            if (appInWindow.isNotEmpty()) add("app_activity")
+        }
 
         return listOf(
             DerivedFeatureInput(
@@ -80,7 +108,8 @@ class FeatureExtractor {
                 windowStart = windowStart,
                 windowEnd = windowEnd,
                 summary = summary,
-                vector = vector
+                vector = vector,
+                sourcesPresent = sourcesPresent
             )
         )
     }

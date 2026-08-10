@@ -10,8 +10,9 @@ import java.util.concurrent.ConcurrentLinkedDeque
 /**
  * 屏幕状态采集器：监听 ACTION_SCREEN_ON / ACTION_SCREEN_OFF，
  * 记录时间戳 + 状态。原始数据仅端侧内存缓冲。
+ * 事件同时写入 [SensingEventHub]（T02 共享层）；hub 为空时保持纯本地缓冲。
  */
-class ScreenCollector(context: Context) {
+class ScreenCollector(context: Context, private val hub: SensingEventHub? = null) {
     private val appContext = context.applicationContext
     private val buffer = ConcurrentLinkedDeque<ScreenEvent>()
     @Volatile
@@ -25,8 +26,10 @@ class ScreenCollector(context: Context) {
                 Intent.ACTION_SCREEN_OFF -> ScreenState.OFF
                 else -> return
             }
-            buffer.offerLast(ScreenEvent(System.currentTimeMillis(), state))
+            val event = ScreenEvent(System.currentTimeMillis(), state)
+            buffer.offerLast(event)
             while (buffer.size > MAX_BUFFER_SIZE) buffer.pollFirst()
+            hub?.onScreenEvent(event)
         }
     }
 

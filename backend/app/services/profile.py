@@ -2,31 +2,30 @@
 
 原则：后端只处理端侧派生特征（摘要/向量），不接触原始传感数据。
 审计写入由路由层负责，本模块不写审计。
+
+v0.6 契约：
+- ``get_profile`` 只读缓存，绝不 rebuild / version+1 / commit；
+- ``rebuild_profile`` 显式重建（traits + version+1 + rebuilt_at），仅由 POST /rebuild 调用；
+- ``build_daily_narrative`` 使用时间范围查询（window_start >= date00:00 AND < date+1），
+  禁止全量拉取后 Python 过滤；
+- PRD 契约点 2：取消"行为遥测 → 情绪"的错误语义映射。叙事/画像不生成任何情绪标签
+  （mood_hint / recent_mood_hint 不再写入；DailyNarrative.mood_hint 列保留置空兼容历史）。
 """
 from __future__ import annotations
 
-from datetime import date as date_cls, datetime, timedelta, timezone
+from datetime import date as date_cls, datetime, time, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import DailyNarrative, DerivedFeature, UserProfile, utcnow
-from app.schemas import DerivedFeatureIn
 
-NEGATIVE_HINT_WORDS = ("低落", "焦虑", "疲惫", "压力", "难过", "失眠", "烦躁", "孤独")
-POSITIVE_HINT_WORDS = ("开心", "平静", "放松", "愉快", "积极", "充实")
-
-
-def _mood_hint_from_summary(summary: str) -> str:
-    if any(word in summary for word in NEGATIVE_HINT_WORDS):
-        return "偏低"
-    if any(word in summary for word in POSITIVE_HINT_WORDS):
-        return "平稳偏积极"
-    return "平稳"
+#: 画像聚合窗口：近 N 天叙事 + 派生特征
+PROFILE_WINDOW_DAYS = 7
 
 
 def ingest_feature(
-    db: Session, *, tenant_id: str, user_id: str, feature: DerivedFeatureIn
+    db: Session, *, tenant_id: str, user_id: str, feature
 ) -> tuple[DerivedFeature, bool]:
     """幂等入库派生特征。返回 (row, idempotent_replay)。"""
     existing = db.scalar(select(DerivedFeature).where(
@@ -45,6 +44,7 @@ def ingest_feature(
         window_end=feature.window_end,
         summary=feature.summary,
         vector=feature.vector,
+        sources_present=list(getattr(feature, "sources_present", []) or []),
     )
     db.add(row)
     db.flush()
@@ -54,25 +54,26 @@ def ingest_feature(
 def build_daily_narrative(
     db: Session, *, tenant_id: str, user_id: str, date: date_cls
 ) -> DailyNarrative:
-    """按 tenant+user+date 幂等生成/更新每日叙事。"""
-    features = db.scalars(select(DerivedFeature).where(
-        DerivedFeature.tenant_id == tenant_id,
-        DerivedFeature.user_id == user_id,
-    ).order_by(DerivedFeature.window_start)).all()
-    day_features = [f for f in features if f.window_start.date() == date]
+    """按 tenant+user+date 幂等生成/更新每日叙事（写路径：ingest/显式重建时调用）。
+
+    使用时间范围查询：``window_start >= date 00:00 AND window_start < date+1 00:00``，
+    禁止全量拉取后 Python 过滤。事件不含任何情绪标签（PRD 契约点 2）。
+    """
+    start = datetime.combine(date, time.min, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+    features = db.scalars(
+        select(DerivedFeature).where(
+            DerivedFeature.tenant_id == tenant_id,
+            DerivedFeature.user_id == user_id,
+            DerivedFeature.window_start >= start,
+            DerivedFeature.window_start < end,
+        ).order_by(DerivedFeature.window_start)
+    ).all()
 
     events = [{
         "source": f.source,
         "summary": f.summary,
-        "mood_hint": _mood_hint_from_summary(f.summary),
-    } for f in day_features]
-    hints = [e["mood_hint"] for e in events]
-    if "偏低" in hints:
-        mood_hint = "偏低"
-    elif "平稳偏积极" in hints:
-        mood_hint = "平稳偏积极"
-    else:
-        mood_hint = "平稳"
+    } for f in features]
     gaps: list[str] = []  # 预留：后续标记感知覆盖缺口
 
     existing = db.scalar(select(DailyNarrative).where(
@@ -80,10 +81,12 @@ def build_daily_narrative(
         DailyNarrative.user_id == user_id,
         DailyNarrative.date == date,
     ))
+    now = utcnow()
     if existing:
         existing.events = events
-        existing.mood_hint = mood_hint
+        existing.mood_hint = None  # 情绪语义字段废弃：新写入恒为 None（兼容历史列）
         existing.gaps = gaps
+        existing.last_rebuilt_at = now
         db.flush()
         return existing
     row = DailyNarrative(
@@ -91,44 +94,65 @@ def build_daily_narrative(
         user_id=user_id,
         date=date,
         events=events,
-        mood_hint=mood_hint,
+        mood_hint=None,
         gaps=gaps,
+        last_rebuilt_at=now,
     )
     db.add(row)
     db.flush()
     return row
 
 
-def update_profile(db: Session, *, tenant_id: str, user_id: str) -> UserProfile:
-    """基于近 7 天叙事聚合画像；每次调用刷新 traits 并递增 version。"""
-    since = datetime.now(timezone.utc).date() - timedelta(days=7)
+def get_profile(db: Session, *, tenant_id: str, user_id: str) -> UserProfile | None:
+    """只读：查询缓存 UserProfile，不存在返回 None（路由层转 404）。
+
+    绝不 rebuild / version+1 / commit；无任何写副作用。
+    """
+    return db.scalar(select(UserProfile).where(
+        UserProfile.tenant_id == tenant_id,
+        UserProfile.user_id == user_id,
+    ))
+
+
+def rebuild_profile(db: Session, *, tenant_id: str, user_id: str) -> UserProfile:
+    """显式重建画像：基于近 7 天叙事 + 派生特征聚合 traits，version+1。
+
+    仅由 POST /v1/profile/{user_id}/rebuild 调用（写路径）。
+    派生特征查询使用时间范围（window_start >= now-7d），禁止全量拉取。
+    traits 不再包含 recent_mood_hint（PRD 契约点 2：非诊断表达）。
+    """
+    since_date = datetime.now(timezone.utc).date() - timedelta(days=PROFILE_WINDOW_DAYS)
     narratives = db.scalars(select(DailyNarrative).where(
         DailyNarrative.tenant_id == tenant_id,
         DailyNarrative.user_id == user_id,
-        DailyNarrative.date >= since,
+        DailyNarrative.date >= since_date,
     ).order_by(DailyNarrative.date.desc())).all()
+    since_dt = datetime.now(timezone.utc) - timedelta(days=PROFILE_WINDOW_DAYS)
     features = db.scalars(select(DerivedFeature).where(
         DerivedFeature.tenant_id == tenant_id,
         DerivedFeature.user_id == user_id,
+        DerivedFeature.window_start >= since_dt,
     )).all()
     observation_days = len({f.window_start.date() for f in features})
     traits = {
         "observation_days": observation_days,
         "narrative_days_last_7": len(narratives),
-        "recent_mood_hint": narratives[0].mood_hint if narratives else "未知",
     }
 
     existing = db.scalar(select(UserProfile).where(
         UserProfile.tenant_id == tenant_id,
         UserProfile.user_id == user_id,
     ))
+    now = utcnow()
     if existing:
         existing.traits = traits
         existing.version = existing.version + 1
-        existing.updated_at = utcnow()
+        existing.updated_at = now
+        existing.rebuilt_at = now
         db.flush()
         return existing
-    row = UserProfile(tenant_id=tenant_id, user_id=user_id, traits=traits, version=1)
+    row = UserProfile(tenant_id=tenant_id, user_id=user_id, traits=traits, version=1,
+                      updated_at=now, rebuilt_at=now)
     db.add(row)
     db.flush()
     return row

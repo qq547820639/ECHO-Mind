@@ -1,12 +1,15 @@
 """机构去标识群体画像聚合服务。
 
 按 tenant_id 聚合本租户所有用户的画像/叙事/风险数据。
-去标识保护：任何聚合桶计数 < 5 时合并到 "other" 桶，防重标识。
+去标识保护（v0.6）：
+- cohort 总人数 < 5 → 敏感维度（observation_stats）suppressed
+  （返回 suppression 标记，不输出可间接识别单人的 min/max 统计）
+- PRD 契约点 2：情绪语义已废弃，mood_distribution 恒为空并标记 suppressed
 不返回单个用户 ID/特征，仅返回聚合统计。
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from statistics import median
 from typing import Any
 
@@ -18,65 +21,60 @@ from app.models import DerivedFeature, Escalation, Skill, UserProfile
 SMALL_BUCKET_THRESHOLD = 5
 
 
-def _suppress_small_buckets(counts: dict[str, int], threshold: int = SMALL_BUCKET_THRESHOLD) -> dict[str, int]:
-    """任何计数 < threshold 的桶合并到 "other" 桶（累加计数）。
-
-    防御性：即使 "other" 桶最终计数 < threshold 也保留输出（机构聚合兜底）。
-    """
-    result: dict[str, int] = {}
-    other_total = 0
-    for key, value in counts.items():
-        if value < threshold:
-            other_total += value
-        else:
-            result[key] = value
-    if other_total > 0:
-        result["other"] = result.get("other", 0) + other_total
-    return result
+def _cohort_suppressed(value: bool) -> str:
+    return "suppressed" if value else "ok"
 
 
 def build_tenant_portrait(db: Session, tenant_id: str) -> dict[str, Any]:
     """聚合本租户去标识群体画像。
 
     返回字段：
-    - mood_distribution：mood_hint 分布（从 UserProfile.traits.recent_mood_hint 聚合，小桶合并后）
-    - observation_stats：observation_days 统计（min/max/avg/median）
+    - mood_distribution：恒为空（情绪语义已废弃，PRD 契约点 2）
+    - observation_stats：observation_days 统计（cohort<5 时隐藏 min/max 等）
     - active_users_7d：近 7 天活跃用户数（DerivedFeature.window_start 去重 user_id）
     - escalation_metrics：近 7 天 escalation 计数（total/open/closed/level_l3/level_l2）
     - skill_count：Skill 下发数（status in reviewed/signed/retired，按状态分组）
+    - suppression：敏感维度抑制标记 {mood_distribution: "suppressed", observation_stats: "ok"|"suppressed"}
     """
-    # 1. mood_hint 分布 + observation_days 统计（从 UserProfile.traits）
+    # 1. observation_days 统计（从 UserProfile.traits）
+    # PRD 契约点 2：情绪语义（recent_mood_hint/mood_hint）已废弃，被动数据不做情绪推断，
+    # mood_distribution 恒为空并在 suppression 标记 suppressed。
     profiles = db.scalars(
         select(UserProfile).where(UserProfile.tenant_id == tenant_id)
     ).all()
+    cohort_total = len(profiles)
 
-    mood_counts: dict[str, int] = {}
     observation_days_list: list[int] = []
     for profile in profiles:
         traits = profile.traits or {}
-        mood_hint = traits.get("recent_mood_hint")
-        if mood_hint:
-            mood_counts[str(mood_hint)] = mood_counts.get(str(mood_hint), 0) + 1
         obs_days = traits.get("observation_days")
         if isinstance(obs_days, bool):
             continue
         if isinstance(obs_days, (int, float)):
             observation_days_list.append(int(obs_days))
 
-    mood_distribution = _suppress_small_buckets(mood_counts)
+    suppression: dict[str, str] = {}
+    suppression["mood_distribution"] = "suppressed"  # 无情绪语义数据源
+    mood_distribution: dict[str, int] = {}
 
-    if observation_days_list:
-        observation_stats = {
-            "min": float(min(observation_days_list)),
-            "max": float(max(observation_days_list)),
-            "avg": float(sum(observation_days_list) / len(observation_days_list)),
-            "median": float(median(observation_days_list)),
-        }
+    if cohort_total < SMALL_BUCKET_THRESHOLD:
+        # cohort 总人数 <5：整个敏感维度 suppressed（不输出可间接识别单人的统计）
+        observation_stats: dict[str, float] = {}
+        suppression["observation_stats"] = _cohort_suppressed(True)
     else:
-        observation_stats = {"min": 0.0, "max": 0.0, "avg": 0.0, "median": 0.0}
+        if observation_days_list:
+            observation_stats = {
+                "min": float(min(observation_days_list)),
+                "max": float(max(observation_days_list)),
+                "avg": float(sum(observation_days_list) / len(observation_days_list)),
+                "median": float(median(observation_days_list)),
+            }
+        else:
+            observation_stats = {"min": 0.0, "max": 0.0, "avg": 0.0, "median": 0.0}
+        suppression["observation_stats"] = _cohort_suppressed(False)
 
     # 2. 近 7 天活跃用户数（DerivedFeature.window_start >= now - 7d 去重 user_id）
-    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    seven_days_ago = datetime.now(UTC) - timedelta(days=7)
     active_users_7d = db.scalar(
         select(func.count(func.distinct(DerivedFeature.user_id))).where(
             DerivedFeature.tenant_id == tenant_id,
@@ -118,4 +116,5 @@ def build_tenant_portrait(db: Session, tenant_id: str) -> dict[str, Any]:
         "active_users_7d": int(active_users_7d),
         "escalation_metrics": escalation_metrics,
         "skill_count": skill_count,
+        "suppression": suppression,
     }

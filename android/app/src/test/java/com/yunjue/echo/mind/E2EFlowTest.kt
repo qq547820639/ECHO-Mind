@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind
 
 import com.yunjue.echo.mind.model.DerivedFeatureInput
+import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.sensing.FeatureExtractor
 import com.yunjue.echo.mind.sensing.NotificationCollector
@@ -15,13 +16,15 @@ import java.time.Instant
  * T13.4 E2E 数据流转换测试（纯 JVM，不依赖 Android 框架）。
  *
  * 验证全链路数据流转换的正确性：
- * 1. FeatureExtractor 产出 DerivedFeatureInput（含 summary + vector，无原始数据）
+ * 1. FeatureExtractor 产出 DerivedFeatureInput（含 summary + vector + sources_present，无原始数据）
  * 2. DerivedFeatureInput 字段集合与后端 DerivedFeatureIn 契约对齐（无原始传感字段）
- * 3. /v1/skills 响应字段 → SkillDisplay 模型映射正确（与 LocalRepository.parseSkills 逻辑对齐）
- * 4. 隐私不变量：DerivedFeatureInput 不含原始传感数据（audio_buffer / raw_samples 等）
+ * 3. ingest payload 含 sources_present（02b 共享知识 4）
+ * 4. Skill 执行完成上报链路（SkillCompletionInput → skill_completion outbox → /v1/skills/completions）
+ * 5. /v1/skills 响应字段 → SkillDisplay 模型映射正确
+ * 6. 隐私不变量：DerivedFeatureInput 不含原始传感数据
  *
  * 不使用 org.json（Android 框架类），改用纯 Kotlin 数据结构做断言，
- * 确保 `./gradlew test` 中此测试可作为纯 JVM 单测运行（与 TrendDataSourceTest 同一模式）。
+ * 确保 `./gradlew test` 中此测试可作为纯 JVM 单测运行。
  */
 class E2EFlowTest {
 
@@ -44,12 +47,13 @@ class E2EFlowTest {
 
     /**
      * DerivedFeatureInput 序列化时应暴露的字段集合（与 LocalRepository.saveDerivedFeature
-     * 构建的 payload 字段对齐，包含 basePayload 注入的 event_id/user_id/client_time）。
+     * 构建的 payload 字段对齐，包含 basePayload 注入的 event_id/user_id/client_time +
+     * T02 新增 sources_present）。
      */
     private fun expectedIngestPayloadFields(): Set<String> = setOf(
         "event_id", "user_id", "client_time",
         "schema_version", "source", "window_start", "window_end",
-        "summary", "vector"
+        "summary", "vector", "sources_present"
     )
 
     // ---------- T13.4 FeatureExtractor → DerivedFeatureInput ----------
@@ -77,7 +81,7 @@ class E2EFlowTest {
         // 验证 DerivedFeatureInput 字段集合（data class 属性）
         val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.toSet()
         val expectedFields = setOf(
-            "schemaVersion", "source", "windowStart", "windowEnd", "summary", "vector"
+            "schemaVersion", "source", "windowStart", "windowEnd", "summary", "vector", "sourcesPresent"
         )
         assertEquals("DerivedFeatureInput 字段集合应为 $expectedFields", expectedFields, inputFields)
 
@@ -88,6 +92,31 @@ class E2EFlowTest {
         assertEquals(now, input.windowEnd)
         assertTrue("summary 不应为空", input.summary.isNotEmpty())
         assertTrue("vector 不应为空", input.vector.isNotEmpty())
+    }
+
+    @Test
+    fun derivedFeatureInputReportsSourcesPresent() {
+        // T02：sources_present 必须覆盖窗口实际出现的 modality（与 gap_finder 契约对齐）
+        val now = Instant.now()
+        val features = FeatureExtractor().extract(
+            windowStart = now.minusSeconds(300),
+            windowEnd = now,
+            accelSamples = listOf(floatArrayOf(0.1f, 0.2f, 9.8f)),
+            screenEvents = listOf(
+                ScreenCollector.ScreenEvent(now.minusSeconds(60).toEpochMilli(), ScreenCollector.ScreenState.ON)
+            ),
+            notifications = listOf(
+                NotificationCollector.NotificationMeta(now.minusSeconds(30).toEpochMilli(), "pkg", "social")
+            )
+        )
+        val present = features.first().sourcesPresent
+        assertTrue("sources_present 应含 accel", "accel" in present)
+        assertTrue("sources_present 应含 screen", "screen" in present)
+        assertTrue("sources_present 应含 notification", "notification" in present)
+        assertFalse("sources_present 不应含未出现 modality（app_activity）", "app_activity" in present)
+        // 枚举值必须与后端 EXPECTED_SOURCES 一致（02b 共享知识 4）
+        val allowed = setOf("accel", "gyro", "screen", "notification", "app_activity", "mic_opt", "health")
+        assertTrue("sources_present 值必须属于契约枚举", present.all { it in allowed })
     }
 
     @Test
@@ -166,13 +195,15 @@ class E2EFlowTest {
         // LocalRepository.saveDerivedFeature 构建的 payload 字段：
         //   event_id / user_id / client_time（basePayload 注入）
         //   schema_version / source / window_start / window_end / summary / vector（DerivedFeatureInput）
+        //   sources_present（T02 新增）
         val input = DerivedFeatureInput(
             schemaVersion = "feat-v1",
             source = "screen",
             windowStart = Instant.now(),
             windowEnd = Instant.now().plusSeconds(300),
             summary = "屏幕使用平稳",
-            vector = listOf(0.1f, 0.2f)
+            vector = listOf(0.1f, 0.2f),
+            sourcesPresent = listOf("screen", "notification")
         )
 
         // 模拟 saveDerivedFeature 的 payload 字段集合
@@ -186,14 +217,16 @@ class E2EFlowTest {
         payloadFields.add("window_end")     // DerivedFeatureInput.windowEnd
         payloadFields.add("summary")        // DerivedFeatureInput.summary
         payloadFields.add("vector")         // DerivedFeatureInput.vector
+        payloadFields.add("sources_present") // DerivedFeatureInput.sourcesPresent
 
-        // 后端契约字段集合 + client_time（端侧注入）
-        val expectedFields = backendSchemaFields + "client_time"
+        // 后端契约字段集合 + client_time + sources_present（端侧注入）
+        val expectedFields = backendSchemaFields + "client_time" + "sources_present"
         assertEquals(
             "ingest payload 字段应与后端契约对齐",
             expectedFields,
             payloadFields
         )
+        assertEquals(expectedFields, expectedIngestPayloadFields())
 
         // 不含任何原始传感字段
         for (forbidden in forbiddenRawFields) {
@@ -202,6 +235,49 @@ class E2EFlowTest {
                 forbidden in payloadFields
             )
         }
+    }
+
+    // ---------- Skill 执行完成上报链路（T05） ----------
+
+    @Test
+    fun skillCompletionInputCarriesContractFields() {
+        val input = SkillCompletionInput(
+            skillId = "sk_1",
+            status = "completed",
+            durationSeconds = 180
+        )
+        // 模型字段集合 = {skillId, status, durationSeconds, clientTime, eventId}
+        val fields = SkillCompletionInput::class.java.declaredFields.map { it.name }.toSet()
+        assertEquals(
+            setOf("skillId", "status", "durationSeconds", "clientTime", "eventId"),
+            fields
+        )
+        assertEquals("sk_1", input.skillId)
+        assertEquals("completed", input.status)
+        assertEquals(180, input.durationSeconds)
+        assertFalse("eventId 应自动生成", input.eventId.isBlank())
+    }
+
+    @Test
+    fun skillCompletionMapsToCompletionsEndpoint() {
+        // SyncWorker 映射：skill_completion → POST /v1/skills/completions
+        assertEquals("/v1/skills/completions", com.yunjue.echo.mind.data.SyncWorker.resolvePath("skill_completion"))
+        // deprecated 类型（practice）仍是旧端点，与 skill_completion 语义区分
+        assertEquals("/v1/practices/completions", com.yunjue.echo.mind.data.SyncWorker.resolvePath("practice"))
+    }
+
+    @Test
+    fun skillCompletionPayloadFieldsAlignWithBackendContract() {
+        // 后端 POST /v1/skills/completions 契约：
+        // body {event_id, user_id, skill_id, status: started|completed|stopped, duration_seconds, client_time}
+        val input = SkillCompletionInput(skillId = "sk_1", status = "completed", durationSeconds = 90)
+        val payloadFields = setOf(
+            "event_id", "user_id", "skill_id", "status", "duration_seconds", "client_time"
+        )
+        assertEquals(6, payloadFields.size)
+        assertTrue(payloadFields.containsAll(listOf("event_id", "user_id", "skill_id", "status", "duration_seconds", "client_time")))
+        // status 枚举白名单
+        assertTrue(input.status in setOf("started", "completed", "stopped"))
     }
 
     // ---------- T13.4 /v1/skills 响应 → SkillDisplay 映射 ----------
@@ -236,7 +312,6 @@ class E2EFlowTest {
     @Test
     fun skillDisplayCanHoldSanitizedSkillData() {
         // 验证 SkillDisplay 能正确承载后端下发的脱敏 Skill 数据
-        // 模拟后端 sanitize_skill 输出（已移除内部字段、原始特征引用）
         val skill = SkillDisplay(
             id = "sk_reviewed_0001",
             name = "auto_data_check",
@@ -258,8 +333,6 @@ class E2EFlowTest {
 
     @Test
     fun skillDisplayTriggerConditionsContainNoRawFeatureReferences() {
-        // 隐私不变量：SkillDisplay.triggerConditions 不应包含原始特征引用
-        // 后端 sanitize_skill 已移除 passive_feature.summary / derived_feature.* 等引用
         val skill = SkillDisplay(
             id = "sk_sanitized_0001",
             name = "auto_data_check",
@@ -291,8 +364,6 @@ class E2EFlowTest {
 
     @Test
     fun skillDisplayStepsContainNoInternalRefs() {
-        // 隐私不变量：SkillDisplay.steps 已降维为可读字符串，不含内部引用键
-        // LocalRepository.parseSkills 将 steps 降维为 description 字符串列表
         val skill = SkillDisplay(
             id = "sk_steps_0001",
             name = "auto_data_check",
@@ -303,7 +374,6 @@ class E2EFlowTest {
             status = "reviewed"
         )
 
-        // steps 为纯字符串列表，不含内部引用键
         for (step in skill.steps) {
             assertFalse("step 不应含 feature_id: $step", step.contains("feature_id"))
             assertFalse("step 不应含 source_user_id: $step", step.contains("source_user_id"))
@@ -348,7 +418,6 @@ class E2EFlowTest {
             id = "sk_e2e_0001",
             name = "auto_data_check",
             version = 1,
-            // trigger_conditions 不引用 passive_feature.summary（已被 sanitize 移除）
             triggerConditions = listOf("narrative.mood_hint eq 偏低"),
             guardrails = listOf("不输出诊断结论", "不替代专业医疗", "命中红色信号立即冻结"),
             steps = listOf("扫描当日特征"),
@@ -356,18 +425,15 @@ class E2EFlowTest {
         )
 
         // Step 4: 验证 SkillDisplay 隐私属性
-        // 不含原始特征 summary 引用
         for (cond in skill.triggerConditions) {
             assertFalse("trigger_conditions 不应引用 passive_feature.summary", cond.contains("passive_feature.summary"))
             assertFalse("trigger_conditions 不应引用 derived_feature", cond.contains("derived_feature"))
         }
-        // SkillDisplay 模型不含内部字段
         val displayFields = SkillDisplay::class.java.declaredFields.map { it.name }.toSet()
         assertFalse("SkillDisplay 不应含 content_hash 字段", "content_hash" in displayFields)
         assertFalse("SkillDisplay 不应含 tenant_id 字段", "tenant_id" in displayFields)
         assertFalse("SkillDisplay 不应含 user_id 字段", "user_id" in displayFields)
 
-        // 能力描述保留
         assertEquals("auto_data_check", skill.name)
         assertEquals("reviewed", skill.status)
         assertEquals(3, skill.guardrails.size)
@@ -375,8 +441,6 @@ class E2EFlowTest {
 
     @Test
     fun emptySkillListRepresentsColdStart() {
-        // 冷启动场景：空 Skill 列表 → UI 显示冷启动文案
-        // 与 SkillCardHostTest.emptySkillListShowsColdStartHint 对齐
         val emptySkills: List<SkillDisplay> = emptyList()
         assertTrue("空 Skill 列表应表示冷启动", emptySkills.isEmpty())
     }

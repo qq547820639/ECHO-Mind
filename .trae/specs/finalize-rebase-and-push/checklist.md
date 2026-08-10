@@ -1,0 +1,7 @@
+- [x] rebase 已 finalize：`git status` 显示 `nothing to commit, working tree clean`，分支为 `main`
+- [x] `.git/rebase-merge/` 目录已清除，无 rebase 残留状态
+- [x] 新 commit 位于 onto 基点 `829000a` 之上（`git log --oneline -3` 可见）
+- [x] commit message 保留为 `feat: 被动感知范式全量落地 + 待明确项收尾`
+- [x] `git push origin main` 成功，无 force push
+- [x] 本地 `main` 与 `origin/main` 指向同一 commit（`git rev-parse main origin/main` 输出一致）
+- [x] 未跟踪文件（`.trae/`、`.codebuddy/`、`.workbuddy/`）保持未跟踪，未被纳入提交

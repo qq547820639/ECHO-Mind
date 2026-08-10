@@ -63,9 +63,9 @@ def test_passive_consent_revocation_blocks_ingest(client, user_headers, passive_
 # ---------- T13.2 被动 RED 审计哈希链跨多事件验证 ----------
 
 def test_passive_red_audit_chain_across_multiple_events(client, user_headers, passive_sensing_consent, auditor_headers):
-    """连续 ingest 3 条特征（第 2 条含红色 summary），验证审计哈希链。
+    """连续 ingest 3 条特征（含 PASSIVE_RED_TERMS 词条）验证审计哈希链；PRD 契约点 1 不触发危机。
 
-    事件序列应含：safety.passive_red + escalation.open + feature.ingest。
+    事件序列应含：feature.ingest + escalation.open（用户主动求助），不含 safety.passive_red。
     verify_audit_chain 返回 valid=True + head_hash 非空 + events 数量正确。
     """
     # 1. 第一条：普通特征（无红色）
@@ -74,12 +74,12 @@ def test_passive_red_audit_chain_across_multiple_events(client, user_headers, pa
                      headers=user_headers)
     assert r1.status_code == 200
 
-    # 2. 第二条：红色 summary（含"结束生命"）
+    # 2. 第二条：红色 summary（含"结束生命"）→ 不触发被动危机（escalation_id=None）
     r2 = client.post("/v1/features/ingest",
                      json=_feature_payload("evt_chain_0002", "输入内容多次提及结束生命"),
                      headers=user_headers)
     assert r2.status_code == 200
-    assert r2.json()["escalation_id"]  # 触发升级
+    assert r2.json()["escalation_id"] is None
 
     # 3. 第三条：普通特征
     r3 = client.post("/v1/features/ingest",
@@ -87,22 +87,29 @@ def test_passive_red_audit_chain_across_multiple_events(client, user_headers, pa
                      headers=user_headers)
     assert r3.status_code == 200
 
-    # 4. 校验审计链
+    # 4. 用户主动求助 → 合法危机链路（escalation.open）
+    esc = client.post("/v1/escalations", json={
+        "event_id": "evt_chain_esc_0001", "user_id": "u_demo", "level": "L3",
+        "trigger": "help_requested", "evidence_summary": "用户主动求助",
+    }, headers=user_headers)
+    assert esc.status_code == 200
+
+    # 5. 校验审计链
     verify = client.get("/v1/audit/verify", headers=auditor_headers)
     assert verify.status_code == 200
     body = verify.json()
     assert body["valid"] is True
     assert body["head_hash"]  # 非空
-    assert body["events"] >= 3  # 至少 3 条 ingest + 红色附加事件
+    assert body["events"] >= 4
 
-    # 5. 事件序列含 safety.passive_red + escalation.open + feature.ingest
+    # 6. 事件序列含 feature.ingest + escalation.open，不含 safety.passive_red
     with SessionLocal() as db:
         actions = [e.action for e in db.query(AuditEvent).filter(
             AuditEvent.tenant_id == "t_demo"
         ).order_by(AuditEvent.occurred_at.asc()).all()]
     assert "feature.ingest" in actions
-    assert "safety.passive_red" in actions
     assert "escalation.open" in actions
+    assert "safety.passive_red" not in actions
 
 
 # ---------- T13.2 跨租户 audit 链隔离 ----------
@@ -143,17 +150,16 @@ def test_audit_chain_cross_tenant_isolation(client, user_headers, passive_sensin
 # ---------- T13.2 DSR delete 对被动感知数据清理 ----------
 
 def test_dsr_delete_cleans_passive_sensing_data(client, user_headers, passive_sensing_consent, admin_headers):
-    """DSR delete 完成后 DerivedFeature + RiskSignal 已清理。
-
-    流程：ingest 特征（含红色）→ 发起 DSR delete → complete → 验证数据已清理。
-    审计链（AuditEvent）按合规要求保留不可删除。
-    """
-    # 1. ingest 一条红色特征（产生 DerivedFeature + RiskSignal）
+    """DSR delete 完成后 DerivedFeature 已清理；RiskSignal/Consent 依法保留（PRD 契约点 6）。"""
+    # 1. ingest 普通特征 + 直接播种 RiskSignal（危机处置记录）
     ingest = client.post("/v1/features/ingest",
-                         json=_feature_payload("evt_dsr_delete_0001", "输入内容多次提及结束生命"),
+                         json=_feature_payload("evt_dsr_delete_0001", "屏幕使用平稳"),
                          headers=user_headers)
     assert ingest.status_code == 200
-    assert ingest.json()["escalation_id"]
+    with SessionLocal() as db:
+        db.add(RiskSignal(tenant_id="t_demo", user_id="u_demo", source="free_text",
+                          severity="none", rule_pack_version="test", evidence_refs=[], labels=[]))
+        db.commit()
 
     # 2. 验证数据已落库
     with SessionLocal() as db:
@@ -178,12 +184,12 @@ def test_dsr_delete_cleans_passive_sensing_data(client, user_headers, passive_se
     assert done.status_code == 200
     assert done.json()["status"] == "completed"
 
-    # 5. 验证 DerivedFeature + RiskSignal 已清理
+    # 5. DerivedFeature 已清理；RiskSignal（危机处置）依法保留；审计链保留
     with SessionLocal() as db:
         assert db.query(DerivedFeature).filter_by(
             tenant_id="t_demo", user_id="u_demo").count() == 0
         assert db.query(RiskSignal).filter_by(
-            tenant_id="t_demo", user_id="u_demo").count() == 0
+            tenant_id="t_demo", user_id="u_demo").count() >= 1
         # 审计链保留（合规要求）
         assert db.query(AuditEvent).filter_by(
             tenant_id="t_demo").count() > 0
@@ -194,7 +200,8 @@ def test_dsr_delete_cleans_passive_sensing_data(client, user_headers, passive_se
 def test_ingest_schema_only_allows_defined_fields(client, user_headers, passive_sensing_consent):
     """POST /v1/features/ingest 请求体 schema 只含定义字段，不含原始传感 payload。
 
-    合法字段集合：{schema_version, source, window_start, window_end, summary, vector, event_id, user_id}
+    合法字段集合：{schema_version, source, window_start, window_end, summary, vector,
+    event_id, user_id, sources_present}（v0.6 新增 sources_present）
     不含：audio_buffer / raw_samples / payload / sensor_data 等原始传感字段。
     """
     from app.schemas import DerivedFeatureIn
@@ -203,7 +210,7 @@ def test_ingest_schema_only_allows_defined_fields(client, user_headers, passive_
     schema_fields = set(DerivedFeatureIn.model_fields.keys())
     expected_fields = {
         "schema_version", "source", "window_start", "window_end",
-        "summary", "vector", "event_id", "user_id",
+        "summary", "vector", "event_id", "user_id", "sources_present",
     }
     assert schema_fields == expected_fields, (
         f"DerivedFeatureIn 字段集合应为 {expected_fields}，实际为 {schema_fields}"

@@ -4,13 +4,14 @@
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime, time, timedelta
 from datetime import date as date_cls
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import DailyNarrative, DerivedFeature
+from app.models import DerivedFeature
 
 # 端侧派生特征期望覆盖的 source 集合
 EXPECTED_SOURCES: tuple[str, ...] = (
@@ -20,9 +21,6 @@ EXPECTED_SOURCES: tuple[str, ...] = (
     "notification",
     "app_activity",
 )
-
-# 判定"持续低落"所需连续天数（含当天）
-PERSISTENT_LOW_MIN_DAYS = 2
 
 
 def find_gaps(
@@ -36,11 +34,11 @@ def find_gaps(
     """基于 audit_day 返回的 summary 识别感知覆盖缺口。
 
     返回 ``[{gap_id, description, severity, suggested_tool_type}]``，缺口 ID 稳定，
-    便于幂等去重。识别规则：
+    便于幂等去重。识别规则（PRD 契约点 1/2：被动数据不做情绪/危机推断）：
       - feature_count==0 → "无感知数据"（high）
       - 某个 source 缺失 → "缺少{source}信号"（medium）
-      - narrative_mood_hint=="偏低" 且连续多天 → "持续低落状态"（high）
       - profile_traits.observation_days < 3 → "观测数据不足"（low）
+    （"持续低落状态"情绪推断规则已按 PRD 契约点 2 移除。）
     """
     gaps: list[dict[str, Any]] = []
     feature_count: int = int(audit_summary.get("feature_count", 0) or 0)
@@ -66,25 +64,7 @@ def find_gaps(
                 "suggested_tool_type": "signal_probe",
             })
 
-    # 3. 持续低落状态：当天 mood_hint=="偏低" 且最近 N 天连续偏低
-    if audit_summary.get("narrative_mood_hint") == "偏低":
-        recent = db.scalars(
-            select(DailyNarrative).where(
-                DailyNarrative.tenant_id == tenant_id,
-                DailyNarrative.user_id == user_id,
-            ).order_by(DailyNarrative.date.desc()).limit(PERSISTENT_LOW_MIN_DAYS)
-        ).all()
-        if len(recent) >= PERSISTENT_LOW_MIN_DAYS and all(
-            n.mood_hint == "偏低" for n in recent
-        ):
-            gaps.append({
-                "gap_id": "persistent_low",
-                "description": "持续低落状态",
-                "severity": "high",
-                "suggested_tool_type": "mood_check",
-            })
-
-    # 4. 观测数据不足
+    # 3. 观测数据不足
     traits: dict[str, Any] = dict(audit_summary.get("profile_traits") or {})
     observation_days = int(traits.get("observation_days", 0) or 0)
     if observation_days < 3:
@@ -99,11 +79,15 @@ def find_gaps(
 
 
 def _day_features(db: Session, tenant_id: str, user_id: str, run_date: date_cls) -> list[DerivedFeature]:
-    """读取当日 DerivedFeature（与 audit_day 同口径）。"""
+    """读取当日 DerivedFeature（与 audit_day 同口径，时间范围查询）。"""
+    start = datetime.combine(run_date, time.min, tzinfo=UTC)
+    end = start + timedelta(days=1)
     features = db.scalars(
         select(DerivedFeature).where(
             DerivedFeature.tenant_id == tenant_id,
             DerivedFeature.user_id == user_id,
+            DerivedFeature.window_start >= start,
+            DerivedFeature.window_start < end,
         )
     ).all()
-    return [f for f in features if f.window_start.date() == run_date]
+    return list(features)

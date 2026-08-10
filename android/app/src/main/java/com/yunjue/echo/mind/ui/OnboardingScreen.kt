@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.sensing.PassiveSensingService
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
@@ -133,6 +134,13 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                     )
                     container.preferences.setPassiveSensingEnabled(passiveSensingConsent)
                     container.preferences.onboardingCompleted = true
+                    // 02b 共享知识 1：consent granted → flag（拉取租户配置，失败 fail-closed）→ 真实启动服务
+                    if (passiveSensingConsent) {
+                        runCatching { container.repository.fetchFeatureFlags() }
+                        PassiveSensingService.start(context)
+                    } else {
+                        PassiveSensingService.stop(context)
+                    }
                     SyncWorker.enqueue(context)
                     onComplete()
                 }

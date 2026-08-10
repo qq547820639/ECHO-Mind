@@ -77,14 +77,14 @@ def test_cross_tenant_profile_returns_404(client):
     assert response.status_code == 404
 
 
-def test_red_ingest_keeps_audit_chain_valid_and_single_risk_signal(client, user_headers):
-    # case E: 红色 summary ingest 后审计链有效且 RiskSignal 恰好 1 条
+def test_red_ingest_keeps_audit_chain_valid_and_no_risk_signal(client, user_headers):
+    # case E: 红色 summary ingest 不触发危机链路（PRD 契约点 1），审计链有效且 RiskSignal=0
     _grant_passive_consent(client, user_headers)
     response = client.post("/v1/features/ingest",
                            json=_feature_payload("evt_qa_0005", "输入内容多次提及结束生命"),
                            headers=user_headers)
     assert response.status_code == 200
-    assert response.json()["escalation_id"]
+    assert response.json()["escalation_id"] is None
     auditor_headers = {"Authorization": f"Bearer {create_access_token('aud', 't_demo', 'auditor')}"}
     verify = client.get("/v1/audit/verify", headers=auditor_headers)
     assert verify.status_code == 200
@@ -94,6 +94,4 @@ def test_red_ingest_keeps_audit_chain_valid_and_single_risk_signal(client, user_
             RiskSignal.tenant_id == "t_demo",
             RiskSignal.user_id == "u_demo",
         ).all()
-        assert len(signals) == 1
-        assert signals[0].source == "passive_feature"
-        assert signals[0].severity == "red"
+        assert len(signals) == 0

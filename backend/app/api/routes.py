@@ -1,11 +1,12 @@
-import threading
-import time
-from datetime import date as date_cls, datetime, timezone
+import hashlib
+import json
+from datetime import UTC, datetime, timedelta
+from datetime import date as date_cls
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -35,11 +36,14 @@ from app.models import (
     RiskSignal,
     SandboxRun,
     Skill,
+    SkillCompletion,
     Tenant,
+    Tool,
     User,
     UserProfile,
 )
 from app.schemas import (
+    ACTION_TYPE_WHITELIST,
     CheckinCreate,
     ConsentCreate,
     DataSubjectRequestComplete,
@@ -58,6 +62,8 @@ from app.schemas import (
     SandboxRunCreate,
     SandboxRunOut,
     SkillBatchRetire,
+    SkillCompletionCreate,
+    SkillOut,
     SkillTransition,
     TenantCreate,
     TenantFlagUpdate,
@@ -67,12 +73,12 @@ from app.schemas import (
 from app.services.audit import append_audit, verify_audit_chain
 from app.services.crypto import decrypt_text, encrypt_text
 from app.services.escalation import scan_sla_breaches
-from app.services.feature_flags import get_tenant_flags, set_tenant_flag
-from app.services.profile import build_daily_narrative, ingest_feature, update_profile
-from app.services.safety import RULE_PACK_VERSION, evaluate_passive, evaluate_text, resolve_rule_ids
+from app.services.feature_flags import get_tenant_flags, set_tenant_flag, tenant_exists
+from app.services.profile import build_daily_narrative, ingest_feature, rebuild_profile
+from app.services.profile import get_profile as get_profile_cached
+from app.services.safety import RULE_PACK_VERSION, resolve_rule_ids
 from app.services.sandbox import schedule_sandbox_run
 from app.services.sandbox.sanitizer import sanitize_skill, sanitize_skills
-from app.services.scoring import score_gad7, score_phq9
 from app.services.tenant_portrait import build_tenant_portrait
 from app.services.trends import build_trend
 
@@ -182,6 +188,7 @@ def require_feature_flag(flag_key: str):
 
     关闭则返回 410 Gone（资源已停用），与路由层 idempotent 410 语义一致。
     复用 [get_principal] / [get_db] 依赖解析当前 principal 与 db session。
+    租户不存在时放行（交由下游 ensure_user 等返回 404），避免泄露 flag 状态。
     """
     from app.services.feature_flags import is_flag_enabled
 
@@ -189,6 +196,8 @@ def require_feature_flag(flag_key: str):
         db: Annotated[Session, Depends(get_db)],
         principal: Annotated[Principal, Depends(get_principal)],
     ) -> None:
+        if not tenant_exists(db, principal.tenant_id):
+            return
         if not is_flag_enabled(db, principal.tenant_id, flag_key):
             raise HTTPException(status_code=410, detail=f"{flag_key} disabled for tenant")
 
@@ -227,7 +236,7 @@ def open_escalation(
         trigger=trigger,
         evidence_summary=evidence_summary,
         # 服务端接收事件即视为送达确认；与人工接管（ack/takeover）严格区分。
-        delivery_confirmed_at=datetime.now(timezone.utc),
+        delivery_confirmed_at=datetime.now(UTC),
     )
     db.add(row)
     db.flush()
@@ -294,7 +303,7 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL):
 def create_consent(payload: ConsentCreate, db: DB, principal: PRINCIPAL):
     require_write_role(db, principal, object_type="consent")
     ensure_user(db, principal, payload.user_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     consent = Consent(
         tenant_id=principal.tenant_id,
         user_id=payload.user_id,
@@ -542,9 +551,9 @@ def list_escalations(
     if status:
         query = query.where(Escalation.status == status)
     rows = db.scalars(query.order_by(Escalation.opened_at.desc())).all()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     def age_seconds(value: datetime) -> float:
-        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        aware = value if value.tzinfo else value.replace(tzinfo=UTC)
         return (now - aware).total_seconds()
     user_ids = {x.user_id for x in rows}
     users: dict[str, User] = {}
@@ -880,7 +889,7 @@ def ack_escalation(
     if row.status in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="already closed")
     if row.ack_at is None:
-        row.ack_at = datetime.now(timezone.utc)
+        row.ack_at = datetime.now(UTC)
     if row.status == "open":
         row.status = "acknowledged"
     row.assigned_to = row.assigned_to or principal.subject
@@ -899,7 +908,7 @@ def takeover(
     row = get_escalation(db, principal, escalation_id)
     if row.status in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="already closed")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     row.ack_at = row.ack_at or now
     row.takeover_at = row.takeover_at or now
     row.status = "taken_over"
@@ -943,7 +952,7 @@ def close_escalation(
             detail={"missing_fields": missing, "message": "close requires a complete takeover record"},
         )
     row.status = "closed"
-    row.closed_at = row.closed_at or datetime.now(timezone.utc)
+    row.closed_at = row.closed_at or datetime.now(UTC)
     for name in CLOSE_REQUIRED_FIELDS:
         setattr(row, name, getattr(payload, name))
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
@@ -963,7 +972,7 @@ def review_escalation(
     if row.status not in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="close required before review")
     row.status = "reviewed"
-    row.reviewed_at = row.reviewed_at or datetime.now(timezone.utc)
+    row.reviewed_at = row.reviewed_at or datetime.now(UTC)
     row.review_notes = payload.review_notes
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="escalation.review", object_type="escalation", object_id=row.id)
@@ -1020,6 +1029,108 @@ def list_dsr(
     } for x in rows]
 
 
+#: DSR delete 矩阵：删除的派生/主动内容表（按 category -> model 映射）。
+#: 删除使用 bulk query.delete()，绕过 ORM flush 守卫；审计/危机处置/consent 记录（append-only 或法律留存）不在其中。
+DSR_DELETE_MODELS: dict[str, object] = {
+    "derived_features": DerivedFeature,
+    "daily_narratives": DailyNarrative,
+    "user_profiles": UserProfile,
+    "checkins": Checkin,
+    "journal_entries": JournalEntry,
+    "questionnaire_results": QuestionnaireResult,
+    "practice_completions": PracticeCompletion,
+    "emergency_contacts": EmergencyContact,
+    "tools": Tool,
+    "skills": Skill,
+    "sandbox_runs": SandboxRun,
+}
+
+#: 依法保留（append-only / 危机处置 / 同意证据链 / 数据权利合规），不删除。
+DSR_RETAINED_REASONS: dict[str, str] = {
+    "consents": "同意/撤回证据链合规审计留存（法定期限）",
+    "risk_signals": "危机处置记录 append-only，法定留存",
+    "audit_events": "审计哈希链依法永久保留，不可删除",
+    "escalations": "危机处置记录法定留存；关联用户已去标识",
+    "data_subject_requests": "数据权利请求合规审计记录",
+}
+
+
+def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, dict]:
+    """执行 DSR delete 分类矩阵删除，返回 per_category 摘要。
+
+    删除：派生特征/叙事/画像/主动录入/紧急联系人/Skill/Tool/SandboxRun。
+    保留：consents（同意证据链）、risk_signals（危机处置 append-only）、
+    escalations（危机处置，关联 User 行去标识）、audit_events（哈希链）、dsr 请求记录。
+    bulk query().delete() 不经过 ORM flush 守卫，因此不会触发 append-only 拦截；
+    保留类别本身不会被删除。
+    """
+    per_category: dict[str, dict] = {}
+    for category, model in DSR_DELETE_MODELS.items():
+        deleted = db.query(model).filter(
+            model.tenant_id == tenant_id,
+            model.user_id == user_id,
+        ).delete(synchronize_session=False)
+        per_category[category] = {"action": "delete", "count": deleted, "retained_reason": None}
+
+    # 保留：consents（同意/撤回证据链）
+    consent_count = db.query(Consent).filter(
+        Consent.tenant_id == tenant_id,
+        Consent.user_id == user_id,
+    ).count()
+    per_category["consents"] = {
+        "action": "retain",
+        "count": consent_count,
+        "retained_reason": DSR_RETAINED_REASONS["consents"],
+    }
+    # 保留：risk_signals（危机处置 append-only）
+    risk_count = db.query(RiskSignal).filter(
+        RiskSignal.tenant_id == tenant_id,
+        RiskSignal.user_id == user_id,
+    ).count()
+    per_category["risk_signals"] = {
+        "action": "retain",
+        "count": risk_count,
+        "retained_reason": DSR_RETAINED_REASONS["risk_signals"],
+    }
+    # 保留危机处置记录（escalations），去标识关联 User 行（外部引用置为不可逆 hash，city 置空）
+    escalation_count = db.query(Escalation).filter(
+        Escalation.tenant_id == tenant_id,
+        Escalation.user_id == user_id,
+    ).count()
+    per_category["escalations"] = {
+        "action": "retain",
+        "count": escalation_count,
+        "retained_reason": DSR_RETAINED_REASONS["escalations"],
+    }
+    user = db.get(User, user_id)
+    if user is not None and user.tenant_id == tenant_id:
+        salt = f"{tenant_id}:{user_id}"
+        user.external_ref = "dsr_" + hashlib.sha256(salt.encode("utf-8")).hexdigest()[:32]
+        user.city = None
+        user.timezone = "UTC"
+
+    # 审计链依法保留（append-only，不可修改/删除）
+    audit_count = db.query(AuditEvent).filter(
+        AuditEvent.tenant_id == tenant_id,
+        AuditEvent.actor_id == user_id,
+    ).count()
+    per_category["audit_events"] = {
+        "action": "retain",
+        "count": audit_count,
+        "retained_reason": DSR_RETAINED_REASONS["audit_events"],
+    }
+    dsr_count = db.query(DataSubjectRequest).filter(
+        DataSubjectRequest.tenant_id == tenant_id,
+        DataSubjectRequest.user_id == user_id,
+    ).count()
+    per_category["data_subject_requests"] = {
+        "action": "retain",
+        "count": dsr_count,
+        "retained_reason": DSR_RETAINED_REASONS["data_subject_requests"],
+    }
+    return per_category
+
+
 @router.post("/data-subject-requests/{request_id}/complete")
 def complete_dsr(
     request_id: str,
@@ -1030,27 +1141,45 @@ def complete_dsr(
     row = db.get(DataSubjectRequest, request_id)
     if not row or row.tenant_id != principal.tenant_id:
         raise HTTPException(status_code=404, detail="not found")
-    row.status = "completed"
-    row.completed_at = datetime.now(timezone.utc)
-    row.result_summary = payload.result_summary
-    # DSR delete：清理该用户的被动感知数据（DerivedFeature + RiskSignal）。
-    # 仅清理被动感知产物，审计链（AuditEvent）按合规要求保留不可删除。
-    deleted_counts: dict[str, int] = {}
+
+    # 幂等：已完成的请求直接返回既有结果，不重复删除/审计
+    if row.status == "completed" and row.result_summary:
+        try:
+            stored = json.loads(row.result_summary)
+        except (TypeError, ValueError):
+            stored = {"per_category": {}, "summary": row.result_summary}
+        return {
+            "id": row.id,
+            "status": row.status,
+            "completed_at": row.completed_at,
+            "result_summary": stored,
+            "idempotent_replay": True,
+        }
+
+    per_category: dict[str, dict] = {}
     if row.request_type == "delete":
-        df_count = db.query(DerivedFeature).filter(
-            DerivedFeature.tenant_id == principal.tenant_id,
-            DerivedFeature.user_id == row.user_id,
-        ).delete(synchronize_session=False)
-        risk_count = db.query(RiskSignal).filter(
-            RiskSignal.tenant_id == principal.tenant_id,
-            RiskSignal.user_id == row.user_id,
-        ).delete(synchronize_session=False)
-        deleted_counts = {"derived_features": df_count, "risk_signals": risk_count}
+        per_category = _execute_dsr_delete(db, principal.tenant_id, row.user_id)
+    row.status = "completed"
+    row.completed_at = datetime.now(UTC)
+    if row.request_type == "delete":
+        summary_text = "按数据分类矩阵执行：派生产物/主动录入已删除；审计与危机处置记录依法保留。"
+    else:
+        summary_text = f"请求类型 {row.request_type} 已标记完成。"
+    summary = {
+        "per_category": per_category,
+        "summary": summary_text,
+    }
+    row.result_summary = json.dumps(summary, ensure_ascii=False)
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="dsr.complete", object_type="data_subject_request", object_id=row.id,
-                 metadata={"request_type": row.request_type, "deleted": deleted_counts})
+                 metadata={"request_type": row.request_type, "per_category": per_category})
     db.commit()
-    return {"id": row.id, "status": row.status, "completed_at": row.completed_at}
+    return {
+        "id": row.id,
+        "status": row.status,
+        "completed_at": row.completed_at,
+        "result_summary": summary,
+    }
 
 
 @router.get("/audit/events")
@@ -1088,7 +1217,6 @@ def audit_verify(
 @router.post("/features/ingest")
 def ingest_derived_feature(
     payload: DerivedFeatureIn,
-    request: Request,
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("passive_sensing_enabled"))],
@@ -1101,49 +1229,55 @@ def ingest_derived_feature(
     row, replay = ingest_feature(db, tenant_id=principal.tenant_id, user_id=payload.user_id, feature=payload)
     if replay:
         return {"id": row.id, "idempotent_replay": True, "escalation_id": None}
-    escalation_id = None
-    severity, matched = evaluate_passive([payload])
-    if severity == "red":
-        signal = RiskSignal(
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            source="passive_feature",
-            severity="red",
-            rule_pack_version=RULE_PACK_VERSION,
-            evidence_refs=matched,
-            labels=["passive"],
-        )
-        db.add(signal)
-        db.flush()
-        append_audit(db, tenant_id=principal.tenant_id, actor_type="safety_service", actor_id="passive_rules",
-                     action="safety.passive_red", object_type="risk_signal", object_id=signal.id,
-                     metadata={"source": payload.source})
-        db.flush()  # 确保下一条审计事件正确链接哈希链前驱
-        escalation_id = open_escalation(
-            db,
-            tenant_id=principal.tenant_id,
-            user_id=payload.user_id,
-            trigger="passive_red_signal",
-            evidence_summary="被动特征命中确定性红色规则；原文不写入审计。",
-            actor_id="passive_rules",
-        ).id
-        db.flush()
+    # 写路径：入库后同步构建当日叙事（GET 不再读时生成）
+    build_daily_narrative(
+        db,
+        tenant_id=principal.tenant_id,
+        user_id=payload.user_id,
+        date=payload.window_start.date(),
+    )
+    # PRD v0.6 契约点 1：被动行为数据（派生特征）不得用于推断危机/自杀意图，
+    # ingest 不触发任何被动 RED 危机链路（evaluate_passive 不再被生产路由调用），
+    # 因此不创建 RiskSignal/Escalation，escalation_id 恒为 None。
+    # 危机信号唯一来源为用户主动求助/文本 RED/人工事件（见 routes 其它端点）。
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="feature.ingest", object_type="derived_feature", object_id=row.id,
-                 metadata={"source": payload.source},
-                 request_id=request.headers.get("x-request-id"))
+                 metadata={"source": payload.source})
     db.commit()
-    return {"id": row.id, "idempotent_replay": False, "escalation_id": escalation_id}
+    return {"id": row.id, "idempotent_replay": False, "escalation_id": None}
 
 
 @router.get("/profile/{user_id}")
 def get_profile(user_id: str, db: DB, principal: PRINCIPAL):
+    """只读画像缓存：绝不 rebuild / version+1 / commit（无任何写副作用）。"""
     ensure_user(db, principal, user_id)
-    row = update_profile(db, tenant_id=principal.tenant_id, user_id=user_id)
+    row = get_profile_cached(db, tenant_id=principal.tenant_id, user_id=user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="profile not built; POST /v1/profile/{user_id}/rebuild to build")
+    return {"user_id": user_id, "traits": row.traits, "version": row.version, "updated_at": row.updated_at}
+
+
+@router.post("/profile/{user_id}/rebuild")
+def rebuild_user_profile(user_id: str, db: DB, principal: PRINCIPAL):
+    """显式重建画像：traits + version+1；仅写路径调用。"""
+    ensure_user(db, principal, user_id)
+    row = rebuild_profile(db, tenant_id=principal.tenant_id, user_id=user_id)
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="profile.update", object_type="user_profile", object_id=row.id)
+                 action="profile.rebuild", object_type="user_profile", object_id=row.id,
+                 metadata={"version": row.version})
     db.commit()
     return {"user_id": user_id, "traits": row.traits, "version": row.version, "updated_at": row.updated_at}
+
+
+def _narrative_to_dict(narrative: DailyNarrative, user_id: str) -> dict:
+    # PRD 契约点 2：不输出情绪标签（mood_hint 字段废弃）
+    return {
+        "id": narrative.id,
+        "user_id": user_id,
+        "date": str(narrative.date),
+        "events": narrative.events,
+        "gaps": narrative.gaps,
+    }
 
 
 @router.get("/narratives")
@@ -1152,21 +1286,68 @@ def get_daily_narrative(
     db: DB,
     principal: PRINCIPAL,
     date: date_cls | None = Query(default=None),
+    from_: date_cls | None = Query(default=None, alias="from"),
+    to: date_cls | None = Query(default=None),
 ):
+    """只读叙事查询：GET 不写库、不读时生成。
+
+    - ``date`` 单日查询（向后兼容），缺失返回 404；
+    - ``from``/``to`` 批量查询：返回 ordered narratives + data coverage + missing dates，
+      供 Android 一次请求完成趋势加载。
+    """
     ensure_user(db, principal, user_id)
-    target_date = date or datetime.now(timezone.utc).date()
-    narrative = build_daily_narrative(db, tenant_id=principal.tenant_id, user_id=user_id, date=target_date)
-    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
-                 action="narrative.generate", object_type="daily_narrative", object_id=narrative.id,
-                 metadata={"date": str(target_date)})
-    db.commit()
+
+    if date is not None:
+        narrative = db.scalar(select(DailyNarrative).where(
+            DailyNarrative.tenant_id == principal.tenant_id,
+            DailyNarrative.user_id == user_id,
+            DailyNarrative.date == date,
+        ))
+        if narrative is None:
+            raise HTTPException(status_code=404, detail="no narrative for date")
+        return _narrative_to_dict(narrative, user_id)
+
+    today = datetime.now(UTC).date()
+    if from_ is not None and to is not None:
+        if from_ > to:
+            raise HTTPException(status_code=422, detail="from must be <= to")
+        start, end = from_, to
+    elif from_ is not None:
+        start, end = from_, from_
+    elif to is not None:
+        start, end = to, to
+    else:
+        # 单日默认：今天（保持既有无参调用语义）
+        narrative = db.scalar(select(DailyNarrative).where(
+            DailyNarrative.tenant_id == principal.tenant_id,
+            DailyNarrative.user_id == user_id,
+            DailyNarrative.date == today,
+        ))
+        if narrative is None:
+            raise HTTPException(status_code=404, detail="no narrative for date")
+        return _narrative_to_dict(narrative, user_id)
+
+    rows = db.scalars(select(DailyNarrative).where(
+        DailyNarrative.tenant_id == principal.tenant_id,
+        DailyNarrative.user_id == user_id,
+        DailyNarrative.date >= start,
+        DailyNarrative.date <= end,
+    ).order_by(DailyNarrative.date.asc())).all()
+    present_dates = {str(r.date) for r in rows}
+    requested_days = (end - start).days + 1
+    all_dates = [str(start + timedelta(days=i)) for i in range(requested_days)]
+    missing_dates = [d for d in all_dates if d not in present_dates]
+    coverage = round(len(rows) / requested_days, 3) if requested_days else 1.0
     return {
-        "id": narrative.id,
-        "user_id": user_id,
-        "date": str(narrative.date),
-        "events": narrative.events,
-        "mood_hint": narrative.mood_hint,
-        "gaps": narrative.gaps,
+        "narratives": [_narrative_to_dict(r, user_id) for r in rows],
+        "from": str(start),
+        "to": str(end),
+        "coverage": {
+            "requested_days": requested_days,
+            "present_days": len(rows),
+            "coverage": coverage,
+            "missing_dates": missing_dates,
+        },
     }
 
 
@@ -1188,24 +1369,34 @@ def _sandbox_run_to_out(run: SandboxRun) -> SandboxRunOut:
     )
 
 
-# 沙箱速率限制：内存计数器，按 tenant+user 记录 1 小时内时间戳窗口
-_sandbox_rate: dict[str, list[float]] = {}
-_sandbox_rate_lock = threading.Lock()
+# 沙箱速率/并发限制（v0.6 改为基于 SandboxRun 表查询，跨实例生效）：
+# - 并发：status=="running" 且属于该租户的 run 数 >= sandbox_max_concurrent → 429（覆盖执行期）
+# - 速率：同 tenant+user 最近 1 小时创建的 run 数 >= sandbox_rate_limit_per_hour → 429
 _SANDBOX_RATE_WINDOW_SECONDS = 3600.0
 
 
-def _check_sandbox_rate(tenant_id: str, user_id: str) -> bool:
-    """检查并记录沙箱 run 速率；窗口内超限返回 False。"""
-    key = f"{tenant_id}:{user_id}"
-    now = time.time()
-    cutoff = now - _SANDBOX_RATE_WINDOW_SECONDS
-    with _sandbox_rate_lock:
-        bucket = _sandbox_rate.setdefault(key, [])
-        bucket[:] = [ts for ts in bucket if ts >= cutoff]
-        if len(bucket) >= settings.sandbox_rate_limit_per_hour:
-            return False
-        bucket.append(now)
-        return True
+def _check_sandbox_concurrency(db: Session, tenant_id: str) -> bool:
+    """租户当前 running 的沙箱 run 数是否低于并发上限。"""
+    running = db.scalar(
+        select(func.count()).select_from(SandboxRun).where(
+            SandboxRun.tenant_id == tenant_id,
+            SandboxRun.status == "running",
+        )
+    )
+    return (running or 0) < settings.sandbox_max_concurrent
+
+
+def _check_sandbox_rate(db: Session, tenant_id: str, user_id: str) -> bool:
+    """租户+用户最近 1 小时创建的 run 数是否低于速率上限。"""
+    cutoff = datetime.now(UTC) - timedelta(seconds=_SANDBOX_RATE_WINDOW_SECONDS)
+    recent = db.scalar(
+        select(func.count()).select_from(SandboxRun).where(
+            SandboxRun.tenant_id == tenant_id,
+            SandboxRun.user_id == user_id,
+            SandboxRun.created_at >= cutoff,
+        )
+    )
+    return (recent or 0) < settings.sandbox_rate_limit_per_hour
 
 
 @router.post("/sandbox/runs")
@@ -1215,9 +1406,14 @@ def schedule_sandbox(
     principal: Annotated[Principal, Depends(require_roles("admin", "professional"))],
     _flag: Annotated[None, Depends(require_feature_flag("sandbox_enabled"))],
 ):
-    """触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。"""
+    """触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。
+
+    并发配额基于 SandboxRun 表（running 计数）覆盖执行期；每小时速率限制基于 created_at。
+    """
     ensure_user(db, principal, payload.user_id)
-    if not _check_sandbox_rate(principal.tenant_id, payload.user_id):
+    if not _check_sandbox_concurrency(db, principal.tenant_id):
+        raise HTTPException(status_code=429, detail="sandbox concurrency limit reached")
+    if not _check_sandbox_rate(db, principal.tenant_id, payload.user_id):
         raise HTTPException(status_code=429, detail="sandbox rate limit exceeded")
     run = schedule_sandbox_run(
         db,
@@ -1266,8 +1462,8 @@ SKILL_TRANSITIONS: dict[str, str] = {
     "signed": "retired",
 }
 
-# 用户可下发的 Skill 状态（draft 不下发）
-DELIVERABLE_SKILL_STATUSES: tuple[str, ...] = ("reviewed", "signed")
+# 用户可下发的 Skill 状态（v0.6：仅 signed；reviewed 仅供专业人员预览，不下发普通用户）
+DELIVERABLE_SKILL_STATUSES: tuple[str, ...] = ("signed",)
 
 
 def _cold_start_stage(observation_days: int) -> str:
@@ -1302,10 +1498,10 @@ def list_skills(
     _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
     user_id: str | None = Query(default=None),
 ):
-    """用户拉取已 reviewed/signed 的 Skill 列表（脱敏后下发）。
+    """用户拉取已 signed 的 Skill 列表（脱敏后下发）。
 
     user_id 缺省取 principal.subject（普通用户只能看自己的）。
-    draft / retired 状态的 Skill 不下发。
+    draft / reviewed / retired 状态的 Skill 不下发（signed-only）。
     """
     target_user_id = user_id or principal.subject
     ensure_user(db, principal, target_user_id)
@@ -1316,7 +1512,9 @@ def list_skills(
             Skill.status.in_(DELIVERABLE_SKILL_STATUSES),
         ).order_by(Skill.updated_at.desc())
     ).all()
-    sanitized = sanitize_skills(list(rows))
+    # PRD 契约点 4：action_type 白名单外一律不下发、不执行
+    deliverable = [row for row in rows if row.action_type in ACTION_TYPE_WHITELIST]
+    sanitized = sanitize_skills(list(deliverable))
     # 冷启动兜底：列表为空时按 observation_days 推荐分阶段文案 key
     cold_start_hint: str | None = None
     observation_days = 0
@@ -1348,7 +1546,7 @@ def list_skills(
     }
 
 
-@router.get("/skills/{skill_id}")
+@router.get("/skills/{skill_id}", response_model=SkillOut)
 def get_skill(
     skill_id: str,
     db: DB,
@@ -1357,11 +1555,13 @@ def get_skill(
 ):
     """用户拉取单个 Skill 详情（脱敏后下发）。
 
-    校验 skill 属于当前 tenant+user，status IN ('reviewed','signed')。
+    校验 skill 属于当前 tenant+user，status == 'signed'（signed-only）。
     """
     row = _get_owned_skill(db, principal, skill_id)
     ensure_user(db, principal, row.user_id)
     if row.status not in DELIVERABLE_SKILL_STATUSES:
+        raise HTTPException(status_code=404, detail="skill not deliverable")
+    if row.action_type not in ACTION_TYPE_WHITELIST:
         raise HTTPException(status_code=404, detail="skill not deliverable")
     sanitized = sanitize_skill(row)
     append_audit(
@@ -1378,6 +1578,56 @@ def get_skill(
     return sanitized
 
 
+@router.post("/skills/completions")
+def create_skill_completion(
+    payload: SkillCompletionCreate,
+    db: DB,
+    principal: PRINCIPAL,
+    _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
+):
+    """Skill 执行完成/停止上报（v0.6）。
+
+    - 幂等：同 tenant+event_id 返回同一记录（idempotent_replay=True）
+    - 校验 skill 属于当前用户且 status=='signed'
+    - audit action=skill.completion
+    """
+    ensure_user(db, principal, payload.user_id)
+    existing = db.scalar(select(SkillCompletion).where(
+        SkillCompletion.tenant_id == principal.tenant_id,
+        SkillCompletion.event_id == payload.event_id,
+    ))
+    if existing:
+        return {"id": existing.id, "idempotent_replay": True}
+    skill = db.get(Skill, payload.skill_id)
+    if not skill or skill.tenant_id != principal.tenant_id or skill.user_id != payload.user_id:
+        raise HTTPException(status_code=404, detail="skill not found")
+    if skill.status != "signed":
+        raise HTTPException(status_code=409, detail="skill completion requires a signed skill")
+    row = SkillCompletion(
+        event_id=payload.event_id,
+        tenant_id=principal.tenant_id,
+        user_id=payload.user_id,
+        skill_id=payload.skill_id,
+        status=payload.status,
+        duration_seconds=payload.duration_seconds,
+        client_time=payload.client_time,
+    )
+    db.add(row)
+    db.flush()
+    append_audit(
+        db,
+        tenant_id=principal.tenant_id,
+        actor_type=principal.role,
+        actor_id=principal.subject,
+        action="skill.completion",
+        object_type="skill_completion",
+        object_id=row.id,
+        metadata={"skill_id": payload.skill_id, "status": payload.status},
+    )
+    db.commit()
+    return {"id": row.id, "idempotent_replay": False}
+
+
 @router.post("/skills/{skill_id}/transition")
 def transition_skill(
     skill_id: str,
@@ -1388,6 +1638,11 @@ def transition_skill(
     """Skill 治理状态机转换：draft→reviewed→signed→retired。
 
     不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。
+    转入 signed 时（PRD 契约点 5）：
+    - 必须提供 policy_version 与 review_evidence（缺失 → 422）
+    - 写入 signed_by / signed_at / policy_version / review_evidence / revision
+    - content_hash 缺失视为无效内容（不可签署）
+    内容变化通过 skill_induct 生成新版本（status=draft）结构保证重签；retired 不可逆转。
     """
     row = _get_owned_skill(db, principal, skill_id)
     old_status = row.status
@@ -1398,8 +1653,22 @@ def transition_skill(
             status_code=409,
             detail=f"invalid transition: {old_status} -> {new_status}",
         )
+    if new_status == "signed":
+        # 契约点 5 签署完整性：signed 状态必须同时具备签署人/时间/策略版本/审核证据
+        if not payload.policy_version or payload.review_evidence is None:
+            raise HTTPException(
+                status_code=422,
+                detail="policy_version and review_evidence are required to sign a skill",
+            )
+        if not row.content_hash:
+            raise HTTPException(status_code=422, detail="skill content missing; cannot sign")
+        row.signed_by = f"{principal.role}:{principal.subject}"
+        row.signed_at = datetime.now(UTC)
+        row.policy_version = payload.policy_version
+        row.review_evidence = payload.review_evidence
+        row.revision = (row.revision or 1)
     row.status = new_status
-    row.updated_at = datetime.now(timezone.utc)
+    row.updated_at = datetime.now(UTC)
     db.flush()
     append_audit(
         db,
@@ -1425,9 +1694,9 @@ def tenant_portrait(
 ):
     """机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。
 
-    聚合维度：mood_hint 分布、observation_days 统计、近 7 天活跃用户数、
-    escalation 计数、Skill 下发数。
-    去标识保护：任何聚合桶计数 < 5 时合并到 "other" 桶，防重标识；
+    聚合维度：observation_days 统计、近 7 天活跃用户数、escalation 计数、Skill 下发数
+    （PRD 契约点 2：情绪维度已废弃，mood_distribution 恒为空并标记 suppressed）。
+    去标识保护：cohort 总人数 < 5 时敏感维度 suppressed（隐藏 min/max 等）；
     不返回单个用户 ID/特征。
     """
     portrait = build_tenant_portrait(db, principal.tenant_id)
@@ -1512,7 +1781,7 @@ def batch_retire_skills(
             continue
         previous_statuses[row.id] = row.status
         row.status = "retired"
-        row.updated_at = datetime.now(timezone.utc)
+        row.updated_at = datetime.now(UTC)
         retired_ids.append(row.id)
         retired_count += 1
     db.flush()
@@ -1537,7 +1806,6 @@ def batch_retire_skills(
 
 def reject_immutable_mutation(
     db: Session,
-    request: Request,
     principal: Principal,
     method: str,
     object_type: str,
@@ -1557,7 +1825,6 @@ def reject_immutable_mutation(
         object_type=object_type,
         object_id=object_id,
         metadata={"method": method},
-        request_id=request.headers.get("x-request-id"),
     )
     db.commit()
     raise HTTPException(
@@ -1567,30 +1834,30 @@ def reject_immutable_mutation(
 
 
 @router.delete("/escalations/{escalation_id}")
-def delete_escalation(escalation_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "DELETE", "escalation", escalation_id)
+def delete_escalation(escalation_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "DELETE", "escalation", escalation_id)
 
 
 @router.patch("/escalations/{escalation_id}")
-def patch_escalation(escalation_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "PATCH", "escalation", escalation_id)
+def patch_escalation(escalation_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "PATCH", "escalation", escalation_id)
 
 
 @router.delete("/risk-signals/{signal_id}")
-def delete_risk_signal(signal_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "DELETE", "risk_signal", signal_id)
+def delete_risk_signal(signal_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "DELETE", "risk_signal", signal_id)
 
 
 @router.patch("/risk-signals/{signal_id}")
-def patch_risk_signal(signal_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "PATCH", "risk_signal", signal_id)
+def patch_risk_signal(signal_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "PATCH", "risk_signal", signal_id)
 
 
 @router.delete("/audit/events/{event_id}")
-def delete_audit_event(event_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "DELETE", "audit_event", event_id)
+def delete_audit_event(event_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "DELETE", "audit_event", event_id)
 
 
 @router.patch("/audit/events/{event_id}")
-def patch_audit_event(event_id: str, request: Request, db: DB, principal: PRINCIPAL):
-    reject_immutable_mutation(db, request, principal, "PATCH", "audit_event", event_id)
+def patch_audit_event(event_id: str, db: DB, principal: PRINCIPAL):
+    reject_immutable_mutation(db, principal, "PATCH", "audit_event", event_id)

@@ -3,7 +3,7 @@
   "info": {
     "title": "ECHO Mind Path A API",
     "description": "心理健康记录、筛查提示、审核练习、人工接管与审计。非诊断、非紧急服务替代。",
-    "version": "0.2.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/v1/tenants": {
@@ -791,6 +791,236 @@
         ]
       }
     },
+    "/v1/escalations/sla-scan": {
+      "post": {
+        "summary": "Sla Scan",
+        "description": "运维定时触发的 SLA 扫描：推进未确认红色事件的自动升级链路。\n\n幂等：每一档升级由各自的时间戳守卫，重复调用不会重复通知。扫描只写\n通知/失效等生命周期字段，绝不改变 ack/takeover 接管状态。",
+        "operationId": "sla_scan_v1_escalations_sla_scan_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/escalations/{escalation_id}": {
+      "get": {
+        "summary": "Escalation Detail",
+        "operationId": "escalation_detail_v1_escalations__escalation_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Escalation",
+        "operationId": "delete_escalation_v1_escalations__escalation_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch Escalation",
+        "operationId": "patch_escalation_v1_escalations__escalation_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/{escalation_id}/user-status": {
+      "get": {
+        "summary": "Escalation User Status",
+        "description": "用户侧状态查询：只暴露送达确认与接管状态，不暴露内部升级细节。\n\nhuman_acknowledged 仅由显式 ack/takeover 决定；系统通知（notified_*）与\n送达确认（delivery_confirmed）都不得被当作\"人工已收到/已接管\"。",
+        "operationId": "escalation_user_status_v1_escalations__escalation_id__user_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/escalations/{escalation_id}/case-review": {
+      "get": {
+        "summary": "Escalation Case Review",
+        "description": "个案复核证据链视图。\n\n区块化返回完整证据：用户直接表达、规则触发依据、安全分类器结果、\nPHQ-9/GAD-7 原始答案、最近签到趋势、数据质量、历史风险事件与人工处置\n记录。需要 step-up 二次认证；admin 等心理内容受限角色一律拒绝并留痕\n（沿用 Task 1 守卫语义），绝不只输出单一\"AI 风险分数\"。",
+        "operationId": "escalation_case_review_v1_escalations__escalation_id__case_review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "escalation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escalation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/escalations/{escalation_id}/ack": {
       "post": {
         "summary": "Ack Escalation",
@@ -1119,148 +1349,6 @@
         }
       }
     },
-    "/v1/features/ingest": {
-      "post": {
-        "summary": "Ingest Derived Feature",
-        "operationId": "ingest_derived_feature_v1_features_ingest_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DerivedFeatureIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/profile/{user_id}": {
-      "get": {
-        "summary": "Get Profile",
-        "operationId": "get_profile_v1_profile__user_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/narratives": {
-      "get": {
-        "summary": "Get Daily Narrative",
-        "operationId": "get_daily_narrative_v1_narratives_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          },
-          {
-            "name": "date",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Date"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/audit/events": {
       "get": {
         "summary": "Audit Events",
@@ -1327,10 +1415,231 @@
         ]
       }
     },
+    "/v1/features/ingest": {
+      "post": {
+        "summary": "Ingest Derived Feature",
+        "operationId": "ingest_derived_feature_v1_features_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DerivedFeatureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/profile/{user_id}": {
+      "get": {
+        "summary": "Get Profile",
+        "description": "只读画像缓存：绝不 rebuild / version+1 / commit（无任何写副作用）。",
+        "operationId": "get_profile_v1_profile__user_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profile/{user_id}/rebuild": {
+      "post": {
+        "summary": "Rebuild User Profile",
+        "description": "显式重建画像：traits + version+1；仅写路径调用。",
+        "operationId": "rebuild_user_profile_v1_profile__user_id__rebuild_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/narratives": {
+      "get": {
+        "summary": "Get Daily Narrative",
+        "description": "只读叙事查询：GET 不写库、不读时生成。\n\n- ``date`` 单日查询（向后兼容），缺失返回 404；\n- ``from``/``to`` 批量查询：返回 ordered narratives + data coverage + missing dates，\n  供 Android 一次请求完成趋势加载。",
+        "operationId": "get_daily_narrative_v1_narratives_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sandbox/runs": {
       "post": {
         "summary": "Schedule Sandbox",
-        "description": "触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。",
+        "description": "触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。\n\n并发配额基于 SandboxRun 表（running 计数）覆盖执行期；每小时速率限制基于 created_at。",
         "operationId": "schedule_sandbox_v1_sandbox_runs_post",
         "requestBody": {
           "content": {
@@ -1415,7 +1724,7 @@
     "/v1/skills": {
       "get": {
         "summary": "List Skills",
-        "description": "用户拉取已 reviewed/signed 的 Skill 列表（脱敏后下发）。\n\nuser_id 缺省取 principal.subject（普通用户只能看自己的）。\ndraft / retired 状态的 Skill 不下发。",
+        "description": "用户拉取已 signed 的 Skill 列表（脱敏后下发）。\n\nuser_id 缺省取 principal.subject（普通用户只能看自己的）。\ndraft / reviewed / retired 状态的 Skill 不下发（signed-only）。",
         "operationId": "list_skills_v1_skills_get",
         "security": [
           {
@@ -1465,7 +1774,7 @@
     "/v1/skills/{skill_id}": {
       "get": {
         "summary": "Get Skill",
-        "description": "用户拉取单个 Skill 详情（脱敏后下发）。\n\n校验 skill 属于当前 tenant+user，status IN ('reviewed','signed')。",
+        "description": "用户拉取单个 Skill 详情（脱敏后下发）。\n\n校验 skill 属于当前 tenant+user，status == 'signed'（signed-only）。",
         "operationId": "get_skill_v1_skills__skill_id__get",
         "security": [
           {
@@ -1488,7 +1797,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillOut"
+                }
               }
             }
           },
@@ -1505,10 +1816,52 @@
         }
       }
     },
+    "/v1/skills/completions": {
+      "post": {
+        "summary": "Create Skill Completion",
+        "description": "Skill 执行完成/停止上报（v0.6）。\n\n- 幂等：同 tenant+event_id 返回同一记录（idempotent_replay=True）\n- 校验 skill 属于当前用户且 status=='signed'\n- audit action=skill.completion",
+        "operationId": "create_skill_completion_v1_skills_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillCompletionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/skills/{skill_id}/transition": {
       "post": {
         "summary": "Transition Skill",
-        "description": "Skill 治理状态机转换：draft→reviewed→signed→retired。\n\n不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。",
+        "description": "Skill 治理状态机转换：draft→reviewed→signed→retired。\n\n不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。\n转入 signed 时（PRD 契约点 5）：\n- 必须提供 policy_version 与 review_evidence（缺失 → 422）\n- 写入 signed_by / signed_at / policy_version / review_evidence / revision\n- content_hash 缺失视为无效内容（不可签署）\n内容变化通过 skill_induct 生成新版本（status=draft）结构保证重签；retired 不可逆转。",
         "operationId": "transition_skill_v1_skills__skill_id__transition_post",
         "security": [
           {
@@ -1561,7 +1914,7 @@
     "/v1/tenant/portrait": {
       "get": {
         "summary": "Tenant Portrait",
-        "description": "机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。\n\n聚合维度：mood_hint 分布、observation_days 统计、近 7 天活跃用户数、\nescalation 计数、Skill 下发数。\n去标识保护：任何聚合桶计数 < 5 时合并到 \"other\" 桶，防重标识；\n不返回单个用户 ID/特征。",
+        "description": "机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。\n\n聚合维度：observation_days 统计、近 7 天活跃用户数、escalation 计数、Skill 下发数\n（PRD 契约点 2：情绪维度已废弃，mood_distribution 恒为空并标记 suppressed）。\n去标识保护：cohort 总人数 < 5 时敏感维度 suppressed（隐藏 min/max 等）；\n不返回单个用户 ID/特征。",
         "operationId": "tenant_portrait_v1_tenant_portrait_get",
         "responses": {
           "200": {
@@ -1686,6 +2039,170 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/v1/risk-signals/{signal_id}": {
+      "delete": {
+        "summary": "Delete Risk Signal",
+        "operationId": "delete_risk_signal_v1_risk_signals__signal_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch Risk Signal",
+        "operationId": "patch_risk_signal_v1_risk_signals__signal_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/events/{event_id}": {
+      "delete": {
+        "summary": "Delete Audit Event",
+        "operationId": "delete_audit_event_v1_audit_events__event_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch Audit Event",
+        "operationId": "patch_audit_event_v1_audit_events__event_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/health": {
@@ -1869,16 +2386,19 @@
       "DataSubjectRequestComplete": {
         "properties": {
           "result_summary": {
-            "type": "string",
-            "maxLength": 4000,
-            "minLength": 2,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Result Summary"
           }
         },
         "type": "object",
-        "required": [
-          "result_summary"
-        ],
         "title": "DataSubjectRequestComplete"
       },
       "DataSubjectRequestCreate": {
@@ -1963,6 +2483,23 @@
             "type": "array",
             "maxItems": 256,
             "title": "Vector"
+          },
+          "sources_present": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "accel",
+                "gyro",
+                "screen",
+                "notification",
+                "app_activity",
+                "mic_opt",
+                "health"
+              ]
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Sources Present"
           }
         },
         "additionalProperties": false,
@@ -2015,16 +2552,116 @@
       "EscalationClose": {
         "properties": {
           "disposition": {
-            "type": "string",
-            "maxLength": 4000,
-            "minLength": 2,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Disposition"
+          },
+          "contact_method": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Method"
+          },
+          "contact_succeeded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Succeeded"
+          },
+          "safety_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Status"
+          },
+          "emergency_contact_called": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emergency Contact Called"
+          },
+          "referred_12356": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referred 12356"
+          },
+          "called_emergency_services": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Called Emergency Services"
+          },
+          "follow_up_plan": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Plan"
+          },
+          "operator_signature": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator Signature"
           }
         },
         "type": "object",
-        "required": [
-          "disposition"
-        ],
         "title": "EscalationClose"
       },
       "EscalationCreate": {
@@ -2393,6 +3030,228 @@
         "title": "SkillBatchRetire",
         "description": "P5 灰度回滚：批量回滚 Skill 入参。"
       },
+      "SkillCompletionCreate": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "skill_id": {
+            "type": "string",
+            "title": "Skill Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "completed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Duration Seconds",
+            "default": 0
+          },
+          "client_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Client Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "user_id",
+          "skill_id",
+          "status",
+          "client_time"
+        ],
+        "title": "SkillCompletionCreate",
+        "description": "Skill 执行完成/停止上报入参（v0.6）。"
+      },
+      "SkillOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "trigger_conditions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trigger Conditions"
+          },
+          "guardrails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Guardrails"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type",
+            "default": "guided_steps"
+          },
+          "estimated_duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration"
+          },
+          "completion_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Schema"
+          },
+          "safety_constraints": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Constraints"
+          },
+          "signed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed By"
+          },
+          "signed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed At"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "review_evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Evidence"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision",
+            "default": 1
+          },
+          "supersedes_skill_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Skill Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "version",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SkillOut",
+        "description": "技能包输出契约（PRD 契约点 4/5）。"
+      },
       "SkillTransition": {
         "properties": {
           "new_status": {
@@ -2403,6 +3262,31 @@
               "retired"
             ],
             "title": "New Status"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "review_evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Evidence"
           }
         },
         "type": "object",
@@ -2410,7 +3294,7 @@
           "new_status"
         ],
         "title": "SkillTransition",
-        "description": "Skill 治理状态机转换入参。new_status 仅允许 reviewed/signed/retired。"
+        "description": "Skill 治理状态机转换入参。new_status 仅允许 reviewed/signed/retired。\n\n转入 signed 时必须提供 policy_version 与 review_evidence（契约点 5 重签校验）。"
       },
       "TenantCreate": {
         "properties": {
@@ -2485,11 +3369,18 @@
             },
             "type": "object",
             "title": "Skill Count"
+          },
+          "suppression": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Suppression"
           }
         },
         "type": "object",
         "title": "TenantPortraitOut",
-        "description": "机构去标识群体画像输出契约。\n\n仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 \"other\"。"
+        "description": "机构去标识群体画像输出契约。\n\n仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 \"other\"（且 other<5 时不输出）。\nsuppression 标记各敏感维度的抑制状态（\"ok\" 或 \"suppressed\"）。"
       },
       "UserCreate": {
         "properties": {
@@ -2509,6 +3400,18 @@
             "type": "string",
             "title": "Timezone",
             "default": "Asia/Shanghai"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
           }
         },
         "type": "object",

@@ -2,6 +2,9 @@ from functools import lru_cache
 import hashlib
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+#: 对外发布版本（与 README / DELIVERY_MANIFEST / RELEASE_NOTES 保持一致）。
+APP_VERSION = "0.6.0"
+
 
 class Settings(BaseSettings):
     environment: str = "local"

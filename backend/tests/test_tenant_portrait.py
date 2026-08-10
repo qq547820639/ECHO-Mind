@@ -28,7 +28,7 @@ def _seed_profile(db, tenant_id: str, user_id: str, mood_hint: str, observation_
 # ---------- 聚合正确性 ----------
 
 def test_aggregation_correctness(client, admin_headers):
-    """构造 10 个用户（5 平稳 / 5 偏低），验证 mood 分布与 observation_stats。"""
+    """构造 10 个用户（5 平稳 / 5 偏低），验证 observation_stats 与情绪维度抑制（PRD 契约点 2）。"""
     with SessionLocal() as db:
         for i in range(5):
             _seed_user(db, "t_demo", f"u_agg_calm_{i}", f"calm_{i}")
@@ -42,8 +42,9 @@ def test_aggregation_correctness(client, admin_headers):
     assert response.status_code == 200
     body = response.json()
 
-    # mood 分布：两个桶均 >= 5，不合并
-    assert body["mood_distribution"] == {"平稳": 5, "偏低": 5}
+    # PRD 契约点 2：情绪语义废弃，mood_distribution 恒为空并标记 suppressed
+    assert body["mood_distribution"] == {}
+    assert body["suppression"]["mood_distribution"] == "suppressed"
 
     # observation_stats：1..14 的 min/max/avg/median
     stats = body["observation_stats"]
@@ -52,12 +53,13 @@ def test_aggregation_correctness(client, admin_headers):
     # 1..14 共 14 个值，sum=105, avg=105/14=7.5, median=(7+8)/2=7.5
     assert stats["avg"] == 7.5
     assert stats["median"] == 7.5
+    assert body["suppression"]["observation_stats"] == "ok"
 
 
 # ---------- 小桶合并 ----------
 
 def test_small_bucket_merged_to_other(client, admin_headers):
-    """3 用户某 mood_hint（<5）合并到 "other"；5 用户平稳保留。"""
+    """PRD 契约点 2：情绪维度无数据源，mood_distribution 空 + suppressed。"""
     with SessionLocal() as db:
         for i in range(5):
             _seed_user(db, "t_demo", f"u_sb_calm_{i}", f"sb_calm_{i}")
@@ -69,9 +71,11 @@ def test_small_bucket_merged_to_other(client, admin_headers):
 
     response = client.get("/v1/tenant/portrait", headers=admin_headers)
     assert response.status_code == 200
-    dist = response.json()["mood_distribution"]
-    # 平稳=5 保留；焦虑=3 < 5 合并到 other
-    assert dist == {"平稳": 5, "other": 3}
+    body = response.json()
+    dist = body["mood_distribution"]
+    assert dist == {}
+    assert body["suppression"]["mood_distribution"] == "suppressed"
+    assert "other" not in dist
     assert "焦虑" not in dist
 
 
@@ -94,9 +98,9 @@ def test_cross_tenant_isolation(client, admin_headers):
     response = client.get("/v1/tenant/portrait", headers=admin_headers)
     assert response.status_code == 200
     body = response.json()
-    # t_demo admin 只看到本租户的平稳，不含 t_other 的偏低
-    assert body["mood_distribution"] == {"平稳": 5}
-    assert "偏低" not in body["mood_distribution"]
+    # t_demo admin 只看到本租户聚合；情绪维度空 + suppressed（PRD 契约点 2）
+    assert body["mood_distribution"] == {}
+    assert body["suppression"]["mood_distribution"] == "suppressed"
 
 
 # ---------- 角色权限 ----------
@@ -149,11 +153,11 @@ def test_no_single_user_identifier_leaked(client, admin_headers):
     assert response.status_code == 200
     body_text = response.text
 
-    # 顶层 keys 应仅为 schema 定义的 5 个聚合字段
+    # 顶层 keys 应仅为 schema 定义的 6 个聚合字段（v0.6 含 suppression）
     body = response.json()
     assert set(body.keys()) == {
         "mood_distribution", "observation_stats",
-        "active_users_7d", "escalation_metrics", "skill_count",
+        "active_users_7d", "escalation_metrics", "skill_count", "suppression",
     }
     # 不应出现任何单用户标识
     for forbidden in ("user_id", "user_ids", "external_ref", "traits", "u_leak"):

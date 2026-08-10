@@ -1,14 +1,11 @@
 package com.yunjue.echo.mind
 
-import android.app.Application
-import android.webkit.WebView
-import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.SkillFetchResult
 import com.yunjue.echo.mind.model.SkillDisplay
-import com.yunjue.echo.mind.ui.buildSkillCardHtml
+import com.yunjue.echo.mind.ui.SkillRunSession
+import com.yunjue.echo.mind.ui.SkillRunStatus
 import com.yunjue.echo.mind.ui.coldStartHint
-import com.yunjue.echo.mind.ui.configureSandboxWebView
 import com.yunjue.echo.mind.ui.shouldShowEmergencyFab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,15 +17,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * T11 卡片渲染 + 危机入口常驻单测。
+ * T05 Skill 卡片执行行为单测（PRD 契约点 4）。
  *
  * 覆盖：
- * - 卡片渲染：SkillDisplay → HTML 含 name / guardrails / steps（含 HTML 注入转义）
- * - WebView 安全沙箱：javascriptEnabled / allowFileAccess / domStorageEnabled 均为 false
- * - Skill 列表空态冷启动：空列表返回冷启动文案
- * - 危机入口常驻：FAB 在任何非 SUPPORT tab 下可见（代码审查不变量，抽成纯函数断言）
+ * - **每个「开始」按钮有真实行为**：SkillRunSession.start() 进入执行状态（非空操作）
+ * - 执行生命周期：start → RUNNING → 逐步推进 → pause/resume → complete/stop
+ * - complete → "completed" + durationSeconds；stop → "stopped"
+ * - 状态机边界：已停止后 complete 返回 "stopped"；已完成后 stop 返回 "completed"
+ * - 卡片渲染已改为原生 Compose（无 WebView），执行状态可推进
+ * - Skill 列表空态冷启动、危机入口常驻（沿用既有不变量）
  *
- * Robolectric 限定 SDK 35，与 MicCollectorTest / PassiveSensingTest 一致。
+ * 说明：项目未引入 Compose UI 测试框架，状态机为纯 Kotlin 可直测；
+ * UI 层「开始」按钮与 SkillRunSession 的绑定经代码审查保证（SkillCardHost 无空 lambda）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -44,62 +44,113 @@ class SkillCardHostTest {
         status = "reviewed"
     )
 
-    // ---------- T11.6 卡片渲染 ----------
+    // ---------- T05 执行生命周期：开始按钮真实行为 ----------
 
     @Test
-    fun cardHtmlContainsNameGuardrailsAndSteps() {
-        val html = buildSkillCardHtml(sampleSkill())
-        assertTrue("HTML 应包含 name", html.contains("情绪降速"))
-        assertTrue("HTML 应包含 guardrail 1", html.contains("不输出诊断结论"))
-        assertTrue("HTML 应包含 guardrail 2", html.contains("命中红色信号立即冻结"))
-        assertTrue("HTML 应包含 step 1", html.contains("扫描当日特征"))
-        assertTrue("HTML 应包含 step 2", html.contains("输出报告"))
+    fun startTransitionsToRunning() {
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { 0L })
+        assertEquals(SkillRunStatus.IDLE, session.status)
+        session.start()
+        assertEquals("点击开始后应进入执行中", SkillRunStatus.RUNNING, session.status)
+        assertTrue("执行中 isRunning 应为 true", session.isRunning)
+        assertEquals("开始时当前步骤应为第 0 步", 0, session.currentStep)
     }
 
     @Test
-    fun cardHtmlContainsVersionAndStatus() {
-        val html = buildSkillCardHtml(sampleSkill())
-        assertTrue("HTML 应包含版本号", html.contains("v2"))
-        assertTrue("HTML 应包含状态", html.contains("reviewed"))
+    fun nextStepAdvancesThroughSteps() {
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { 0L })
+        session.start()
+        session.nextStep(totalSteps = 2)
+        assertEquals(1, session.currentStep)
+        // 不越过最后一步
+        session.nextStep(totalSteps = 2)
+        assertEquals("不应越过最后一步", 1, session.currentStep)
     }
 
     @Test
-    fun cardHtmlEscapesUnsafeContentToPreventXss() {
-        // 后端字段按不可信内容处理：name 含 <script> 应被转义，不能注入到 HTML
-        val malicious = sampleSkill().copy(name = "<script>alert(1)</script>")
-        val html = buildSkillCardHtml(malicious)
-        assertTrue("应转义 <script> 标签", html.contains("&lt;script&gt;"))
-        assertFalse("不应残留未转义 <script>", html.contains("<script>alert"))
+    fun nextStepOnlyWhileRunning() {
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { 0L })
+        // 未开始时不能推进
+        session.nextStep(totalSteps = 3)
+        assertEquals(0, session.currentStep)
+        session.start()
+        session.pause()
+        // 暂停中不能推进
+        session.nextStep(totalSteps = 3)
+        assertEquals(0, session.currentStep)
     }
 
     @Test
-    fun cardHtmlOmitsEmptySectionsGracefully() {
-        val empty = sampleSkill().copy(triggerConditions = emptyList(), steps = emptyList(), guardrails = emptyList())
-        val html = buildSkillCardHtml(empty)
-        // 空段落不应渲染对应标题
-        assertFalse(html.contains("触发条件"))
-        assertFalse(html.contains("步骤"))
-        assertFalse(html.contains("边界"))
-        // name 仍渲染
-        assertTrue(html.contains("情绪降速"))
+    fun pauseAndResumeToggleStatus() {
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { 0L })
+        session.start()
+        session.pause()
+        assertEquals(SkillRunStatus.PAUSED, session.status)
+        assertFalse("暂停后 isRunning 应为 false", session.isRunning)
+        session.resume()
+        assertEquals(SkillRunStatus.RUNNING, session.status)
+        assertTrue(session.isRunning)
     }
 
-    // ---------- T11.6 WebView 安全沙箱 ----------
+    @Test
+    fun completeReportsCompletedAndDuration() {
+        var now = 0L
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { now })
+        session.start()
+        now = 180_000L // 3 分钟后完成
+        val status = session.complete()
+        assertEquals("completed", status)
+        assertEquals(SkillRunStatus.COMPLETED, session.status)
+        assertEquals(180, session.durationSeconds)
+    }
 
     @Test
-    fun webViewSandboxDisablesJavaScriptAndFileAccess() {
-        val context = ApplicationProvider.getApplicationContext<Application>()
-        val webView = WebView(context)
-        // 先开启再配置，证明 configureSandboxWebView 确实关闭了这些能力
-        webView.settings.javaScriptEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.domStorageEnabled = true
+    fun stopReportsStoppedAndDuration() {
+        var now = 0L
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { now })
+        session.start()
+        now = 45_000L
+        val status = session.stop()
+        assertEquals("stopped", status)
+        assertEquals(SkillRunStatus.STOPPED, session.status)
+        assertEquals(45, session.durationSeconds)
+    }
 
-        configureSandboxWebView(webView)
+    @Test
+    fun completeAfterStopKeepsStoppedSemantics() {
+        var now = 0L
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { now })
+        session.start()
+        now = 10_000L
+        session.stop()
+        // 已停止后 complete 不覆盖为 completed
+        val status = session.complete()
+        assertEquals("stopped", status)
+        assertEquals(SkillRunStatus.STOPPED, session.status)
+    }
 
-        assertFalse("javascriptEnabled 必须为 false（安全沙箱禁用 JS）", webView.settings.javaScriptEnabled)
-        assertFalse("allowFileAccess 必须为 false（禁用 file:// 越权）", webView.settings.allowFileAccess)
-        assertFalse("domStorageEnabled 必须为 false", webView.settings.domStorageEnabled)
+    @Test
+    fun stopAfterCompleteKeepsCompletedSemantics() {
+        var now = 0L
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { now })
+        session.start()
+        now = 20_000L
+        session.complete()
+        val status = session.stop()
+        assertEquals("completed", status)
+        assertEquals(SkillRunStatus.COMPLETED, session.status)
+    }
+
+    @Test
+    fun elapsedSecondsReflectsWallClock() {
+        var now = 0L
+        val session = SkillRunSession(skillId = "sk_1", nowProvider = { now })
+        assertEquals("未开始 elapsed 为 0", 0, session.elapsedSeconds())
+        session.start()
+        now = 5_500L
+        assertEquals(5, session.elapsedSeconds())
+        now = 61_000L
+        assertEquals(61, session.elapsedSeconds())
     }
 
     // ---------- P3 冷启动分阶段文案映射 ----------
@@ -139,7 +190,6 @@ class SkillCardHostTest {
 
     @Test
     fun successfulEmptyStateDoesNotTriggerRetryButton() {
-        // 真无 Skill（冷启动空态）时 loadFailed=false，不显示重试按钮而是分阶段文案
         val coldStart = SkillFetchResult(skills = emptyList(), coldStartHint = "stage_0", loadFailed = false)
         assertFalse("冷启动空态不应显示重试按钮", coldStart.loadFailed)
     }
@@ -148,7 +198,6 @@ class SkillCardHostTest {
 
     @Test
     fun emergencyFabVisibleOnAllTabsExceptSupport() {
-        // 危机入口常驻：除 SUPPORT tab 自身外，紧急 FAB 在任何 tab 下都可见
         assertTrue("非 SUPPORT tab 应显示紧急 FAB", shouldShowEmergencyFab(isSupportTab = false))
         assertFalse("SUPPORT tab 自身不重复显示 FAB", shouldShowEmergencyFab(isSupportTab = true))
     }

@@ -12,7 +12,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.AppContainer
 
-private enum class Tab(val label: String) { TODAY("今天"), SKILLS("能力"), PRACTICE("练习"), TREND("趋势"), SUPPORT("支持") }
+/**
+ * 底部导航 4 Tab（PRD v0.6 契约点 7）：今天 / 能力 / 趋势 / 支持。
+ * 移除「练习」空壳 Tab；「我的练习」记录由「能力」页 Skill 执行反馈承载。
+ */
+private enum class Tab(val label: String) { TODAY("今天"), SKILLS("能力"), TREND("趋势"), SUPPORT("支持") }
 
 /**
  * 紧急支持 FAB 可见性：除 SUPPORT tab 外始终可见（危机入口常驻，T11.5）。
@@ -57,7 +61,6 @@ fun EchoMindApp(container: AppContainer) {
             when (tab) {
                 Tab.TODAY -> TodayScreen(container.repository) { tab = Tab.SUPPORT }
                 Tab.SKILLS -> SkillListScreen(container.repository)
-                Tab.PRACTICE -> PracticeScreen(container.repository)
                 Tab.TREND -> TrendScreen(container.repository)
                 Tab.SUPPORT -> SupportScreen(container)
             }

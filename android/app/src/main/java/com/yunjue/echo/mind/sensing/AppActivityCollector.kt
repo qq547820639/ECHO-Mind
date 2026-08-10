@@ -17,8 +17,9 @@ import java.util.concurrent.ConcurrentLinkedDeque
  *   在系统设置"使用情况访问"中引导用户授权）
  * - 仅记录时间戳 + 包名，不记录 App 内任何内容
  * - 仅在前台 App 切换时记录一条事件，避免重复
+ * - 事件同时写入 [SensingEventHub]（T02 共享层）；hub 为空时保持纯本地缓冲
  */
-class AppActivityCollector(context: Context) {
+class AppActivityCollector(context: Context, private val hub: SensingEventHub? = null) {
     private val appContext = context.applicationContext
     private val usageStatsManager = appContext
         .getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
@@ -58,8 +59,10 @@ class AppActivityCollector(context: Context) {
         val current = stats.maxByOrNull { it.lastTimeUsed } ?: return
         val pkg = current.packageName
         if (pkg != lastPackage) {
-            buffer.offerLast(AppActivity(now, pkg))
+            val event = AppActivity(now, pkg)
+            buffer.offerLast(event)
             while (buffer.size > MAX_BUFFER_SIZE) buffer.pollFirst()
+            hub?.onAppActivity(event)
             lastPackage = pkg
         }
     }

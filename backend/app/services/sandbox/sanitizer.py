@@ -74,6 +74,18 @@ def sanitize_skill(skill: Skill) -> dict[str, Any]:
         "guardrails": sanitized_guardrails,
         "steps": sanitized_steps,
         "status": skill.status,
+        # 执行契约字段（PRD 契约点 4）
+        "action_type": skill.action_type,
+        "estimated_duration": skill.estimated_duration_seconds,
+        "completion_schema": skill.completion_schema,
+        "safety_constraints": skill.safety_constraints,
+        # 治理字段（PRD 契约点 5）
+        "signed_by": skill.signed_by,
+        "signed_at": skill.signed_at,
+        "policy_version": skill.policy_version,
+        "review_evidence": skill.review_evidence,
+        "revision": skill.revision,
+        "supersedes_skill_id": skill.supersedes_skill_id,
         "created_at": skill.created_at,
         "updated_at": skill.updated_at,
     }

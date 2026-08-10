@@ -185,7 +185,7 @@ def test_migration_replays_on_sqlite(tmp_path, monkeypatch):
             }
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert {"escalations", "risk_signals", "audit_events"} <= tables
-        assert head == "20260731_0002"
+        assert head == "20260810_0001"
         command.downgrade(cfg, "base")
         with create_engine(f"sqlite:///{db_file}").connect() as conn:
             remaining = conn.execute(

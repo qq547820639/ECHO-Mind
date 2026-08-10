@@ -3,7 +3,6 @@ package com.yunjue.echo.mind.sensing
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
  * 通知监听采集器：继承 NotificationListenerService。
@@ -11,20 +10,21 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * - 仅记录时间戳 + 包名 + category，绝不记录通知标题/正文/图标等内容
  * - 需用户在系统设置中授权"通知使用权"
  * - 由系统独立绑定，PassiveSensingService 不直接管理其生命周期
+ * - 事件写入 [SensingEventHub] 进程内共享层（T02），供 FeatureExtractor 按窗口消费；
+ *   snapshot() 亦委托 hub，保证单一数据源
  */
 class NotificationCollector : NotificationListenerService() {
-    private val buffer = ConcurrentLinkedDeque<NotificationMeta>()
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val pkg = sbn?.packageName ?: return
         val category = sbn.notification?.category ?: Notification.CATEGORY_UNKNOWN
-        buffer.offerLast(NotificationMeta(System.currentTimeMillis(), pkg, category))
-        while (buffer.size > MAX_BUFFER_SIZE) buffer.pollFirst()
+        SensingEventHub.getInstance()
+            .onNotificationPosted(NotificationMeta(System.currentTimeMillis(), pkg, category))
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) = Unit
 
-    fun snapshot(): List<NotificationMeta> = buffer.toList()
+    fun snapshot(): List<NotificationMeta> = SensingEventHub.getInstance().snapshotNotifications()
 
     data class NotificationMeta(
         val timestamp: Long,

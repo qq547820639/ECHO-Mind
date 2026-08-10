@@ -13,8 +13,9 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * - 缓冲容量有限，超出自动丢弃最旧数据
  * - 仅端侧处理，不上云不落盘
  * - start/stop 幂等，重复调用安全
+ * - 事件同时写入 [SensingEventHub]（T02 共享层）；hub 为空时保持纯本地缓冲（兼容既有测试）
  */
-class SensorCollector(context: Context) : SensorEventListener {
+class SensorCollector(context: Context, private val hub: SensingEventHub? = null) : SensorEventListener {
     private val sensorManager = context.applicationContext
         .getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -55,10 +56,12 @@ class SensorCollector(context: Context) : SensorEventListener {
             Sensor.TYPE_ACCELEROMETER -> {
                 accelerometerBuffer.offerLast(snapshot)
                 trim(accelerometerBuffer)
+                hub?.onAccelSample(snapshot)
             }
             Sensor.TYPE_GYROSCOPE -> {
                 gyroscopeBuffer.offerLast(snapshot)
                 trim(gyroscopeBuffer)
+                hub?.onGyroSample(snapshot)
             }
         }
     }

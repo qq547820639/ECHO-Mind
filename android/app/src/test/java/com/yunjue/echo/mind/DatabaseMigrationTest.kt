@@ -2,14 +2,17 @@ package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.ConsentEntity
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.FeatureVectorEntity
-import com.yunjue.echo.mind.data.SensorSampleEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -18,16 +21,16 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * T04.7 数据库迁移与 v3 schema 验证：
+ * T04.7/T02 数据库迁移与 v4 schema 验证：
  *
- * - v3 数据库包含全部预期表（原有 5 张 + consents + sensor_samples + feature_vectors）
+ * - v4 数据库包含全部保留表（原有 5 张 + consents + feature_vectors）
+ * - **sensor_samples 已移除**（Room v4 不再注册 SensorSampleEntity；MIGRATION_3_4 DROP 表）
  * - FeatureVectorEntity DAO 插入/查询/标记同步
- * - ConsentDao 通过主 EchoDatabase 可用（T04 注册）
- * - SensorSampleEntity DAO 插入/清理
+ * - ConsentDao 通过主 EchoDatabase 可用
+ * - MIGRATION_3_4 对 v3 库执行后 sensor_samples 表不存在
  *
- * 注：理想方案是用 MigrationTestHelper 测试 v2→v3 迁移 SQL，但需要导出的 schema JSON
- * （exportSchema=true 已开启，首次构建时生成）。当前环境可能无 Android SDK，
- * 因此用 in-memory v3 DB 验证最终 schema 正确性，等价于迁移后的状态。
+ * 注：Room 迁移 SQL 用 FrameworkSQLiteOpenHelperFactory 构造 v3 库验证。
+ * 本机无 JDK 无法本地跑 gradle，本测试面向 CI（setup-java 17 + Robolectric）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -46,28 +49,107 @@ class DatabaseMigrationTest {
         db?.close()
     }
 
-    @Test
-    fun v3DatabaseHasAllExpectedTables() {
-        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
-
+    private fun tableNames(): List<String> {
         db!!.openHelper.writableDatabase.query(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         ).use { cursor ->
             val tables = mutableListOf<String>()
             while (cursor.moveToNext()) tables.add(cursor.getString(0))
+            return tables
+        }
+    }
 
-            // 原有 v2 表
-            assertTrue("checkins 应存在", tables.contains("checkins"))
-            assertTrue("journal_entries 应存在", tables.contains("journal_entries"))
-            assertTrue("questionnaire_results 应存在", tables.contains("questionnaire_results"))
-            assertTrue("practice_completions 应存在", tables.contains("practice_completions"))
-            assertTrue("outbox_events 应存在", tables.contains("outbox_events"))
-            // v3 新增表
-            assertTrue("consents 应存在（T04 注册 ConsentEntity）", tables.contains("consents"))
-            assertTrue("sensor_samples 应存在", tables.contains("sensor_samples"))
-            assertTrue("feature_vectors 应存在", tables.contains("feature_vectors"))
+    @Test
+    fun v4DatabaseHasAllExpectedTablesAndNoSensorSamples() {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+
+        val tables = tableNames()
+        // 原有 v2 表
+        assertTrue("checkins 应存在", tables.contains("checkins"))
+        assertTrue("journal_entries 应存在", tables.contains("journal_entries"))
+        assertTrue("questionnaire_results 应存在", tables.contains("questionnaire_results"))
+        assertTrue("practice_completions 应存在", tables.contains("practice_completions"))
+        assertTrue("outbox_events 应存在", tables.contains("outbox_events"))
+        // v3 保留表
+        assertTrue("consents 应存在", tables.contains("consents"))
+        assertTrue("feature_vectors 应存在", tables.contains("feature_vectors"))
+        // v4 移除 sensor_samples（原始数据不落盘承诺）
+        assertFalse("sensor_samples 表不应存在于 v4 schema", tables.contains("sensor_samples"))
+    }
+
+    @Test
+    fun v4EntitiesDoNotRegisterSensorSampleEntity() {
+        // 编译期保证 + 运行时断言：@Database entities 不含 SensorSampleEntity
+        val entities = EchoDatabase::class.java
+            .getAnnotation(androidx.room.Database::class.java)!!
+            .entities
+        val names = entities.map { it.simpleName }
+        assertFalse("SensorSampleEntity 不应注册到 v4", "SensorSampleEntity" in names)
+        assertTrue("FeatureVectorEntity 应注册", "FeatureVectorEntity" in names)
+        assertTrue("ConsentEntity 应注册", "ConsentEntity" in names)
+    }
+
+    @Test
+    fun migration34DropsSensorSamplesTable() {
+        // 用 v3 库（含 sensor_samples 表）执行 MIGRATION_3_4，验证表被 DROP
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-34-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(3) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) {
+                        sqLiteDatabase.execSQL(
+                            """CREATE TABLE sensor_samples (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                userId TEXT NOT NULL,
+                                source TEXT NOT NULL,
+                                timestamp INTEGER NOT NULL,
+                                value TEXT NOT NULL,
+                                createdAt INTEGER NOT NULL
+                            )"""
+                        )
+                        sqLiteDatabase.execSQL(
+                            """CREATE TABLE feature_vectors (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                userId TEXT NOT NULL,
+                                schemaVersion TEXT NOT NULL,
+                                source TEXT NOT NULL,
+                                windowStart INTEGER NOT NULL,
+                                windowEnd INTEGER NOT NULL,
+                                summaryCiphertext TEXT NOT NULL,
+                                vector TEXT NOT NULL,
+                                synced INTEGER NOT NULL DEFAULT 0,
+                                createdAt INTEGER NOT NULL
+                            )"""
+                        )
+                    }
+
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            // 迁移前 sensor_samples 存在
+            assertTrue("v3 库应存在 sensor_samples 表", hasTable(rawDb, "sensor_samples"))
+            // 执行 v3→v4 迁移
+            MIGRATION_3_4.migrate(rawDb)
+            // 迁移后 sensor_samples 被 DROP
+            assertFalse("MIGRATION_3_4 应 DROP sensor_samples", hasTable(rawDb, "sensor_samples"))
+            // 保留表不受影响
+            assertTrue("feature_vectors 应保留", hasTable(rawDb, "feature_vectors"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    private fun hasTable(db: SupportSQLiteDatabase, table: String): Boolean {
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            arrayOf<Any>(table)
+        ).use { cursor ->
+            return cursor.moveToFirst()
         }
     }
 
@@ -143,53 +225,6 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun sensorSampleDaoInsertAndCleanup() = runBlocking {
-        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
-        val dao = db!!.dao()
-
-        val now = System.currentTimeMillis()
-        dao.insertSensorSample(
-            SensorSampleEntity(
-                id = "ss_old",
-                userId = "u_test",
-                source = "accel",
-                timestamp = now - 600_000L,
-                value = """{"x":0.1,"y":0.2,"z":9.8}""",
-                createdAt = now - 600_000L
-            )
-        )
-        dao.insertSensorSample(
-            SensorSampleEntity(
-                id = "ss_new",
-                userId = "u_test",
-                source = "accel",
-                timestamp = now,
-                value = """{"x":0.2,"y":0.3,"z":9.7}""",
-                createdAt = now
-            )
-        )
-
-        // 清理 5 分钟前的样本
-        dao.deleteSensorSamplesBefore(now - 300_000L)
-
-        // 验证旧样本已删除、新样本保留
-        db!!.openHelper.writableDatabase.query(
-            "SELECT COUNT(*) FROM sensor_samples"
-        ).use { cursor ->
-            cursor.moveToFirst()
-            assertEquals("清理后应只剩 1 条样本", 1, cursor.getInt(0))
-        }
-        db!!.openHelper.writableDatabase.query(
-            "SELECT id FROM sensor_samples"
-        ).use { cursor ->
-            cursor.moveToFirst()
-            assertEquals("ss_new", cursor.getString(0))
-        }
-    }
-
-    @Test
     fun featureVectorTableSchemaMatchesEntityDefinition() {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
@@ -212,28 +247,6 @@ class DatabaseMigrationTest {
             assertTrue("summaryCiphertext 列应存在", columns.contains("summaryCiphertext"))
             assertTrue("vector 列应存在", columns.contains("vector"))
             assertTrue("synced 列应存在", columns.contains("synced"))
-            assertTrue("createdAt 列应存在", columns.contains("createdAt"))
-        }
-    }
-
-    @Test
-    fun sensorSampleTableSchemaMatchesEntityDefinition() {
-        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
-
-        db!!.openHelper.writableDatabase.query(
-            "PRAGMA table_info(sensor_samples)"
-        ).use { cursor ->
-            val columns = mutableListOf<String>()
-            while (cursor.moveToNext()) {
-                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
-            }
-            assertTrue("id 列应存在", columns.contains("id"))
-            assertTrue("userId 列应存在", columns.contains("userId"))
-            assertTrue("source 列应存在", columns.contains("source"))
-            assertTrue("timestamp 列应存在", columns.contains("timestamp"))
-            assertTrue("value 列应存在", columns.contains("value"))
             assertTrue("createdAt 列应存在", columns.contains("createdAt"))
         }
     }

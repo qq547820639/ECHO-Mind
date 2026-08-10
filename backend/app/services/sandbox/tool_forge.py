@@ -107,7 +107,7 @@ _TEMPLATES: dict[str, dict[str, Any]] = {
             "required": ["mood_score", "trend"],
         },
         "steps": [
-            {"key": "aggregate", "description": "汇总时间窗口内叙事 mood_hint 与特征摘要"},
+            {"key": "aggregate", "description": "汇总时间窗口内叙事与特征摘要（非诊断表达）"},
             {"key": "score", "description": "输出情绪评分与趋势标签，不下诊断结论"},
         ],
     },

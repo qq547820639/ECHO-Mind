@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -237,8 +237,19 @@ class DerivedFeature(Base):
     window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     summary: Mapped[str] = mapped_column(Text)
     vector: Mapped[list[float]] = mapped_column(JSON, default=list)
+    # v0.6：窗口内实际存在的信号源集合（accel/gyro/screen/notification/app_activity/mic_opt/health）
+    sources_present: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_df_tenant_event"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_df_tenant_event"),
+        # v0.6：窗口范围查询索引（migration 20260731_0003 建）
+        Index(
+            "ix_derived_features_tenant_user_window_start",
+            "tenant_id",
+            "user_id",
+            "window_start",
+        ),
+    )
 
 
 class DailyNarrative(Base):
@@ -248,8 +259,11 @@ class DailyNarrative(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     events: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
-    mood_hint: Mapped[str] = mapped_column(String(120), default="平稳")
+    # PRD 契约点 2：情绪语义字段废弃；列保留（可空）兼容历史数据，新写入恒为 None。
+    mood_hint: Mapped[str | None] = mapped_column(String(120), nullable=True)
     gaps: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # v0.6：最近一次显式重建时间（可空）
+    last_rebuilt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("tenant_id", "user_id", "date", name="uq_dn_tenant_user_date"),)
 
@@ -262,6 +276,8 @@ class UserProfile(Base):
     traits: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # v0.6：最近一次显式重建时间（可空）
+    rebuilt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AuditEvent(Base):
@@ -295,10 +311,42 @@ class Skill(Base):
     steps: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(40), default="draft")
     content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # v0.6 执行契约字段（PRD 契约点 4）：action_type 白名单 / 预计耗时 / 完成上报 schema / 安全边界
+    action_type: Mapped[str] = mapped_column(String(40), default="guided_steps", nullable=False)
+    estimated_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completion_schema: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    safety_constraints: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    # v0.6 治理字段（PRD 契约点 5）：签署人/签署时间/策略版本/审核证据/修订号/取代的旧 Skill
+    signed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    policy_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    review_evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    supersedes_skill_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (
         UniqueConstraint("tenant_id", "user_id", "name", "version", name="uq_skill_tenant_user_name_version"),
+    )
+
+
+class SkillCompletion(Base):
+    """Skill 执行完成/停止上报记录（v0.6）。
+
+    幂等键：tenant_id + event_id；只记录用户主动的执行状态，不承载任何可执行内容。
+    """
+    __tablename__ = "skill_completions"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("sc"))
+    event_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    skill_id: Mapped[str] = mapped_column(ForeignKey("skills.id"), index=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    duration_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    client_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_skill_completion_tenant_event"),
     )
 
 
