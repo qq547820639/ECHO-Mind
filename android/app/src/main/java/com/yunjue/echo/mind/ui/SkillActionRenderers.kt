@@ -36,14 +36,18 @@ internal fun ActionRenderer(
     uiStep: Int,
     uiDuration: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     when (skill.actionType) {
-        "guided_steps" -> GuidedStepsContent(skill, session, uiStatus, uiStep, uiDuration, onStatusChanged, onFinish)
-        "breathing" -> BreathingContent(skill, session, uiStatus, uiDuration, onStatusChanged, onFinish)
-        "checklist" -> ChecklistContent(skill, session, uiStatus, uiStep, onStatusChanged, onFinish)
-        "journaling" -> JournalingContent(skill, session, uiStatus, onStatusChanged, onFinish)
-        "reflection_prompt" -> ReflectionContent(skill, session, uiStatus, uiDuration, onStatusChanged, onFinish)
+        "guided_steps" -> GuidedStepsContent(skill, session, uiStatus, uiStep, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
+        "breathing" -> BreathingContent(skill, session, uiStatus, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
+        "checklist" -> ChecklistContent(skill, session, uiStatus, uiStep, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
+        "journaling" -> JournalingContent(skill, session, uiStatus, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
+        "reflection_prompt" -> ReflectionContent(skill, session, uiStatus, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
         else -> BlockedContent(skill)
     }
 }
@@ -69,6 +73,10 @@ private fun GuidedStepsContent(
     uiStep: Int,
     uiDuration: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     if (skill.steps.isNotEmpty()) {
@@ -83,7 +91,7 @@ private fun GuidedStepsContent(
             Text("$marker ${index + 1}. $step")
         }
     }
-    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration, onStatusChanged, onFinish)
+    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
 }
 
 /**
@@ -97,6 +105,10 @@ private fun BreathingContent(
     uiStatus: SkillRunStatus,
     uiDuration: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     HorizontalDivider()
@@ -111,7 +123,7 @@ private fun BreathingContent(
         }
         Text("当前阶段：$phaseText（本地节奏引导，非诊断）", style = MaterialTheme.typography.bodyMedium)
     }
-    ExecutionControls(session, 1, uiStatus, uiDuration, onStatusChanged, onFinish)
+    ExecutionControls(session, 1, uiStatus, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
 }
 
 /**
@@ -124,6 +136,10 @@ private fun ChecklistContent(
     uiStatus: SkillRunStatus,
     uiStep: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     HorizontalDivider()
@@ -137,7 +153,7 @@ private fun ChecklistContent(
         }
         Text("进度：${(session.currentStep.coerceAtMost(skill.steps.size))}/${skill.steps.size}", style = MaterialTheme.typography.labelSmall)
     }
-    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration = 0, onStatusChanged = onStatusChanged, onFinish = onFinish)
+    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration = 0, onStatusChanged = onStatusChanged, onStart = onStart, onNext = onNext, onPause = onPause, onResume = onResume, onFinish = onFinish)
 }
 
 /**
@@ -150,6 +166,10 @@ private fun JournalingContent(
     session: SkillRunSession,
     uiStatus: SkillRunStatus,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     HorizontalDivider()
@@ -161,7 +181,7 @@ private fun JournalingContent(
     } else {
         Text("本能力不要求文字上报。", style = MaterialTheme.typography.bodyMedium)
     }
-    ExecutionControls(session, 1, uiStatus, uiDuration = 0, onStatusChanged = onStatusChanged, onFinish = onFinish)
+    ExecutionControls(session, 1, uiStatus, uiDuration = 0, onStatusChanged = onStatusChanged, onStart = onStart, onNext = onNext, onPause = onPause, onResume = onResume, onFinish = onFinish)
 }
 
 /**
@@ -174,6 +194,10 @@ private fun ReflectionContent(
     uiStatus: SkillRunStatus,
     uiDuration: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     HorizontalDivider()
@@ -186,7 +210,7 @@ private fun ReflectionContent(
     } else {
         Text("按节奏回顾今天的活动与感受（非诊断、非情绪评分）。")
     }
-    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration, onStatusChanged, onFinish)
+    ExecutionControls(session, skill.steps.size, uiStatus, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
 }
 
 /**
@@ -212,6 +236,10 @@ private fun BlockedContent(skill: SkillDisplay) {
 
 /**
  * 通用执行控制（开始/下一步/暂停/继续/完成/停止）。
+ *
+ * v0.6.1（P0-4）：所有动作经回调上抛给 SkillCardHost → SkillSessionCoordinator，
+ * 渲染器不再直接操作 session（single-active-session / 进程死亡恢复 / completion
+ * 删除真实 sessionId 的统一语义由协调器承担）。
  */
 @Composable
 private fun ExecutionControls(
@@ -220,23 +248,27 @@ private fun ExecutionControls(
     uiStatus: SkillRunStatus,
     uiDuration: Int,
     onStatusChanged: () -> Unit,
+    onStart: () -> Unit,
+    onNext: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onFinish: (() -> String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         when (uiStatus) {
             SkillRunStatus.IDLE -> Button(
-                onClick = { session.start(); onStatusChanged() },
+                onClick = { onStart(); onStatusChanged() },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("开始") }
 
             SkillRunStatus.RUNNING -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { session.nextStep(totalSteps); onStatusChanged() },
+                        onClick = { onNext(); onStatusChanged() },
                         enabled = totalSteps > 1 && session.currentStep < totalSteps - 1,
                         modifier = Modifier.weight(1f)
                     ) { Text("下一步") }
-                    OutlinedButton(onClick = { session.pause(); onStatusChanged() }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { onPause(); onStatusChanged() }, modifier = Modifier.weight(1f)) {
                         Text("暂停")
                     }
                 }
@@ -251,7 +283,7 @@ private fun ExecutionControls(
             }
 
             SkillRunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { session.resume(); onStatusChanged() }, modifier = Modifier.weight(1f)) {
+                Button(onClick = { onResume(); onStatusChanged() }, modifier = Modifier.weight(1f)) {
                     Text("继续")
                 }
                 Button(onClick = { onFinish { session.complete() } }, modifier = Modifier.weight(1f)) {

@@ -101,89 +101,6 @@
         ]
       }
     },
-    "/v1/onboarding/consents": {
-      "post": {
-        "summary": "Create Consent",
-        "operationId": "create_consent_v1_onboarding_consents_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConsentCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/onboarding/consents/latest": {
-      "get": {
-        "summary": "Get Latest Consents",
-        "operationId": "get_latest_consents_v1_onboarding_consents_latest_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/onboarding/l0": {
       "post": {
         "summary": "Create L0",
@@ -269,7 +186,7 @@
     "/v1/onboarding/verify-code": {
       "post": {
         "summary": "Verify Onboarding Code",
-        "description": "激活码交换（v0.6 final）：预认证薄路由，供端侧激活使用。\n\n- 跨租户查 ``User.external_ref == code``；0 命中 → 404（不泄露租户存在性）。\n- 命中且 status==\"restricted\"（或已不可用）→ 403。\n- 命中且 status==\"active\" → 签发 role=user 短时凭证。\n响应不含 tenant_id / role / external_ref 等内部字段（JWT 载荷内部字段对用户透明）。",
+        "description": "激活码交换（v0.6.1）：预认证薄路由，供端侧激活使用。\n\n主路径：机构激活码（ActivationCode）——哈希存储 / TTL / 一次性消费 /\n防爆破 rate limit / IP+device 审计；revoked/expired/replay/restricted/超限 → 403。\nlegacy 回退（v0.8 退役）：未命中时回退查 User.external_ref == code。\n响应不含 tenant_id / role / external_ref 等内部字段。",
         "operationId": "verify_onboarding_code_v1_onboarding_verify_code_post",
         "requestBody": {
           "content": {
@@ -305,15 +222,15 @@
         }
       }
     },
-    "/v1/checkins": {
+    "/v1/onboarding/consents": {
       "post": {
-        "summary": "Create Checkin",
-        "operationId": "create_checkin_v1_checkins_post",
+        "summary": "Create Consent",
+        "operationId": "create_consent_v1_onboarding_consents_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CheckinCreate"
+                "$ref": "#/components/schemas/ConsentCreate"
               }
             }
           },
@@ -346,25 +263,26 @@
         ]
       }
     },
-    "/v1/journals": {
-      "post": {
-        "summary": "Create Journal",
-        "operationId": "create_journal_v1_journals_post",
+    "/v1/onboarding/consents/latest": {
+      "get": {
+        "summary": "Get Latest Consents",
+        "operationId": "get_latest_consents_v1_onboarding_consents_latest_get",
         "security": [
           {
             "HTTPBearer": []
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JournalCreate"
-              }
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -385,10 +303,54 @@
             }
           }
         }
-      },
+      }
+    },
+    "/v1/features/ingest": {
+      "post": {
+        "summary": "Ingest Derived Feature",
+        "operationId": "ingest_derived_feature_v1_features_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DerivedFeatureIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/narratives": {
       "get": {
-        "summary": "List Journals",
-        "operationId": "list_journals_v1_journals_get",
+        "summary": "Get Daily Narrative",
+        "description": "只读叙事查询：GET 不写库、不读时生成。\n\n- ``date`` 单日查询（向后兼容），缺失返回 404；\n- ``from``/``to`` 批量查询：返回 ordered narratives + data coverage + missing dates。",
+        "operationId": "get_daily_narrative_v1_narratives_get",
         "security": [
           {
             "HTTPBearer": []
@@ -405,15 +367,54 @@
             }
           },
           {
-            "name": "limit",
+            "name": "date",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           }
         ],
@@ -439,10 +440,11 @@
         }
       }
     },
-    "/v1/journals/{logical_id}/revisions": {
-      "post": {
-        "summary": "Revise Journal",
-        "operationId": "revise_journal_v1_journals__logical_id__revisions_post",
+    "/v1/profile/{user_id}": {
+      "get": {
+        "summary": "Get Profile",
+        "description": "只读画像缓存：绝不 rebuild / version+1 / commit（无任何写副作用）。",
+        "operationId": "get_profile_v1_profile__user_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -450,25 +452,15 @@
         ],
         "parameters": [
           {
-            "name": "logical_id",
+            "name": "user_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Logical Id"
+              "title": "User Id"
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JournalRevise"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -491,10 +483,11 @@
         }
       }
     },
-    "/v1/journals/{logical_id}": {
-      "delete": {
-        "summary": "Delete Journal",
-        "operationId": "delete_journal_v1_journals__logical_id__delete",
+    "/v1/profile/{user_id}/rebuild": {
+      "post": {
+        "summary": "Rebuild User Profile",
+        "description": "显式重建画像：traits + version+1；仅写路径调用。",
+        "operationId": "rebuild_user_profile_v1_profile__user_id__rebuild_post",
         "security": [
           {
             "HTTPBearer": []
@@ -502,12 +495,12 @@
         ],
         "parameters": [
           {
-            "name": "logical_id",
+            "name": "user_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Logical Id"
+              "title": "User Id"
             }
           }
         ],
@@ -531,145 +524,12 @@
             }
           }
         }
-      }
-    },
-    "/v1/safety/check": {
-      "post": {
-        "summary": "Safety Check",
-        "operationId": "safety_check_v1_safety_check_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FreeTextSafetyCheck"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/questionnaires/{code}/responses": {
-      "post": {
-        "summary": "Questionnaire",
-        "operationId": "questionnaire_v1_questionnaires__code__responses_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Code"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionnaireCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/practices/completions": {
-      "post": {
-        "summary": "Practice Completion",
-        "operationId": "practice_completion_v1_practices_completions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PracticeCompletionCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/v1/escalations": {
       "post": {
         "summary": "Create Escalation",
+        "description": "用户/服务端创建升级事件（幂等：同 tenant+event_id 返回既有记录）。\n\n用户侧调用链（v0.6.1 客户端闭环）：Android Outbox → POST /v1/escalations；\ndelivery_confirmed_at 在服务端接收时即写入（送达确认，不等于人工已收到）。",
         "operationId": "create_escalation_v1_escalations_post",
         "security": [
           {
@@ -709,6 +569,7 @@
       },
       "get": {
         "summary": "List Escalations",
+        "description": "机构工作台队列：cursor 分页 + 过滤（v0.6.1）。\n\n**契约保持**：响应体仍为数组（与 v0.6 一致）；分页元数据放在响应头\n``X-Next-Cursor``（还有更多页时非空）与 ``X-Total-Filtered``。\n不变量：本端点仅 workbench 角色；evidence_summary 仅持有 step-up 声明时可见。",
         "operationId": "list_escalations_v1_escalations_get",
         "security": [
           {
@@ -731,6 +592,68 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Level"
+            }
+          },
+          {
+            "name": "assigned_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assigned To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "opaque cursor（X-Next-Cursor 响应头回填）",
+              "title": "Cursor"
+            },
+            "description": "opaque cursor（X-Next-Cursor 响应头回填）"
           }
         ],
         "responses": {
@@ -758,6 +681,7 @@
     "/v1/escalations/metrics": {
       "get": {
         "summary": "Escalation Metrics",
+        "description": "聚合指标：SQL 下推（v0.6.1），避免全表加载到 Python。\n\n- 状态分布 / 总数 / SLA 中位数全部在数据库聚合；\n- 兼容旧响应字段（total / open / closed / ack_p50 / takeover_p50）。",
         "operationId": "escalation_metrics_v1_escalations_metrics_get",
         "responses": {
           "200": {
@@ -779,7 +703,7 @@
     "/v1/escalations/sla-scan": {
       "post": {
         "summary": "Sla Scan",
-        "description": "运维定时触发的 SLA 扫描：推进未确认红色事件的自动升级链路。\n\n幂等：每一档升级由各自的时间戳守卫，重复调用不会重复通知。扫描只写\n通知/失效等生命周期字段，绝不改变 ack/takeover 接管状态。",
+        "description": "运维定时触发的 SLA 扫描：推进未确认红色事件的自动升级链路（幂等）。",
         "operationId": "sla_scan_v1_escalations_sla_scan_post",
         "responses": {
           "200": {
@@ -966,7 +890,7 @@
     "/v1/escalations/{escalation_id}/case-review": {
       "get": {
         "summary": "Escalation Case Review",
-        "description": "个案复核证据链视图。\n\n区块化返回完整证据：用户直接表达、规则触发依据、安全分类器结果、\nPHQ-9/GAD-7 原始答案、最近签到趋势、数据质量、历史风险事件与人工处置\n记录。需要 step-up 二次认证；admin 等心理内容受限角色一律拒绝并留痕\n（沿用 Task 1 守卫语义），绝不只输出单一\"AI 风险分数\"。",
+        "description": "个案复核证据链视图（仅复核类角色 + step-up）。",
         "operationId": "escalation_case_review_v1_escalations__escalation_id__case_review_get",
         "security": [
           {
@@ -1334,10 +1258,11 @@
         }
       }
     },
-    "/v1/audit/events": {
+    "/v1/skills": {
       "get": {
-        "summary": "Audit Events",
-        "operationId": "audit_events_v1_audit_events_get",
+        "summary": "List Skills",
+        "description": "用户拉取已 signed 的 Skill 列表（脱敏后下发；draft/reviewed/retired 不下发）。",
+        "operationId": "list_skills_v1_skills_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1345,15 +1270,19 @@
         ],
         "parameters": [
           {
-            "name": "limit",
+            "name": "user_id",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "maximum": 1000,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
             }
           }
         ],
@@ -1379,36 +1308,61 @@
         }
       }
     },
-    "/v1/audit/verify": {
+    "/v1/skills/{skill_id}": {
       "get": {
-        "summary": "Audit Verify",
-        "operationId": "audit_verify_v1_audit_verify_get",
+        "summary": "Get Skill",
+        "description": "用户拉取单个 Skill 详情（脱敏后下发；signed-only + action_type 白名单）。",
+        "operationId": "get_skill_v1_skills__skill_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Skill Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
-    "/v1/features/ingest": {
+    "/v1/skills/completions": {
       "post": {
-        "summary": "Ingest Derived Feature",
-        "operationId": "ingest_derived_feature_v1_features_ingest_post",
+        "summary": "Create Skill Completion",
+        "description": "Skill 执行完成/停止上报（幂等：同 tenant+event_id 返回同一记录）。\n\n- 校验 skill 属于当前用户且 status=='signed'\n- audit action=skill.completion\n- 服务端只记录执行状态，不承载可执行内容",
+        "operationId": "create_skill_completion_v1_skills_completions_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DerivedFeatureIn"
+                "$ref": "#/components/schemas/SkillCompletionCreate"
               }
             }
           },
@@ -1441,54 +1395,11 @@
         ]
       }
     },
-    "/v1/profile/{user_id}": {
-      "get": {
-        "summary": "Get Profile",
-        "description": "只读画像缓存：绝不 rebuild / version+1 / commit（无任何写副作用）。",
-        "operationId": "get_profile_v1_profile__user_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/profile/{user_id}/rebuild": {
+    "/v1/skills/{skill_id}/transition": {
       "post": {
-        "summary": "Rebuild User Profile",
-        "description": "显式重建画像：traits + version+1；仅写路径调用。",
-        "operationId": "rebuild_user_profile_v1_profile__user_id__rebuild_post",
+        "summary": "Transition Skill",
+        "description": "Skill 治理状态机转换：draft→reviewed→signed→retired（不能跳级、不能逆转）。\n\n转入 signed 时（PRD 契约点 5）必须提供 policy_version 与 review_evidence（缺失 → 422）；\ncontent_hash 缺失视为无效内容（不可签署）。",
+        "operationId": "transition_skill_v1_skills__skill_id__transition_post",
         "security": [
           {
             "HTTPBearer": []
@@ -1496,109 +1407,25 @@
         ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "skill_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "User Id"
+              "title": "Skill Id"
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillTransition"
               }
             }
           }
-        }
-      }
-    },
-    "/v1/narratives": {
-      "get": {
-        "summary": "Get Daily Narrative",
-        "description": "只读叙事查询：GET 不写库、不读时生成。\n\n- ``date`` 单日查询（向后兼容），缺失返回 404；\n- ``from``/``to`` 批量查询：返回 ordered narratives + data coverage + missing dates，\n  供 Android 一次请求完成趋势加载。",
-        "operationId": "get_daily_narrative_v1_narratives_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          },
-          {
-            "name": "date",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Date"
-            }
-          },
-          {
-            "name": "from",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "From"
-            }
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "To"
-            }
-          }
-        ],
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1624,7 +1451,7 @@
     "/v1/sandbox/runs": {
       "post": {
         "summary": "Schedule Sandbox",
-        "description": "触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。\n\n并发配额基于 SandboxRun 表（running 计数）覆盖执行期；每小时速率限制基于 created_at。",
+        "description": "触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。\n\n并发配额：调度期 running 计数快速失败 + 执行期原子租户槽（双保险）。",
         "operationId": "schedule_sandbox_v1_sandbox_runs_post",
         "requestBody": {
           "content": {
@@ -1706,11 +1533,10 @@
         }
       }
     },
-    "/v1/skills": {
+    "/v1/audit/events": {
       "get": {
-        "summary": "List Skills",
-        "description": "用户拉取已 signed 的 Skill 列表（脱敏后下发）。\n\nuser_id 缺省取 principal.subject（普通用户只能看自己的）。\ndraft / reviewed / retired 状态的 Skill 不下发（signed-only）。",
-        "operationId": "list_skills_v1_skills_get",
+        "summary": "Audit Events",
+        "operationId": "audit_events_v1_audit_events_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1718,19 +1544,15 @@
         ],
         "parameters": [
           {
-            "name": "user_id",
+            "name": "limit",
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "User Id"
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
             }
           }
         ],
@@ -1756,159 +1578,16 @@
         }
       }
     },
-    "/v1/skills/{skill_id}": {
+    "/v1/audit/verify": {
       "get": {
-        "summary": "Get Skill",
-        "description": "用户拉取单个 Skill 详情（脱敏后下发）。\n\n校验 skill 属于当前 tenant+user，status == 'signed'（signed-only）。",
-        "operationId": "get_skill_v1_skills__skill_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "skill_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Skill Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SkillOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/skills/completions": {
-      "post": {
-        "summary": "Create Skill Completion",
-        "description": "Skill 执行完成/停止上报（v0.6）。\n\n- 幂等：同 tenant+event_id 返回同一记录（idempotent_replay=True）\n- 校验 skill 属于当前用户且 status=='signed'\n- audit action=skill.completion",
-        "operationId": "create_skill_completion_v1_skills_completions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SkillCompletionCreate"
-              }
-            }
-          },
-          "required": true
-        },
+        "summary": "Audit Verify",
+        "operationId": "audit_verify_v1_audit_verify_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/v1/skills/{skill_id}/transition": {
-      "post": {
-        "summary": "Transition Skill",
-        "description": "Skill 治理状态机转换：draft→reviewed→signed→retired。\n\n不能跳级（draft→signed 拒绝）、不能逆转（signed→reviewed 拒绝）。\n转入 signed 时（PRD 契约点 5）：\n- 必须提供 policy_version 与 review_evidence（缺失 → 422）\n- 写入 signed_by / signed_at / policy_version / review_evidence / revision\n- content_hash 缺失视为无效内容（不可签署）\n内容变化通过 skill_induct 生成新版本（status=draft）结构保证重签；retired 不可逆转。",
-        "operationId": "transition_skill_v1_skills__skill_id__transition_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "skill_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Skill Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SkillTransition"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/tenant/portrait": {
-      "get": {
-        "summary": "Tenant Portrait",
-        "description": "机构去标识群体画像：按 principal.tenant_id 聚合本租户画像/叙事/风险数据。\n\n聚合维度：observation_days 统计、近 7 天活跃用户数、escalation 计数、Skill 下发数\n（PRD 契约点 2：情绪维度已废弃，mood_distribution 恒为空并标记 suppressed）。\n去标识保护：cohort 总人数 < 5 时敏感维度 suppressed（隐藏 min/max 等）；\n不返回单个用户 ID/特征。",
-        "operationId": "tenant_portrait_v1_tenant_portrait_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TenantPortraitOut"
-                }
               }
             }
           }
@@ -1923,7 +1602,7 @@
     "/v1/config/flags": {
       "get": {
         "summary": "Get Config Flags",
-        "description": "用户拉取本租户的 feature flags（用于端侧灰度联动）。\n\n任何登录用户可访问；返回的 flags 经 [get_tenant_flags] 与默认值合并，\n保证端侧拿到的字段集合稳定。",
+        "description": "用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。",
         "operationId": "get_config_flags_v1_config_flags_get",
         "responses": {
           "200": {
@@ -1945,7 +1624,7 @@
     "/v1/tenant/flags": {
       "put": {
         "summary": "Update Tenant Flags",
-        "description": "admin 修改本租户的 feature flag（灰度回滚入口）。\n\nbody={\"flag_key\": \"passive_sensing_enabled\", \"value\": false}；\n调 [set_tenant_flag] 更新 + commit，并记录审计 action=\"tenant.flags.update\"。",
+        "description": "admin 修改本租户的 feature flag（灰度回滚入口）。",
         "operationId": "update_tenant_flags_v1_tenant_flags_put",
         "requestBody": {
           "content": {
@@ -1984,16 +1663,550 @@
         ]
       }
     },
+    "/v1/tenant/portrait": {
+      "get": {
+        "summary": "Tenant Portrait",
+        "description": "机构去标识群体画像（小桶 <5 suppression；不返回单个用户 ID/特征）。",
+        "operationId": "tenant_portrait_v1_tenant_portrait_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantPortraitOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/activation-codes": {
+      "post": {
+        "summary": "Issue Activation Code",
+        "description": "admin 签发激活码：明文码仅在响应中出现一次；数据库只存 SHA-256 哈希。",
+        "operationId": "issue_activation_code_v1_admin_activation_codes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivationCodeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationCodeIssueOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Activation Codes",
+        "description": "admin 查看本租户激活码（不含明文；已消费码默认隐藏）。",
+        "operationId": "list_activation_codes_v1_admin_activation_codes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "include_consumed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Consumed"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActivationCodeOut"
+                  },
+                  "title": "Response List Activation Codes V1 Admin Activation Codes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/activation-codes/{code_id}/revoke": {
+      "post": {
+        "summary": "Revoke Activation Code",
+        "description": "admin 吊销激活码（幂等：已吊销重复调用返回同一结果）。",
+        "operationId": "revoke_activation_code_v1_admin_activation_codes__code_id__revoke_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/skills/batch-retire": {
       "post": {
         "summary": "Batch Retire Skills",
-        "description": "admin 批量回滚 Skill：把指定 skill_ids 的 status 转为 retired。\n\n- 仅本租户的 Skill 会被影响（跨租户忽略，不报错）\n- 已是 retired 的 Skill 幂等跳过\n- 记录审计 action=\"skill.batch_retire\"\n- 返回 {\"retired\": N}（N 为本次实际转为 retired 的数量）",
+        "description": "admin 批量回滚 Skill（仅本租户受影响；已 retired 幂等跳过）。",
         "operationId": "batch_retire_skills_v1_skills_batch_retire_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SkillBatchRetire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/checkins": {
+      "post": {
+        "summary": "Create Checkin",
+        "operationId": "create_checkin_v1_checkins_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckinCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/journals": {
+      "post": {
+        "summary": "Create Journal",
+        "operationId": "create_journal_v1_journals_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Journals",
+        "description": "历史日记只读查询（T12.1 后保留；写入口已 410）。",
+        "operationId": "list_journals_v1_journals_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/journals/{logical_id}/revisions": {
+      "post": {
+        "summary": "Revise Journal",
+        "operationId": "revise_journal_v1_journals__logical_id__revisions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "logical_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Logical Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalRevise"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/journals/{logical_id}": {
+      "delete": {
+        "summary": "Delete Journal",
+        "operationId": "delete_journal_v1_journals__logical_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "logical_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Logical Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/safety/check": {
+      "post": {
+        "summary": "Safety Check",
+        "operationId": "safety_check_v1_safety_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreeTextSafetyCheck"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/questionnaires/{code}/responses": {
+      "post": {
+        "summary": "Questionnaire",
+        "operationId": "questionnaire_v1_questionnaires__code__responses_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionnaireCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/practices/completions": {
+      "post": {
+        "summary": "Practice Completion",
+        "operationId": "practice_completion_v1_practices_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeCompletionCreate"
               }
             }
           },
@@ -2243,6 +2456,188 @@
   },
   "components": {
     "schemas": {
+      "ActivationCodeCreate": {
+        "properties": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "ttl_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 31536000.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Seconds"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "title": "ActivationCodeCreate",
+        "description": "admin 签发激活码入参。\n\n- user_id 可空：空 = 待绑定（兑换时绑定到兑换者用户）；非空 = 预绑定用户。\n- ttl_seconds 可空：缺省用 settings.activation_code_ttl_seconds。\n- max_attempts：该码最大失败尝试次数（防爆破）。"
+      },
+      "ActivationCodeIssueOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code"
+        ],
+        "title": "ActivationCodeIssueOut",
+        "description": "签发响应：明文码仅此一次返回（数据库只存哈希）。"
+      },
+      "ActivationCodeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts",
+            "default": 5
+          },
+          "revoked": {
+            "type": "boolean",
+            "title": "Revoked",
+            "default": false
+          },
+          "used": {
+            "type": "boolean",
+            "title": "Used",
+            "default": false
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ActivationCodeOut",
+        "description": "激活码管理视图（不含明文）。"
+      },
       "CheckinCreate": {
         "properties": {
           "event_id": {

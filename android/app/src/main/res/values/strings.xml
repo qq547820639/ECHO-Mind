@@ -9,4 +9,51 @@
     <string name="cold_start_load_failed">加载失败</string>
     <string name="cold_start_retry">重试</string>
     <string name="skills_delivery_paused">能力下发已暂停</string>
+
+    <!-- v0.6.1（P2-15）：危机/隐私/人工支持关键按钮文案 + accessibility semantics -->
+
+    <!-- 危机入口（立即危险优先展示；ECHO Mind 不是紧急服务） -->
+    <string name="crisis_title">危机入口</string>
+    <string name="crisis_not_emergency_service">ECHO Mind 不是紧急服务；立即危险请优先联系紧急服务和身边可信任的人。</string>
+    <string name="crisis_call_12356">拨打 12356</string>
+    <string name="crisis_call_110">拨打 110</string>
+    <string name="crisis_call_120">拨打 120</string>
+    <string name="crisis_call_12356_desc">拨打全国心理援助热线 12356</string>
+    <string name="crisis_call_110_desc">拨打报警电话 110</string>
+    <string name="crisis_call_120_desc">拨打急救电话 120</string>
+
+    <!-- 机构人工支持（P0-2 客户端闭环） -->
+    <string name="support_request_title">机构人工支持</string>
+    <string name="support_request_hint">需要与机构人员沟通时，可提交支持请求；请求离线也会排队，恢复网络后自动送达。</string>
+    <string name="support_request_button">请求机构支持</string>
+    <string name="support_request_confirm_title">请求机构人工支持</string>
+    <string name="support_request_confirm_body">你的请求会被发送给合作机构的值班人员，人工确认/接管前应用不会显示「人工已连接」。如处于立即危险中，请优先拨打 12356 / 110 / 120。</string>
+    <string name="support_request_confirm_ok">确认请求支持</string>
+    <string name="support_request_confirm_cancel">取消</string>
+    <string name="support_request_saved">支持请求已保存，网络恢复后自动送达。</string>
+    <string name="support_request_save_failed">请求暂时未能保存，请稍后重试。</string>
+    <string name="support_recent_requests">最近请求状态</string>
+
+    <!-- escalation 用户侧最小状态（未 ACK 前绝不显示"人工已收到"） -->
+    <string name="esc_status_queued">等待送达（离线排队中）</string>
+    <string name="esc_status_delivered">已送达（等待人工确认）</string>
+    <string name="esc_status_acknowledged">人工已确认</string>
+    <string name="esc_status_taken_over">正在接管</string>
+    <string name="esc_status_closed">已完成</string>
+    <string name="esc_status_failed">未能送达，请重新联系机构</string>
+    <string name="esc_status_unknown">处理中</string>
+
+    <!-- 数据权利（P0-3 统一撤回） -->
+    <string name="data_rights_title">数据权利</string>
+    <string name="data_rights_export">申请导出数据</string>
+    <string name="data_rights_delete">申请删除数据</string>
+    <string name="data_rights_revoke_service">撤回同意并停止服务</string>
+    <string name="data_rights_revoke_done">已停止服务并提交撤回请求。</string>
+
+    <!-- 被动感知 consent 状态（P0-3 B） -->
+    <string name="sensing_re_enabling">正在重新启用 · 等待授权同步</string>
+
+    <!-- 同步状态（P1-6 语义） -->
+    <string name="sync_partial_updated">部分数据尚未同步：最近一次部分同步 %1$s</string>
+    <string name="sync_last_success">最近成功同步：%1$s</string>
 </resources>

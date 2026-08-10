@@ -207,12 +207,14 @@ internal class SkillRunSession(
  *
  * - action_type 白名单分发：guided_steps / breathing / checklist / journaling / reflection_prompt
  *   分别渲染原生 Renderer；白名单外 fail closed（不渲染「开始」、不产生 completion）；
- * - 跨 recomposition / tab 切换 / activity recreation / process death 恢复：
- *   启动时从 Room 读取 active_skill_sessions，恢复为 PAUSED（不虚增时长）；
- * - 完成/停止：事务内「删会话 + 入 outbox」上报（服务端 tenant+event_id 幂等）。
+ * - v0.6.1（P0-4）：会话生命周期全部交由 [SkillSessionCoordinator]：
+ *   - 进程死亡恢复继续使用原 sessionId（恢复为 PAUSED，不虚增时长）；
+ *   - single-active-session 由协调器强制（多卡同时点击安全）；
+ *   - 完成/停止：按真实 sessionId 删除会话 + completion 入 outbox（幂等）；
+ *   - 本 Composable 不再自行 remember/读写全局会话（消除跨卡误删）。
  */
 @Composable
-fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
+fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator: SkillSessionCoordinator) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -222,7 +224,7 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
         return
     }
 
-    val sessionId = remember(skill.id) { "skse_${UUID.randomUUID()}" }
+    // 本地影子会话：仅用于渲染（currentStep/isRunning 读取）；状态所有权在协调器
     val session = remember(skill.id) {
         SkillRunSession(
             skillId = skill.id,
@@ -242,59 +244,58 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
         uiDuration = session.durationSeconds
     }
 
-    /** 持久化当前会话（进程死亡后可恢复；仅 RUNNING/PAUSED 保存）。 */
-    fun persist() {
-        if (!session.isActive) return
-        scope.launch {
-            try {
-                repository.saveActiveSession(session.toEntity(sessionId, System.currentTimeMillis()))
-            } catch (_: Exception) {
-                // 会话持久化失败不阻断 UI（进程死亡恢复为尽力而为）
-            }
-        }
+    /** 协调器视图 → 本地影子（恢复后继续使用原 sessionId 语义由协调器承载）。 */
+    fun applyView(view: SkillSessionCoordinator.SessionView?) {
+        if (view == null) return
+        val entity = com.yunjue.echo.mind.data.ActiveSkillSessionEntity(
+            sessionId = view.sessionId,
+            skillId = view.skillId,
+            skillVersion = skill.version,
+            skillRevision = skill.revision,
+            actionType = skill.actionType,
+            status = if (view.status == SkillRunStatus.RUNNING) "running" else "paused",
+            currentStep = view.currentStep,
+            startedAt = System.currentTimeMillis(),
+            accumulatedActiveMs = 0L,
+            segmentStartedAtMs = null,
+            pausedAt = null,
+            updatedAt = System.currentTimeMillis()
+        )
+        session.restoreFrom(entity)
+        syncUi()
     }
 
-    // 进程/组件重建恢复：读取持久化会话 → 恢复为 PAUSED；不在白名单/不属于本 Skill 则丢弃
+    // 进程/组件重建恢复：协调器按 skillId 精确恢复（不匹配的卡片不会拿到/删除别的会话）
     LaunchedEffect(skill.id) {
-        val restored = try {
-            withContext(Dispatchers.IO) { repository.loadActiveSession() }
+        val view = try {
+            coordinator.getOrRestore(skill)
         } catch (_: Exception) {
             null
         }
-        if (restored != null) {
-            if (restored.actionType in SkillDisplay.ACTION_TYPE_WHITELIST && restored.skillId == skill.id) {
-                session.restoreFrom(restored)
-                syncUi()
-            } else {
-                try {
-                    repository.deleteActiveSession(restored.sessionId)
-                } catch (_: Exception) {
-                    // 丢弃失败会话失败不阻断 UI
-                }
-            }
+        applyView(view)
+    }
+
+    // 协调器状态流 → UI（跨卡片/恢复/完成统一同步）
+    LaunchedEffect(skill.id) {
+        coordinator.sessions.collect { map ->
+            applyView(map[skill.id])
         }
     }
 
-    // 执行中实时计时
+    // 执行中实时计时（仅展示；持久化时长以 terminal 结算为准）
     LaunchedEffect(uiStatus) {
         while (session.isRunning) {
             kotlinx.coroutines.delay(1000)
             uiDuration = session.elapsedSeconds()
+            coordinator.touchDuration(skill.id, uiDuration)
         }
     }
 
-    // 完成/停止：事务内删会话 + 入 outbox（completion 幂等 event_id 由 SkillCompletionInput 生成）
+    // 完成/停止：协调器按真实 sessionId 删会话 + completion 入 outbox（幂等）
     fun finish(terminal: () -> String) {
         scope.launch {
-            val status = terminal()
-            syncUi()
-            val input = SkillCompletionInput(
-                skillId = skill.id,
-                status = status,
-                durationSeconds = session.durationSeconds
-            )
             try {
-                repository.recordSkillCompletion(input, sessionId = sessionId)
+                coordinator.finish(skill, terminal)
             } catch (_: Exception) {
                 // completion 落库失败不阻断 UI；会话行仍在 → 恢复流程兜底
             }
@@ -320,16 +321,35 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
 
             HorizontalDivider()
 
-            // action_type 白名单分发（原生 Renderer；未知类型已在上面 fail closed）
+            // action_type 白名单分发；动作回调统一转发协调器（single-active / 恢复 / 幂等）
             ActionRenderer(
                 skill = skill,
                 session = session,
                 repository = repository,
-                sessionId = sessionId,
+                sessionId = "coordinator-owned",
                 uiStatus = uiStatus,
                 uiStep = uiStep,
                 uiDuration = uiDuration,
-                onStatusChanged = { syncUi(); persist() },
+                onStatusChanged = { syncUi() },
+                onStart = {
+                    scope.launch {
+                        try {
+                            applyView(coordinator.start(skill))
+                        } catch (_: Exception) {
+                            // 持久化失败不阻断执行
+                        }
+                        syncUi()
+                    }
+                },
+                onNext = {
+                    scope.launch { coordinator.nextStep(skill.id, skill.steps.size); applyView(coordinator.getOrRestore(skill)); syncUi() }
+                },
+                onPause = {
+                    scope.launch { coordinator.pause(skill.id); applyView(coordinator.getOrRestore(skill)); syncUi() }
+                },
+                onResume = {
+                    scope.launch { coordinator.resume(skill.id); applyView(coordinator.getOrRestore(skill)); syncUi() }
+                },
                 onFinish = ::finish
             )
         }
@@ -387,7 +407,7 @@ internal fun rememberSkillList(repository: LocalRepository): Pair<SkillFetchResu
  * 危机入口由全局紧急 FAB 常驻，此页不重复放置。
  */
 @Composable
-fun SkillListScreen(repository: LocalRepository) {
+fun SkillListScreen(repository: LocalRepository, coordinator: SkillSessionCoordinator) {
     val (skillState, retry) = rememberSkillList(repository)
 
     // P5 灰度回滚：拉取 feature flags 缓存 + 观察 skills_delivery_enabled。
@@ -437,7 +457,7 @@ fun SkillListScreen(repository: LocalRepository) {
                     Modifier.padding(top = 40.dp)
                 )
             }
-            else -> items(skillState.skills) { skill -> SkillCardHost(skill, repository) }
+            else -> items(skillState.skills) { skill -> SkillCardHost(skill, repository, coordinator) }
         }
         item { Spacer(Modifier.height(96.dp)) }
     }

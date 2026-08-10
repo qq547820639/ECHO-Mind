@@ -138,15 +138,35 @@ class SandboxRunner:
         生产路径：子进程隔离 + 真超时终止；in-memory SQLite 回退线程执行。
         超时（超过 sandbox_timeout_seconds）转 failed；其它异常也转 failed。
         不向上抛出（调用方可检查 run.status）。
+
+        并发（v0.6.1）：执行期通过数据库原子租户槽（[slots.acquire_tenant_slot]）
+        获取 permit；获取失败 → 直接标记 failed（不进入 running，不占配额）。
+        completed/failed/timeout/异常路径统一在 finally 释放槽（worker crash
+        由心跳过期回收兜底）。
         """
+        from app.services.sandbox.slots import acquire_tenant_slot, release_tenant_slot
+
+        if not acquire_tenant_slot(self.db, self.tenant_id):
+            # 并发上限已满：不启动执行，直接失败（不占运行配额）
+            self._record_failure("concurrency limit reached")
+            self.db.commit()
+            return self.run
+
         now = datetime.now(UTC)
         self.run.status = "running"
         self.run.started_at = now
         self.run.error_message = None
         self.db.flush()
         self.db.commit()
-
-        timeout_seconds = settings.sandbox_timeout_seconds
-        if _db_url_is_in_memory(self.db):
-            return self._execute_thread_fallback(timeout_seconds)
-        return self._execute_subprocess(timeout_seconds)
+        try:
+            timeout_seconds = settings.sandbox_timeout_seconds
+            if _db_url_is_in_memory(self.db):
+                return self._execute_thread_fallback(timeout_seconds)
+            return self._execute_subprocess(timeout_seconds)
+        except Exception as exc:  # noqa: BLE001 执行期任何异常统一转 failed（文档语义）
+            self._record_failure(f"{type(exc).__name__}: {exc}")
+            return self.run
+        finally:
+            # 统一释放执行槽（completed/failed/timeout/异常均到达此处）
+            release_tenant_slot(self.db, self.tenant_id)
+            self.db.commit()

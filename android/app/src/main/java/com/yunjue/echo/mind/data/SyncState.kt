@@ -26,17 +26,18 @@ fun mapSyncState(
 }
 
 /**
- * [SyncState] → 用户文案映射契约（PRD 契约点 9 文案表）。
- * 文案不得包含 HTTP status / 401 / 412 / 500 等内部码。
+ * [SyncState] → 用户文案映射契约（PRD 契约点 9 文案表；v0.6.1 P1-6 语义更新）。
+ * 文案不得包含 HTTP status / 401 / 412 / 500 等内部码；
+ * 敏感错误不显示原始服务端 exception（只显示分类文案）。
  */
 fun syncStateText(state: SyncState, pendingCount: Int): String = when (state) {
-    SyncState.SYNCED -> "已同步"
-    SyncState.PENDING -> "$pendingCount 项待上传 · 数据仍安全保存在本机"
+    SyncState.SYNCED -> "最近成功同步"
+    SyncState.PENDING -> "有 $pendingCount 项待同步 · 数据仍安全保存在本机"
     SyncState.SYNCING -> "正在同步"
-    SyncState.OFFLINE -> "等待网络恢复 · 数据仍安全保存在本机"
-    SyncState.RETRYING -> "同步遇到临时问题，将自动重试"
-    SyncState.BLOCKED_BY_AUTH -> "登录已失效，请重新登录"
-    SyncState.BLOCKED_BY_CONSENT -> "被动感知已关闭，相关数据不再上传"
+    SyncState.OFFLINE -> "正在等待网络 · 数据仍安全保存在本机"
+    SyncState.RETRYING -> "同步失败，可重试 · 数据仍安全保存在本机"
+    SyncState.BLOCKED_BY_AUTH -> "需要重新登录"
+    SyncState.BLOCKED_BY_CONSENT -> "需要重新授权 · 相关数据暂不上传"
     SyncState.FAILED_TERMINAL -> "部分数据无法上传（旧版数据无需再上传；如需帮助请联系机构支持）"
 }
 

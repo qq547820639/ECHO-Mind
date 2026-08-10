@@ -14,10 +14,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.R
+import com.yunjue.echo.mind.data.EscalationEntity
 import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
@@ -89,7 +95,10 @@ enum class TrendUiState { LOADING, OFFLINE_CACHED, FRESH, PARTIAL, NO_DATA, ERRO
 /**
  * 趋势页 NO_DATA 细分原因（T02 七态细化）：
  * 区分「新用户无窗口 / 权限未授权 / 用户关闭感知 / 系统限制后台 / 部分 source 缺失 /
- * 本地持久化失败 / 等待上传 / 服务器不可用」，避免统一显示"暂无数据"。
+ * 本地持久化失败 / 等待上传」，避免统一显示"暂无数据"。
+ *
+ * v0.6.1（P1-8）：每个枚举必须可真实到达——CLOSED/PERMISSION 由真实 consent/权限
+ * 输入推导；SERVER_UNAVAILABLE 不可达（网络失败归 ERROR 态）已删除。
  */
 enum class TrendNoDataReason {
     NEW_USER,
@@ -99,7 +108,6 @@ enum class TrendNoDataReason {
     SOURCE_GAPS,
     PERSISTENCE_FAILURE,
     AWAITING_UPLOAD,
-    SERVER_UNAVAILABLE,
     UNKNOWN
 }
 
@@ -127,7 +135,9 @@ internal fun resolveTrendState(
 }
 
 /**
- * NO_DATA 原因解析纯函数（T02 七态细化；纯函数便于单测）：
+ * NO_DATA 原因解析纯函数（T02 七态细化；v0.6.1 全部输入可真实到达）：
+ * - consent 关闭（consentEnabled=false）→ CLOSED
+ * - 权限未授权（permissionGranted=false）→ PERMISSION
  * - observationDays == 0 → 新用户尚无窗口
  * - 系统限制后台（systemBackgroundRestricted）→ SYSTEM_BACKGROUND
  * - 本地持久化失败（persistenceFailedRecently）→ PERSISTENCE_FAILURE
@@ -140,8 +150,12 @@ internal fun resolveTrendNoDataReason(
     systemBackgroundRestricted: Boolean,
     persistenceFailedRecently: Boolean,
     pendingUploadCount: Int,
-    missingSources: List<String>
+    missingSources: List<String>,
+    consentEnabled: Boolean = true,
+    permissionGranted: Boolean = true
 ): TrendNoDataReason = when {
+    !consentEnabled -> TrendNoDataReason.CLOSED
+    !permissionGranted -> TrendNoDataReason.PERMISSION
     observationDays <= 0 -> TrendNoDataReason.NEW_USER
     systemBackgroundRestricted -> TrendNoDataReason.SYSTEM_BACKGROUND
     persistenceFailedRecently -> TrendNoDataReason.PERSISTENCE_FAILURE
@@ -159,21 +173,45 @@ internal fun trendNoDataReasonText(reason: TrendNoDataReason): String = when (re
     TrendNoDataReason.SOURCE_GAPS -> "部分信号源暂未覆盖，数据仍在收集中。"
     TrendNoDataReason.PERSISTENCE_FAILURE -> "本地保存暂时遇到问题，数据会在恢复后自动补录。"
     TrendNoDataReason.AWAITING_UPLOAD -> "数据已保存在本机，正在等待网络恢复后上传。"
-    TrendNoDataReason.SERVER_UNAVAILABLE -> "服务暂时不可用，请稍后重试。"
     TrendNoDataReason.UNKNOWN -> "暂无趋势数据。"
 }
+
+/**
+ * 内部 feature/source code → 人类可读名称（v0.6.1，P1-9）。
+ * 普通用户界面只显示可读名；内部 source code 仅出现在 debug/developer 界面。
+ */
+internal val SOURCE_DISPLAY_NAMES: Map<String, String> = mapOf(
+    "accel" to "加速度传感",
+    "gyro" to "陀螺仪传感",
+    "screen" to "屏幕互动",
+    "notification" to "通知使用",
+    "app_activity" to "App 活跃",
+    "mic_opt" to "麦克风特征",
+    "health" to "健康数据"
+)
+
+/** source code → 可读名（未知 code 返回兜底文案，不泄露内部码）。 */
+internal fun sourceDisplayName(code: String): String = SOURCE_DISPLAY_NAMES[code] ?: "设备活动"
+
+/** 期望覆盖的核心信号源集合（与后端 SOURCES_PRESENT_VALUES / gap_finder 对齐）。 */
+internal val EXPECTED_CORE_SOURCES: Set<String> = setOf(
+    "accel", "gyro", "screen", "notification", "app_activity"
+)
 
 /** 打开本应用系统设置页（修复权限用 deep link，Settings.ACTION_APPLICATION_DETAILS_SETTINGS）。 */
 internal fun appSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
 
-/** 活动节律定性摘要（非诊断）。 */
+/**
+ * 活动节律定性摘要（非诊断；v0.6.1 P1-9 语义收紧）：
+ * 只表达「活动传感数据覆盖天数」，不得包装成"活动量高低"。
+ */
 internal fun activityRhythmSummary(narratives: List<NarrativeDisplay>): String {
     val daysWithActivity = narratives.count { n -> n.events.any { it.source == "accel" || it.source == "gyro" } }
     return if (daysWithActivity == 0) {
-        "暂无足够的活动节律数据。"
+        "暂无足够的活动传感数据覆盖。"
     } else {
-        "近 ${narratives.size} 天中 ${daysWithActivity} 天有活动信号，用于观察活动量高低的时间分布（非诊断）。"
+        "近 ${narratives.size} 天中 ${daysWithActivity} 天有活动传感数据覆盖（仅用于观察时间分布，不代表活动量高低，非诊断）。"
     }
 }
 
@@ -210,6 +248,9 @@ internal fun formatTimestamp(epochMs: Long): String {
 /** 本地持久化失败判定回看窗口（24h）：窗口内发生过失败则视为"持久化失败"原因。 */
 internal const val PERSISTENCE_FAILURE_LOOKBACK_MS = 24 * 60 * 60 * 1000L
 
+/** collector heartbeat 新鲜度阈值（3 天）：超过则视为后台受限/采集停滞。 */
+internal const val COLLECTOR_HEARTBEAT_STALE_MS = 3 * 24 * 60 * 60 * 1000L
+
 @Composable
 fun TrendScreen(repository: LocalRepository) {
     val context = LocalContext.current
@@ -241,18 +282,30 @@ fun TrendScreen(repository: LocalRepository) {
         isPartial = narrativeResult?.isPartial == true
     )
 
-    // NO_DATA 细分原因（T02 七态细化）：区分新用户/权限/关闭/系统限制/持久化失败/等待上传等
+    // NO_DATA 细分原因（T02 七态细化；v0.6.1 全部输入真实接入）：
+    // - 系统后台限制：电池优化被豁免失败（isIgnoringBatteryOptimizations=false）
+    //   → 系统可限制后台；或 collector heartbeat 超过 3 天无新采集
+    // - source gaps：profile.sources_present_union 与期望核心源对比（服务端已下推）
+    val batteryRestricted = !android.os.PowerManager.runCatching {
+        context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+    }.getOrNull()?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+    val heartbeatStale = lastCollectionTs > 0L &&
+        System.currentTimeMillis() - lastCollectionTs > COLLECTOR_HEARTBEAT_STALE_MS
+    val systemBackgroundRestricted = batteryRestricted || heartbeatStale
+    val missingSources = EXPECTED_CORE_SOURCES.filterNot { it in (profile?.sourcesPresentUnion.orEmpty()) }
     val noDataReason = resolveTrendNoDataReason(
         observationDays = profile?.observationDays ?: 0,
-        systemBackgroundRestricted = false,
+        systemBackgroundRestricted = systemBackgroundRestricted,
         persistenceFailedRecently = repository.lastPersistenceFailure()?.let {
             System.currentTimeMillis() - it < PERSISTENCE_FAILURE_LOOKBACK_MS
         } ?: false,
         pendingUploadCount = repository.pendingUploadCount(),
-        missingSources = emptyList()
+        missingSources = missingSources,
+        consentEnabled = consent,
+        permissionGranted = permissionEnabled
     )
 
-    val lastSyncTs = repository.lastSyncTimestamp()
+    val lastSyncTs = repository.lastSuccessfulSyncAt()
     val lastCollectionTs = repository.lastCollectionTimestamp()
 
     Page("趋势") {
@@ -322,7 +375,8 @@ private fun TrendContent(result: NarrativeFetchResult?, lastCollectionTs: Long, 
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(n.date, style = MaterialTheme.typography.labelMedium)
                     n.events.take(3).forEach { e ->
-                        Text("${e.source}：${e.summary}", style = MaterialTheme.typography.bodySmall)
+                        // v0.6.1（P1-9）：source code → 人类可读名称；内部码不出现在普通 UI
+                        Text("${sourceDisplayName(e.source)}：${e.summary}", style = MaterialTheme.typography.bodySmall)
                     }
                     if (n.events.isEmpty()) {
                         Text("无事件摘要", style = MaterialTheme.typography.bodySmall)
@@ -348,35 +402,18 @@ private fun TrendContent(result: NarrativeFetchResult?, lastCollectionTs: Long, 
 // ===== 支持与设置（PRD v0.6 契约点 3：统一"数据与感知" consent 中心） =====
 
 /**
- * 关闭被动感知总开关的**原子本地流程**（网络不可用不阻塞）：
- * 1. 本地 consent=false（DataStore 持久化）
- * 2. 停止服务（PassiveSensingService.stop + 各 Collector 停止）
- * 3. 清空原始 buffer（SensingEventHub 内存缓冲）
- * 4. 写 revoke evidence（consent_type=passive_sensing, granted=false + SHA-256 证据哈希）入 outbox
- * 5. 入 outbox 触发 SyncWorker（网络恢复后上传撤回事件）
- * 6. 后续零新特征：服务已停止 + flag 不覆盖用户 consent
+ * 关闭被动感知总开关的**原子本地流程**（网络不可用不阻塞）。
+ *
+ * v0.6.1（P0-3）：委托 [ServiceRevocationCoordinator.disablePassiveSensingOnly]，
+ * 保证支持页/数据权利/Onboarding 走同一条领域逻辑（不再各自实现一半）。
+ * 保留本函数作为单测锚点（ConsentLifecycleTest 依赖）。
  */
 internal suspend fun performPassiveSensingStop(
     context: Context,
     preferences: AppPreferences,
     repository: LocalRepository
 ) {
-    preferences.setPassiveSensingEnabled(false)
-    preferences.setMicEnabled(false)
-    PassiveSensingService.stop(context)
-    SensingEventHub.getInstance().clearAll()
-    val userId = preferences.userId
-    val evidence = MessageDigest.getInstance("SHA-256")
-        .digest("passive-sensing-consent-2026.07:$userId:false".toByteArray())
-        .joinToString("") { "%02x".format(it) }
-    repository.saveConsent(
-        granted = false,
-        evidenceHash = evidence,
-        consentType = "passive_sensing",
-        version = "passive-sensing-consent-2026.07",
-        priority = 600
-    )
-    SyncWorker.enqueue(context)
+    ServiceRevocationCoordinator.disablePassiveSensingOnly(context, preferences, repository)
 }
 
 @Composable
@@ -391,9 +428,12 @@ fun SupportScreen(container: AppContainer) {
     val passiveSensingEnabled by container.preferences.passiveSensingEnabledFlow().collectAsState(initial = false)
     val micEnabled by container.preferences.micEnabledFlow().collectAsState(initial = false)
     val sensingActive by container.preferences.sensingActiveFlow.collectAsState(initial = false)
+    // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 显示「等待授权同步」
+    var reEnabling by remember { mutableStateOf(container.preferences.consentSyncPending) }
 
     val lastCollectionTs = container.preferences.lastCollectionTimestamp
-    val lastSyncTs = container.preferences.lastSyncTimestamp
+    val lastSyncTs = container.preferences.lastSuccessfulSyncAt
+    val lastPartialSyncTs = container.preferences.lastPartialSyncAt
     val lastPersistenceFailureTs = container.preferences.lastPersistenceFailure
     val consecutiveFailures = container.preferences.consecutivePersistenceFailures
     val syncState = mapSyncState(
@@ -403,6 +443,22 @@ fun SupportScreen(container: AppContainer) {
         deadLetterCount = container.preferences.deadLetterCount()
     )
     val syncLabel = syncStateText(syncState, pending)
+
+    // ===== 人工支持（v0.6.1，P0-2 客户端闭环） =====
+    val escalations by repository.observeEscalations().collectAsState(initial = emptyList())
+    var showSupportConfirm by remember { mutableStateOf(false) }
+
+    fun requestSupport() {
+        scope.launch {
+            try {
+                val eventId = repository.requestHumanSupport()
+                message = "支持请求已保存，网络恢复后自动送达。"
+            } catch (_: Exception) {
+                message = "请求暂时未能保存，请稍后重试。"
+            }
+            SyncWorker.enqueue(context)
+        }
+    }
 
     // ===== 麦克风可选模块开关（T03.3） =====
     var showMicConfirm by remember { mutableStateOf(false) }
@@ -456,14 +512,66 @@ fun SupportScreen(container: AppContainer) {
         )
     }
 
+    if (showSupportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSupportConfirm = false },
+            title = { Text(stringResource(R.string.support_request_confirm_title)) },
+            text = { Text(stringResource(R.string.support_request_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = { showSupportConfirm = false; requestSupport() }) {
+                    Text(stringResource(R.string.support_request_confirm_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSupportConfirm = false }) {
+                    Text(stringResource(R.string.support_request_confirm_cancel))
+                }
+            }
+        )
+    }
+
     Page("支持与设置") {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("危机入口", style = MaterialTheme.typography.titleMedium)
-                Text("只有收到服务端确认后，应用才会显示人工已连接。")
-                Button(onClick = { context.startActivity(dialIntent("12356")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 12356") }
-                OutlinedButton(onClick = { context.startActivity(dialIntent("110")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 110") }
-                OutlinedButton(onClick = { context.startActivity(dialIntent("120")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 120") }
+                Text(stringResource(R.string.crisis_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.crisis_not_emergency_service))
+                // 危机按钮：明确的 accessibility semantics（TalkBack 可准确朗读）
+                Button(
+                    onClick = { context.startActivity(dialIntent("12356")) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = context.getString(R.string.crisis_call_12356_desc)
+                    }
+                ) { Text(stringResource(R.string.crisis_call_12356)) }
+                OutlinedButton(
+                    onClick = { context.startActivity(dialIntent("110")) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = context.getString(R.string.crisis_call_110_desc)
+                    }
+                ) { Text(stringResource(R.string.crisis_call_110)) }
+                OutlinedButton(
+                    onClick = { context.startActivity(dialIntent("120")) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = context.getString(R.string.crisis_call_120_desc)
+                    }
+                ) { Text(stringResource(R.string.crisis_call_120)) }
+            }
+        }
+
+        // ===== 机构人工支持（v0.6.1，P0-2） =====
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.support_request_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.support_request_hint))
+                Button(onClick = { showSupportConfirm = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.support_request_button))
+                }
+                if (escalations.isNotEmpty()) {
+                    HorizontalDivider()
+                    Text(stringResource(R.string.support_recent_requests), style = MaterialTheme.typography.titleSmall)
+                    escalations.take(3).forEach { esc ->
+                        EscalationStatusRow(esc)
+                    }
+                }
             }
         }
 
@@ -477,18 +585,27 @@ fun SupportScreen(container: AppContainer) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("被动感知")
+                    Column(Modifier.weight(1f)) {
+                        Text("被动感知")
+                        if (reEnabling) {
+                            Text("正在重新启用 · 等待授权同步", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     Switch(
                         checked = passiveSensingEnabled,
                         onCheckedChange = { enabled ->
                             scope.launch {
                                 if (enabled) {
-                                    container.preferences.setPassiveSensingEnabled(true)
-                                    runCatching { container.repository.fetchFeatureFlags() }
-                                    PassiveSensingService.start(context)
-                                    message = "被动感知已开启。"
+                                    // v0.6.1（P0-3 B）：OFF→ON 统一走协调器
+                                    // （先产生 granted 证据，再启动服务；同步顺序先于新特征）
+                                    ServiceRevocationCoordinator.reEnablePassiveSensing(
+                                        context, container.preferences, container.repository
+                                    )
+                                    reEnabling = container.preferences.consentSyncPending
+                                    message = "被动感知已开启，等待授权同步…"
                                 } else {
                                     performPassiveSensingStop(context, container.preferences, container.repository)
+                                    reEnabling = false
                                     message = "已停止"
                                 }
                             }
@@ -507,7 +624,11 @@ fun SupportScreen(container: AppContainer) {
                 if (consecutiveFailures > 0) {
                     Text("连续失败：$consecutiveFailures 次（数据仍保存在本机，会自动重试）")
                 }
+                // v0.6.1（P1-6）：成功/部分成功/失败语义分离
                 Text("最近成功同步：${formatTimestamp(lastSyncTs)}")
+                lastPartialSyncTs?.let {
+                    Text("部分数据尚未同步：最近一次部分同步 ${formatTimestamp(it)}")
+                }
                 Text(if (isNetworkAvailable(context)) "当前在线" else "当前离线")
                 Text(syncLabel)
             }
@@ -561,7 +682,11 @@ fun SupportScreen(container: AppContainer) {
             scope.launch { container.repository.requestDataAction("delete"); SyncWorker.enqueue(context); message = "已创建删除请求；依法需保留的数据可能不立即删除。" }
         }, modifier = Modifier.fillMaxWidth()) { Text("申请删除数据") }
         OutlinedButton(onClick = {
-            scope.launch { container.repository.saveConsent(false, "mobile-revocation-evidence"); container.repository.requestDataAction("revoke_service"); SyncWorker.enqueue(context); message = "已创建撤回服务请求。" }
+            scope.launch {
+                // v0.6.1（P0-3）：撤回同意并停止服务 → 唯一领域操作（原子协调全部撤回）
+                ServiceRevocationCoordinator.revokeService(context, container.preferences, container.repository)
+                message = "已停止服务并提交撤回请求。"
+            }
         }, modifier = Modifier.fillMaxWidth()) { Text("撤回同意并停止服务") }
         message?.let { Text(it) }
         HorizontalDivider()
@@ -571,4 +696,19 @@ fun SupportScreen(container: AppContainer) {
         Text("AI 身份提示：ECHO Mind 是支持性工具，不是医生。")
         Text("迫近危险时优先联系紧急服务和身边可信任的人。")
     }
+}
+
+/** 人工支持请求状态行（用户侧最小状态；未 ACK 前绝不显示"人工已收到"）。 */
+@Composable
+private fun EscalationStatusRow(esc: EscalationEntity) {
+    val statusText = when (esc.status) {
+        "QUEUED" -> stringResource(R.string.esc_status_queued)
+        "DELIVERED" -> stringResource(R.string.esc_status_delivered)
+        "ACKNOWLEDGED" -> stringResource(R.string.esc_status_acknowledged)
+        "TAKEN_OVER" -> stringResource(R.string.esc_status_taken_over)
+        "CLOSED" -> stringResource(R.string.esc_status_closed)
+        "FAILED" -> stringResource(R.string.esc_status_failed)
+        else -> stringResource(R.string.esc_status_unknown)
+    }
+    Text("• $statusText", style = MaterialTheme.typography.bodyMedium)
 }

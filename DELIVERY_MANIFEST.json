@@ -14,7 +14,7 @@
     "tests, safety corpus, CI/CD, SBOM and pilot governance pack"
   ],
   "validation": {
-    "backend_tests_passed": 874,
+    "backend_tests_passed": 923,
     "synthetic_safety_cases": 650,
     "content_packs_validated": 4,
     "python_compile": "passed",

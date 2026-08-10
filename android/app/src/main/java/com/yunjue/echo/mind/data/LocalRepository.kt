@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -83,7 +84,8 @@ class LocalRepository(
     // ===== UI 状态访问器（T05） =====
 
     fun passiveSensingConsentFlow(): Flow<Boolean> = preferences.passiveSensingEnabledFlow()
-    fun lastSyncTimestamp(): Long = preferences.lastSyncTimestamp
+    // v0.6.1（P1-6）："最近同步"一律指**最近成功同步**（成功条件才更新）。
+    fun lastSyncTimestamp(): Long = preferences.lastSuccessfulSyncAt
     fun lastCollectionTimestamp(): Long = preferences.lastCollectionTimestamp
     fun lastSyncHttpCode(): Int? = preferences.lastSyncHttpCode
     fun deadLetterCount(): Int = preferences.deadLetterCount()
@@ -129,6 +131,21 @@ class LocalRepository(
             put("evidence_hash", evidenceHash)
         }
         enqueue(eventId, "consent", payload, priority)
+    }
+
+    /** passive_sensing consent 证据（granted=true/false），版本化 evidence hash。 */
+    suspend fun savePassiveSensingConsent(granted: Boolean, priority: Int = 600) {
+        val userId = preferences.userId
+        val evidence = MessageDigest.getInstance("SHA-256")
+            .digest("passive-sensing-consent-2026.07:$userId:$granted".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        saveConsent(
+            granted = granted,
+            evidenceHash = evidence,
+            consentType = "passive_sensing",
+            version = "passive-sensing-consent-2026.07",
+            priority = priority
+        )
     }
 
     /**
@@ -304,12 +321,194 @@ class LocalRepository(
         db.dao().upsertActiveSkillSession(session)
     }
 
-    /** 读取当前 Skill 执行会话（进程重建后恢复用；无会话返回 null）。 */
-    suspend fun loadActiveSession(): ActiveSkillSessionEntity? = db.dao().activeSkillSession()
+    /**
+     * 读取某 Skill 的执行会话（进程重建后恢复用；**按 skillId 精确查询**，P0-4）。
+     *
+     * 领域规则：single-active-session —— 同时只允许一个 Skill 执行；
+     * 协调器（SkillSessionCoordinator）在 start 前清除旧会话，
+     * 任何卡片不得自行读取/删除全局会话（消除跨卡误删与 LIMIT 1 随机取问题）。
+     */
+    suspend fun loadActiveSession(skillId: String): ActiveSkillSessionEntity? =
+        db.dao().activeSkillSessionBySkillId(skillId)
+
+    /** 是否有任一 Skill 处于活动会话（协调器 start 前检查用）。 */
+    suspend fun hasAnyActiveSession(): Boolean = db.dao().anyActiveSkillSession() != null
+
+    /** 清除全部活动会话（single-active-session 切换时由协调器调用）。 */
+    suspend fun clearActiveSessions() {
+        db.dao().clearActiveSkillSessions()
+    }
 
     /** 删除 Skill 执行会话（完成/停止/主动清理）。 */
     suspend fun deleteActiveSession(sessionId: String) {
         db.dao().deleteActiveSkillSession(sessionId)
+    }
+
+    // ===== 人工支持请求（escalation）客户端闭环（v0.6.1，P0-2） =====
+
+    /** 本地 escalation 记录 Flow（支持页展示最小状态）。 */
+    fun observeEscalations(): Flow<List<EscalationEntity>> = db.escalationDao().observeAll()
+
+    /** 最新一条 escalation（支持页状态卡用）。 */
+    suspend fun latestEscalation(): EscalationEntity? = db.escalationDao().latest()
+
+    /**
+     * 用户请求机构人工支持（P0-2 客户端闭环唯一入口）：
+     *
+     * 1. 生成 event_id（幂等键，服务端 tenant+event_id 幂等）；
+     * 2. 本地持久化 escalation_requests（status=queued，等待送达）；
+     * 3. 进入 Outbox（eventType="escalation"，SyncWorker 网络恢复后 POST /v1/escalations）；
+     * 4. 服务端返回 escalation id 后由 SyncWorker 回写（serverEscalationId）；
+     * 5. 未收到服务端 delivery 确认前，UI 只显示「等待送达」，绝不显示「人工已收到」。
+     *
+     * @return 生成的 eventId（幂等键）
+     */
+    suspend fun requestHumanSupport(
+        trigger: String = "help_requested",
+        evidenceSummary: String = "用户主动请求机构人工支持"
+    ): String {
+        val eventId = "esc_evt_${UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+        db.withTransaction {
+            db.escalationDao().upsert(
+                EscalationEntity(
+                    eventId = eventId,
+                    userId = preferences.userId,
+                    trigger = trigger,
+                    evidenceSummaryCiphertext = cipher.encrypt(evidenceSummary),
+                    status = EscalationStatus.QUEUED.name,
+                    serverEscalationId = null,
+                    serverStatusJson = null,
+                    createdAtEpochMs = now,
+                    updatedAtEpochMs = now
+                )
+            )
+            val payload = JSONObject().apply {
+                put("event_id", eventId)
+                put("user_id", preferences.userId)
+                put("trigger", trigger)
+                put("evidence_summary", evidenceSummary)
+            }
+            db.dao().insertOutbox(
+                OutboxEventEntity(
+                    eventId = eventId,
+                    eventType = "escalation",
+                    payloadCiphertext = cipher.encrypt(payload.toString()),
+                    priority = 2000, // 高于普通事件：人工支持请求尽快送达
+                    createdAtEpochMs = now
+                )
+            )
+        }
+        return eventId
+    }
+
+    /**
+     * 服务端处理结果回写（由 SyncWorker 调用）：
+     * - 成功（2xx）：serverEscalationId + status=delivered（服务端已接收，不等于人工已收到）
+     * - 幂等 replay（409/idempotent）：同样视为 delivered
+     */
+    suspend fun markEscalationDelivered(eventId: String, serverEscalationId: String?) {
+        val row = db.escalationDao().byEventId(eventId) ?: return
+        db.escalationDao().upsert(
+            row.copy(
+                status = EscalationStatus.DELIVERED.name,
+                serverEscalationId = serverEscalationId ?: row.serverEscalationId,
+                updatedAtEpochMs = System.currentTimeMillis(),
+                outboxSynced = true
+            )
+        )
+    }
+
+    /** 服务端 user-status 查询结果回写（human_acknowledged 仅由服务端显式 ack/takeover 决定）。 */
+    suspend fun updateEscalationServerStatus(eventId: String, serverStatusJson: String) {
+        val row = db.escalationDao().byEventId(eventId) ?: return
+        val status = parseServerStatus(serverStatusJson)
+        db.escalationDao().upsert(
+            row.copy(
+                status = status,
+                serverStatusJson = serverStatusJson,
+                updatedAtEpochMs = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /** 解析服务端 user-status JSON → 本地最小状态（fail-closed：解析失败保持现状）。 */
+    private fun parseServerStatus(json: String): String {
+        return runCatching {
+            val o = JSONObject(json)
+            when {
+                o.optBoolean("human_acknowledged") -> EscalationStatus.TAKEN_OVER.name
+                o.optBoolean("delivery_confirmed") -> EscalationStatus.DELIVERED.name
+                else -> EscalationStatus.QUEUED.name
+            }
+        }.getOrDefault(EscalationStatus.QUEUED.name)
+    }
+
+    /** escalation dead-letter（本地放弃）：用户可见 FAILED（需重新联系机构）。 */
+    suspend fun markEscalationFailed(eventId: String) {
+        val row = db.escalationDao().byEventId(eventId) ?: return
+        db.escalationDao().upsert(
+            row.copy(status = EscalationStatus.FAILED.name, updatedAtEpochMs = System.currentTimeMillis())
+        )
+    }
+
+    /**
+     * 拉取某 escalation 的 user-status（GET /v1/escalations/{id}/user-status）并回写。
+     * 未收到服务端确认前 UI 不得显示"人工已收到"（服务端 human_acknowledged 才回写）。
+     */
+    suspend fun refreshEscalationStatus(escalationId: String) {
+        if (escalationId.isBlank()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val (code, body) = apiClient.get("/v1/escalations/$escalationId/user-status")
+                if (code in 200..299 && !body.isNullOrBlank()) {
+                    updateEscalationServerStatus(escalationId, body)
+                }
+            }
+        }
+    }
+
+    // ===== v0.6.1（P1-7）：Onboarding READY 收敛 =====
+
+    /**
+     * 服务端 ack 依据收敛：GET /v1/onboarding/consents/latest 核对本地已提交的
+     * 各 consent 均已在服务端生效后，置 serverActivated=true 并推进 READY。
+     *
+     * 幂等：已 READY 时直接返回；网络失败保持 READY_OFFLINE（下次同步重试）。
+     */
+    suspend fun confirmServerActivation(): Boolean {
+        val state = preferences.onboardingState
+        if (state == AppPreferences.ONBOARDING_READY) return true
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val (code, body) = apiClient.get("/v1/onboarding/consents/latest?user_id=${preferences.userId}")
+                if (code in 200..299 && !body.isNullOrBlank()) {
+                    val o = JSONObject(body)
+                    // 服务端 ack 依据：至少 psychological_data 已 grant 且被动感知 grant 与本地一致
+                    val psy = o.optJSONObject("psychological_data")
+                    val localPassive = kotlinx.coroutines.runBlocking {
+                        preferences.passiveSensingPrefs.passiveSensingEnabled.first()
+                    }
+                    val serverPassive = o.optJSONObject("passive_sensing")
+                    val passiveOk = if (localPassive) {
+                        serverPassive?.optBoolean("granted") == true && (serverPassive.isNull("revoked_at") || !serverPassive.optBoolean("revoked_at"))
+                    } else {
+                        serverPassive == null || serverPassive.optBoolean("granted") == false
+                    }
+                    val accepted = psy != null && psy.optBoolean("granted") && passiveOk
+                    if (accepted) {
+                        preferences.serverActivated = true
+                        preferences.onboardingState = AppPreferences.ONBOARDING_READY
+                        preferences.consentSyncPending = false
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }.getOrDefault(false)
+        }
     }
 
     // ===== Onboarding 激活码交换（T02） =====

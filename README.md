@@ -30,7 +30,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 - **implemented + tested**：统一"数据与感知"中心（被动感知总开关、各权限状态、最近采集/同步时间、离线状态、待同步数量；关闭总开关原子完成本地停止 + 撤回证据上传）
 - **implemented + tested**：AI 身份提示、年龄门、机构绑定、版本化同意和 L0 准入流程
 - **implemented + tested**：Skill 能力卡片原生执行体验（开始/暂停/停止/完成/中止 → 本地记录 → 服务端上报）；旧版主动录入（签到/日记/量表/练习）入口已停用，仅保留历史只读
-- **implemented + tested**：Android Keystore 字段加密、SQLCipher 全库加密、Room v4（原始传感数据不落盘）、离线 Outbox（410 迁移/dead-letter/429 Retry-After/每事件独立处理）
+- **implemented + tested**：Android Keystore 字段加密、SQLCipher 全库加密、Room v6（原始传感数据不落盘）、离线 Outbox（410 迁移/dead-letter/429 Retry-After/每事件独立处理）
 - **implemented + tested**：本地确定性安全规则（仅针对用户主动文本）；12356、110、120 固定入口；未收到服务端 ACK 时不宣称人工已收到
 - **implemented + tested**：趋势页七态（加载中/离线缓存/新鲜/部分/无数据/错误/权限关闭），明确区分"没有数据"与"加载失败"；趋势来自设备行为派生特征，不推断情绪
 
@@ -48,7 +48,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 
 **安全、质量与交付：**
 - **tested**：650 条合成红队语料；当前规则包在该合成集上 650/650，**不代表临床效度**
-- **tested**：后端自动测试 **874 项全绿**（见 `RELEASE_NOTES_v0.6.0.md`）
+- **tested**：后端自动测试 **924 项全绿**（见 `RELEASE_NOTES_v0.6.0.md`）
 - **tested**：内容包校验、宣称扫描、动态代码检查、安全集回归
 - **implemented**：后端、Android、安全三条 CI 工作流
 - **implemented**：试点责任矩阵、单独同意、PIPIA、Alpha、危机演练、事件响应和 Go/No-Go 模板
@@ -56,7 +56,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 
 ### 它能帮你解决什么问题？
 
-- **状态看不清**：被动感知与主动记录相结合，趋势图会帮你看出状态变化的规律。
+- **状态看不清**：被动感知与能力卡片相结合，趋势图会帮你看出状态变化的规律。
 - **想说却不知从何说起**：结构化的能力卡片（Skill）由专业内容治理后下发，让你更容易表达自己的感受。
 - **一个人扛着**：当你需要真正的帮助时，它会把你的合作机构中的专业支持人员带到你面前。
 
@@ -74,6 +74,20 @@ ECHO Mind 不是"诊断神器"，也不是"聊天机器人陪聊"。它提供的
 > - 任何趋势与筛查提示**不等于**疾病诊断。
 > - 被动感知数据仅用于数据覆盖度、活动节律、屏幕互动变化等非诊断行为趋势，**不能**推断情绪、自杀意图或任何精神疾病。
 > - ECHO Mind **不是紧急服务**。如果你或你身边的人正处于立即危险之中，请第一时间联系身边可信任的人，或拨打当地紧急电话（110 / 120）。
+
+### v0.6.1 Hardening & UX Closure（本轮收口）
+
+在 v0.6 功能完成基础上做的行为正确性收口，**未新增产品功能**：
+
+- **P0 人工支持客户端闭环**：Android「请求机构支持」→ event_id → 本地持久化 → Outbox → POST /v1/escalations（幂等）；用户侧最小状态（等待送达/已送达/人工已确认/正在接管/已完成），未收到服务端 ACK 前绝不显示"人工已收到"
+- **P0 consent 唯一状态机**：`ServiceRevocationCoordinator.revokeService()` 原子协调 停止感知/关麦/清缓冲/全量撤回证据/DSR/UI；OFF→ON 重新产生 granted 证据且同步顺序先于新特征，等待授权同步有明确 UI 态
+- **P0 Skill 会话一致性**：`SkillSessionCoordinator` 统一生命周期；进程死亡恢复沿用原 sessionId；single-active-session 在 DB 与代码双重强制；completion 删除真实会话且幂等
+- **P0 正式激活码模型**：`ActivationCode`（哈希存储/TTL/一次性/replay/并发原子消费/IP+device rate limit/审计），替代 `User.external_ref` 隐式激活语义（legacy 回退 v0.8 退役）
+- **P1 同步状态语义**：`lastSyncAttemptAt`/`lastSuccessfulSyncAt`/`lastPartialSyncAt`/`lastSyncErrorClass`/`pendingCountSnapshot` 拆分，UI 文案区分"最近成功同步/等待网络/N 项待同步/部分未同步/需要重新授权/失败可重试"
+- **P1 Onboarding 状态机**：READY_OFFLINE →（服务端 consent ack 核对）→ READY；本地提交幂等位；进程死亡不重头开始
+- **P1 趋势七态真实接入**：电池优化限制 + collector heartbeat + 后端 sources_present 真实驱动 NO_DATA 细分（删除不可达的 SERVER_UNAVAILABLE）；行为数据不再包装成"活动量高低"，source code 映射人类可读名且不出现在普通 UI
+- **P1 沙箱并发配额**：数据库原子租户执行槽（sandbox_tenant_slots）取代 check-then-act；worker crash 心跳过期回收；SQLite/PG 同语义
+- **P2 工程收口**：backend routes.py 按 bounded context 拆 11 个 router（URL/OpenAPI 不变）；escalation 队列 cursor 分页 + metrics SQL 下推；隐私安全结构化遥测；版本/文档一致性自动测试（README/pyproject/versionName/Room v6/OpenAPI/迁移 head）
 
 ### 明确未完成的外部发布门
 
@@ -104,7 +118,7 @@ ECHO Mind 不是"诊断神器"，也不是"聊天机器人陪聊"。它提供的
 
 ### 4. 人工支持入口
 
-当你需要帮助时，可一键进入人工支持链路——把情况交给合作机构中真正能帮到你的人，并由人工确认、接管和跟进。
+当你需要帮助时，可一键向合作机构提交支持请求——请求送达后应用会显示已送达，只有人工确认/接管后才会显示人工已连接。
 
 ### 5. 数据权利
 

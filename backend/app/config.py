@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     sandbox_timeout_seconds: int = 120
     sandbox_max_concurrent: int = 4
     sandbox_rate_limit_per_hour: int = 10
+    # v0.6.1：激活码默认 TTL（秒，默认 30 天）。
+    activation_code_ttl_seconds: int = 30 * 24 * 3600
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

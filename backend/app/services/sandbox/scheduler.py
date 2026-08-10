@@ -2,11 +2,12 @@
 
 不写审计，由路由层负责；不 commit，由调用方负责。
 
-v0.6 并发语义：
-- 路由层（routes._check_sandbox_concurrency）改为基于 `SandboxRun` 表查询
-  （status=="running" 计数），覆盖整个执行期且跨实例生效；
-- 本模块不再持有瞬时信号量（原信号量只在调度瞬间持有，无法覆盖执行期），
-  仅负责幂等创建/返回 SandboxRun 记录。
+v0.6.1 并发语义：
+- **执行期原子配额**由 [app.services.sandbox.slots] 承担（数据库原子 permit，
+  消除 check-then-act race）；本模块不再持有任何信号量或计数函数。
+- 路由层（routes.schedule_sandbox）仍保留 schedule 阶段的 running 计数快速失败
+  （对调度 API 返回 429 更友好），但最终不突破上限由执行槽保证。
+- 本模块仅负责幂等创建/返回 SandboxRun 记录。
 """
 from __future__ import annotations
 
@@ -16,17 +17,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import SandboxRun
-
-
-def acquire_tenant_slot(tenant_id: str) -> bool:
-    """（已废弃，保留兼容）并发控制已迁移到 SandboxRun 表查询；恒返回 True。"""
-    del tenant_id
-    return True
-
-
-def release_tenant_slot(tenant_id: str) -> None:
-    """（已废弃，保留兼容）并发控制已迁移到 SandboxRun 表查询；无操作。"""
-    del tenant_id
 
 
 def schedule_sandbox_run(
@@ -40,7 +30,7 @@ def schedule_sandbox_run(
 
     - 同 tenant+user+date 已存在则直接返回已有记录（幂等）
     - 否则创建 status=pending 的新记录
-    - 并发/速率限制由路由层基于 SandboxRun 表查询执行（本模块不返回 None 哨兵）
+    - 并发/速率限制由路由层 + 执行槽（slots）承担（本模块不返回 None 哨兵）
     """
     target_date = run_date or datetime.now(timezone.utc).date()
     existing = db.scalar(

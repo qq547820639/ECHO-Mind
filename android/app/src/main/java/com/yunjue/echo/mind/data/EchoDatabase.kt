@@ -149,9 +149,18 @@ interface EchoDao {
     @Query("UPDATE feature_vectors SET synced = 1 WHERE id = :id") suspend fun markFeatureVectorSynced(id: String)
 
     // ===== v5 ActiveSkillSession DAO（T02） =====
+    // v0.6.1（P0-4）：领域规则 = 产品同时只允许一个 Skill 执行（single-active-session）。
+    // 数据库与代码都强制该规则：start 新会话前先清除旧会话（协调器执行）；
+    // 恢复必须按 skillId 精确查询（不得 LIMIT 1 随机取一条，避免跨卡误删）。
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertActiveSkillSession(value: ActiveSkillSessionEntity)
-    @Query("SELECT * FROM active_skill_sessions LIMIT 1") suspend fun activeSkillSession(): ActiveSkillSessionEntity?
-    @Query("DELETE FROM active_skill_sessions WHERE sessionId = :sessionId") suspend fun deleteActiveSkillSession(sessionId: String)
+    @Query("SELECT * FROM active_skill_sessions WHERE skillId = :skillId LIMIT 1")
+    suspend fun activeSkillSessionBySkillId(skillId: String): ActiveSkillSessionEntity?
+    @Query("SELECT * FROM active_skill_sessions LIMIT 1")
+    suspend fun anyActiveSkillSession(): ActiveSkillSessionEntity?
+    @Query("DELETE FROM active_skill_sessions WHERE sessionId = :sessionId")
+    suspend fun deleteActiveSkillSession(sessionId: String)
+    @Query("DELETE FROM active_skill_sessions")
+    suspend fun clearActiveSkillSessions()
 }
 
 /**
@@ -185,6 +194,62 @@ interface ConsentDao {
     suspend fun grantedCount(type: String): Int
 }
 
+/**
+ * 人工支持请求用户侧最小状态（v0.6.1，P0-2）。
+ *
+ * 语义（对用户可见的**最小必要**状态，绝不暴露内部升级策略/值班隐私）：
+ * - QUEUED：请求已保存在本机，等待送达（离线可排队）
+ * - DELIVERED：服务端已接收（≠ 人工已收到）
+ * - ACKNOWLEDGED：人工已确认（服务端 ack）
+ * - TAKEN_OVER：正在接管（服务端 takeover）
+ * - CLOSED：已完成（服务端 close）
+ * - FAILED：本地已放弃（dead-letter，需重新联系机构）
+ */
+enum class EscalationStatus { QUEUED, DELIVERED, ACKNOWLEDGED, TAKEN_OVER, CLOSED, FAILED }
+
+/**
+ * 人工支持请求（escalation）本地实体（v0.6.1，P0-2 客户端闭环）：
+ *
+ * - eventId 为本地生成的幂等键（Outbox 同键上传 POST /v1/escalations）；
+ * - status 为**用户侧可见的最小状态**（客户端自己维护的乐观状态）：
+ *   queued（等待送达）/ delivered（服务端已接收）/ acknowledged（人工已确认）/
+ *   taken_over（正在接管）/ closed（已完成）/ failed（dead-letter 后人工可见失败）；
+ * - serverEscalationId 在服务端返回后持久化；
+ * - serverStatus 为服务端 user-status 查询结果（delivery_confirmed / human_acknowledged），
+ *   未收到服务端确认前**绝不**向用户展示"人工已收到"。
+ */
+@Entity(tableName = "escalation_requests")
+data class EscalationEntity(
+    @PrimaryKey val eventId: String,
+    val userId: String,
+    val trigger: String,
+    val evidenceSummaryCiphertext: String,
+    val status: String,
+    val serverEscalationId: String?,
+    val serverStatusJson: String?,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long,
+    val outboxSynced: Boolean = false
+)
+
+@Dao
+interface EscalationDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(value: EscalationEntity)
+
+    @Query("SELECT * FROM escalation_requests ORDER BY createdAtEpochMs DESC")
+    fun observeAll(): Flow<List<EscalationEntity>>
+
+    @Query("SELECT * FROM escalation_requests WHERE eventId = :eventId")
+    suspend fun byEventId(eventId: String): EscalationEntity?
+
+    @Query("SELECT * FROM escalation_requests ORDER BY createdAtEpochMs DESC LIMIT 1")
+    suspend fun latest(): EscalationEntity?
+
+    @Query("DELETE FROM escalation_requests WHERE eventId = :eventId")
+    suspend fun delete(eventId: String)
+}
+
 @Database(
     entities = [
         CheckinEntity::class,
@@ -194,12 +259,14 @@ interface ConsentDao {
         OutboxEventEntity::class,
         ConsentEntity::class,
         FeatureVectorEntity::class,
-        ActiveSkillSessionEntity::class
+        ActiveSkillSessionEntity::class,
+        EscalationEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {
     abstract fun dao(): EchoDao
     abstract fun consentDao(): ConsentDao
+    abstract fun escalationDao(): EscalationDao
 }

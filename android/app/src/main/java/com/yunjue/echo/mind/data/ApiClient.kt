@@ -93,4 +93,29 @@ class ApiClient(
             connection.disconnect()
         }
     }
+
+    /**
+     * v0.6.1（P2-12）：统一 POST，返回 (code, body, retryAfterSeconds)。
+     * SyncWorker 等上行路径统一走此入口；错误 body 解析由调用方按 taxonomy 处理。
+     */
+    fun postFull(path: String, jsonBody: String): Triple<Int, String?, Int?> {
+        val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "POST"
+            connection.connectTimeout = connectTimeoutMs
+            connection.readTimeout = readTimeoutMs
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("X-Request-ID", "mobile_${UUID.randomUUID()}")
+            tokenProvider()?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+            connection.doOutput = true
+            connection.outputStream.use { it.write(jsonBody.toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+            Triple(code, body, parseRetryAfterSeconds(connection.getHeaderField("Retry-After")))
+        } finally {
+            connection.disconnect()
+        }
+    }
 }

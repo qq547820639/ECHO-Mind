@@ -58,7 +58,8 @@ def test_runner_timeout_to_failed(monkeypatch):
 
 def test_concurrency_limit_429(client, admin_headers, monkeypatch):
     """并发上限：scheduler 返回 None（并发超限 sentinel）时路由返回 429。"""
-    monkeypatch.setattr("app.api.routes.schedule_sandbox_run", lambda db, **kwargs: None)
+    # v0.6.1：路由拆分后 scheduler 位于 app.api.sandbox（语义不变）
+    monkeypatch.setattr("app.api.sandbox.schedule_sandbox_run", lambda db, **kwargs: None)
 
     response = client.post("/v1/sandbox/runs", json={"user_id": "u_demo"}, headers=admin_headers)
     assert response.status_code == 429

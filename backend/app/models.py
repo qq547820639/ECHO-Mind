@@ -165,6 +165,57 @@ class PracticeCompletion(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_practice_tenant_event"),)
 
 
+class ActivationCode(Base):
+    """机构激活码（v0.6.1）：生产级激活凭证，不再让 User.external_ref 隐式承担。
+
+    - code_hash 为 SHA-256 明文码，全库唯一（跨租户不可歧义），数据库不存明文；
+    - 一次性消费：used_at 置位即不可再兑换（并发下由原子 UPDATE 保证只成功一次）；
+    - TTL：expires_at 过期即失效；
+    - 防爆破：attempt_count / max_attempts + IP/device/code 维度 rate limit（services.activation）；
+    - 不通过响应差异泄露 tenant/user 存在性（统一 404/403 文案）。
+    """
+
+    __tablename__ = "activation_codes"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("ac"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    # 激活码签发给哪个用户（可为空 = 待绑定）；兑换成功后写入。
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # 明文码的 SHA-256（服务端加盐派生，见 services/activation.hash_code）。
+    code_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    created_by: Mapped[str] = mapped_column(String(120), default="system")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    __table_args__ = (
+        Index("ix_activation_codes_tenant_created", "tenant_id", "created_at"),
+    )
+
+
+class ActivationAttempt(Base):
+    """激活码兑换失败审计（v0.6.1）：IP/device/code 维度 rate limit 的数据来源。
+
+    - 每次失败兑换写一行（actor_ip / device_id / code_hash），成功兑换也写一行（result=success）
+      —— 提供最小必要安全审计；
+    - 不记录明文码，不记录任何心理内容；
+    - 查询窗口由 services/activation 的 lookback 常量决定（默认 15 分钟）。
+    """
+
+    __tablename__ = "activation_attempts"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("aa"))
+    tenant_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    code_hash: Mapped[str] = mapped_column(String(128), index=True)
+    actor_ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    device_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    result: Mapped[str] = mapped_column(String(32), default="failure")  # failure / success
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    __table_args__ = (
+        Index("ix_activation_attempts_lookup", "code_hash", "actor_ip", "attempted_at"),
+    )
+
+
 class RiskSignal(Base):
     __tablename__ = "risk_signals"
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("risk"))
@@ -393,3 +444,20 @@ class SandboxRun(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "user_id", "run_date", name="uq_sandbox_tenant_user_date"),
     )
+
+
+class TenantSandboxSlot(Base):
+    """沙箱租户执行槽（v0.6.1）：执行期原子并发配额。
+
+    - running_count 通过行级原子 UPDATE（WHERE running_count < max）增减，
+      多 worker 并发启动不可能突破 tenant max concurrency（消除 check-then-act race）；
+    - heartbeat_at 由 acquire 刷新；acquire 时回收超过 [lease 超时] 的陈旧槽
+      （worker crash / 进程整体死亡后可恢复配额）；
+    - pending 数量与 running concurrency 分离：pending 由 sandbox_runs.status 表达，
+      running 由本表计数。
+    """
+
+    __tablename__ = "sandbox_tenant_slots"
+    tenant_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    running_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

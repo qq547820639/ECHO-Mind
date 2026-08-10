@@ -124,6 +124,14 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
 
     fun finishOnboarding() {
         scope.launch {
+            // v0.6.1（P1-7）幂等：本地已提交过（重复点击/进程死亡重启）→ 直接推进，
+            // 不重复入队 consent/L0/emergency contact（服务端也按 event_id 幂等，双保险）。
+            if (preferences.onboardingLocalSubmitted) {
+                preferences.onboardingState = AppPreferences.ONBOARDING_READY_OFFLINE
+                preferences.serverActivated = false
+                onComplete()
+                return@launch
+            }
             val userId = preferences.userId
             // 分项 consent（核心必选 + 可选）
             container.repository.saveConsent(
@@ -140,6 +148,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                     priority = 600
                 )
                 container.preferences.setPassiveSensingEnabled(true)
+                // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 等待授权同步态
+                container.preferences.consentSyncPending = true
             }
             if (micConsent) {
                 try {
@@ -163,6 +173,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             // 本地全部步骤完成 → READY_OFFLINE（服务端确认待网络恢复；serverActivated 由同步收敛）
             preferences.serverActivated = false
             preferences.onboardingState = AppPreferences.ONBOARDING_READY_OFFLINE
+            preferences.onboardingLocalSubmitted = true
             // 02b 共享知识 1：consent granted → flag（拉取租户配置，失败 fail-closed）→ 真实启动服务
             if (passiveSensingConsent) {
                 try {

@@ -59,8 +59,8 @@ fun EchoMindApp(container: AppContainer) {
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
-                Tab.TODAY -> TodayScreen(container.repository) { tab = Tab.SUPPORT }
-                Tab.SKILLS -> SkillListScreen(container.repository)
+                Tab.TODAY -> TodayScreen(container.repository, { tab = Tab.SUPPORT }, container.skillSessionCoordinator)
+                Tab.SKILLS -> SkillListScreen(container.repository, container.skillSessionCoordinator)
                 Tab.TREND -> TrendScreen(container.repository)
                 Tab.SUPPORT -> SupportScreen(container)
             }

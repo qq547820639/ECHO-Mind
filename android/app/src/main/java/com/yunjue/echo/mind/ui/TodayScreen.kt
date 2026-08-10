@@ -45,7 +45,7 @@ import com.yunjue.echo.mind.data.syncStateText
  * - PRD 契约点 1 收口：不再由 passiveSafety RED 切 [SafetyScreen]（行为派生特征不触发危机 UI）。
  */
 @Composable
-fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit) {
+fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit, coordinator: SkillSessionCoordinator) {
     val context = LocalContext.current
     val pending by repository.observePendingCount().collectAsState(initial = 0)
     val (skillState, retry) = rememberSkillList(repository)
@@ -116,7 +116,7 @@ fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit) {
             }
             else -> items(skillState.skills) { skill ->
                 // 每个「开始」按钮都有真实执行行为（SkillCardHost 内部状态机 + 上报）
-                SkillCardHost(skill, repository)
+                SkillCardHost(skill, repository, coordinator)
             }
         }
         // 底部小的紧急支持快捷入口：危机入口在 SUPPORT tab 常驻，此处提供一键跳转

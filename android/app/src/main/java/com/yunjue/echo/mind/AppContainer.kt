@@ -124,16 +124,42 @@ internal val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5 → v6 迁移（v0.6.1，P0-2）：新增 escalation_requests 表（人工支持客户端闭环）。
+ * 纯增量 CREATE TABLE，无数据改写。
+ */
+internal val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS escalation_requests (
+                eventId TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                trigger TEXT NOT NULL,
+                evidenceSummaryCiphertext TEXT NOT NULL,
+                status TEXT NOT NULL,
+                serverEscalationId TEXT,
+                serverStatusJson TEXT,
+                createdAtEpochMs INTEGER NOT NULL,
+                updatedAtEpochMs INTEGER NOT NULL,
+                outboxSynced INTEGER NOT NULL DEFAULT 0
+            )"""
+        )
+    }
+}
+
 class AppContainer(context: Context) {
     val cipher = FieldCipher()
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
     val database = Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
         // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
         .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
         .build()
     val repository = LocalRepository(database, cipher, preferences, ApiClient { preferences.accessToken })
+
+    /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
+    val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(repository)
 
     /** 各 Collector 工厂：使用 applicationContext 避免泄漏 Activity。 */
     fun newSensorCollector(context: Context): SensorCollector =

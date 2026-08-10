@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.EchoMindApplication
 import java.util.concurrent.TimeUnit
 
@@ -48,10 +49,13 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         val context = applicationContext
         if (container.preferences.accessToken.isNullOrBlank()) return Result.success()
 
-        // 每批开始时清空上次状态，结束前写回本次批次结果（UI SyncState 依据）
+        // v0.6.1（P1-6）：批开始记录"尝试同步"时间（不再复用成功时间戳）
+        container.preferences.lastSyncAttemptAt = System.currentTimeMillis()
         container.preferences.lastSyncHttpCode = null
         var anyRetry = false
         var anyBlockedPending = false
+        var anySuccess = false
+        var anyFailure = false
         var lastCode: Int? = null
 
         for (event in dao.pendingOutbox()) {
@@ -71,28 +75,54 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                     // 解密失败 = 毒丸：直接 dead-letter，不阻塞队列
                     container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:decrypt_failure")
                     dao.deleteOutbox(event.eventId)
+                    anyFailure = true
                     continue
                 }
-            val response = runCatching { client.post(path, payload) }.getOrElse {
+            val response = runCatching { client.postFull(path, payload) }.getOrElse {
                 dao.incrementAttempts(event.eventId)
                 anyRetry = true
+                anyFailure = true
                 continue
             }
-            lastCode = response.code
-            when (classifySyncOutcome(event.eventType, response.code, event.attempts)) {
-                SyncAction.DELETE -> dao.deleteOutbox(event.eventId)
+            lastCode = response.first
+            when (classifySyncOutcome(event.eventType, response.first, event.attempts)) {
+                SyncAction.DELETE -> {
+                    dao.deleteOutbox(event.eventId)
+                    anySuccess = true
+                    // v0.6.1（P0-2）：escalation 送达 → 回写 serverEscalationId（解析响应 body）
+                    if (event.eventType == "escalation") {
+                        val serverId = runCatching {
+                            org.json.JSONObject(response.second ?: "").optString("id").takeIf { it.isNotBlank() }
+                        }.getOrNull()
+                        container.repository.markEscalationDelivered(event.eventId, serverId)
+                    }
+                    // v0.6.1（P0-3 B）：consent 成功 → 服务端已接受 → 清除"等待授权同步"标记
+                    if (event.eventType == "consent") {
+                        val granted = runCatching {
+                            org.json.JSONObject(payload).optBoolean("granted", false)
+                        }.getOrDefault(false)
+                        if (granted) container.preferences.consentSyncPending = false
+                    }
+                }
                 SyncAction.DELETE_AND_MIGRATE -> {
                     dao.deleteOutbox(event.eventId)
                     container.preferences.recordMigrationTelemetry(event.eventType)
+                    anySuccess = true
                 }
                 SyncAction.RETRY -> {
                     dao.incrementAttempts(event.eventId)
-                    response.retryAfterSeconds?.let { container.preferences.recordRetryAfter(event.eventType, it) }
+                    response.third?.let { container.preferences.recordRetryAfter(event.eventType, it) }
                     anyRetry = true
+                    anyFailure = true
                 }
                 SyncAction.DEAD_LETTER -> {
-                    container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:http_${response.code}")
+                    container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:http_${response.first}")
                     dao.deleteOutbox(event.eventId)
+                    anyFailure = true
+                    // v0.6.1（P0-2）：escalation dead-letter → 用户可见 FAILED（需联系机构）
+                    if (event.eventType == "escalation") {
+                        container.repository.markEscalationFailed(event.eventId)
+                    }
                 }
                 SyncAction.KEEP_PENDING -> {
                     dao.incrementAttempts(event.eventId)
@@ -101,8 +131,28 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
             }
         }
 
+        // v0.6.1（P1-6）：状态语义写回——只有真正成功才更新 lastSuccessfulSyncAt
+        val remaining = dao.pendingOutbox().size
+        container.preferences.pendingCountSnapshot = remaining
         container.preferences.lastSyncHttpCode = lastCode
-        container.preferences.lastSyncTimestamp = System.currentTimeMillis()
+        when {
+            remaining == 0 && !anyFailure -> {
+                container.preferences.lastSuccessfulSyncAt = System.currentTimeMillis()
+                container.preferences.lastSyncErrorClass = null
+            }
+            anySuccess -> {
+                container.preferences.lastPartialSyncAt = System.currentTimeMillis()
+                container.preferences.lastSyncErrorClass = errorClassFor(anyBlockedPending, lastCode)
+            }
+            else -> {
+                container.preferences.lastSyncErrorClass = errorClassFor(anyBlockedPending, lastCode)
+            }
+        }
+        // v0.6.1（P1-7）：Onboarding READY 收敛——服务端 ack 依据
+        // READY_OFFLINE 且本批全部清空 → 服务端核对同意链后置 READY
+        if (remaining == 0 && !anyFailure && container.preferences.onboardingState == AppPreferences.ONBOARDING_READY_OFFLINE) {
+            runCatching { container.repository.confirmServerActivation() }
+        }
         return when {
             anyRetry || anyBlockedPending -> Result.retry()
             else -> Result.success()
@@ -112,6 +162,19 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     companion object {
         /** 单事件最大尝试次数（毒丸保护：超限移到 dead-letter，不再重试）。 */
         const val MAX_ATTEMPTS = 10
+
+        /**
+         * 批次结果 → 错误类别（分类而非原始 exception；UI 据此显示可读文案）。
+         * category: auth / consent / terminal / retryable / offline
+         */
+        internal fun errorClassFor(anyBlockedPending: Boolean, lastCode: Int?): String = when {
+            lastCode == 401 || lastCode == 403 -> "auth"
+            lastCode == 412 || lastCode == 422 -> "consent"
+            lastCode == 410 -> "terminal"
+            lastCode != null && (lastCode >= 500 || lastCode == 429) -> "retryable"
+            anyBlockedPending -> "consent"
+            else -> "retryable"
+        }
 
         private const val RATE_LIMIT_PREFS = "echo_mind_sync_ratelimit"
         private const val KEY_DF_WINDOW_START = "df_window_start"

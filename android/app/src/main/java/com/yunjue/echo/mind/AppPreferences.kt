@@ -123,6 +123,55 @@ class AppPreferences(
             edit.apply()
         }
 
+    // ===== v0.6.1（P1-6）：同步状态语义拆分 =====
+    // 不再用单个 timestamp 同时表达"尝试同步"与"成功同步"。
+
+    /** 最近一次**尝试**同步时间（SyncWorker 每批开始时刷新；无论成败）。 */
+    var lastSyncAttemptAt: Long
+        get() = prefs.getLong("last_sync_attempt_at", 0L)
+        set(value) = prefs.edit().putLong("last_sync_attempt_at", value).apply()
+
+    /**
+     * 最近一次**成功**同步时间：只有满足成功条件（本批无 pending 遗留
+     * 且无 retry/blocked/失败事件）才更新。
+     */
+    var lastSuccessfulSyncAt: Long
+        get() = prefs.getLong("last_successful_sync_at", 0L)
+        set(value) = prefs.edit().putLong("last_successful_sync_at", value).apply()
+
+    /** 最近一次部分成功同步时间（本批有成功事件但仍有遗留：429/5xx/blocked）。 */
+    var lastPartialSyncAt: Long?
+        get() = if (prefs.contains("last_partial_sync_at")) prefs.getLong("last_partial_sync_at", 0L) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("last_partial_sync_at") else edit.putLong("last_partial_sync_at", value)
+            edit.apply()
+        }
+
+    /** 最近一次同步错误类别（分类而非原始 exception；UI 据此显示可读文案）。 */
+    var lastSyncErrorClass: String?
+        get() = if (prefs.contains("last_sync_error_class")) prefs.getString("last_sync_error_class", null) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("last_sync_error_class") else edit.putString("last_sync_error_class", value)
+            edit.apply()
+        }
+
+    /**
+     * 待上传事件数（每次 SyncWorker 批处理结束时写回；UI「有 N 项待同步」）。
+     */
+    var pendingCountSnapshot: Int
+        get() = prefs.getInt("pending_count_snapshot", 0)
+        set(value) = prefs.edit().putInt("pending_count_snapshot", value).apply()
+
+    // ===== v0.6.1（P0-3 B）：consent 重新授权等待同步标记 =====
+    // 本地已 ON、服务端尚未接受 granted 证据前为 true；
+    // SyncWorker 收到 consent 成功（2xx）后清除。
+
+    var consentSyncPending: Boolean
+        get() = prefs.getBoolean("consent_sync_pending", false)
+        set(value) = prefs.edit().putBoolean("consent_sync_pending", value).apply()
+
     /** 被动采集服务是否处于运行状态（服务 start/stop 时更新；UI 观察用）。 */
     private val _sensingActiveFlow = MutableStateFlow(prefs.getBoolean("sensing_active", false))
     val sensingActiveFlow: Flow<Boolean> = _sensingActiveFlow
@@ -200,6 +249,16 @@ class AppPreferences(
     var serverActivated: Boolean
         get() = prefs.getBoolean("onboarding_server_activated", false)
         set(value) = prefs.edit().putBoolean("onboarding_server_activated", value).apply()
+
+    /** v0.6.1（P1-7）：Onboarding 本地提交幂等位（已提交过则重复点击不重复入队）。 */
+    var onboardingLocalSubmitted: Boolean
+        get() = prefs.getBoolean("onboarding_local_submitted", false)
+        set(value) = prefs.edit().putBoolean("onboarding_local_submitted", value).apply()
+
+    /** v0.6.1（P0-3）：服务撤回已提交位（revokeService 幂等重放保护）。 */
+    var serviceRevocationSubmitted: Boolean
+        get() = prefs.getBoolean("service_revocation_submitted", false)
+        set(value) = prefs.edit().putBoolean("service_revocation_submitted", value).apply()
 
     companion object {
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"

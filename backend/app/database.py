@@ -10,7 +10,10 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+# SQLite：check_same_thread=False 支持多线程会话；timeout=30 提供 busy-wait（并发写不立即报 locked）
+connect_args = (
+    {"check_same_thread": False, "timeout": 30} if settings.database_url.startswith("sqlite") else {}
+)
 engine_kwargs = {"connect_args": connect_args, "pool_pre_ping": True}
 if settings.database_url in {"sqlite:///:memory:", "sqlite+pysqlite:///:memory:"}:
     engine_kwargs["poolclass"] = StaticPool

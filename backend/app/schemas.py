@@ -77,6 +77,46 @@ class OnboardingVerifyOut(BaseModel):
     restricted: bool = False
 
 
+# ===== v0.6.1 ActivationCode（机构激活码，取代 external_ref 隐式激活语义） =====
+
+
+class ActivationCodeCreate(BaseModel):
+    """admin 签发激活码入参。
+
+    - user_id 可空：空 = 待绑定（兑换时绑定到兑换者用户）；非空 = 预绑定用户。
+    - ttl_seconds 可空：缺省用 settings.activation_code_ttl_seconds。
+    - max_attempts：该码最大失败尝试次数（防爆破）。
+    """
+    user_id: str | None = None
+    ttl_seconds: int | None = Field(default=None, ge=60, le=365 * 24 * 3600)
+    max_attempts: int = Field(default=5, ge=1, le=20)
+
+
+class ActivationCodeIssueOut(BaseModel):
+    """签发响应：明文码仅此一次返回（数据库只存哈希）。"""
+    id: str
+    code: str
+    user_id: str | None = None
+    expires_at: datetime | None = None
+    max_attempts: int = 5
+
+
+class ActivationCodeOut(BaseModel):
+    """激活码管理视图（不含明文）。"""
+    id: str
+    user_id: str | None = None
+    created_by: str
+    created_at: datetime
+    expires_at: datetime | None = None
+    used_at: datetime | None = None
+    revoked_at: datetime | None = None
+    attempt_count: int = 0
+    max_attempts: int = 5
+    revoked: bool = False
+    used: bool = False
+    expired: bool = False
+
+
 # legacy: v0.8 removal target — CheckinCreate 仅历史兼容（POST /v1/checkins 410 存根）。
 class CheckinCreate(BaseModel):
     event_id: str = Field(min_length=8, max_length=80)
