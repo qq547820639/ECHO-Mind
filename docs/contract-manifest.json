@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ECHO Mind Android↔Backend Contract Manifest (v0.6 final)",
+  "description": "跨端契约清单：backend 侧以 docs/openapi.json + app/schemas.py 为权威；Android 侧由单元测试断言（SkillActionDispatcherTest / SyncWorkerStateMachineTest / OnboardingVerifyFlowTest 等）。scripts/contract_drift_check.py 据此断言，漂移即 CI 失败。",
+  "version": "0.6.0",
+  "endpoints": {
+    "required": [
+      {
+        "method": "POST",
+        "path": "/v1/features/ingest",
+        "note": "被动感知派生特征上传（幂等 tenant+event_id；无原始 payload）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/skills",
+        "note": "已下发 Skill 列表（含执行契约字段）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/skills/{skill_id}",
+        "note": "Skill 详情"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/skills/completions",
+        "note": "Skill 执行完成/停止上报（幂等 tenant+event_id）"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/onboarding/verify-code",
+        "note": "激活码交换（预认证；404 无效码 / 403 restricted；响应不含 tenant_id/role/external_ref）"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/onboarding/consents",
+        "note": "分项 consent（含 passive_sensing / voice_features）"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/onboarding/l0",
+        "note": "L0 准入门禁（幂等 event_id）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/narratives",
+        "note": "每日叙事（events 含 sources_present）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/profile/{user_id}",
+        "note": "用户画像（traits 含 observation_days / sources_present_union）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/config/flags",
+        "note": "租户 feature flags（passive_sensing_enabled 无缓存默认 false，fail-closed）"
+      }
+    ],
+    "removed": [
+      {
+        "method": "GET",
+        "path": "/v1/trends/summary",
+        "note": "v0.6 final 移除（build_trend 保留为 case-review 内部 data_quality）"
+      }
+    ],
+    "deprecated_410": [
+      {
+        "event_type": "checkin",
+        "path": "/v1/checkins",
+        "note": "410 Gone（有效身份）；SyncWorker DELETE_AND_MIGRATE"
+      },
+      {
+        "event_type": "journal",
+        "path": "/v1/journals",
+        "note": "410 Gone（写入口）；GET 只读保留"
+      },
+      {
+        "event_type": "questionnaire:*",
+        "path": "/v1/questionnaires/{code}/responses",
+        "note": "410 Gone"
+      },
+      {
+        "event_type": "practice",
+        "path": "/v1/practices/completions",
+        "note": "410 Gone"
+      }
+    ]
+  },
+  "fields": {
+    "DerivedFeatureIn.sources_present": {
+      "enum": ["accel", "gyro", "screen", "notification", "app_activity", "mic_opt", "health"],
+      "note": "窗口内实际信号源；gap_finder.EXPECTED_SOURCES 仅核心 5 项"
+    },
+    "SkillOut.action_type": {
+      "whitelist": ["guided_steps", "reflection_prompt", "breathing", "journaling", "checklist"],
+      "note": "白名单外 Android fail closed"
+    },
+    "SkillOut.estimated_duration": {"type": "integer|null"},
+    "SkillOut.completion_schema": {"type": "object|null"},
+    "SkillOut.safety_constraints": {"type": "array<string>|null"},
+    "SkillOut.revision": {"type": "integer"},
+    "SkillCompletion.status": {"enum": ["started", "completed", "stopped"]},
+    "OnboardingVerifyOut": {
+      "fields": ["user_id", "access_token", "consent_versions", "l0_decision", "restricted"],
+      "forbidden": ["tenant_id", "role", "external_ref"],
+      "note": "响应绝不暴露内部字段"
+    }
+  },
+  "semantics": {
+    "sync_state": {
+      "note": "Android SyncState 枚举：SYNCED/PENDING/SYNCING/OFFLINE/RETRYING/BLOCKED_BY_AUTH/BLOCKED_BY_CONSENT/FAILED_TERMINAL；UI 不暴露内部 HTTP 码"
+    },
+    "410": {
+      "deprecated_event_types": ["checkin", "journal", "questionnaire:*", "practice"],
+      "android_action": "DELETE_AND_MIGRATE（outbox 删除 + 迁移 telemetry）"
+    },
+    "429": "Android 记录 Retry-After，WorkManager 指数退避接管重试",
+    "verify_code_preauth": "激活交换无 Authorization；Android postWithBody 在 tokenProvider 为 null 时不带 Bearer 头"
+  }
+}

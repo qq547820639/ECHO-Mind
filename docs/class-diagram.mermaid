@@ -1,179 +1,140 @@
 classDiagram
-    class PassiveSensingService {
-        -sensorCollector: SensorCollector?
-        -screenCollector: ScreenCollector?
-        -appActivityCollector: AppActivityCollector?
-        -micCollector: MicCollector?
-        -scheduler: SensingWindowScheduler?
-        +onStartCommand(intent, flags, startId): Int
-        -isPassiveSensingEnabled(): Boolean
-        -startSensing(): Unit
-        -stopSensing(): Unit
-        +buildNotification(): Notification
+    class DerivedFeature {
+        +str tenant_id
+        +str user_id
+        +str event_id
+        +str source
+        +datetime window_start
+        +str summary
+        +list vector
+        +list sources_present
+    }
+    class GapFinder {
+        <<service>>
+        +EXPECTED_SOURCES: tuple
+        +find_gaps(db, tenant_id, user_id, run_date, audit_summary) list
+        +_row_sources(row) set
+        +_day_features(db, tenant_id, user_id, run_date) list
+    }
+    class AuditDay {
+        <<service>>
+        +audit_day(db, tenant_id, user_id, run_date) dict
+        +sources_present: list
+    }
+    class ToolForge {
+        <<service>>
+        +forge_tools(db, tenant_id, user_id, gaps) list
+    }
+    class SkillInduct {
+        <<service>>
+        +_TOOL_TYPE_TO_ACTION_TYPE: dict
+        +induct_skills(db, tenant_id, user_id, validated_tools) list
+    }
+    class TrendsService {
+        <<service legacy>>
+        +build_trend(db, tenant_id, user_id, days) dict
+    }
+    GapFinder --> DerivedFeature : reads sources_present union
+    AuditDay --> DerivedFeature : reads
+    ToolForge ..> GapFinder : consumes gaps (no mood_check)
+    SkillInduct ..> ToolForge : consumes tools
+    TrendsService ..> routes.case_review : internal data_quality only
+
+    class SensingEventHub {
+        +snapshotAll(): HubSnapshot
+        +clearConsumed(snapshot: HubSnapshot)
+        +clearAll()
+    }
+    class HubSnapshot {
+        +List accel
+        +List gyro
+        +List screen
+        +List notifications
+        +List appActivities
+        +List micDerived
     }
     class SensingWindowScheduler {
-        -collectors: Collectors
-        -extractor: FeatureExtractor
-        -repository: LocalRepository
-        -hub: SensingEventHub
-        +start(scope: CoroutineScope): Unit
-        +stop(): Unit
-        -flushWindow(): Unit
+        +flushWindow(start, end, onWindowReady): WindowFlushResult
+        +MAX_WINDOW_RETRY: int
+        -pendingRetries: Map
     }
-    class SensingEventHub {
-        -buffer: ConcurrentLinkedDeque~NotificationMeta~
-        +offer(meta): Unit
-        +snapshotAndClear(): List~NotificationMeta~
-        +clearBefore(ts: Long): Unit
+    class WindowFlushResult {
+        <<enum>>
+        SUCCESS
+        FAILURE_RETRYABLE
     }
-    class SensorCollector {
-        +accelerometerBuffer: ConcurrentLinkedDeque~FloatArray~
-        +gyroscopeBuffer: ConcurrentLinkedDeque~FloatArray~
-        +start(): Unit
-        +stop(): Unit
-        +clearBuffers(): Unit
-    }
-    class ScreenCollector {
-        +snapshot(): List~ScreenEvent~
-        +start(): Unit
-        +stop(): Unit
-    }
-    class AppActivityCollector {
-        +snapshot(): List~AppActivity~
-        +start(): Unit
-        +stop(): Unit
-        +pollOnce(): Unit
-    }
-    class NotificationCollector {
-        +onNotificationPosted(sbn): Unit
-        +snapshot(): List~NotificationMeta~
-    }
-    class MicCollector {
-        +canStart(): Boolean
-        +start(): Unit
-        +stop(): Unit
-        +snapshot(): List~MicDerivedFeature~
-        +snapshotAndClear(): List~MicDerivedFeature~
-    }
-    class MicFeatureExtractor {
-        +extract(samples, sampleRate): MicDerivedFeature
-    }
-    class FeatureExtractor {
-        +extractFromCollectors(windowStart, windowEnd, ...): List~DerivedFeatureInput~
-        +extract(windowStart, windowEnd, ...): List~DerivedFeatureInput~
-        -selectSource(...): String
-        -buildVector(...): List~Float~
+    class PassiveSensingService {
+        +startSensing()
+        +stopSensing()
+        +canStartSensing(): bool
     }
     class LocalRepository {
-        +saveDerivedFeature(input): SafetyDecision
-        +recordSkillCompletion(input): Unit
-        +saveVoiceFeaturesConsent(granted): Unit
-        +fetchFeatureFlags(): Map~String, Boolean~
-        +fetchSkills(): SkillFetchResult
-        +fetchNarratives(days): List~NarrativeDisplay~
-        +fetchProfile(): ProfileDisplay
+        +saveDerivedFeatures(inputs): Boolean
+        +saveSkillCompletion(input)
+        +loadActiveSession(): ActiveSkillSession?
+        +verifyOnboardingCode(code): OnboardingVerifyResult
     }
-    class EchoDatabase {
-        <<RoomDatabase>>
-        +dao(): EchoDao
-        +consentDao(): ConsentDao
+    class ActiveSkillSessionEntity {
+        +sessionId PK
+        +skillId
+        +skillVersion
+        +skillRevision
+        +actionType
+        +status
+        +currentStep
+        +startedAt
+        +accumulatedActiveMs
+        +segmentStartedAtMs
+        +pausedAt
+        +updatedAt
     }
-    class SyncWorker {
-        +doWork(): Result
+    class SkillRunSession {
+        +start() pause() resume() complete() stop()
+        +activeDurationMs(now): Long
+        +status: SkillRunStatus
     }
-    class ApiClient {
-        +post(path, jsonBody): Int
-        +get(path): Pair~Int, String?~
+    class ActionRenderer {
+        <<interface>>
+        +Composable render(skill, session, repository)
     }
-    class DerivedFeatureInput {
-        +schemaVersion: String
-        +source: String
-        +sourcesPresent: List~String~
-        +windowStart: Instant
-        +windowEnd: Instant
-        +summary: String
-        +vector: List~Float~
+    class GuidedStepsRenderer
+    class BreathingRenderer
+    class ChecklistRenderer
+    class JournalingRenderer
+    class ReflectionPromptRenderer
+    class BlockedRenderer {
+        <<fail closed>>
     }
-    class SkillCompletionInput {
-        +eventId: String
-        +skillId: String
-        +status: String
-        +durationSeconds: Int
-        +clientTime: Instant
-    }
+    ActionRenderer <|.. GuidedStepsRenderer
+    ActionRenderer <|.. BreathingRenderer
+    ActionRenderer <|.. ChecklistRenderer
+    ActionRenderer <|.. JournalingRenderer
+    ActionRenderer <|.. ReflectionPromptRenderer
+    ActionRenderer <|.. BlockedRenderer
 
-    PassiveSensingService --> SensingWindowScheduler : 启动/停止
-    SensingWindowScheduler --> SensingEventHub : 读快照
-    SensingWindowScheduler --> SensorCollector : snapshot
-    SensingWindowScheduler --> ScreenCollector : snapshot
-    SensingWindowScheduler --> AppActivityCollector : snapshot
-    SensingWindowScheduler --> MicCollector : snapshotAndClear
-    NotificationCollector --> SensingEventHub : 写入
-    SensingWindowScheduler --> FeatureExtractor : extractFromCollectors
-    FeatureExtractor --> DerivedFeatureInput : 产出
-    SensingWindowScheduler --> LocalRepository : saveDerivedFeature
-    LocalRepository --> EchoDatabase : insertFeatureVector / enqueue
-    LocalRepository --> SyncWorker : enqueue(context)
-    SyncWorker --> ApiClient : post(ingest/completions)
-    LocalRepository --> SkillCompletionInput : recordSkillCompletion
+    SensingWindowScheduler --> SensingEventHub : snapshot/clearConsumed
+    SensingWindowScheduler --> LocalRepository : onWindowReady Boolean
+    PassiveSensingService --> SensingWindowScheduler : start/stop
+    SkillRunSession --> ActiveSkillSessionEntity : persist/recover
+    SkillRunSession ..> ActionRenderer : dispatches by action_type whitelist
 
-    class BackendProfileService {
-        +ingest_feature(db, tenant_id, user_id, feature)
-        +get_profile(db, tenant_id, user_id)
-        +rebuild_profile(db, tenant_id, user_id)
-        +build_daily_narrative(db, tenant_id, user_id, date)
+    class AppPreferences {
+        +lastSuccessfulCollection: Long
+        +lastPersistenceFailure: Long?
+        +consecutivePersistenceFailures: Int
+        +onboardingState: String
     }
-    class BackendSafetyService {
-        +evaluate_passive(features)
-        +evaluate_text(text)
+    class OnboardingVerifyRoute {
+        <<route>>
+        +POST /v1/onboarding/verify-code {code} -> OnboardingVerifyOut
     }
-    class BackendAuditService {
-        +append_audit(db, *, request_id=...)
-        +verify_audit_chain(db, tenant_id)
+    class SkillOut {
+        +action_type: str
+        +estimated_duration: int?
+        +completion_schema: dict?
+        +safety_constraints: list?
+        +revision: int
     }
-    class SandboxRunner {
-        +execute(): SandboxRun
-    }
-    class TenantPortraitService {
-        +build_tenant_portrait(db, tenant_id)
-        -_suppress_small_buckets(counts, threshold)
-    }
-    class BackendRoutes {
-        +ingest_derived_feature()
-        +get_profile()
-        +rebuild_profile()
-        +get_daily_narrative()
-        +list_skills()
-        +create_skill_completion()
-        +complete_dsr()
-    }
-    class DerivedFeature {
-        +tenant_id: str
-        +user_id: str
-        +event_id: str
-        +source: str
-        +sources_present: list
-        +window_start: datetime
-        +window_end: datetime
-        +summary: str
-        +vector: list
-    }
-    class AuditEvent {
-        +request_id: str?
-        +previous_event_hash: str?
-        +event_hash: str
-    }
-    class Skill {
-        +status: str
-        +content_hash: str?
-    }
-
-    BackendRoutes --> BackendProfileService
-    BackendRoutes --> BackendSafetyService
-    BackendRoutes --> BackendAuditService
-    BackendRoutes --> SandboxRunner
-    BackendRoutes --> TenantPortraitService
-    BackendProfileService --> DerivedFeature
-    BackendAuditService --> AuditEvent
-    SandboxRunner ..> Skill : induct (draft)
-    BackendRoutes ..> Skill : signed-only 下发
+    OnboardingVerifyRoute --> User : resolve external_ref
+    OnboardingVerifyRoute ..> auth.create_access_token : mint opaque token
+    SkillOut ..> SkillDisplay : android consumes contract fields

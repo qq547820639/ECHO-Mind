@@ -1,58 +1,61 @@
 sequenceDiagram
     autonumber
-    participant UI as Android UI (Onboarding/Today/Trend)
-    participant SVC as PassiveSensingService
-    participant SCH as SensingWindowScheduler
-    participant COL as Collectors (Sensor/Screen/AppActivity/Mic)
-    participant HUB as SensingEventHub
-    participant NLS as NotificationCollector (系统绑定)
-    participant FE as FeatureExtractor
-    participant REPO as LocalRepository
-    participant ROOM as Room (SQLCipher v4)
-    participant WB as WorkManager SyncWorker
+    participant And as Android Scheduler
+    participant Hub as SensingEventHub
+    participant Mic as MicCollector
+    participant Repo as LocalRepository
+    participant DB as Room (SQLCipher v5)
+    participant Out as Outbox+SyncWorker
     participant API as FastAPI /v1/*
-    participant SVCB as Backend Services (profile/safety/audit/sandbox)
+    participant Sandbox as Sandbox (audit→gaps→forge→validate→induct)
+    participant UI as Android UI
 
-    Note over UI,SVC: 1) 启动（consent + flag fail-closed + 权限门控）
-    UI->>REPO: saveConsent(passive_sensing, true)
-    UI->>SVC: PassiveSensingService.start()
-    SVC->>SCH: start(scope)
-    Note over NLS,HUB: 2) 通知数据共享层
-    NLS-->>HUB: onNotificationPosted → hub.offer(ts,pkg,category)
-
-    loop 每 5 分钟 (window)
-        SCH->>COL: snapshot() / MicCollector.snapshotAndClear()
-        SCH->>HUB: snapshotAndClear()
-        SCH->>FE: extractFromCollectors(windowStart, windowEnd, ..., hub 快照)
-        FE-->>SCH: DerivedFeatureInput(+sources_present)
-        SCH->>REPO: saveDerivedFeature(input)
-        REPO->>REPO: SafetyEngine.evaluatePassive(summary)
-        REPO->>ROOM: insertFeatureVector + enqueue(derived_feature)
-        alt severity == RED
-            REPO->>REPO: enqueueEscalation(passive_red_signal)
-            REPO-->>UI: passiveSafety StateFlow → SafetyScreen
-        end
+    Note over And,API: 场景1 感知窗口 ACK（snapshot→extract→transactional persist→clear consumed）
+    And->>Hub: snapshotAll() → HubSnapshot
+    And->>Mic: snapshot() → micSnapshot
+    And->>And: extractFromHub(snapshot) → DerivedFeatureInput[]
+    And->>Repo: saveDerivedFeatures(inputs)
+    Repo->>DB: withTransaction { insertFeatureVectors + insertOutboxEvents }
+    DB-->>Repo: success
+    Repo-->>And: true（成功才更新 lastSuccessfulCollection）
+    And->>Hub: clearConsumed(hubSnapshot)
+    And->>Mic: clearConsumed(micSnapshot)
+    And->>Out: SyncWorker.enqueue()
+    alt persist 失败
+        Repo-->>And: false
+        And->>And: 窗口保留，bounded retry（≤3），记录 consecutivePersistenceFailures
     end
 
-    Note over WB,API: 3) 上行
-    WB->>WB: pendingOutbox()（410 类型删除+标记 deprecated）
-    WB->>API: POST /v1/features/ingest (Bearer + X-Request-ID)
-    API->>SVCB: require_feature_flag(fail-closed) + consent 412 + 幂等 ingest
-    SVCB->>SVCB: evaluate_passive → RiskSignal / Escalation
-    API-->>WB: 200 / 409 幂等
+    Note over And,API: 场景2 sources_present 缺口识别（mic_opt 可选 / health 不强制）
+    API->>API: POST /v1/features/ingest（幂等 + consent 412 + mic voice_features 412）
+    API->>API: build_daily_narrative（events 含 sources_present）
+    API-->>And: 200 {id, idempotent_replay, escalation_id:null}
+    Sandbox->>Sandbox: audit_day → find_gaps（union sources_present；legacy fallback source）
+    Sandbox->>Sandbox: forge_tools（无 mood_check 模板）→ validate → induct_skills（白名单 action_type）
 
-    Note over API,SVCB: 4) 只读查询（无读副作用）
-    UI->>API: GET /v1/narratives?from=&to=
-    UI->>API: GET /v1/profile/{user_id} (只读缓存)
-    API->>SVCB: 时间范围查询（window_start 索引）
+    Note over And,API: 场景3 ActiveSkillSession 恢复与完成（暂停不计时）
+    And->>Repo: loadActiveSession()（process death 后）
+    Repo-->>And: ActiveSkillSession(status=running|paused)
+    And->>And: 恢复为 PAUSED（不自动计时），提示「继续/结束」
+    And->>And: 用户完成 → SkillRunSession.complete() → activeDurationMs/1000
+    And->>Repo: saveSkillCompletion(eventId, skillId, status, duration)
+    Repo->>DB: withTransaction { deleteSession + insertOutbox(skill_completion) }
+    And->>Out: SyncWorker.enqueue()
+    Out->>API: POST /v1/skills/completions（tenant+event_id 幂等）
 
-    Note over API,SVCB: 5) Skill 执行反馈闭环
-    UI->>REPO: recordSkillCompletion(input)
-    REPO->>ROOM: enqueue(skill_completion)
-    WB->>API: POST /v1/skills/completions (signed-only 校验)
-    API->>SVCB: audit skill.completion + 幂等落库
+    Note over And,API: 场景4 Onboarding verify-code（不暴露内部字段）
+    UI->>And: 单「激活码」输入
+    And->>API: POST /v1/onboarding/verify-code {code}
+    API->>API: 查 User.external_ref==code；active → create_access_token(role=user)
+    API-->>And: 200 {user_id, access_token, consent_versions, l0_decision, restricted}
+    And->>And: 七态状态机推进（AppPreferences.onboardingState）
+    And->>API: POST /v1/onboarding/consents（复用）
+    And->>API: POST /v1/onboarding/l0（复用）
+    And->>API: POST /v1/onboarding/emergency-contact（复用，可选）
 
-    Note over API,SVCB: 6) 运维/安全
-    admin-->>API: POST /v1/sandbox/runs (子进程隔离 + 真超时)
-    admin-->>API: POST /v1/data-subject-requests/{id}/complete (分类矩阵删除)
-    API->>SVCB: audit append (tenant-scoped 串行化 + request-id)
+    Note over And,API: 场景5 Skill 契约消费（action_type 白名单分发，fail closed）
+    UI->>And: GET /v1/skills（signed + whitelist 下发）
+    And->>And: ActionRenderer by action_type（guided_steps/breathing/checklist/journaling/reflection_prompt）
+    alt actionType 不在白名单
+        And->>And: BlockedRenderer（不渲染开始，不产生 completion）
+    end

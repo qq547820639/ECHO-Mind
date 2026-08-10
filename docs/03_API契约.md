@@ -10,10 +10,10 @@
 | GET | `/v1/onboarding/consents/latest` | user | 查询最新同意状态 |
 | POST | `/v1/onboarding/l0` | user | L0 准入门禁筛查 |
 | POST | `/v1/onboarding/emergency-contact` | user | 紧急联系人 |
+| POST | `/v1/onboarding/verify-code` | 预认证（无 token） | **激活码交换**：跨租户查 `User.external_ref==code`；0 命中 404；restricted 403；active → 签发 `role=user` 短时凭证；响应含 `user_id/access_token/consent_versions/l0_decision/restricted`，不含 `tenant_id/role/external_ref` 等内部字段 |
 | POST | `/v1/features/ingest` | user | **被动感知派生特征上传**（summary+vector，无原始 payload；`passive_sensing` consent 撤回返回 412；`source=mic_opt` 额外校验 `voice_features` consent，撤销返回 412；`passive_sensing_enabled=false` 返回 410） |
 | GET | `/v1/profile/{user_id}` | user/professional | 用户画像 |
-| GET | `/v1/narratives` | user/professional | 每日叙事（趋势视图数据源） |
-| GET | `/v1/trends/summary` | user/professional | 趋势汇总（保留） |
+| GET | `/v1/narratives` | user/professional | 每日叙事（趋势视图数据源；events 含 `sources_present`） |
 | GET | `/v1/journals` | user | 历史日记只读查询 |
 | POST | `/v1/escalations` | user/safety service | 创建危机事件（含被动 RED 触发） |
 | GET | `/v1/escalations` | on_call/professional/auditor | 事件列表 |
@@ -52,6 +52,9 @@
 | POST | `/v1/practices/completions` | `GET /v1/skills`（Skill 驱动） |
 
 所有写接口应携带客户端唯一 `event_id`；重复提交返回同一业务对象。
+
+> **v0.6 final**：`GET /v1/trends/summary` 已从公开契约移除（返回 404；全仓无真实调用方）。
+> `build_trend` 保留为 escalation case-review 内部 data_quality 用途（非公开 API，`# legacy: v0.8 后移除`）。
 
 ## 隐私契约
 

@@ -266,6 +266,45 @@
         ]
       }
     },
+    "/v1/onboarding/verify-code": {
+      "post": {
+        "summary": "Verify Onboarding Code",
+        "description": "激活码交换（v0.6 final）：预认证薄路由，供端侧激活使用。\n\n- 跨租户查 ``User.external_ref == code``；0 命中 → 404（不泄露租户存在性）。\n- 命中且 status==\"restricted\"（或已不可用）→ 403。\n- 命中且 status==\"active\" → 签发 role=user 短时凭证。\n响应不含 tenant_id / role / external_ref 等内部字段（JWT 载荷内部字段对用户透明）。",
+        "operationId": "verify_onboarding_code_v1_onboarding_verify_code_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingVerifyOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/checkins": {
       "post": {
         "summary": "Create Checkin",
@@ -626,60 +665,6 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/v1/trends/summary": {
-      "get": {
-        "summary": "Trends",
-        "operationId": "trends_v1_trends_summary_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Id"
-            }
-          },
-          {
-            "name": "days",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 90,
-              "minimum": 7,
-              "default": 14,
-              "title": "Days"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v1/escalations": {
@@ -2894,6 +2879,64 @@
           "user_id"
         ],
         "title": "L0ScreeningCreate"
+      },
+      "OnboardingVerifyIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "OnboardingVerifyIn",
+        "description": "激活码交换入参（v0.6 final）。\n\n仅接受机构分发的激活码/邀请码；不接收 device_id 等内部标识之外的字段。\ncode 最小 8 位（如 `XXXX-XXXX-XXXX`），最长 80。"
+      },
+      "OnboardingVerifyOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "consent_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Consent Versions"
+          },
+          "l0_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "L0 Decision"
+          },
+          "restricted": {
+            "type": "boolean",
+            "title": "Restricted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "access_token"
+        ],
+        "title": "OnboardingVerifyOut",
+        "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。"
       },
       "PracticeCompletionCreate": {
         "properties": {
