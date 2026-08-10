@@ -41,7 +41,7 @@ jobs:
       - uses: github/codeql-action/analyze@v3 # TODO(T03): pin to commit SHA
 
       # dependency-review：仅 PR 触发（需 pull-requests: read）
-      - uses: actions/dependency-review-action@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/dependency-review-action@v5 # TODO(T03): pin to commit SHA
         if: github.event_name == 'pull_request'
 
       # Python 依赖审计：pip-audit（backend/pyproject.toml 为 PEP 621 依赖清单）
