@@ -99,6 +99,31 @@ data class FeatureVectorEntity(
     val createdAt: Long
 )
 
+/**
+ * Skill 执行会话持久化（Room v5，T02）：
+ *
+ * - 跨 recomposition / tab 切换 / activity recreation / process death / app restart 恢复；
+ * - status：running / paused（恢复时统一回到 PAUSED，避免进程死亡期间虚增时长）；
+ * - duration 语义：activeDurationMs = accumulatedActiveMs + (now - segmentStartedAtMs)
+ *   （running 时）；paused 时 = accumulatedActiveMs（暂停不计时）；
+ * - 加载时 actionType 不在白名单 → 丢弃会话（fail closed）。
+ */
+@Entity(tableName = "active_skill_sessions")
+data class ActiveSkillSessionEntity(
+    @PrimaryKey val sessionId: String,
+    val skillId: String,
+    val skillVersion: Int,
+    val skillRevision: Int,
+    val actionType: String,
+    val status: String,
+    val currentStep: Int,
+    val startedAt: Long,
+    val accumulatedActiveMs: Long,
+    val segmentStartedAtMs: Long?,
+    val pausedAt: Long?,
+    val updatedAt: Long
+)
+
 @Dao
 interface EchoDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertCheckin(value: CheckinEntity)
@@ -106,6 +131,7 @@ interface EchoDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertQuestionnaire(value: QuestionnaireEntity)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertPracticeCompletion(value: PracticeCompletionEntity)
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertOutbox(value: OutboxEventEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertOutboxEvents(values: List<OutboxEventEntity>)
 
     @Query("SELECT * FROM checkins ORDER BY clientTimeEpochMs DESC") fun observeCheckins(): Flow<List<CheckinEntity>>
     @Query("SELECT * FROM journal_entries WHERE deleted = 0 ORDER BY clientTimeEpochMs DESC") fun observeJournals(): Flow<List<JournalEntity>>
@@ -118,8 +144,14 @@ interface EchoDao {
 
     // ===== T04 派生特征 DAO =====
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFeatureVector(value: FeatureVectorEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFeatureVectors(values: List<FeatureVectorEntity>)
     @Query("SELECT * FROM feature_vectors WHERE synced = 0 ORDER BY windowStart ASC") suspend fun pendingFeatureVectors(): List<FeatureVectorEntity>
     @Query("UPDATE feature_vectors SET synced = 1 WHERE id = :id") suspend fun markFeatureVectorSynced(id: String)
+
+    // ===== v5 ActiveSkillSession DAO（T02） =====
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertActiveSkillSession(value: ActiveSkillSessionEntity)
+    @Query("SELECT * FROM active_skill_sessions LIMIT 1") suspend fun activeSkillSession(): ActiveSkillSessionEntity?
+    @Query("DELETE FROM active_skill_sessions WHERE sessionId = :sessionId") suspend fun deleteActiveSkillSession(sessionId: String)
 }
 
 /**
@@ -161,9 +193,10 @@ interface ConsentDao {
         PracticeCompletionEntity::class,
         OutboxEventEntity::class,
         ConsentEntity::class,
-        FeatureVectorEntity::class
+        FeatureVectorEntity::class,
+        ActiveSkillSessionEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {

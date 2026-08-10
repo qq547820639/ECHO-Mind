@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.ConsentEntity
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.FeatureVectorEntity
@@ -60,7 +61,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun v4DatabaseHasAllExpectedTablesAndNoSensorSamples() {
+    fun v5DatabaseHasAllExpectedTablesAndNoSensorSamples() {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -75,20 +76,23 @@ class DatabaseMigrationTest {
         // v3 保留表
         assertTrue("consents 应存在", tables.contains("consents"))
         assertTrue("feature_vectors 应存在", tables.contains("feature_vectors"))
-        // v4 移除 sensor_samples（原始数据不落盘承诺）
-        assertFalse("sensor_samples 表不应存在于 v4 schema", tables.contains("sensor_samples"))
+        // v5 新增 active_skill_sessions（T02 Skill 会话持久化）
+        assertTrue("active_skill_sessions 应存在于 v5", tables.contains("active_skill_sessions"))
+        // 原始数据不落盘承诺：sensor_samples 不存在
+        assertFalse("sensor_samples 表不应存在于 v5 schema", tables.contains("sensor_samples"))
     }
 
     @Test
-    fun v4EntitiesDoNotRegisterSensorSampleEntity() {
-        // 编译期保证 + 运行时断言：@Database entities 不含 SensorSampleEntity
+    fun v5EntitiesRegisterActiveSkillSessionAndNotSensorSample() {
+        // 编译期保证 + 运行时断言：@Database entities 含 ActiveSkillSessionEntity，不含 SensorSampleEntity
         val entities = EchoDatabase::class.java
             .getAnnotation(androidx.room.Database::class.java)!!
             .entities
         val names = entities.map { it.simpleName }
-        assertFalse("SensorSampleEntity 不应注册到 v4", "SensorSampleEntity" in names)
+        assertFalse("SensorSampleEntity 不应注册到 v5", "SensorSampleEntity" in names)
         assertTrue("FeatureVectorEntity 应注册", "FeatureVectorEntity" in names)
         assertTrue("ConsentEntity 应注册", "ConsentEntity" in names)
+        assertTrue("ActiveSkillSessionEntity 应注册", "ActiveSkillSessionEntity" in names)
     }
 
     @Test
@@ -151,6 +155,66 @@ class DatabaseMigrationTest {
         ).use { cursor ->
             return cursor.moveToFirst()
         }
+    }
+
+    @Test
+    fun migration45CreatesActiveSkillSessionsTable() {
+        // 用 v4 库（无 active_skill_sessions）执行 MIGRATION_4_5，验证建表成功
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-45-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(4) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) = Unit
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            assertFalse("迁移前无 active_skill_sessions 表", hasTable(rawDb, "active_skill_sessions"))
+            MIGRATION_4_5.migrate(rawDb)
+            assertTrue("MIGRATION_4_5 应创建 active_skill_sessions", hasTable(rawDb, "active_skill_sessions"))
+            // 幂等：重复执行不报错
+            MIGRATION_4_5.migrate(rawDb)
+            assertTrue("重复迁移应幂等", hasTable(rawDb, "active_skill_sessions"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    @Test
+    fun activeSkillSessionDaoUpsertGetDelete() = runBlocking {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val dao = db!!.dao()
+        val entity = ActiveSkillSessionEntity(
+            sessionId = "skse_test_1",
+            skillId = "sk_test",
+            skillVersion = 1,
+            skillRevision = 1,
+            actionType = "guided_steps",
+            status = "paused",
+            currentStep = 0,
+            startedAt = 1000L,
+            accumulatedActiveMs = 30_000L,
+            segmentStartedAtMs = null,
+            pausedAt = 1000L,
+            updatedAt = 1000L
+        )
+        dao.upsertActiveSkillSession(entity)
+        val loaded = dao.activeSkillSession()
+        assertEquals("skse_test_1", loaded?.sessionId)
+        assertEquals("sk_test", loaded?.skillId)
+        assertEquals("paused", loaded?.status)
+        assertEquals(30_000L, loaded?.accumulatedActiveMs)
+
+        // REPLACE 语义：同一 sessionId 覆盖
+        dao.upsertActiveSkillSession(entity.copy(status = "running", segmentStartedAtMs = 2000L, updatedAt = 2000L))
+        assertEquals("running", dao.activeSkillSession()?.status)
+
+        dao.deleteActiveSkillSession("skse_test_1")
+        assertEquals("删除后应为 null", null, dao.activeSkillSession())
     }
 
     @Test

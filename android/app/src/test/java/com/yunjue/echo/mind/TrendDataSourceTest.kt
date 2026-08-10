@@ -1,38 +1,46 @@
 package com.yunjue.echo.mind
 
+import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
 import com.yunjue.echo.mind.model.NarrativeFetchResult
 import com.yunjue.echo.mind.model.ProfileDisplay
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
+import com.yunjue.echo.mind.ui.TrendNoDataReason
 import com.yunjue.echo.mind.ui.TrendUiState
 import com.yunjue.echo.mind.ui.activityRhythmSummary
+import com.yunjue.echo.mind.ui.appSettingsIntent
 import com.yunjue.echo.mind.ui.baselineStabilitySummary
 import com.yunjue.echo.mind.ui.behaviorPatternSummary
+import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
 import com.yunjue.echo.mind.ui.resolveTrendState
+import com.yunjue.echo.mind.ui.trendNoDataReasonText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
- * T12.6/T05 趋势视图数据源回归（纯函数，无需 Robolectric）。
+ * T12.6/T05 趋势视图数据源回归。
  *
  * 契约点 2 / 8 验收：
  * - 七态区分：error（API 失败）≠ no_data（真无数据）
  * - 批量拉取（单次请求）契约：NarrativeFetchResult 承载 ordered narratives + dataCoverage + missingDates
  * - 免责文案常量存在（单测锚点）
- * - moodHintToValue / buildTrendValues 已删除（编译期保证：下方不引用，旧测试已移除）
- * - ProfileDisplay 支持 loadFailed 语义
- * - 定性摘要函数（活动节律/行为模式/基线稳定性）为非诊断表达
+ * - mood 相关字段已删除（编译期保证：下方不引用）
+ * - T02 七态细化：NO_DATA 原因解析 + 系统设置 deep link
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class TrendDataSourceTest {
 
     private fun narrative(date: String, source: String = "screen", summary: String = "屏幕开启 2 次"): NarrativeDisplay =
         NarrativeDisplay(
             date = date,
-            moodHint = "", // mood_hint 已不再用于 UI 渲染
-            events = listOf(NarrativeEventDisplay(source, summary, "")),
+            events = listOf(NarrativeEventDisplay(source, summary, listOf("screen"))),
             gaps = emptyList()
         )
 
@@ -197,21 +205,99 @@ class TrendDataSourceTest {
         val profile = ProfileDisplay(
             observationDays = 5,
             narrativeDaysLast7 = 3,
-            recentMoodHint = "平稳",
             version = 2,
+            sourcesPresentUnion = listOf("accel", "screen"),
             loadFailed = false
         )
         assertEquals(5, profile.observationDays)
         assertEquals(3, profile.narrativeDaysLast7)
+        assertEquals(listOf("accel", "screen"), profile.sourcesPresentUnion)
         assertFalse(profile.loadFailed)
 
         val failed = ProfileDisplay(
             observationDays = 0,
             narrativeDaysLast7 = 0,
-            recentMoodHint = "未知",
             version = 0,
             loadFailed = true
         )
         assertTrue("fetchProfile 失败应 loadFailed=true（趋势页区分 error）", failed.loadFailed)
+    }
+
+    // ---------- T02 七态细化：NO_DATA 原因解析 ----------
+
+    @Test
+    fun noDataReasonNewUserWhenNoObservationDays() {
+        assertEquals(
+            TrendNoDataReason.NEW_USER,
+            resolveTrendNoDataReason(
+                observationDays = 0,
+                systemBackgroundRestricted = false,
+                persistenceFailedRecently = false,
+                pendingUploadCount = 0,
+                missingSources = emptyList()
+            )
+        )
+        assertTrue(trendNoDataReasonText(TrendNoDataReason.NEW_USER).contains("刚开始使用"))
+    }
+
+    @Test
+    fun noDataReasonPrioritizesSystemBackgroundAndPersistence() {
+        assertEquals(
+            TrendNoDataReason.SYSTEM_BACKGROUND,
+            resolveTrendNoDataReason(
+                observationDays = 5,
+                systemBackgroundRestricted = true,
+                persistenceFailedRecently = false,
+                pendingUploadCount = 0,
+                missingSources = emptyList()
+            )
+        )
+        assertEquals(
+            TrendNoDataReason.PERSISTENCE_FAILURE,
+            resolveTrendNoDataReason(
+                observationDays = 5,
+                systemBackgroundRestricted = false,
+                persistenceFailedRecently = true,
+                pendingUploadCount = 0,
+                missingSources = emptyList()
+            )
+        )
+        assertEquals(
+            TrendNoDataReason.AWAITING_UPLOAD,
+            resolveTrendNoDataReason(
+                observationDays = 5,
+                systemBackgroundRestricted = false,
+                persistenceFailedRecently = false,
+                pendingUploadCount = 3,
+                missingSources = emptyList()
+            )
+        )
+        assertEquals(
+            TrendNoDataReason.SOURCE_GAPS,
+            resolveTrendNoDataReason(
+                observationDays = 5,
+                systemBackgroundRestricted = false,
+                persistenceFailedRecently = false,
+                pendingUploadCount = 0,
+                missingSources = listOf("gyro")
+            )
+        )
+    }
+
+    @Test
+    fun noDataReasonTextNeverExposesEngineeringTerms() {
+        for (reason in TrendNoDataReason.entries) {
+            val text = trendNoDataReasonText(reason)
+            assertTrue("NO_DATA 文案不应为空", text.isNotBlank())
+            for (token in listOf("HTTP", "window", "persist", "upload", "source", "404", "500")) {
+                assertFalse("文案不应暴露工程术语 $token：$text", text.contains(token, ignoreCase = true))
+            }
+        }
+    }
+
+    @Test
+    fun appSettingsDeepLinkTargetsThisPackage() {
+        val intent = appSettingsIntent(ApplicationProvider.getApplicationContext())
+        assertEquals("android.settings.APPLICATION_DETAILS_SETTINGS", intent.action)
     }
 }

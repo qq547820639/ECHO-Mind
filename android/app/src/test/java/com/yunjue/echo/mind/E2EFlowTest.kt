@@ -284,16 +284,21 @@ class E2EFlowTest {
 
     @Test
     fun skillDisplayModelFieldsAlignWithBackendSkillOut() {
-        // 验证 SkillDisplay 模型字段与后端 sanitize_skill 输出字段对齐
-        // 后端 sanitize_skill 输出（见 app/services/sandbox/sanitizer.py）：
-        //   id / user_id / name / version / trigger_conditions / guardrails /
-        //   steps / status / created_at / updated_at
-        // SkillDisplay 简化后字段：
-        //   id / name / version / triggerConditions / guardrails / steps / status
-        val displayFields = SkillDisplay::class.java.declaredFields.map { it.name }.toSet()
+        // 验证 SkillDisplay 模型字段与后端 SkillOut 契约对齐（PRD 契约点 4/5）
+        // 后端 SkillOut（见 backend/app/schemas.py）：id / user_id / name / version /
+        //   trigger_conditions / guardrails / steps / status / action_type /
+        //   estimated_duration / completion_schema / safety_constraints / revision / ...
+        // SkillDisplay 端侧字段（v0.6 final 执行契约字段全部保留）：
+        //   id / name / version / triggerConditions / guardrails / steps / status /
+        //   actionType / estimatedDuration / completionSchema / safetyConstraints / revision
+        val displayFields = SkillDisplay::class.java.declaredFields
+            .map { it.name }
+            .filter { it != "Companion" } // companion 静态字段不计入数据字段
+            .toSet()
         val expectedFields = setOf(
             "id", "name", "version",
-            "triggerConditions", "guardrails", "steps", "status"
+            "triggerConditions", "guardrails", "steps", "status",
+            "actionType", "estimatedDuration", "completionSchema", "safetyConstraints", "revision"
         )
         assertEquals(
             "SkillDisplay 字段集合应为 $expectedFields",

@@ -140,4 +140,49 @@ class SensingEventHubTest {
         assertEquals("com.example.app", stored.packageName)
         assertEquals("social", stored.category)
     }
+
+    // ===== T02 窗口 ACK：snapshotAll / clearConsumed =====
+
+    @Test
+    fun snapshotAllIsNonDestructive() {
+        val hub = SensingEventHub()
+        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onNotificationPosted(NotificationCollector.NotificationMeta(1L, "pkg", "social"))
+
+        val snap = hub.snapshotAll()
+        assertEquals(1, snap.accel.size)
+        assertEquals(1, snap.notifications.size)
+        // 非破坏：快照后缓冲仍在
+        assertFalse("snapshotAll 后缓冲应保留（非破坏）", hub.isEmpty())
+    }
+
+    @Test
+    fun clearConsumedRemovesOnlySnapshotItems() {
+        val hub = SensingEventHub()
+        val first = floatArrayOf(0f, 0f, 9.8f)
+        hub.onAccelSample(first)
+
+        val snap = hub.snapshotAll()
+        // 快照之后新到项（下一窗口）不应被清除
+        val second = floatArrayOf(1f, 1f, 9.8f)
+        hub.onAccelSample(second)
+
+        hub.clearConsumed(snap)
+        // 快照内项（引用相等）被清；快照后新到项保留
+        assertEquals(1, hub.snapshotAccel().size)
+        // 再次 clear 新到项 → 清空
+        hub.clearConsumed(hub.snapshotAll())
+        assertTrue(hub.snapshotAccel().isEmpty())
+    }
+
+    @Test
+    fun clearConsumedByValueEqualityForDataClasses() {
+        val hub = SensingEventHub()
+        val now = System.currentTimeMillis()
+        val meta = NotificationCollector.NotificationMeta(now, "pkg", "social")
+        hub.onNotificationPosted(meta)
+        val snap = hub.snapshotAll()
+        hub.clearConsumed(snap)
+        assertTrue("data class 项按值相等清除", hub.snapshotNotifications().isEmpty())
+    }
 }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,14 +31,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
+import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.data.SkillFetchResult
 import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /** Skill 执行状态（PRD v0.6 契约点 4：至少三态状态机）。 */
 enum class SkillRunStatus { IDLE, RUNNING, PAUSED, COMPLETED, STOPPED }
@@ -45,12 +48,18 @@ enum class SkillRunStatus { IDLE, RUNNING, PAUSED, COMPLETED, STOPPED }
 /**
  * 单次 Skill 执行会话状态机（纯 Kotlin，便于单测）。
  *
+ * v0.6 final 语义（T02）：
  * - start() → RUNNING；nextStep() 逐步推进；pause()/resume()；complete()/stop() 收口；
- * - 完成/停止返回上报 status（"completed"/"stopped"），并计算 durationSeconds；
- * - 每个可见「开始」按钮经 [SkillCardHost] 绑定本会话，确保点击有真实行为。
+ * - **暂停不计时**：activeDurationMs = accumulatedActiveMs + (now - segmentStartedAtMs)
+ *   （running 时）；paused/terminal 时 = accumulatedActiveMs；
+ * - 支持持久化：toEntity() 导出 Room 行；restoreFrom(entity) 从进程死亡恢复为 PAUSED；
+ * - actionType 白名单校验由 [SkillDisplay.ACTION_TYPE_WHITELIST] 承担（fail closed）。
  */
 internal class SkillRunSession(
     val skillId: String,
+    val skillVersion: Int = 1,
+    val skillRevision: Int = 1,
+    val actionType: String = "guided_steps",
     private val nowProvider: () -> Long = System::currentTimeMillis
 ) {
     var status: SkillRunStatus = SkillRunStatus.IDLE
@@ -62,15 +71,30 @@ internal class SkillRunSession(
     var durationSeconds: Int = 0
         private set
 
-    private var startedAtMs: Long? = null
+    var startedAtMs: Long? = null
+        private set
+
+    var accumulatedActiveMs: Long = 0L
+        private set
+
+    var segmentStartedAtMs: Long? = null
+        private set
+
+    var pausedAtMs: Long? = null
+        private set
 
     val isRunning: Boolean get() = status == SkillRunStatus.RUNNING
+    val isActive: Boolean get() = status == SkillRunStatus.RUNNING || status == SkillRunStatus.PAUSED
 
     /** 开始执行（IDLE/已完成/已停止 均可重新开始）。 */
     fun start() {
+        val now = nowProvider()
         status = SkillRunStatus.RUNNING
         currentStep = 0
-        startedAtMs = nowProvider()
+        startedAtMs = now
+        accumulatedActiveMs = 0L
+        segmentStartedAtMs = now
+        pausedAtMs = null
         durationSeconds = 0
     }
 
@@ -81,19 +105,29 @@ internal class SkillRunSession(
         currentStep = (currentStep + 1).coerceAtMost(totalSteps - 1)
     }
 
+    /** 暂停：结算当前活动段到 accumulatedActiveMs（暂停段不计入 active duration）。 */
     fun pause() {
-        if (status == SkillRunStatus.RUNNING) status = SkillRunStatus.PAUSED
+        if (status != SkillRunStatus.RUNNING) return
+        val now = nowProvider()
+        accumulatedActiveMs += (now - (segmentStartedAtMs ?: now)).coerceAtLeast(0L)
+        segmentStartedAtMs = null
+        pausedAtMs = now
+        status = SkillRunStatus.PAUSED
     }
 
+    /** 恢复：重新开启当前活动段。 */
     fun resume() {
-        if (status == SkillRunStatus.PAUSED) status = SkillRunStatus.RUNNING
+        if (status != SkillRunStatus.PAUSED) return
+        segmentStartedAtMs = nowProvider()
+        pausedAtMs = null
+        status = SkillRunStatus.RUNNING
     }
 
     /** 完成：返回上报 status "completed"（已停止后调用返回 "stopped"）。 */
     fun complete(): String {
         if (status == SkillRunStatus.STOPPED) return "stopped"
         status = SkillRunStatus.COMPLETED
-        durationSeconds = computeDurationSeconds()
+        freezeDuration()
         return "completed"
     }
 
@@ -101,29 +135,102 @@ internal class SkillRunSession(
     fun stop(): String {
         if (status == SkillRunStatus.COMPLETED) return "completed"
         status = SkillRunStatus.STOPPED
-        durationSeconds = computeDurationSeconds()
+        freezeDuration()
         return "stopped"
     }
 
-    /** 当前已耗时（秒），执行中实时展示用。 */
-    fun elapsedSeconds(): Int = startedAtMs?.let { ((nowProvider() - it).coerceAtLeast(0L) / 1000L).toInt() } ?: 0
+    private fun freezeDuration() {
+        // 终态前先结算当前活动段（若正在运行），保证 completed/stopped 时长包含最后一段
+        if (segmentStartedAtMs != null) {
+            val now = nowProvider()
+            accumulatedActiveMs += (now - (segmentStartedAtMs ?: now)).coerceAtLeast(0L)
+            segmentStartedAtMs = null
+        }
+        durationSeconds = accumulatedActiveMs.toInt() / 1000
+    }
 
-    private fun computeDurationSeconds(): Int = elapsedSeconds()
+    /** 当前活动时长（ms）：running = accumulated + 当前段；暂停/终态 = accumulated（暂停不计时）。 */
+    fun activeDurationMs(now: Long): Long = when (status) {
+        SkillRunStatus.RUNNING ->
+            accumulatedActiveMs + (now - (segmentStartedAtMs ?: (startedAtMs ?: now))).coerceAtLeast(0L)
+        SkillRunStatus.PAUSED, SkillRunStatus.COMPLETED, SkillRunStatus.STOPPED -> accumulatedActiveMs
+        SkillRunStatus.IDLE -> 0L
+    }
+
+    /** 当前已耗时（秒），执行中实时展示用。 */
+    fun elapsedSeconds(): Int = activeDurationMs(nowProvider()).toInt() / 1000
+
+    /** 导出 Room 持久化实体（running/paused 均可保存）。 */
+    fun toEntity(sessionId: String, now: Long): ActiveSkillSessionEntity = ActiveSkillSessionEntity(
+        sessionId = sessionId,
+        skillId = skillId,
+        skillVersion = skillVersion,
+        skillRevision = skillRevision,
+        actionType = actionType,
+        status = if (status == SkillRunStatus.RUNNING) "running" else "paused",
+        currentStep = currentStep,
+        startedAt = startedAtMs ?: now,
+        accumulatedActiveMs = accumulatedActiveMs,
+        segmentStartedAtMs = segmentStartedAtMs,
+        pausedAt = pausedAtMs,
+        updatedAt = now
+    )
+
+    /** 从持久化实体恢复：**统一恢复为 PAUSED**（进程死亡期间不自动计时，避免虚增时长）。 */
+    fun restoreFrom(entity: ActiveSkillSessionEntity) {
+        status = SkillRunStatus.PAUSED
+        currentStep = entity.currentStep
+        startedAtMs = entity.startedAt
+        accumulatedActiveMs = entity.accumulatedActiveMs
+        segmentStartedAtMs = null
+        pausedAtMs = entity.pausedAt
+        durationSeconds = 0
+    }
+
+    companion object {
+        /** 从持久化实体构造新会话并恢复为 PAUSED（进程重建恢复入口）。 */
+        fun restoreFromEntity(
+            entity: ActiveSkillSessionEntity,
+            nowProvider: () -> Long = System::currentTimeMillis
+        ): SkillRunSession = SkillRunSession(
+            skillId = entity.skillId,
+            skillVersion = entity.skillVersion,
+            skillRevision = entity.skillRevision,
+            actionType = entity.actionType,
+            nowProvider = nowProvider
+        ).also { it.restoreFrom(entity) }
+    }
 }
 
 /**
  * Skill 卡片宿主（原生 Compose，替代 WebView 静态展示）：
  *
- * - 移除 WebView：提升可访问性 / TalkBack / 字体缩放 / 暗色模式 / UI 一致性；
- * - 步骤 step-by-step 展示 + 执行控制（开始 → 下一步/暂停 → 继续 → 完成/停止）；
- * - 每个「开始」按钮都有真实行为（进入执行状态机）；
- * - 完成/停止后调用 [LocalRepository.recordSkillCompletion] 本地记录 + 触发 SyncWorker 上传。
+ * - action_type 白名单分发：guided_steps / breathing / checklist / journaling / reflection_prompt
+ *   分别渲染原生 Renderer；白名单外 fail closed（不渲染「开始」、不产生 completion）；
+ * - 跨 recomposition / tab 切换 / activity recreation / process death 恢复：
+ *   启动时从 Room 读取 active_skill_sessions，恢复为 PAUSED（不虚增时长）；
+ * - 完成/停止：事务内「删会话 + 入 outbox」上报（服务端 tenant+event_id 幂等）。
  */
 @Composable
 fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val session = remember(skill.id) { SkillRunSession(skill.id) }
+
+    // 白名单 gate（fail closed）：不在白名单 → 不可用 UI，不渲染开始，不产生 completion
+    if (skill.actionType !in SkillDisplay.ACTION_TYPE_WHITELIST) {
+        UnsupportedSkillContent(skill)
+        return
+    }
+
+    val sessionId = remember(skill.id) { "skse_${UUID.randomUUID()}" }
+    val session = remember(skill.id) {
+        SkillRunSession(
+            skillId = skill.id,
+            skillVersion = skill.version,
+            skillRevision = skill.revision,
+            actionType = skill.actionType
+        )
+    }
 
     var uiStatus by remember(skill.id) { mutableStateOf(session.status) }
     var uiStep by remember(skill.id) { mutableStateOf(session.currentStep) }
@@ -135,20 +242,62 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
         uiDuration = session.durationSeconds
     }
 
+    /** 持久化当前会话（进程死亡后可恢复；仅 RUNNING/PAUSED 保存）。 */
+    fun persist() {
+        if (!session.isActive) return
+        scope.launch {
+            try {
+                repository.saveActiveSession(session.toEntity(sessionId, System.currentTimeMillis()))
+            } catch (_: Exception) {
+                // 会话持久化失败不阻断 UI（进程死亡恢复为尽力而为）
+            }
+        }
+    }
+
+    // 进程/组件重建恢复：读取持久化会话 → 恢复为 PAUSED；不在白名单/不属于本 Skill 则丢弃
+    LaunchedEffect(skill.id) {
+        val restored = try {
+            withContext(Dispatchers.IO) { repository.loadActiveSession() }
+        } catch (_: Exception) {
+            null
+        }
+        if (restored != null) {
+            if (restored.actionType in SkillDisplay.ACTION_TYPE_WHITELIST && restored.skillId == skill.id) {
+                session.restoreFrom(restored)
+                syncUi()
+            } else {
+                try {
+                    repository.deleteActiveSession(restored.sessionId)
+                } catch (_: Exception) {
+                    // 丢弃失败会话失败不阻断 UI
+                }
+            }
+        }
+    }
+
     // 执行中实时计时
     LaunchedEffect(uiStatus) {
         while (session.isRunning) {
-            delay(1000)
+            kotlinx.coroutines.delay(1000)
             uiDuration = session.elapsedSeconds()
         }
     }
 
-    // 完成/停止：本地记录 + 可选 server sync
+    // 完成/停止：事务内删会话 + 入 outbox（completion 幂等 event_id 由 SkillCompletionInput 生成）
     fun finish(terminal: () -> String) {
         scope.launch {
             val status = terminal()
             syncUi()
-            runCatching { repository.recordSkillCompletion(skill.id, status, session.durationSeconds) }
+            val input = SkillCompletionInput(
+                skillId = skill.id,
+                status = status,
+                durationSeconds = session.durationSeconds
+            )
+            try {
+                repository.recordSkillCompletion(input, sessionId = sessionId)
+            } catch (_: Exception) {
+                // completion 落库失败不阻断 UI；会话行仍在 → 恢复流程兜底
+            }
             runCatching { SyncWorker.enqueue(context) }
         }
     }
@@ -156,71 +305,33 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(skill.name, style = MaterialTheme.typography.titleMedium)
-            Text("v${skill.version} · ${skill.status}", style = MaterialTheme.typography.labelSmall)
+            Text("v${skill.version} · ${skill.status}" + if (skill.revision > 1) " · rev${skill.revision}" else "",
+                style = MaterialTheme.typography.labelSmall)
 
-            if (skill.steps.isNotEmpty()) {
-                HorizontalDivider()
-                Text("步骤", style = MaterialTheme.typography.titleSmall)
-                skill.steps.forEachIndexed { index, step ->
-                    val marker = when {
-                        index < session.currentStep -> "✓"
-                        index == session.currentStep && session.isRunning -> "▶"
-                        else -> "•"
-                    }
-                    Text("$marker ${index + 1}. $step")
-                }
+            // 执行契约字段展示（PRD 契约点 4）
+            skill.estimatedDuration?.let {
+                Text("预计时长：${it / 60} 分钟", style = MaterialTheme.typography.labelSmall)
             }
-
-            if (skill.guardrails.isNotEmpty()) {
+            if (skill.safetyConstraints.isNotEmpty()) {
                 HorizontalDivider()
-                Text("边界", style = MaterialTheme.typography.titleSmall)
-                skill.guardrails.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                Text("安全边界", style = MaterialTheme.typography.titleSmall)
+                skill.safetyConstraints.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
             }
 
             HorizontalDivider()
 
-            when (uiStatus) {
-                SkillRunStatus.IDLE -> Button(
-                    onClick = { session.start(); syncUi() },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("开始") }
-
-                SkillRunStatus.RUNNING -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { session.nextStep(skill.steps.size); syncUi() },
-                            enabled = skill.steps.size > 1 && session.currentStep < skill.steps.size - 1,
-                            modifier = Modifier.weight(1f)
-                        ) { Text("下一步") }
-                        OutlinedButton(onClick = { session.pause(); syncUi() }, modifier = Modifier.weight(1f)) {
-                            Text("暂停")
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { finish { session.complete() } }, modifier = Modifier.weight(1f)) {
-                            Text("完成")
-                        }
-                        OutlinedButton(onClick = { finish { session.stop() } }, modifier = Modifier.weight(1f)) {
-                            Text("停止")
-                        }
-                    }
-                }
-
-                SkillRunStatus.PAUSED -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { session.resume(); syncUi() }, modifier = Modifier.weight(1f)) {
-                        Text("继续")
-                    }
-                    Button(onClick = { finish { session.complete() } }, modifier = Modifier.weight(1f)) {
-                        Text("完成")
-                    }
-                    OutlinedButton(onClick = { finish { session.stop() } }, modifier = Modifier.weight(1f)) {
-                        Text("停止")
-                    }
-                }
-
-                SkillRunStatus.COMPLETED -> Text("已完成 · 用时 ${uiDuration} 秒")
-                SkillRunStatus.STOPPED -> Text("已停止 · 用时 ${uiDuration} 秒")
-            }
+            // action_type 白名单分发（原生 Renderer；未知类型已在上面 fail closed）
+            ActionRenderer(
+                skill = skill,
+                session = session,
+                repository = repository,
+                sessionId = sessionId,
+                uiStatus = uiStatus,
+                uiStep = uiStep,
+                uiDuration = uiDuration,
+                onStatusChanged = { syncUi(); persist() },
+                onFinish = ::finish
+            )
         }
     }
 }
@@ -271,7 +382,7 @@ internal fun rememberSkillList(repository: LocalRepository): Pair<SkillFetchResu
  * - 加载中（skills==null + 未失败）→ CircularProgressIndicator
  * - 加载失败（loadFailed）→「加载失败」+ 重试按钮
  * - 空列表（冷启动）→ 按 [SkillFetchResult.coldStartHint] 分阶段文案
- * - 非空 → Skill 卡片列表（每个「开始」按钮绑定真实执行行为）
+ * - 非空 → Skill 卡片列表（每个「开始」按钮绑定真实执行行为；白名单外 fail closed）
  *
  * 危机入口由全局紧急 FAB 常驻，此页不重复放置。
  */

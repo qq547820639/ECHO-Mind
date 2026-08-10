@@ -70,7 +70,11 @@ class PassiveSensingService : Service() {
         micCollector = MicCollector(this, prefs) {
             container?.let { c ->
                 revokeScope.launch {
-                    runCatching { c.repository.saveVoiceFeaturesConsent(false) }
+                    try {
+                        c.repository.saveVoiceFeaturesConsent(false)
+                    } catch (_: Exception) {
+                        // voice_features 撤回证据落库失败不阻塞（outbox 尽力；后续可重试）
+                    }
                     runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
                 }
             }
@@ -160,23 +164,26 @@ class PassiveSensingService : Service() {
         // 不满足时直接返回，不影响其他采集器
         micCollector?.start()
 
-        // 5 分钟窗口调度：窗口完成 → 落库 + 入 outbox + 触发 SyncWorker 上传
+        // 5 分钟窗口调度：snapshot → transactional 落库+outbox → 成功才 clear consumed + enqueue sync
         val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
         val scheduler = SensingWindowScheduler(hub, micCollector = micCollector)
         this.scheduler = scheduler
         scheduler.start(sensingScope) { inputs ->
-            container?.let { c ->
-                for (input in inputs) {
-                    runCatching { c.repository.saveDerivedFeature(input) }
-                }
+            // ACK 语义：持久化成功（true）才返回；失败保留快照/缓冲，由调度器 bounded retry。
+            // 失败必须可观测（AppPreferences.consecutivePersistenceFailures / lastPersistenceFailure 由 repository 记录）。
+            val c = container ?: return@start false
+            val ok = c.repository.saveDerivedFeatures(inputs)
+            if (ok) {
                 runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
             }
+            ok
         }
         container?.preferences?.sensingActive = true
         started = true
     }
 
     internal fun stopSensing() {
+        // scheduler.stop() 同时清空失败重试状态（consent revoke / 停止时不补发）
         scheduler?.stop()
         scheduler = null
         sensorCollector?.stop()

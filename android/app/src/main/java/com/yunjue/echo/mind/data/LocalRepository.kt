@@ -1,21 +1,17 @@
 package com.yunjue.echo.mind.data
 
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.model.CheckinInput
 import com.yunjue.echo.mind.model.DerivedFeatureInput
-import com.yunjue.echo.mind.model.JournalInput
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
 import com.yunjue.echo.mind.model.NarrativeFetchResult
 import com.yunjue.echo.mind.model.ProfileDisplay
-import com.yunjue.echo.mind.model.QuestionnaireScore
 import com.yunjue.echo.mind.model.SafetyDecision
 import com.yunjue.echo.mind.model.Severity
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.security.FieldCipher
-import com.yunjue.echo.mind.security.QuestionnaireScorer
-import com.yunjue.echo.mind.security.SafetyEngine
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,10 +23,28 @@ import org.json.JSONObject
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+
+/**
+ * Onboarding 激活码交换结果（T02）：对应后端 POST /v1/onboarding/verify-code 响应。
+ * 不暴露 tenant_id / role / external_ref 等内部字段。
+ */
+data class OnboardingVerifyResult(
+    val userId: String,
+    val accessToken: String,
+    val consentVersions: Map<String, String> = emptyMap(),
+    val l0Decision: String? = null,
+    val restricted: Boolean = false
+)
+
+/**
+ * 激活码交换失败（T02）。
+ * reason: invalid_code（404）/ restricted（403）/ server_error / malformed。
+ * UI 据此展示用户可读文案，不暴露内部 HTTP 码。
+ */
+class OnboardingVerifyException(val reason: String) : Exception(reason)
 
 /**
  * P3 三态拉取结果：区分「加载中」「加载失败」「真无 Skill（冷启动）」。
@@ -73,6 +87,19 @@ class LocalRepository(
     fun lastCollectionTimestamp(): Long = preferences.lastCollectionTimestamp
     fun lastSyncHttpCode(): Int? = preferences.lastSyncHttpCode
     fun deadLetterCount(): Int = preferences.deadLetterCount()
+
+    // ===== 持久化失败观测（T02 窗口 ACK 可观测性） =====
+
+    /** 最近一次窗口持久化失败时间（epoch ms；无失败为 null）。 */
+    fun lastPersistenceFailure(): Long? = preferences.lastPersistenceFailure
+
+    /** 连续窗口持久化失败计数（成功后清零）。 */
+    fun consecutivePersistenceFailures(): Int = preferences.consecutivePersistenceFailures
+
+    /** 待上传事件数（outbox pending；趋势页"等待上传"原因用）。 */
+    fun pendingUploadCount(): Int = runCatching {
+        kotlinx.coroutines.runBlocking { db.dao().pendingOutbox().size }
+    }.getOrDefault(0)
 
     private fun basePayload(eventId: String, clientTime: Instant): JSONObject = JSONObject().apply {
         put("event_id", eventId)
@@ -159,111 +186,50 @@ class LocalRepository(
         enqueue(eventId, "emergency_contact", payload, 500)
     }
 
-    suspend fun saveCheckin(input: CheckinInput): SafetyDecision {
-        val decision = SafetyEngine.evaluate(input.note.orEmpty())
-        db.dao().insertCheckin(
-            CheckinEntity(
-                eventId = input.eventId,
-                mood = input.mood,
-                stress = input.stress,
-                energy = input.energy,
-                sleepRecovery = input.sleepRecovery,
-                eventFlag = input.eventFlag,
-                helpRequested = input.helpRequested,
-                noteCiphertext = input.note?.let(cipher::encrypt),
-                clientTimeEpochMs = input.clientTime.toEpochMilli()
-            )
-        )
-        val payload = basePayload(input.eventId, input.clientTime).apply {
-            put("mood", input.mood)
-            put("stress", input.stress)
-            put("energy", input.energy)
-            put("sleep_recovery", input.sleepRecovery)
-            put("event_flag", input.eventFlag)
-            put("help_requested", input.helpRequested)
-            put("note", input.note ?: JSONObject.NULL)
-            put("device_timezone", ZoneId.systemDefault().id)
-        }
-        enqueue(input.eventId, "checkin", payload, if (decision.severity == Severity.RED || input.helpRequested) 100 else 10)
-        if (decision.severity == Severity.RED || input.helpRequested) {
-            enqueueEscalation(
-                trigger = if (input.helpRequested) "help_requested" else "text_red_signal",
-                evidence = "手机端确定性规则或用户主动求助触发"
-            )
-        }
-        return decision
-    }
-
-    suspend fun saveJournal(input: JournalInput): SafetyDecision {
-        val decision = SafetyEngine.evaluate(input.body)
-        db.dao().insertJournal(
-            JournalEntity(
-                eventId = input.eventId,
-                logicalId = input.logicalId,
-                revision = input.revision,
-                bodyCiphertext = cipher.encrypt(input.body),
-                tagsJson = JSONArray(input.tags).toString(),
-                clientTimeEpochMs = input.clientTime.toEpochMilli()
-            )
-        )
-        val payload = basePayload(input.eventId, input.clientTime).apply {
-            put("logical_id", input.logicalId)
-            put("body", input.body)
-            put("event_tags", JSONArray(input.tags))
-        }
-        enqueue(input.eventId, "journal", payload, if (decision.severity == Severity.RED) 100 else 10)
-        if (decision.severity == Severity.RED) enqueueEscalation("journal_red_signal", "日记命中手机端确定性红色规则")
-        return decision
-    }
-
-    suspend fun saveQuestionnaire(code: String, answers: List<Int>): QuestionnaireScore {
-        val eventId = "evt_${UUID.randomUUID()}"
-        val score = when (code) {
-            "phq9" -> QuestionnaireScorer.phq9(answers)
-            "gad7" -> QuestionnaireScorer.gad7(answers)
-            else -> error("Unsupported questionnaire")
-        }
-        db.dao().insertQuestionnaire(
-            QuestionnaireEntity(eventId, code, "1.0", JSONArray(answers).toString(), score.score, score.urgentItem, System.currentTimeMillis())
-        )
-        val payload = basePayload(eventId, Instant.now()).apply {
-            put("version", "1.0")
-            put("answers", JSONArray(answers))
-        }
-        enqueue(eventId, "questionnaire:$code", payload, if (score.urgentItem) 100 else 20)
-        if (score.urgentItem) enqueueEscalation("phq9_item9_positive", "PHQ-9 高风险题项非零，需人工复核")
-        return score
-    }
-
-    suspend fun recordPractice(practiceId: String, status: String, durationSeconds: Int) {
-        val eventId = "evt_${UUID.randomUUID()}"
-        val now = Instant.now()
-        db.dao().insertPracticeCompletion(
-            PracticeCompletionEntity(eventId, practiceId, "1.0", status, durationSeconds, now.toEpochMilli())
-        )
-        val payload = basePayload(eventId, now).apply {
-            put("practice_id", practiceId)
-            put("content_version", "1.0")
-            put("status", status)
-            put("duration_seconds", durationSeconds)
-        }
-        enqueue(eventId, "practice", payload, 5)
-    }
+    // legacy: v0.8 removal target — saveCheckin / saveJournal / saveQuestionnaire / recordPractice
+    // 已删除（主动输入范式停用，后端 410 存根 + SyncWorker deprecated 类型处理保留）。
 
     /**
-     * 保存派生特征：特征落库（summary 加密）+ 入 outbox。
+     * 批量保存派生特征（T02 窗口 ACK 核心）：Room withTransaction 内
+     * 批量落库（feature_vectors）+ 入 outbox（derived_feature），任一失败返回 false。
      *
-     * - eventType = "derived_feature"，priority = 20
-     * - 上传 payload 含 summary + vector + sources_present，不含原始传感数据
+     * - 成功才更新最近成功采集时间，并清零连续持久化失败计数；
+     * - 失败记录 lastPersistenceFailure + consecutivePersistenceFailures（可观测，供支持页展示），
+     *   返回 false 由调度器保留快照/缓冲并 bounded retry；
      * - **被动安全语义已收口（PRD v0.6 契约点 1）**：行为派生特征不得用于推断自杀/自伤意图，
-     *   不再调用 SafetyEngine.evaluatePassive，不触发 passive_red_signal 升级链路；
-     *   返回恒 NONE 决策以兼容既有调用方签名
-     * - 更新最近成功采集时间（支持页展示）
+     *   不调用 SafetyEngine.evaluatePassive，不触发 passive_red_signal 升级链路。
      */
+    suspend fun saveDerivedFeatures(inputs: List<DerivedFeatureInput>): Boolean {
+        if (inputs.isEmpty()) return true
+        return try {
+            db.withTransaction {
+                for (input in inputs) {
+                    persistDerivedFeature(input)
+                }
+            }
+            preferences.lastCollectionTimestamp = System.currentTimeMillis()
+            preferences.consecutivePersistenceFailures = 0
+            true
+        } catch (e: Exception) {
+            preferences.lastPersistenceFailure = System.currentTimeMillis()
+            preferences.consecutivePersistenceFailures = preferences.consecutivePersistenceFailures + 1
+            false
+        }
+    }
+
+    /** 单条派生特征落库（兼容旧调用方，委托批量语义）。 */
     suspend fun saveDerivedFeature(input: DerivedFeatureInput): SafetyDecision {
+        saveDerivedFeatures(listOf(input))
+        // 被动安全收口：恒 NONE，不触发危机 UI/升级（PRD 契约点 1）
+        val decision = SafetyDecision(Severity.NONE, emptyList(), false)
+        _passiveSafety.value = decision
+        return decision
+    }
+
+    /** 单条派生特征持久化（feature_vectors + outbox），须在事务内调用。 */
+    private suspend fun persistDerivedFeature(input: DerivedFeatureInput) {
         val eventId = "feat_${UUID.randomUUID()}"
         val now = Instant.now()
-        // 特征落库（summary 加密）
         db.dao().insertFeatureVector(
             FeatureVectorEntity(
                 id = eventId,
@@ -278,7 +244,6 @@ class LocalRepository(
                 createdAt = now.toEpochMilli()
             )
         )
-        // 入 outbox：payload 含 DerivedFeatureInput JSON + sources_present
         val payload = basePayload(eventId, now).apply {
             put("schema_version", input.schemaVersion)
             put("source", input.source)
@@ -291,20 +256,16 @@ class LocalRepository(
             }
         }
         enqueue(eventId, "derived_feature", payload, 20)
-        preferences.lastCollectionTimestamp = now.toEpochMilli()
-        // 被动安全收口：恒 NONE，不触发危机 UI/升级（PRD 契约点 1）
-        val decision = SafetyDecision(Severity.NONE, emptyList(), false)
-        _passiveSafety.value = decision
-        return decision
     }
 
     /**
-     * 记录 Skill 执行完成（T05）：入 outbox eventType="skill_completion"。
+     * 记录 Skill 执行完成（T02）：同一事务内「删除 active_skill_sessions 行 + 插入 outbox」。
      *
      * payload: {event_id, user_id, skill_id, status, duration_seconds, client_time}
-     * SyncWorker 映射到 POST /v1/skills/completions。
+     * SyncWorker 映射到 POST /v1/skills/completions（服务端 tenant+event_id 幂等）。
+     * 进程死在 enqueue 前 → 会话行仍在 → 恢复流程兜底；死在 enqueue 后 → outbox 重试兜底。
      */
-    suspend fun recordSkillCompletion(input: SkillCompletionInput) {
+    suspend fun recordSkillCompletion(input: SkillCompletionInput, sessionId: String? = null) {
         val payload = JSONObject().apply {
             put("event_id", input.eventId)
             put("user_id", preferences.userId)
@@ -313,13 +274,87 @@ class LocalRepository(
             put("duration_seconds", input.durationSeconds)
             put("client_time", input.clientTime.toString())
         }
-        enqueue(input.eventId, "skill_completion", payload, 30)
+        db.withTransaction {
+            if (sessionId != null) {
+                db.dao().deleteActiveSkillSession(sessionId)
+            }
+            db.dao().insertOutbox(
+                OutboxEventEntity(
+                    eventId = input.eventId,
+                    eventType = "skill_completion",
+                    payloadCiphertext = cipher.encrypt(payload.toString()),
+                    priority = 30,
+                    createdAtEpochMs = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     /** 便捷重载：status 取值 "completed" / "stopped" / "started"。 */
     suspend fun recordSkillCompletion(skillId: String, status: String, durationSeconds: Int) {
         recordSkillCompletion(
             SkillCompletionInput(skillId = skillId, status = status, durationSeconds = durationSeconds)
+        )
+    }
+
+    // ===== ActiveSkillSession 持久化（T02，Room v5） =====
+
+    /** 持久化/更新 Skill 执行会话（upsert）。 */
+    suspend fun saveActiveSession(session: ActiveSkillSessionEntity) {
+        db.dao().upsertActiveSkillSession(session)
+    }
+
+    /** 读取当前 Skill 执行会话（进程重建后恢复用；无会话返回 null）。 */
+    suspend fun loadActiveSession(): ActiveSkillSessionEntity? = db.dao().activeSkillSession()
+
+    /** 删除 Skill 执行会话（完成/停止/主动清理）。 */
+    suspend fun deleteActiveSession(sessionId: String) {
+        db.dao().deleteActiveSkillSession(sessionId)
+    }
+
+    // ===== Onboarding 激活码交换（T02） =====
+
+    /**
+     * 激活码交换：POST /v1/onboarding/verify-code（预认证，无 Authorization 头）。
+     *
+     * 成功 → 安全存储 userId + 加密 accessToken（AppPreferences），推进 onboardingState=BOUND。
+     * 失败 → 抛 [OnboardingVerifyException]（reason: invalid_code / restricted / server_error / malformed），
+     * UI 据此展示用户可读文案（不暴露内部码）。
+     */
+    suspend fun verifyOnboardingCode(code: String): OnboardingVerifyResult {
+        return withContext(Dispatchers.IO) {
+            val requestBody = JSONObject().apply { put("code", code) }.toString()
+            val (httpCode, responseBody) = apiClient.postWithBody("/v1/onboarding/verify-code", requestBody)
+            when {
+                httpCode == 404 -> throw OnboardingVerifyException("invalid_code")
+                httpCode == 403 -> throw OnboardingVerifyException("restricted")
+                httpCode !in 200..299 || responseBody.isNullOrBlank() -> throw OnboardingVerifyException("server_error")
+                else -> {
+                    val result = runCatching { parseVerifyCodeResponse(responseBody) }
+                        .getOrElse { throw OnboardingVerifyException("malformed") }
+                    if (result.userId.isBlank() || result.accessToken.isBlank()) {
+                        throw OnboardingVerifyException("malformed")
+                    }
+                    preferences.userId = result.userId
+                    preferences.accessToken = result.accessToken
+                    preferences.onboardingState = AppPreferences.ONBOARDING_BOUND
+                    result
+                }
+            }
+        }
+    }
+
+    private fun parseVerifyCodeResponse(body: String): OnboardingVerifyResult {
+        val o = JSONObject(body)
+        val consentVersions = o.optJSONObject("consent_versions")?.let { co ->
+            co.keys().asSequence().associateWith { co.optString(it) }
+        } ?: emptyMap()
+        return OnboardingVerifyResult(
+            userId = o.optString("user_id"),
+            accessToken = o.optString("access_token"),
+            consentVersions = consentVersions,
+            l0Decision = o.optString("l0_decision").takeIf { it.isNotBlank() && it != "null" },
+            restricted = o.optBoolean("restricted", false)
         )
     }
 
@@ -331,18 +366,6 @@ class LocalRepository(
             put("request_type", type)
         }
         enqueue(eventId, "dsr", payload, 200)
-    }
-
-    private suspend fun enqueueEscalation(trigger: String, evidence: String) {
-        val escalationId = "evt_${UUID.randomUUID()}"
-        val payload = JSONObject().apply {
-            put("event_id", escalationId)
-            put("user_id", preferences.userId)
-            put("level", "L3")
-            put("trigger", trigger)
-            put("evidence_summary", evidence)
-        }
-        enqueue(escalationId, "escalation", payload, 1000)
     }
 
     fun decryptJournal(value: JournalEntity): String = value.bodyCiphertext?.let(cipher::decrypt).orEmpty()
@@ -486,11 +509,12 @@ class LocalRepository(
         return runCatching {
             val o = JSONObject(body)
             val traits = o.optJSONObject("traits") ?: JSONObject()
+            val sourcesUnion = traits.optJSONArray("sources_present_union")?.toStringList() ?: emptyList()
             ProfileDisplay(
                 observationDays = traits.optInt("observation_days", 0),
                 narrativeDaysLast7 = traits.optInt("narrative_days_last_7", 0),
-                recentMoodHint = traits.optString("recent_mood_hint", "未知"),
                 version = o.optInt("version", 1),
+                sourcesPresentUnion = sourcesUnion,
                 updatedAt = o.optString("updated_at").takeIf { it.isNotBlank() && it != "null" },
                 loadFailed = false
             )
@@ -500,8 +524,8 @@ class LocalRepository(
     private fun defaultProfile(loadFailed: Boolean = false) = ProfileDisplay(
         observationDays = 0,
         narrativeDaysLast7 = 0,
-        recentMoodHint = "未知",
         version = 0,
+        sourcesPresentUnion = emptyList(),
         loadFailed = loadFailed
     )
 
@@ -514,13 +538,12 @@ class LocalRepository(
                 NarrativeEventDisplay(
                     source = e.optString("source"),
                     summary = e.optString("summary"),
-                    moodHint = e.optString("mood_hint")
+                    sourcesPresent = e.optJSONArray("sources_present")?.toStringList() ?: emptyList()
                 )
             }
         } ?: emptyList()
         NarrativeDisplay(
             date = o.optString("date"),
-            moodHint = o.optString("mood_hint"),
             events = events,
             gaps = o.optJSONArray("gaps")?.toStringList() ?: emptyList()
         )
@@ -601,6 +624,8 @@ class LocalRepository(
      * - trigger_conditions / steps 在后端是 list[dict]，此处降维为可读字符串：
      *   trigger_conditions 取 field/op/value 拼接；steps 取 description（缺则 key）。
      * - guardrails 后端即 list[str]，原样映射。
+     * - v0.6 执行契约字段（PRD 契约点 4）全部保留：action_type / estimated_duration /
+     *   completion_schema / safety_constraints / revision（T02 修复缺陷 7）。
      */
     private fun parseSkillsArray(arr: JSONArray): List<SkillDisplay> =
         (0 until arr.length()).map { i ->
@@ -612,7 +637,12 @@ class LocalRepository(
                 triggerConditions = o.optJSONArray("trigger_conditions")?.toTriggerStrings() ?: emptyList(),
                 guardrails = o.optJSONArray("guardrails")?.toStringList() ?: emptyList(),
                 steps = o.optJSONArray("steps")?.toStepDescriptions() ?: emptyList(),
-                status = o.optString("status")
+                status = o.optString("status"),
+                actionType = o.optString("action_type", "guided_steps"),
+                estimatedDuration = if (o.has("estimated_duration") && !o.isNull("estimated_duration")) o.optInt("estimated_duration") else null,
+                completionSchema = o.optString("completion_schema").takeIf { it.isNotBlank() && it != "null" },
+                safetyConstraints = o.optJSONArray("safety_constraints")?.toStringList() ?: emptyList(),
+                revision = o.optInt("revision", 1)
             )
         }
 

@@ -99,12 +99,37 @@ internal val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * v4 → v5 迁移（T02）：新增 active_skill_sessions 表（Skill 执行会话持久化）。
+ * 纯增量 CREATE TABLE，无数据改写；旧表不动。
+ */
+internal val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS active_skill_sessions (
+                sessionId TEXT NOT NULL PRIMARY KEY,
+                skillId TEXT NOT NULL,
+                skillVersion INTEGER NOT NULL,
+                skillRevision INTEGER NOT NULL,
+                actionType TEXT NOT NULL,
+                status TEXT NOT NULL,
+                currentStep INTEGER NOT NULL,
+                startedAt INTEGER NOT NULL,
+                accumulatedActiveMs INTEGER NOT NULL,
+                segmentStartedAtMs INTEGER,
+                pausedAt INTEGER,
+                updatedAt INTEGER NOT NULL
+            )"""
+        )
+    }
+}
+
 class AppContainer(context: Context) {
     val cipher = FieldCipher()
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
     val database = Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
         // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
         .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
         .build()

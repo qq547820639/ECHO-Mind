@@ -21,12 +21,24 @@ import java.util.concurrent.ConcurrentLinkedDeque
 /**
  * 麦克风派生特征消费接口（T02 窗口 flush 依赖的最小抽象）。
  *
- * SensingWindowScheduler 只依赖 [snapshotAndClear]（消费并清空派生缓冲），
- * 便于纯 JVM 单测注入替身，避免依赖 AudioRecord/Context。
+ * SensingWindowScheduler 使用非破坏 [snapshot] + 成功持久化后 [clearConsumed]，
+ * 与 Hub 的 ACK 语义一致（先持久化、后清 consumed，失败不丢）。
+ * 旧 [snapshotAndClear] 保留为默认实现（deprecated），生产路径不再调用。
  */
 interface MicDerivedFeatureSource {
-    /** 原子地取出全部派生特征并清空缓冲。 */
-    fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature>
+    /** 非破坏快照当前全部派生特征。 */
+    fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature>
+
+    /** 只清快照内已消费项（引用相等；快照后新到项保留）。 */
+    fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>)
+
+    /** @deprecated 使用 [snapshot] + [clearConsumed]（破坏性消费语义不再用于 flush 路径）。 */
+    @Deprecated("Use snapshot() + clearConsumed()")
+    fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
+        val snap = snapshot()
+        clearConsumed(snap)
+        return snap
+    }
 }
 
 /**
@@ -221,14 +233,18 @@ class MicCollector(
     }
 
     /** 派生特征快照（仅端侧，不落盘不上云）。 */
-    fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature> = derivedBuffer.toList()
+    override fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature> = derivedBuffer.toList()
+
+    /** 只清快照内已消费项（引用相等）；保留快照后新到项（T02 ACK 语义）。 */
+    override fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>) {
+        consumed.forEach { derivedBuffer.remove(it) }
+    }
 
     /**
-     * 消费并清空派生缓冲（T02 窗口 flush 使用，实现 [MicDerivedFeatureSource]）。
-     *
-     * 原子地取出全部派生特征并清空，避免"已消费但未清空"导致重复提取；
-     * 调用方（SensingWindowScheduler）把返回的派生特征转为 DerivedFeatureInput(source="mic_opt")。
+     * @deprecated 使用 [snapshot] + [clearConsumed]；保留兼容旧测试替身。
+     * 生产 flush 路径已改为非破坏消费。
      */
+    @Deprecated("Use snapshot() + clearConsumed()")
     override fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
         val snapshot = derivedBuffer.toList()
         derivedBuffer.clear()

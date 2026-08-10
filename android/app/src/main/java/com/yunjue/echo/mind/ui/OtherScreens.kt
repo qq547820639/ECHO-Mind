@@ -2,6 +2,9 @@ package com.yunjue.echo.mind.ui
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -36,6 +39,9 @@ import java.time.format.DateTimeFormatter
 
 /** T12.3：日记录入已停用提示文案（同时作为单测的不变量锚点）。 */
 internal const val JOURNAL_DEPRECATION_NOTICE = "日记录入已停用，历史记录只读查看；新增内容请通过被动感知自动生成。"
+
+/** T12.6：量表录入已停用提示文案（QuestionnaireScreen 已删除，常量保留供单测锚点）。 */
+internal const val QUESTIONNAIRE_DEPRECATION_NOTICE = "量表录入已停用，筛查提示改由能力卡片驱动。"
 
 @Composable
 fun RecordScreen(repository: LocalRepository) {
@@ -81,6 +87,23 @@ internal const val TREND_DISCLAIMER = "这些趋势来自设备上的行为派�
 enum class TrendUiState { LOADING, OFFLINE_CACHED, FRESH, PARTIAL, NO_DATA, ERROR, PERMISSION_DISABLED }
 
 /**
+ * 趋势页 NO_DATA 细分原因（T02 七态细化）：
+ * 区分「新用户无窗口 / 权限未授权 / 用户关闭感知 / 系统限制后台 / 部分 source 缺失 /
+ * 本地持久化失败 / 等待上传 / 服务器不可用」，避免统一显示"暂无数据"。
+ */
+enum class TrendNoDataReason {
+    NEW_USER,
+    PERMISSION,
+    CLOSED,
+    SYSTEM_BACKGROUND,
+    SOURCE_GAPS,
+    PERSISTENCE_FAILURE,
+    AWAITING_UPLOAD,
+    SERVER_UNAVAILABLE,
+    UNKNOWN
+}
+
+/**
  * 七态解析纯函数（契约点 8）：
  * - API 失败 → ERROR（区别于真无数据的 NO_DATA）；
  * - 感知关闭/权限被撤 → PERMISSION_DISABLED；
@@ -102,6 +125,47 @@ internal fun resolveTrendState(
     isPartial -> TrendUiState.PARTIAL
     else -> TrendUiState.FRESH
 }
+
+/**
+ * NO_DATA 原因解析纯函数（T02 七态细化；纯函数便于单测）：
+ * - observationDays == 0 → 新用户尚无窗口
+ * - 系统限制后台（systemBackgroundRestricted）→ SYSTEM_BACKGROUND
+ * - 本地持久化失败（persistenceFailedRecently）→ PERSISTENCE_FAILURE
+ * - 有待上传特征（pendingUploadCount > 0）→ AWAITING_UPLOAD
+ * - 部分核心 source 缺失（missingSources 非空）→ SOURCE_GAPS
+ * - 其余 → UNKNOWN
+ */
+internal fun resolveTrendNoDataReason(
+    observationDays: Int,
+    systemBackgroundRestricted: Boolean,
+    persistenceFailedRecently: Boolean,
+    pendingUploadCount: Int,
+    missingSources: List<String>
+): TrendNoDataReason = when {
+    observationDays <= 0 -> TrendNoDataReason.NEW_USER
+    systemBackgroundRestricted -> TrendNoDataReason.SYSTEM_BACKGROUND
+    persistenceFailedRecently -> TrendNoDataReason.PERSISTENCE_FAILURE
+    pendingUploadCount > 0 -> TrendNoDataReason.AWAITING_UPLOAD
+    missingSources.isNotEmpty() -> TrendNoDataReason.SOURCE_GAPS
+    else -> TrendNoDataReason.UNKNOWN
+}
+
+/** NO_DATA 原因 → 用户可读文案（不暴露工程术语/HTTP 码）。 */
+internal fun trendNoDataReasonText(reason: TrendNoDataReason): String = when (reason) {
+    TrendNoDataReason.NEW_USER -> "刚开始使用，还没有生成足够的感知窗口。"
+    TrendNoDataReason.PERMISSION -> "感知权限未开启，开启后会自动开始记录。"
+    TrendNoDataReason.CLOSED -> "你已关闭被动感知，可随时在「支持」页重新开启。"
+    TrendNoDataReason.SYSTEM_BACKGROUND -> "系统限制了后台活动，近期没有新的感知数据。"
+    TrendNoDataReason.SOURCE_GAPS -> "部分信号源暂未覆盖，数据仍在收集中。"
+    TrendNoDataReason.PERSISTENCE_FAILURE -> "本地保存暂时遇到问题，数据会在恢复后自动补录。"
+    TrendNoDataReason.AWAITING_UPLOAD -> "数据已保存在本机，正在等待网络恢复后上传。"
+    TrendNoDataReason.SERVER_UNAVAILABLE -> "服务暂时不可用，请稍后重试。"
+    TrendNoDataReason.UNKNOWN -> "暂无趋势数据。"
+}
+
+/** 打开本应用系统设置页（修复权限用 deep link，Settings.ACTION_APPLICATION_DETAILS_SETTINGS）。 */
+internal fun appSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
 
 /** 活动节律定性摘要（非诊断）。 */
 internal fun activityRhythmSummary(narratives: List<NarrativeDisplay>): String {
@@ -143,8 +207,12 @@ internal fun formatTimestamp(epochMs: Long): String {
     }.getOrDefault("暂无")
 }
 
+/** 本地持久化失败判定回看窗口（24h）：窗口内发生过失败则视为"持久化失败"原因。 */
+internal const val PERSISTENCE_FAILURE_LOOKBACK_MS = 24 * 60 * 60 * 1000L
+
 @Composable
 fun TrendScreen(repository: LocalRepository) {
+    val context = LocalContext.current
     var narrativeResult by remember { mutableStateOf<NarrativeFetchResult?>(null) }
     var profile by remember { mutableStateOf<ProfileDisplay?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -173,6 +241,17 @@ fun TrendScreen(repository: LocalRepository) {
         isPartial = narrativeResult?.isPartial == true
     )
 
+    // NO_DATA 细分原因（T02 七态细化）：区分新用户/权限/关闭/系统限制/持久化失败/等待上传等
+    val noDataReason = resolveTrendNoDataReason(
+        observationDays = profile?.observationDays ?: 0,
+        systemBackgroundRestricted = false,
+        persistenceFailedRecently = repository.lastPersistenceFailure()?.let {
+            System.currentTimeMillis() - it < PERSISTENCE_FAILURE_LOOKBACK_MS
+        } ?: false,
+        pendingUploadCount = repository.pendingUploadCount(),
+        missingSources = emptyList()
+    )
+
     val lastSyncTs = repository.lastSyncTimestamp()
     val lastCollectionTs = repository.lastCollectionTimestamp()
 
@@ -185,12 +264,19 @@ fun TrendScreen(repository: LocalRepository) {
                 CircularProgressIndicator()
                 Text("趋势加载中…")
             }
-            TrendUiState.PERMISSION_DISABLED -> Text("被动感知已关闭或权限被撤，无法获取新的趋势数据。")
+            TrendUiState.PERMISSION_DISABLED -> {
+                Text("被动感知已关闭或权限被撤，无法获取新的趋势数据。")
+                OutlinedButton(onClick = {
+                    runCatching { context.startActivity(appSettingsIntent(context)) }
+                }) { Text("前往系统设置修复权限") }
+            }
             TrendUiState.ERROR -> {
                 Text("趋势加载失败")
                 Button(onClick = { retryKey++ }) { Text("重试") }
             }
-            TrendUiState.NO_DATA -> Text("暂无趋势数据。")
+            TrendUiState.NO_DATA -> {
+                Text(trendNoDataReasonText(noDataReason))
+            }
             TrendUiState.OFFLINE_CACHED -> {
                 Text("当前离线，以下为缓存的趋势数据。")
                 TrendContent(narrativeResult, lastCollectionTs, lastSyncTs)
@@ -308,6 +394,8 @@ fun SupportScreen(container: AppContainer) {
 
     val lastCollectionTs = container.preferences.lastCollectionTimestamp
     val lastSyncTs = container.preferences.lastSyncTimestamp
+    val lastPersistenceFailureTs = container.preferences.lastPersistenceFailure
+    val consecutiveFailures = container.preferences.consecutivePersistenceFailures
     val syncState = mapSyncState(
         pendingCount = pending,
         lastHttpCode = container.preferences.lastSyncHttpCode,
@@ -326,13 +414,21 @@ fun SupportScreen(container: AppContainer) {
                 container.preferences.setMicEnabled(true)
                 // P1.4：granted=true 后写 voice_features consent（含证据哈希）到 outbox
                 // 走 SyncWorker 上传到后端，闭环麦克风授权证据链
-                runCatching { container.repository.saveVoiceFeaturesConsent(true) }
+                try {
+                    container.repository.saveVoiceFeaturesConsent(true)
+                } catch (_: Exception) {
+                    // consent 证据落库失败不阻断 UI（outbox 尽力；后续可重试）
+                }
                 SyncWorker.enqueue(context)
                 message = "麦克风已开启（仅端侧处理，不会上传录音）。"
             } else {
                 // 权限拒绝：micEnabled 仍为 false，Switch 自动回弹
                 // P1.4：权限拒绝时写 voice_features consent（granted=false）作为撤销证据
-                runCatching { container.repository.saveVoiceFeaturesConsent(false) }
+                try {
+                    container.repository.saveVoiceFeaturesConsent(false)
+                } catch (_: Exception) {
+                    // 同上
+                }
                 SyncWorker.enqueue(context)
                 message = "未授予录音权限，麦克风开关保持关闭。"
             }
@@ -405,8 +501,12 @@ fun SupportScreen(container: AppContainer) {
                 Text("通知使用权：${if (PassiveSensingService.hasNotificationAccess(context)) "已授权" else "未授权"}")
                 Text("使用情况访问：${if (PassiveSensingService.hasUsageAccess(context)) "已授权" else "未授权"}")
                 Text("麦克风：${if (micEnabled) "开启（仅端侧处理）" else "关闭"}")
-                // 7-10. 采集/同步时间、离线、待同步
+                // 7-10. 采集/同步时间、离线、待同步、持久化失败观测
                 Text("最近成功采集：${formatTimestamp(lastCollectionTs)}")
+                Text("最近持久化失败：${formatTimestamp(lastPersistenceFailureTs ?: 0L)}")
+                if (consecutiveFailures > 0) {
+                    Text("连续失败：$consecutiveFailures 次（数据仍保存在本机，会自动重试）")
+                }
                 Text("最近成功同步：${formatTimestamp(lastSyncTs)}")
                 Text(if (isNetworkAvailable(context)) "当前在线" else "当前离线")
                 Text(syncLabel)
@@ -439,7 +539,11 @@ fun SupportScreen(container: AppContainer) {
                             container.preferences.setMicEnabled(false)
                             // P1.4：用户主动关闭开关 → 写 voice_features consent（granted=false）
                             // 作为撤销证据，与系统权限撤回路径一致
-                            runCatching { container.repository.saveVoiceFeaturesConsent(false) }
+                            try {
+                                container.repository.saveVoiceFeaturesConsent(false)
+                            } catch (_: Exception) {
+                                // consent 证据落库失败不阻断 UI
+                            }
                             SyncWorker.enqueue(context)
                             message = "麦克风已关闭。"
                         }

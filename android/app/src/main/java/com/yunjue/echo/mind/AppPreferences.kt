@@ -13,10 +13,6 @@ class AppPreferences(
 ) {
     private val prefs = context.getSharedPreferences("echo_mind_app_state", Context.MODE_PRIVATE)
 
-    var onboardingCompleted: Boolean
-        get() = prefs.getBoolean("onboarding_completed", false)
-        set(value) = prefs.edit().putBoolean("onboarding_completed", value).apply()
-
     var institutionCode: String
         get() = prefs.getString("institution_code", "") ?: ""
         set(value) = prefs.edit().putString("institution_code", value).apply()
@@ -94,7 +90,7 @@ class AppPreferences(
 
     // ===== 采集 / 同步状态（T02/T05） =====
 
-    /** 最近成功采集时间（epoch ms；saveDerivedFeature 落库时刷新）。 */
+    /** 最近成功采集时间（epoch ms；saveDerivedFeatures 落库成功时刷新）。 */
     var lastCollectionTimestamp: Long
         get() = prefs.getLong("last_collection_timestamp", 0L)
         set(value) = prefs.edit().putLong("last_collection_timestamp", value).apply()
@@ -103,6 +99,20 @@ class AppPreferences(
     var lastSyncTimestamp: Long
         get() = prefs.getLong("last_sync_timestamp", 0L)
         set(value) = prefs.edit().putLong("last_sync_timestamp", value).apply()
+
+    /** 最近一次窗口持久化失败时间（epoch ms；无失败时为 null）。 */
+    var lastPersistenceFailure: Long?
+        get() = if (prefs.contains("last_persistence_failure")) prefs.getLong("last_persistence_failure", 0L) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("last_persistence_failure") else edit.putLong("last_persistence_failure", value)
+            edit.apply()
+        }
+
+    /** 连续窗口持久化失败计数（成功后清零，供支持页观测）。 */
+    var consecutivePersistenceFailures: Int
+        get() = prefs.getInt("consecutive_persistence_failures", 0)
+        set(value) = prefs.edit().putInt("consecutive_persistence_failures", value).apply()
 
     /** 最近一次同步批次末尾的 HTTP code（仅供 UI 映射 SyncState，不暴露给用户）。 */
     var lastSyncHttpCode: Int?
@@ -171,7 +181,36 @@ class AppPreferences(
         _sensingActiveFlow.value = false
     }
 
+    // ===== Onboarding 七态状态机（T02） =====
+    // 与服务端激活资源可推导：consents / L0 经 GET /v1/onboarding/consents/latest 核对；
+    // restricted 由 verify-code 响应/403 决定；withdrawn 由 DSR revoke_service 状态决定。
+
+    var onboardingState: String
+        get() = prefs.getString("onboarding_state", ONBOARDING_NOT_STARTED) ?: ONBOARDING_NOT_STARTED
+        set(value) = prefs.edit().putString("onboarding_state", value).apply()
+
+    /** Onboarding 是否已完成（READY_OFFLINE / READY）。旧版 onboarding_completed 位向后兼容。 */
+    val onboardingCompleted: Boolean
+        get() = when (onboardingState) {
+            ONBOARDING_READY, ONBOARDING_READY_OFFLINE -> true
+            else -> prefs.getBoolean("legacy_onboarding_completed", false)
+        }
+
+    /** 服务端激活确认位（READY 语义）。 */
+    var serverActivated: Boolean
+        get() = prefs.getBoolean("onboarding_server_activated", false)
+        set(value) = prefs.edit().putBoolean("onboarding_server_activated", value).apply()
+
     companion object {
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
+
+        // ===== Onboarding 七态 =====
+        const val ONBOARDING_NOT_STARTED = "NOT_STARTED"
+        const val ONBOARDING_ACTIVATING = "ACTIVATING"
+        const val ONBOARDING_ACTIVATION_FAILED = "ACTIVATION_FAILED"
+        const val ONBOARDING_BOUND = "BOUND"
+        const val ONBOARDING_CONSENT_PENDING = "CONSENT_PENDING"
+        const val ONBOARDING_READY_OFFLINE = "READY_OFFLINE"
+        const val ONBOARDING_READY = "READY"
     }
 }

@@ -11,8 +11,9 @@ import java.util.concurrent.ConcurrentLinkedDeque
  *   供 FeatureExtractor 按 5 分钟窗口消费；
  * - **不保存通知正文**：通知仅保存最小化 metadata（timestamp / packageName / category），
  *   与 [NotificationCollector.NotificationMeta] 完全一致，无 title / text 字段；
- * - 提供 `snapshot(modality)` / `clearModality(modality)` / `clearAll()`，
- *   进程重启后由 `clearAll()` 安全清空（内存缓冲本就随进程消亡）。
+ * - 提供 `snapshotAll()`（非破坏快照）与 `clearConsumed(snapshot)`（只清本窗口已消费项），
+ *   供窗口 flush「先持久化成功、后清 consumed」的 ACK 语义使用；
+ * - `clearAll()` 仅用于 consent revoke / 服务停止（不用于 flush 路径）。
  *
  * 纯 Kotlin 可单测：缓冲使用 [ConcurrentLinkedDeque]，不依赖任何 Android 框架类。
  */
@@ -27,6 +28,21 @@ class SensingEventHub {
         APP_ACTIVITY("app_activity"),
         MIC_OPT("mic_opt")
     }
+
+    /**
+     * 窗口 flush 快照（非破坏）：记录某一时刻各 modality 缓冲的全部项。
+     *
+     * 传给 [clearConsumed] 后，只清快照内已消费项（FloatArray 按引用相等、
+     * 其余 data class 按值相等），不清快照之后新到项——「只清本窗口已消费项」语义。
+     */
+    data class HubSnapshot(
+        val accel: List<FloatArray>,
+        val gyro: List<FloatArray>,
+        val screen: List<ScreenCollector.ScreenEvent>,
+        val notifications: List<NotificationCollector.NotificationMeta>,
+        val appActivities: List<AppActivityCollector.AppActivity>,
+        val micDerived: List<MicFeatureExtractor.MicDerivedFeature>
+    )
 
     private val accelBuffer = ConcurrentLinkedDeque<FloatArray>()
     private val gyroBuffer = ConcurrentLinkedDeque<FloatArray>()
@@ -87,6 +103,32 @@ class SensingEventHub {
         Modality.MIC_OPT -> snapshotMicDerived()
     }
 
+    /** 一次性非破坏快照全部 modality（窗口 flush 用，供 [clearConsumed] 消费）。 */
+    fun snapshotAll(): HubSnapshot = HubSnapshot(
+        accel = snapshotAccel(),
+        gyro = snapshotGyro(),
+        screen = snapshotScreen(),
+        notifications = snapshotNotifications(),
+        appActivities = snapshotAppActivity(),
+        micDerived = snapshotMicDerived()
+    )
+
+    /**
+     * 只清快照内已消费项（T02 窗口 ACK 语义）：
+     *
+     * - FloatArray 按引用相等（数组不重写 equals）→ 只移除本窗口快照中同一实例；
+     * - ScreenEvent / NotificationMeta / AppActivity 为不可变 data class 按值相等；
+     * - 快照之后新到项（下一窗口）不会被清除。
+     */
+    fun clearConsumed(snapshot: HubSnapshot) {
+        snapshot.accel.forEach { accelBuffer.remove(it) }
+        snapshot.gyro.forEach { gyroBuffer.remove(it) }
+        snapshot.screen.forEach { screenBuffer.remove(it) }
+        snapshot.notifications.forEach { notificationBuffer.remove(it) }
+        snapshot.appActivities.forEach { appActivityBuffer.remove(it) }
+        snapshot.micDerived.forEach { micDerivedBuffer.remove(it) }
+    }
+
     /** 是否完全无数据（所有 modality 缓冲均为空）。 */
     fun isEmpty(): Boolean =
         accelBuffer.isEmpty() && gyroBuffer.isEmpty() && screenBuffer.isEmpty() &&
@@ -103,7 +145,7 @@ class SensingEventHub {
         Modality.MIC_OPT -> micDerivedBuffer.clear()
     }
 
-    /** 进程重启后安全清空全部缓冲（不无限增长）。 */
+    /** consent revoke / 服务停止时安全清空全部缓冲（不用于窗口 flush 路径）。 */
     fun clearAll() {
         accelBuffer.clear()
         gyroBuffer.clear()
