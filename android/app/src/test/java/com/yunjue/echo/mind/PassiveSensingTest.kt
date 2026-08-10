@@ -68,7 +68,7 @@ class PassiveSensingTest {
 
     @Test
     fun sensorCollectorStartStopIsIdempotent() {
-        val collector = SensorCollector(context)
+        val collector = SensorCollector(context, SensingEventHub())
         assertFalse("初始应未运行", collector.running)
         collector.start()
         assertTrue("start 后应运行", collector.running)
@@ -84,7 +84,7 @@ class PassiveSensingTest {
 
     @Test
     fun screenCollectorStartStopIsIdempotent() {
-        val collector = ScreenCollector(context)
+        val collector = ScreenCollector(context, SensingEventHub())
         assertFalse(collector.running)
         collector.start()
         assertTrue(collector.running)
@@ -98,7 +98,7 @@ class PassiveSensingTest {
 
     @Test
     fun appActivityCollectorStartStopIsIdempotent() {
-        val collector = AppActivityCollector(context)
+        val collector = AppActivityCollector(context, SensingEventHub())
         assertFalse(collector.running)
         collector.start()
         assertTrue(collector.running)
@@ -111,19 +111,17 @@ class PassiveSensingTest {
     }
 
     @Test
-    fun sensorCollectorBufferTrimsToMaxSize() {
-        val collector = SensorCollector(context)
-        // 直接填充缓冲，验证 trim 逻辑不超过上限
-        repeat(SensorCollector.MAX_BUFFER_SIZE + 50) {
-            collector.accelerometerBuffer.offerLast(floatArrayOf(it.toFloat(), 0f, 0f))
-            // 模拟 trim
-            while (collector.accelerometerBuffer.size > SensorCollector.MAX_BUFFER_SIZE) {
-                collector.accelerometerBuffer.pollFirst()
-            }
+    fun sensorSamplesWriteToHubAndTrimAtCapacity() {
+        // Batch A v0.6.2 单一数据源：collector 无本地缓冲，样本只写 hub；
+        // 缓冲容量上限由 hub 统一管理（trim 语义验证）
+        val hub = SensingEventHub()
+        val collector = SensorCollector(context, hub)
+        repeat(SensorCollector.MAX_BUFFER_SIZE + 50) { i ->
+            hub.onAccelSample(floatArrayOf(i.toFloat(), 0f, 0f))
         }
-        assertEquals(SensorCollector.MAX_BUFFER_SIZE, collector.accelerometerBuffer.size)
-        collector.clearBuffers()
-        assertTrue(collector.accelerometerBuffer.isEmpty())
+        assertEquals(SensorCollector.MAX_BUFFER_SIZE, hub.snapshotAccel().size)
+        // collector.snapshotAccel 委托 hub 同一数据源
+        assertEquals(hub.snapshotAccel().size, collector.snapshotAccel().size)
     }
 
     // ===== 同意开关联动 =====
@@ -248,7 +246,6 @@ class PassiveSensingTest {
                 flagEnabled = false,
                 consentGranted = true,
                 postNotificationsGranted = true,
-                bodySensorsGranted = true,
                 notificationAccessGranted = true,
                 usageAccessGranted = true
             )
@@ -263,7 +260,6 @@ class PassiveSensingTest {
                 flagEnabled = true,
                 consentGranted = false,
                 postNotificationsGranted = true,
-                bodySensorsGranted = true,
                 notificationAccessGranted = true,
                 usageAccessGranted = true
             )
@@ -276,12 +272,11 @@ class PassiveSensingTest {
             "flagEnabled" to true,
             "consentGranted" to true,
             "postNotificationsGranted" to true,
-            "bodySensorsGranted" to true,
             "notificationAccessGranted" to true,
             "usageAccessGranted" to true
         )
         // 逐一移除任一权限/授权 → 门控失败（fail-closed）
-        for (key in listOf("postNotificationsGranted", "bodySensorsGranted", "notificationAccessGranted", "usageAccessGranted")) {
+        for (key in listOf("postNotificationsGranted", "notificationAccessGranted", "usageAccessGranted")) {
             val args = base + (key to false)
             assertFalse(
                 "$key=false 时不应启动",
@@ -289,7 +284,6 @@ class PassiveSensingTest {
                     flagEnabled = args.getValue("flagEnabled") as Boolean,
                     consentGranted = args.getValue("consentGranted") as Boolean,
                     postNotificationsGranted = args.getValue("postNotificationsGranted") as Boolean,
-                    bodySensorsGranted = args.getValue("bodySensorsGranted") as Boolean,
                     notificationAccessGranted = args.getValue("notificationAccessGranted") as Boolean,
                     usageAccessGranted = args.getValue("usageAccessGranted") as Boolean
                 )
@@ -305,7 +299,6 @@ class PassiveSensingTest {
                 flagEnabled = true,
                 consentGranted = true,
                 postNotificationsGranted = true,
-                bodySensorsGranted = true,
                 notificationAccessGranted = true,
                 usageAccessGranted = true
             )

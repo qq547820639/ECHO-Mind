@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -461,3 +461,102 @@ class TenantSandboxSlot(Base):
     tenant_id: Mapped[str] = mapped_column(String(80), primary_key=True)
     running_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class DailyBehaviorAggregate(Base):
+    """被动感知当日行为聚合（Milestone B）。
+
+    把用户本地日（以 User.timezone 换算日界线）内的派生特征窗口聚合为单一指标行。
+    产品契约：本表绝不包含 mood/anxiety/stress/depression/loneliness/risk 字段
+    （行为特征不得用于推断情绪/心理状态，PRD 契约点 2）。
+    """
+
+    __tablename__ = "daily_behavior_aggregates"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("dag"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(80))
+    coverage_score: Mapped[float] = mapped_column(Float, default=0.0)
+    valid_window_count: Mapped[int] = mapped_column(Integer, default=0)
+    expected_window_count: Mapped[int] = mapped_column(Integer, default=288)
+    movement_index: Mapped[float | None] = mapped_column(Float, nullable=True)
+    movement_variability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    screen_on_minutes: Mapped[float] = mapped_column(Float, default=0.0)
+    screen_open_count: Mapped[int] = mapped_column(Integer, default=0)
+    late_screen_minutes: Mapped[float] = mapped_column(Float, default=0.0)
+    app_switch_count: Mapped[int] = mapped_column(Integer, default=0)
+    active_start_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_end_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notification_count: Mapped[int] = mapped_column(Integer, default=0)
+    rhythm_regularity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sources_present: Mapped[list[str]] = mapped_column(JSON, default=list)
+    missing_sources: Mapped[list[str]] = mapped_column(JSON, default=list)
+    schema_version: Mapped[str] = mapped_column(String(40), default="agg-v1")
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "local_date", name="uq_dag_tenant_user_date"),
+    )
+
+
+class PersonalBaseline(Base):
+    """个人行为基线（Milestone C）：近 28 天有效日的 robust 统计分桶。
+
+    - bucket：weekday（周一至周五）/ weekend（周六日）/ all_days（fallback 兜底）；
+    - metrics: {metric: {median, mad, p10, p25, p75, p90, valid_days}}；
+    - baseline_version 固定 "base-v1"，同 tenant+user+bucket 幂等 upsert 覆盖。
+    """
+
+    __tablename__ = "personal_baselines"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("pb"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    baseline_version: Mapped[str] = mapped_column(String(40), default="base-v1")
+    bucket: Mapped[str] = mapped_column(String(20))
+    window_start: Mapped[date] = mapped_column(Date)
+    window_end: Mapped[date] = mapped_column(Date)
+    valid_days: Mapped[int] = mapped_column(Integer, default=0)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "user_id", "bucket", "baseline_version",
+            name="uq_pb_tenant_user_bucket_version",
+        ),
+    )
+
+
+class DailyPortrait(Base):
+    """当日画像（Milestone D/E）：基线就绪后的 5 维度确定性画像。
+
+    - status：WARMING_UP / EARLY_BASELINE / READY / PARTIAL_DATA / LOW_CONFIDENCE；
+    - timezone 字段承载 timezone_used（生成画像时实际使用的用户时区）；
+    - dimensions 取值禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL（产品契约）。
+    """
+
+    __tablename__ = "daily_portraits"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("dp"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(30))
+    confidence: Mapped[str] = mapped_column(String(10))
+    baseline_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    baseline_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    baseline_valid_days: Mapped[int] = mapped_column(Integer, default=0)
+    baseline_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    dimensions: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    highlights: Mapped[list[str]] = mapped_column(JSON, default=list)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    facts: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    schema_version: Mapped[str] = mapped_column(String(40), default="portrait-v1")
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "local_date", name="uq_dp_tenant_user_date"),
+    )

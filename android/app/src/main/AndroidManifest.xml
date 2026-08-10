@@ -3,18 +3,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- ===== T02 被动采集相关权限 ===== -->
-    <!-- 传感器（加速度 / 陀螺仪） -->
-    <uses-permission android:name="android.permission.BODY_SENSORS" />
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
-    <!-- 步数 / 身体活动识别 -->
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- 传感器（加速度 / 陀螺仪）：Android 12+ 普通传感器无需 BODY_SENSORS（该权限保护心率等）；
+         HIGH_SAMPLING_RATE_SENSORS / ACTIVITY_RECOGNITION / WAKE_LOCK /
+         FOREGROUND_SERVICE_REMOTE_MESSAGING 零使用，v0.6.2 已删除（Batch A 权限矩阵） -->
     <!-- 前台服务通知（Android 13+ 需运行时申请） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 前台服务 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
-    <!-- 保持唤醒 -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- specialUse 前台服务（API 34+ 必须声明；lint ForegroundServicePermission） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- App 活跃统计（需用户在系统设置中授权"使用情况访问"） -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -29,6 +26,17 @@
         android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.EchoMind">
+        <!-- v0.6.2：EchoMindApplication 实现 Configuration.Provider（WorkManager 惰性初始化），
+             移除 androidx.startup 默认初始化的 WorkManagerInitializer（lint RemoveWorkManagerInitializer） -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                tools:node="remove" />
+        </provider>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

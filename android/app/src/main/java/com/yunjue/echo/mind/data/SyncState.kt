@@ -9,19 +9,28 @@ import com.yunjue.echo.mind.model.SyncState
  * 同步状态映射（PRD v0.6 契约点 9）。
  *
  * 内部 HTTP status 只用于推导用户可见的 [SyncState]，**严禁**把 status 直接暴露给普通用户。
+ *
+ * v0.6.2（Batch A）签名调整：不再以单一 lastHttpCode 覆盖式代表整批，
+ * 改为批次级分类聚合结果：
+ * - [authBlocked]：批内存在 401/403（认证暂停，UI 提示重新登录）
+ * - [consentBlocked]：批内存在 412/422（consent 撤回/坏 payload）
+ * - [retrying]：批内存在 5xx/429/网络类可重试失败
+ * lastSyncHttpCode 仍保留，但降级为诊断字段，不再参与 UI 状态映射。
  */
 fun mapSyncState(
     pendingCount: Int,
-    lastHttpCode: Int?,
     networkAvailable: Boolean,
-    deadLetterCount: Int
+    deadLetterCount: Int,
+    authBlocked: Boolean,
+    consentBlocked: Boolean,
+    retrying: Boolean
 ): SyncState = when {
-    lastHttpCode == 401 || lastHttpCode == 403 -> SyncState.BLOCKED_BY_AUTH
-    lastHttpCode == 412 || lastHttpCode == 422 -> SyncState.BLOCKED_BY_CONSENT
+    authBlocked -> SyncState.BLOCKED_BY_AUTH
+    consentBlocked -> SyncState.BLOCKED_BY_CONSENT
     deadLetterCount > 0 -> SyncState.FAILED_TERMINAL
     pendingCount == 0 -> SyncState.SYNCED
     !networkAvailable -> SyncState.OFFLINE
-    lastHttpCode != null && (lastHttpCode >= 500 || lastHttpCode == 429) -> SyncState.RETRYING
+    retrying -> SyncState.RETRYING
     else -> SyncState.PENDING
 }
 

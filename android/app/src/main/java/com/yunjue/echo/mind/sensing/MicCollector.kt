@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import kotlinx.coroutines.CoroutineScope
@@ -49,9 +48,10 @@ interface MicDerivedFeatureSource {
  * - 读取后**即时处理**为派生特征（[MicFeatureExtractor.MicDerivedFeature]），
  *   原始音频 buffer 处理后立即清空并丢弃，**绝不落盘、不上云**
  * - start/stop 幂等，重复调用安全
- * - 通过 [androidx.core.app.NotificationManagerCompat.OnPermissionsChangedListener]
- *   监听权限撤回事件，撤回时立即 stop() 并通过 [onPermissionRevoked] 回调通知上层
- *   写入 voice_features consent（granted=false）
+ * - 权限撤回检测：androidx.core 已移除权限变化监听 API（1.18.0 无
+ *   registerOnNotificationsPermissionListener），改为在录音循环中周期性检查
+ *   RECORD_AUDIO 权限；一旦发现被系统设置撤回，立即 stop() 并通过
+ *   [onPermissionRevoked] 回调通知上层写入 voice_features consent（granted=false）
  *
  * 与 [SensorCollector] 的内存缓冲模式不同：本采集器不保留任何原始音频，
  * 仅保留提取后的派生特征（summary + vector），且派生缓冲容量极小。
@@ -82,26 +82,6 @@ class MicCollector(
     private var audioRecord: AudioRecord? = null
 
     /**
-     * 权限撤回监听器：当 RECORD_AUDIO 被系统设置撤回时触发。
-     *
-     * 实现 [NotificationManagerCompat.OnPermissionsChangedListener]，
-     * 该回调在任意权限变化时触发；过滤出 RECORD_AUDIO 撤回且当前正在采集时
-     * 才执行 stop + 通知。
-     */
-    private val permissionsChangedListener =
-        NotificationManagerCompat.OnPermissionsChangedListener { _ ->
-            // 只在 running 中检查；非 running 时权限变化无意义
-            if (running && !hasPermission()) {
-                stop()
-                onPermissionRevoked()
-            }
-        }
-
-    /** 是否已注册权限监听器。 */
-    @Volatile
-    private var listenerRegistered: Boolean = false
-
-    /**
      * 启动前置检查：满足以下全部条件才可启动：
      * 1. 当前未运行
      * 2. RECORD_AUDIO 权限已授予
@@ -117,15 +97,14 @@ class MicCollector(
     /**
      * 启动采集：
      * - start 前检查权限 + 开关（[canStart]），任一不满足则直接返回（幂等）
-     * - 注册权限撤回监听器（仅在首次 start 时注册，避免重复）
      * - 创建 AudioRecord 并在 IO 协程中循环读取音频块
      * - 每个音频块即时提取特征后清空，仅保留派生特征
+     * - 循环内周期性检查 RECORD_AUDIO 权限（见 [PERMISSION_CHECK_INTERVAL_MS]），
+     *   被系统设置撤回时停止并触发 [onPermissionRevoked]
      */
     fun start() {
         if (running) return
         if (!canStart()) return
-
-        ensurePermissionListenerRegistered()
 
         val minBuf = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
@@ -154,8 +133,19 @@ class MicCollector(
             val chunkSize = SAMPLE_RATE / 10 // 100ms = 1600 samples @ 16kHz
             val chunk = ShortArray(chunkSize)
             record.startRecording()
+            var lastPermissionCheckMs = System.currentTimeMillis()
             try {
                 while (isActive && running) {
+                    // 周期性检查 RECORD_AUDIO 是否被系统设置撤回（androidx.core 已移除权限变化监听 API）
+                    val nowMs = System.currentTimeMillis()
+                    if (nowMs - lastPermissionCheckMs >= PERMISSION_CHECK_INTERVAL_MS) {
+                        lastPermissionCheckMs = nowMs
+                        if (!hasPermission()) {
+                            stop()
+                            onPermissionRevoked()
+                            break
+                        }
+                    }
                     val read = record.read(chunk, 0, chunkSize)
                     if (read > 0) {
                         // 即时处理：复制有效部分给提取器，原始 chunk 在循环中被覆盖
@@ -181,7 +171,7 @@ class MicCollector(
         }
     }
 
-    /** 停止采集并释放 AudioRecord 资源。幂等。不注销权限监听器（保留以便后续撤回仍可感知）。 */
+    /** 停止采集并释放 AudioRecord 资源。幂等。（权限撤回检测在录音循环内周期性执行。） */
     fun stop() {
         running = false
         recordJob?.cancel()
@@ -194,19 +184,13 @@ class MicCollector(
     }
 
     /**
-     * 显式释放资源并注销权限监听器。
+     * 显式释放资源。
      *
-     * 在 Service onDestroy / 测试 tearDown 时调用，避免监听器泄漏。
+     * 在 Service onDestroy / 测试 tearDown 时调用；幂等，重复调用安全。
+     * （androidx.core 已移除权限变化监听 API，无需注销监听器。）
      */
     fun release() {
         stop()
-        if (listenerRegistered) {
-            runCatching {
-                NotificationManagerCompat.from(appContext)
-                    .removeOnPermissionsChangedListener(permissionsChangedListener)
-            }
-            listenerRegistered = false
-        }
     }
 
     /** 当前是否已授予 RECORD_AUDIO 权限。 */
@@ -220,16 +204,6 @@ class MicCollector(
      */
     private fun isMicEnabledBlocking(): Boolean = runBlocking {
         prefs.micEnabled.first()
-    }
-
-    /** 注册权限撤回监听器（幂等，已注册时跳过）。 */
-    private fun ensurePermissionListenerRegistered() {
-        if (listenerRegistered) return
-        runCatching {
-            NotificationManagerCompat.from(appContext)
-                .addOnPermissionsChangedListener(permissionsChangedListener)
-        }
-        listenerRegistered = true
     }
 
     /** 派生特征快照（仅端侧，不落盘不上云）。 */
@@ -263,5 +237,8 @@ class MicCollector(
     companion object {
         const val SAMPLE_RATE = 16000
         const val MAX_BUFFER_SIZE = 64
+
+        /** 录音循环中检查 RECORD_AUDIO 权限的间隔（毫秒）。 */
+        const val PERMISSION_CHECK_INTERVAL_MS = 1_000L
     }
 }

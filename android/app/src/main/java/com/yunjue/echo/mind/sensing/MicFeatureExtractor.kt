@@ -194,8 +194,9 @@ class MicFeatureExtractor {
         val k = minOf(F0_TOP_K, energies.size)
         val topIndices = energies.indices.sortedByDescending { energies[it] }.take(k)
         val f0s = ArrayList<Float>(k)
-        val minLag = (sampleRate / F0_MAX_HZ).coerceAtLeast(2)
-        val maxLag = (sampleRate / F0_MIN_HZ).coerceAtLeast(minLag + 1)
+        // F0_MIN_HZ/F0_MAX_HZ 为 Float，整数除法需显式 toInt() 再夹取，保持 60–400Hz 的 lag 语义
+        val minLag = (sampleRate / F0_MAX_HZ).toInt().coerceAtLeast(2)
+        val maxLag = (sampleRate / F0_MIN_HZ).toInt().coerceAtLeast(minLag + 1)
         for (idx in topIndices) {
             val start = idx * frameSize
             val end = minOf(start + frameSize, samples.size)

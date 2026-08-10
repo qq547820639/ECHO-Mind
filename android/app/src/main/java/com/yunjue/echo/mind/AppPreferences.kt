@@ -45,6 +45,33 @@ class AppPreferences(
     fun setNarrativeCache(json: String) = prefs.edit().putString("narrative_cache_json", json).apply()
     fun getNarrativeCacheJson(): String? = prefs.getString("narrative_cache_json", null)
 
+    // ===== 画像反馈本地记录（Milestone F） =====
+    // 「这个描述像今天的你吗？」点击后仅本地记录（date → "yes"/"no"），
+    // 不新增网络请求；后续版本再按此键值上报到 /v1/portraits/{date}/feedback。
+    // 存储为 JSON 字符串：{"2026-08-10":"yes", ...}。
+
+    private val KEY_PORTRAIT_FEEDBACK = "portrait_feedback_json"
+
+    fun recordPortraitFeedback(date: String, helpful: Boolean) {
+        val current = runCatching { JSONObject(prefs.getString(KEY_PORTRAIT_FEEDBACK, null)) }
+            .getOrElse { JSONObject() }
+        current.put(date, if (helpful) "yes" else "no")
+        prefs.edit().putString(KEY_PORTRAIT_FEEDBACK, current.toString()).apply()
+    }
+
+    /** 某日画像反馈：true=挺像 / false=不太像 / null=尚未反馈。 */
+    fun portraitFeedback(date: String): Boolean? {
+        val json = prefs.getString(KEY_PORTRAIT_FEEDBACK, null) ?: return null
+        return runCatching {
+            val o = JSONObject(json)
+            when (o.optString(date, "")) {
+                "yes" -> true
+                "no" -> false
+                else -> null
+            }
+        }.getOrDefault(null)
+    }
+
     // ===== P5 灰度回滚：feature flags 缓存（SharedPreferences） =====
     // 移动端拉取 GET /v1/config/flags 后缓存，端侧灰度联动：
     // - passive_sensing_enabled=false → PassiveSensingService 不启动
@@ -157,6 +184,24 @@ class AppPreferences(
             edit.apply()
         }
 
+    // ===== v0.6.2（Batch A）：401/403 认证暂停语义 =====
+    // 认证失效是「暂停」不是「放弃」：批内遇 401/403 后停止后台重试
+    // （WorkManager 不再因 auth 高频 retry），直到用户重新认证成功清除该状态。
+
+    /** 最近一次 401/403 认证失败时间（epoch ms）；>0 表示后台同步处于认证暂停态。 */
+    var lastAuthBlockedAt: Long
+        get() = prefs.getLong("last_auth_blocked_at", 0L)
+        set(value) = prefs.edit().putLong("last_auth_blocked_at", value).apply()
+
+    /** 认证暂停态（401/403 后为 true，SyncWorker.doWork 开头据此直接 success 返回）。 */
+    val authRequired: Boolean
+        get() = lastAuthBlockedAt > 0L
+
+    /** 清除认证暂停态（重新认证成功时调用，见 LocalRepository.verifyOnboardingCode）。 */
+    fun clearAuthBlocked() {
+        prefs.edit().remove("last_auth_blocked_at").apply()
+    }
+
     /**
      * 待上传事件数（每次 SyncWorker 批处理结束时写回；UI「有 N 项待同步」）。
      */
@@ -203,6 +248,14 @@ class AppPreferences(
     }
 
     fun migrationTelemetryCount(eventType: String): Int = prefs.getInt("migrated_$eventType", 0)
+
+    /** 未知事件类型 telemetry 计数（毒丸防毒化路径可观测；v0.6.2 Batch A）。 */
+    fun recordUnknownTypeTelemetry(eventType: String) {
+        val key = "unknown_type_$eventType"
+        prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply()
+    }
+
+    fun unknownTypeTelemetryCount(eventType: String): Int = prefs.getInt("unknown_type_$eventType", 0)
 
     /** 记录 429 Retry-After 秒数（WorkManager 指数退避接管重试节奏）。 */
     fun recordRetryAfter(eventType: String, seconds: Int) {

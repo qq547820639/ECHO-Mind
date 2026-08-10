@@ -10,26 +10,64 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/**
+ * 敏感字段加密器（AES-GCM，密钥存 Android Keystore，不可导出）。
+ *
+ * v0.6.2（Batch A，测试基建修复）：增加 JVM-only 降级分支——
+ * Robolectric/JVM 单测环境没有 AndroidKeyStore provider（KeyStore.getInstance 抛
+ * "AndroidKeyStore not found"），此前所有依赖 FieldCipher 的 Robolectric 测试无法运行。
+ *
+ * 本降级分支**仅在 AndroidKeyStore 不可用**时激活：使用进程内内存 KeyStore（JCEKS）
+ * + 随机 AES-256 密钥，密钥不落盘、进程退出即失效。因此：
+ * - 生产环境（真机 Android）恒走 AndroidKeyStore 分支，安全语义完全不变；
+ * - 测试环境获得确定性可用的 encrypt / decrypt / deriveDatabasePassphrase。
+ */
 class FieldCipher {
     private val alias = "echo_mind_sensitive_fields_v1"
-    private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+
+    private val keyStore: KeyStore
+    private val useAndroidKeyStore: Boolean
+
+    /** JVM 降级分支的内存 KeyStore 口令（仅内存使用，不落盘）。 */
+    private val jceksPassword = "echo_mind_jvm_test_keystore".toCharArray()
+
+    init {
+        val androidKeyStore = runCatching {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        }.getOrNull()
+        if (androidKeyStore != null) {
+            keyStore = androidKeyStore
+            useAndroidKeyStore = true
+        } else {
+            // JVM 单测降级：内存 JCEKS + 随机密钥，绝不持久化（生产恒走 AndroidKeyStore 分支）
+            keyStore = KeyStore.getInstance("JCEKS").apply { load(null, jceksPassword) }
+            useAndroidKeyStore = false
+        }
+    }
 
     /** 缓存派生的数据库口令，避免重复 Keystore 运算。 */
     @Volatile
     private var cachedDbPassphrase: ByteArray? = null
 
     private fun key(): SecretKey {
-        val existing = keyStore.getKey(alias, null) as? SecretKey
+        val existing = keyStore.getKey(alias, if (useAndroidKeyStore) null else jceksPassword) as? SecretKey
         if (existing != null) return existing
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(
-            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
-                .build()
-        )
-        return generator.generateKey()
+        return if (useAndroidKeyStore) {
+            val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            generator.init(
+                KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build()
+            )
+            generator.generateKey()
+        } else {
+            KeyGenerator.getInstance("AES").apply { init(256) }.generateKey().also {
+                // 内存 KeyStore 需显式 setKeyEntry 才能在后续 getKey 中取回
+                keyStore.setKeyEntry(alias, it, jceksPassword, null)
+            }
+        }
     }
 
     fun encrypt(plain: String): String {

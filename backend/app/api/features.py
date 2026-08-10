@@ -1,17 +1,21 @@
 """派生特征摄入路由（v0.6.1 拆分）：被动感知特征 ingest（幂等 + consent 门控）。
 
-写路径：入库后同步构建当日叙事；不触发任何被动危机链路
-（行为派生特征不得用于推断危机/自杀意图，PRD v0.6 契约点 1）。
+写路径：入库后同步构建当日叙事与当日行为聚合（Milestone B）；
+不触发任何被动危机链路（行为派生特征不得用于推断危机/自杀意图，PRD v0.6 契约点 1）。
 """
 from __future__ import annotations
 
+from datetime import timezone
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models import User
 from app.schemas import DerivedFeatureIn
+from app.services.aggregates.calculator import upsert_daily_aggregate
 from app.services.audit import append_audit
 from app.services.profile import build_daily_narrative, ingest_feature
 
@@ -63,6 +67,21 @@ def ingest_derived_feature(
         user_id=payload.user_id,
         date=payload.window_start.date(),
     )
+    # Milestone B：非幂等重放时同步更新当日行为聚合（日界线用用户本地时区）
+    user = db.get(User, payload.user_id)
+    if user is not None:
+        tz_name = user.timezone or "Asia/Shanghai"
+        ws = payload.window_start
+        if ws.tzinfo is None:  # SQLite 路径防御：naive 一律按 UTC 解释
+            ws = ws.replace(tzinfo=timezone.utc)
+        local_date = ws.astimezone(ZoneInfo(tz_name)).date()
+        upsert_daily_aggregate(
+            db,
+            tenant_id=principal.tenant_id,
+            user_id=payload.user_id,
+            local_date=local_date,
+            tz_name=tz_name,
+        )
     # PRD v0.6 契约点 1：被动行为数据不得用于推断危机/自杀意图，
     # ingest 不触发任何被动 RED 危机链路（escalation_id 恒为 None）。
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,

@@ -2,19 +2,22 @@ package com.yunjue.echo.mind.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,100 +32,363 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.LocalRepository
-import com.yunjue.echo.mind.data.SyncState
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
+import com.yunjue.echo.mind.model.DailyPortraitDto
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_DIMENSIONS_TITLE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_SAVED
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_SKILLS
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_TREND
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOAD_FAILED
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_REENABLE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_ACTION
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_WHY
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
+import com.yunjue.echo.mind.model.PORTRAIT_DIMENSIONS
+import com.yunjue.echo.mind.model.PortraitStatus
+import com.yunjue.echo.mind.model.PortraitUiState
+import com.yunjue.echo.mind.model.SyncState
+import com.yunjue.echo.mind.model.dimensionDisplayName
+import com.yunjue.echo.mind.model.dimensionValueText
+import com.yunjue.echo.mind.model.todayPortraitStateText
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
- * 「今天」主界面（T11 改造）：无输入框。
+ * 「今天」主界面（Milestone F：Portrait first）。
  *
- * - 移除原 mood/stress/energy/sleep Slider、note 输入、PHQ-9/GAD-7 入口、人工帮助按钮。
- * - 改为渲染后端下发的 Skill 能力卡片（LazyColumn + [SkillCardHost]），每个「开始」按钮有真实执行行为。
- * - Skill 列表为空时按 [SkillFetchResult.coldStartHint] 展示分阶段冷启动文案。
- * - 同步状态按 [SyncState] 映射为用户文案（PRD 契约点 9），不暴露 HTTP status。
- * - PRD 契约点 1 收口：不再由 passiveSafety RED 切 [SafetyScreen]（行为派生特征不触发危机 UI）。
+ * 布局（spec）：日期标题（今天 + M月d日）→「今天的你」headline chips → summary 段落 →
+ * 「和你的平常相比」dimensions 对照表 →「为什么这么说？」可展开区（facts）→
+ * 「过去 7 天 →」入口（切 Trend tab）→ 底部「想做点什么？」（Skill 降级：默认只显示
+ * 跳转「能力」Tab 按钮，点开才渲染 Skill 卡片列表）→ 底部用户反馈（仅 READY/PARTIAL_DATA）。
+ *
+ * 九态状态机（[PortraitStatus]）：文案统一来自 [todayPortraitStateText]（单测锚点），
+ * 禁止在本文件另行硬编码状态文案；禁止统一显示「暂无数据」。
+ *
+ * Skill 不再占据主体（降级为「想做点什么？」可展开区），「开始」按钮仍走
+ * [SkillCardHost] + [SkillSessionCoordinator]（真实执行行为保留）。
  */
 @Composable
-fun TodayScreen(repository: LocalRepository, onEmergency: () -> Unit, coordinator: SkillSessionCoordinator) {
+fun TodayScreen(
+    repository: LocalRepository,
+    coordinator: SkillSessionCoordinator,
+    onGoToSkills: () -> Unit,
+    onGoToTrend: () -> Unit,
+    onEmergency: () -> Unit,
+    onReEnableSensing: () -> Unit
+) {
     val context = LocalContext.current
-    val pending by repository.observePendingCount().collectAsState(initial = 0)
-    val (skillState, retry) = rememberSkillList(repository)
+    val state by repository.observeTodayPortrait().collectAsState()
+    var retryKey by remember { mutableStateOf(0) }
 
+    // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次
+    LaunchedEffect(retryKey) {
+        repository.refreshTodayPortrait(networkAvailable = isNetworkAvailable(context))
+    }
+
+    // 同步状态 chip（沿用既有行为，PRD 契约点 9）
+    val pending by repository.observePendingCount().collectAsState(initial = 0)
     val syncState = mapSyncState(
         pendingCount = pending,
-        lastHttpCode = repository.lastSyncHttpCode(),
         networkAvailable = isNetworkAvailable(context),
-        deadLetterCount = repository.deadLetterCount()
+        deadLetterCount = repository.deadLetterCount(),
+        authBlocked = repository.isAuthBlocked(),
+        consentBlocked = repository.lastSyncErrorClass() == "consent",
+        retrying = repository.lastSyncErrorClass() == "retryable"
     )
     val syncLabel = syncStateText(syncState, pending)
 
-    // P5 灰度回滚：拉取 feature flags 缓存 + 观察 skills_delivery_enabled。
-    // flag 关闭时隐藏 Skill 卡片区，显示「能力下发已暂停」。
-    LaunchedEffect(Unit) {
-        runCatching { repository.fetchFeatureFlags() }
-    }
-    val featureFlags by repository.featureFlagsFlow.collectAsState(
-        initial = mapOf("skills_delivery_enabled" to true)
-    )
-    val skillsDeliveryEnabled = featureFlags["skills_delivery_enabled"] ?: true
+    // 日期标题：今天 + M月d日（设备本地时区）
+    val todayMd = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
+
+    // 「想做点什么？」展开状态（Skill 降级：点开才显示卡片列表）
+    var actionExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item { Text("今天", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("今天 · $todayMd", style = MaterialTheme.typography.headlineMedium) }
         item {
-            // 同步状态文案 + 计数（PRD 契约点 9）：已同步时不打扰
+            // 同步状态文案 + 计数（已同步时不打扰）
             if (pending > 0 || syncState != SyncState.SYNCED) {
                 AssistChip(onClick = { SyncWorker.enqueue(context) }, label = { Text(syncLabel) })
             }
         }
-        when {
-            !skillsDeliveryEnabled -> item {
-                // P5 灰度回滚：skills_delivery_enabled=false 时隐藏 Skill 卡片区
-                Text(
-                    stringResource(R.string.skills_delivery_paused),
-                    Modifier.padding(top = 20.dp)
-                )
-            }
-            skillState.loadFailed -> item {
-                // 加载失败：显示「加载失败」+ 重试按钮（区别于冷启动空态）
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(stringResource(R.string.cold_start_load_failed))
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = retry) { Text(stringResource(R.string.cold_start_retry)) }
-                }
-            }
-            skillState.skills == null -> item {
-                // 加载中：spinner
+
+        // ===== 九态渲染（spec：禁止统一显示「暂无数据」） =====
+        when (state.status) {
+            PortraitStatus.LOADING -> item {
                 Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
                 }
             }
-            skillState.skills.isEmpty() -> item {
-                // 冷启动空态：按后端 cold_start_hint 分阶段文案
-                val stage = skillState.coldStartHint ?: "stage_0"
-                val resId = coldStartHint(stage, skillState.observationDays)
-                Text(
-                    if (stage == "stage_1_3") stringResource(resId, skillState.observationDays)
-                    else stringResource(resId),
-                    Modifier.padding(top = 20.dp)
-                )
+
+            PortraitStatus.WARMING_UP -> item {
+                Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
             }
-            else -> items(skillState.skills) { skill ->
-                // 每个「开始」按钮都有真实执行行为（SkillCardHost 内部状态机 + 上报）
-                SkillCardHost(skill, repository, coordinator)
+
+            // EARLY_BASELINE / LOW_CONFIDENCE：显示当天事实（服务端 summary 即「数据不够完整」文案）
+            PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE -> item {
+                PortraitSummaryOnly(state)
+            }
+
+            PortraitStatus.READY -> item {
+                PortraitFullBody(state)
+            }
+
+            PortraitStatus.PARTIAL_DATA -> {
+                item { Text(PORTRAIT_COPY_PARTIAL_BANNER, Modifier.padding(top = 12.dp)) }
+                item { PortraitFullBody(state) }
+            }
+
+            PortraitStatus.OFFLINE_CACHED -> {
+                if (state.offline) {
+                    item { Text(PORTRAIT_COPY_OFFLINE_BANNER, Modifier.padding(top = 12.dp)) }
+                }
+                item { PortraitFullBody(state) }
+            }
+
+            PortraitStatus.SENSING_DISABLED -> item {
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(PORTRAIT_COPY_SENSING_DISABLED)
+                    Button(
+                        onClick = {
+                            onReEnableSensing()
+                            retryKey++ // 重新开启后立即刷新画像（不再停留 SENSING_DISABLED）
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(PORTRAIT_COPY_REENABLE)
+                    }
+                }
+            }
+
+            PortraitStatus.ERROR -> item {
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(PORTRAIT_COPY_LOAD_FAILED)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { retryKey++ }) { Text(PORTRAIT_COPY_RETRY) }
+                }
             }
         }
-        // 底部小的紧急支持快捷入口：危机入口在 SUPPORT tab 常驻，此处提供一键跳转
+
+        // 「过去 7 天 →」入口：切 Trend tab
+        item {
+            OutlinedButton(onClick = onGoToTrend, modifier = Modifier.fillMaxWidth()) {
+                Text(PORTRAIT_COPY_GO_TREND)
+            }
+        }
+
+        // 底部「想做点什么？」：Skill 降级（默认只显示跳转按钮，点开才渲染卡片列表）
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(PORTRAIT_COPY_SECTION_ACTION, style = MaterialTheme.typography.titleMedium)
+                OutlinedButton(onClick = onGoToSkills, modifier = Modifier.fillMaxWidth()) {
+                    Text(PORTRAIT_COPY_GO_SKILLS)
+                }
+                TextButton(
+                    onClick = { actionExpanded = !actionExpanded },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(if (actionExpanded) "收起能力卡片" else "展开能力卡片")
+                }
+            }
+        }
+        if (actionExpanded) {
+            item {
+                SkillListSection(repository, coordinator)
+            }
+        }
+
+        // 底部紧急支持快捷入口（危机入口在 SUPPORT tab 常驻）
         item {
             OutlinedButton(onClick = onEmergency, modifier = Modifier.fillMaxWidth()) { Text("紧急支持") }
         }
+
+        // 用户反馈（仅 READY / PARTIAL_DATA 显示底部）：本地记录，后续版本上报
+        if (state.status == PortraitStatus.READY || state.status == PortraitStatus.PARTIAL_DATA) {
+            item { PortraitFeedbackRow(repository, state) }
+        }
+
         item { Spacer(Modifier.height(96.dp)) }
+    }
+}
+
+/** EARLY_BASELINE / LOW_CONFIDENCE：仅渲染服务端 summary（当天事实/数据不够完整文案）。 */
+@Composable
+private fun PortraitSummaryOnly(state: PortraitUiState) {
+    val portrait = state.portrait
+    if (portrait == null) return
+    Text(portrait.summary, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 20.dp))
+}
+
+/**
+ * 完整画像主体：
+ * 「今天的你」headline chips → summary →「和你的平常相比」dimensions 对照表 →
+ * 「为什么这么说？」可展开区（facts）。
+ */
+@Composable
+private fun PortraitFullBody(state: PortraitUiState) {
+    val portrait = state.portrait ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 1. headline chips
+        if (portrait.headline.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                portrait.headline.forEach { headline ->
+                    AssistChip(onClick = {}, label = { Text(headline) })
+                }
+            }
+        }
+        // 2. summary 段落
+        if (portrait.summary.isNotBlank()) {
+            Text(portrait.summary, style = MaterialTheme.typography.bodyLarge)
+        }
+        // 3. dimensions 对照表（固定维度顺序 + 未知维度追加）
+        if (portrait.dimensions.isNotEmpty()) {
+            HorizontalDivider()
+            Text(PORTRAIT_COPY_DIMENSIONS_TITLE, style = MaterialTheme.typography.titleMedium)
+            val orderedKeys = PORTRAIT_DIMENSIONS.filter { it in portrait.dimensions } +
+                portrait.dimensions.keys.filter { it !in PORTRAIT_DIMENSIONS }
+            orderedKeys.forEach { key ->
+                val value = portrait.dimensions[key] ?: return@forEach
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(dimensionDisplayName(key), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        dimensionValueText(key, value),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        // 4. 「为什么这么说？」可展开区（facts）
+        FactsSection(portrait)
+    }
+}
+
+/** 「为什么这么说？」可展开区：facts 列表（label + 今天/平常/变化对照）。 */
+@Composable
+private fun FactsSection(portrait: DailyPortraitDto) {
+    var expanded by remember { mutableStateOf(false) }
+    HorizontalDivider()
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(PORTRAIT_COPY_SECTION_WHY, style = MaterialTheme.typography.titleMedium)
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "收起" else "展开")
+        }
+    }
+    if (expanded) {
+        if (portrait.facts.isEmpty()) {
+            Text("暂无更多细节。", style = MaterialTheme.typography.bodySmall)
+        }
+        portrait.facts.forEach { fact ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (fact.label.isNotBlank()) {
+                        Text(fact.label, style = MaterialTheme.typography.titleSmall)
+                    }
+                    if (fact.todayText.isNotBlank()) {
+                        Text("今天：${fact.todayText}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (fact.baselineText.isNotBlank()) {
+                        Text("平常：${fact.baselineText}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (fact.deltaText.isNotBlank()) {
+                        Text("变化：${fact.deltaText}", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 用户反馈（Milestone F）：「这个描述像今天的你吗？」[挺像] [不太像]。
+ * 点击后仅本地记录（portrait_id=date + 是否像），不新增网络请求；
+ * 后续版本按 date 上报 /v1/portraits/{date}/feedback（后端当前无此端点）。
+ */
+@Composable
+private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiState) {
+    val portrait = state.portrait ?: return
+    val date = portrait.date
+    var feedback by remember(date) { mutableStateOf(repository.portraitFeedback(date)) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalDivider()
+        Text(PORTRAIT_COPY_FEEDBACK_QUESTION, style = MaterialTheme.typography.bodyMedium)
+        if (feedback == null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = {
+                    repository.recordPortraitFeedback(date, helpful = true)
+                    feedback = true
+                }) { Text(PORTRAIT_COPY_FEEDBACK_LIKE) }
+                OutlinedButton(onClick = {
+                    repository.recordPortraitFeedback(date, helpful = false)
+                    feedback = false
+                }) { Text(PORTRAIT_COPY_FEEDBACK_NOT_LIKE) }
+            }
+        } else {
+            Text(PORTRAIT_COPY_FEEDBACK_SAVED, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/**
+ * 「想做点什么？」Skill 卡片区（降级：仅在用户点开「展开能力卡片」后渲染）。
+ * 复用 [rememberSkillList] 三态（加载中 / 加载失败 / 空态冷启动 / 列表），
+ * 每个「开始」按钮走 [SkillCardHost] 真实执行行为。
+ */
+@Composable
+private fun SkillListSection(repository: LocalRepository, coordinator: SkillSessionCoordinator) {
+    val (skillState, retry) = rememberSkillList(repository)
+    when {
+        skillState.loadFailed -> Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(stringResource(R.string.cold_start_load_failed))
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = retry) { Text(stringResource(R.string.cold_start_retry)) }
+        }
+        skillState.skills == null -> Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator()
+        }
+        skillState.skills.isEmpty() -> {
+            val stage = skillState.coldStartHint ?: "stage_0"
+            val resId = coldStartHint(stage, skillState.observationDays)
+            Text(
+                if (stage == "stage_1_3") stringResource(resId, skillState.observationDays)
+                else stringResource(resId)
+            )
+        }
+        else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            skillState.skills.forEach { skill ->
+                SkillCardHost(skill, repository, coordinator)
+            }
+        }
     }
 }

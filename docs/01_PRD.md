@@ -6,6 +6,8 @@
 
 > v0.2 范式迁移：从主动输入（签到/日记/量表）转为被动感知 + 自进化沙箱范式。主动录入入口已停用（返回 410 Gone），改由端侧被动采集派生特征驱动叙事与能力下发。
 
+> **Portrait Core（v0.7）产品收敛**：产品核心合同固定为「每日个人画像」——ECHO-Mind 在用户主动授权后学习**用户自己的日常基线**，每天回答："今天的我，和通常的我有什么不同？"。Skill、人工支持、Safety、Workbench、Sandbox 全部保留但降级为**外围能力**，不占据产品主叙事。详见仓库根目录 `PORTRAIT_CONTRACT.md`。
+
 ## 成功指标
 
 - 首次流程中位时长 ≤5 分钟
@@ -19,11 +21,23 @@
 
 1. 用户能理解 AI 身份和非诊断边界后进入应用（L0 准入门禁保留）。
 2. 用户授权被动感知后，端侧自动采集屏幕/通知/活动/传感器信号，提取派生特征（summary + vector），不上传原始传感数据。
-3. 后端基于派生特征生成每日叙事（DailyNarrative）与用户画像（UserProfile），驱动趋势视图。
-4. 自进化沙箱每日夜间运行：审计当日数据 → 识别感知缺口 → 生成候选 Tool → 验证 → 归纳为 Skill → 脱敏下发。
-5. 用户在「能力」Tab 查看已下发 Skill 卡片（WebView 安全沙箱渲染），点击触发能力。
+3. 后端基于派生特征生成每日行为聚合（`DailyBehaviorAggregate`，按用户 local timezone 切日）、个人基线（`PersonalBaseline`，近 28 天 robust statistics + 冷启动三态 + weekday/weekend 分桶）与每日画像（`DailyPortrait`，5 维度 + 确定性模板叙事 + confidence/abstention），驱动「今天」页与 7/28 天画像时间线。
+4. 自进化沙箱每日夜间运行：审计当日数据 → 识别感知缺口 → 生成候选 Tool → 验证 → 归纳为 Skill → 脱敏下发。（外围能力，不再自动主链推荐）
+5. 用户在「能力」Tab 主动浏览已下发 Skill 卡片（WebView 安全沙箱渲染），点击触发能力。
 6. 用户出现明确危机信号时，应用停止普通生成并启动人工链路；危机入口（12356/110/120）常驻可见。
 7. 值班人员可确认、接管、记录处置；只有人工可关闭事件。
+
+## Portrait Core（每日个人画像）
+
+- **产品合同**：`PORTRAIT_CONTRACT.md` 冻结"画像是什么/不是什么"。只做行为观察（Observation），不做 Psychological Interpretation；Me vs Me，禁止 Me vs Population。
+- **日界线**：以 `User.timezone` 定义"一天"（本地 00:00 → 次日 00:00 换算 UTC 查询窗口）；`DailyPortrait.timezone` 记录 timezone_used，保证可重现。
+- **DailyBehaviorAggregate**（daily_behavior_aggregates）：覆盖度/移动/屏幕/App 切换/通知计数等；禁含 mood/anxiety/stress/depression/loneliness/risk 字段。
+- **PersonalBaseline**（personal_baselines）：近 28 个有效日（不含当天），median/MAD/P10/P25/P75/P90；冷启动 WARMING_UP(0-2) / EARLY_BASELINE(3-6) / BASELINE_READY(≥7)；weekday/weekend 分桶，不足 fallback all_days；confidence HIGH/MEDIUM/LOW。
+- **DailyPortrait**（daily_portraits）：5 维度 RHYTHM / MOVEMENT / SCREEN_PATTERN / DAY_STRUCTURE / STABILITY（禁止 GOOD/BAD/HEALTHY 等评价性取值）；低置信度 abstain（LOW_CONFIDENCE，不硬生成画像）；确定性模板叙事（无 LLM），每句可追溯（Explainability facts）。
+- **API**：`GET /v1/portraits/today`、`GET /v1/portraits?days=7|28`、`GET /v1/baseline/status`（全程无副作用）、`POST /v1/portraits/rebuild`（显式重建写路径）。写路径仅 feature ingest / background rebuild / explicit rebuild。
+- **语言安全**：被动画像文案禁止出现：焦虑/抑郁/孤独/压力过大/心理异常/风险/精神疾病/社交退缩/不健康（CI 强制）。
+- **Android**：Today「今天」页 Portrait first（九态状态机 + 为什么这么说？ + 画像反馈）；Trend 升级为 Portrait Timeline（7/28 日）；Room 缓存 `DailyPortraitEntity`（offline-first）。
+- **外围能力边界**：Skill 不做"你移动少→推荐呼吸训练"式自动推荐；Support/Safety 与画像链不自动连接。
 
 ## 被动感知范式
 

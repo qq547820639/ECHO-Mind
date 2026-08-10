@@ -30,7 +30,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 - **implemented + tested**：统一"数据与感知"中心（被动感知总开关、各权限状态、最近采集/同步时间、离线状态、待同步数量；关闭总开关原子完成本地停止 + 撤回证据上传）
 - **implemented + tested**：AI 身份提示、年龄门、机构绑定、版本化同意和 L0 准入流程
 - **implemented + tested**：Skill 能力卡片原生执行体验（开始/暂停/停止/完成/中止 → 本地记录 → 服务端上报）；旧版主动录入（签到/日记/量表/练习）入口已停用，仅保留历史只读
-- **implemented + tested**：Android Keystore 字段加密、SQLCipher 全库加密、Room v6（原始传感数据不落盘）、离线 Outbox（410 迁移/dead-letter/429 Retry-After/每事件独立处理）
+- **implemented + tested**：Android Keystore 字段加密、SQLCipher 全库加密、Room v7（原始传感数据不落盘）、离线 Outbox（410 迁移/dead-letter/429 Retry-After/每事件独立处理）
 - **implemented + tested**：本地确定性安全规则（仅针对用户主动文本）；12356、110、120 固定入口；未收到服务端 ACK 时不宣称人工已收到
 - **implemented + tested**：趋势页七态（加载中/离线缓存/新鲜/部分/无数据/错误/权限关闭），明确区分"没有数据"与"加载失败"；趋势来自设备行为派生特征，不推断情绪
 
@@ -48,7 +48,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 
 **安全、质量与交付：**
 - **tested**：650 条合成红队语料；当前规则包在该合成集上 650/650，**不代表临床效度**
-- **tested**：后端自动测试 **924 项全绿**（见 `RELEASE_NOTES_v0.6.0.md`）
+- **tested**：后端自动测试 **989 项全绿**（见 `RELEASE_NOTES_v0.6.0.md`）
 - **tested**：内容包校验、宣称扫描、动态代码检查、安全集回归
 - **implemented**：后端、Android、安全三条 CI 工作流
 - **implemented**：试点责任矩阵、单独同意、PIPIA、Alpha、危机演练、事件响应和 Go/No-Go 模板
@@ -56,9 +56,9 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 
 ### 它能帮你解决什么问题？
 
-- **状态看不清**：被动感知与能力卡片相结合，趋势图会帮你看出状态变化的规律。
-- **想说却不知从何说起**：结构化的能力卡片（Skill）由专业内容治理后下发，让你更容易表达自己的感受。
-- **一个人扛着**：当你需要真正的帮助时，它会把你的合作机构中的专业支持人员带到你面前。
+- **今天过得怎么样，说不清**：ECHO-Mind 安静地学习"你平时的日常节奏"，每天用一句话回答你：**今天的你，和通常的你有什么不同？**（偏晚、安静、稳定……全部来自你自己的历史基线，不做任何心理判断）
+- **变化看不出来**：7 / 28 天画像时间线帮你回顾自己的节律变化，而不是只盯着某一天。
+- **需要帮助时**：它会把你的合作机构中的专业支持人员带到你面前（人工支持入口与画像相互独立，不自动关联）。
 
 ### 适合谁使用？
 
@@ -87,7 +87,31 @@ ECHO Mind 不是"诊断神器"，也不是"聊天机器人陪聊"。它提供的
 - **P1 Onboarding 状态机**：READY_OFFLINE →（服务端 consent ack 核对）→ READY；本地提交幂等位；进程死亡不重头开始
 - **P1 趋势七态真实接入**：电池优化限制 + collector heartbeat + 后端 sources_present 真实驱动 NO_DATA 细分（删除不可达的 SERVER_UNAVAILABLE）；行为数据不再包装成"活动量高低"，source code 映射人类可读名且不出现在普通 UI
 - **P1 沙箱并发配额**：数据库原子租户执行槽（sandbox_tenant_slots）取代 check-then-act；worker crash 心跳过期回收；SQLite/PG 同语义
-- **P2 工程收口**：backend routes.py 按 bounded context 拆 11 个 router（URL/OpenAPI 不变）；escalation 队列 cursor 分页 + metrics SQL 下推；隐私安全结构化遥测；版本/文档一致性自动测试（README/pyproject/versionName/Room v6/OpenAPI/迁移 head）
+- **P2 工程收口**：backend routes.py 按 bounded context 拆 11 个 router（URL/OpenAPI 不变）；escalation 队列 cursor 分页 + metrics SQL 下推；隐私安全结构化遥测；版本/文档一致性自动测试（README/pyproject/versionName/Room v7/OpenAPI/迁移 head）
+
+### Portrait Core（v0.7，产品收敛：每日个人画像）
+
+从"感知平台"收敛为"每日个人画像产品"。产品核心合同（见仓库根目录 `PORTRAIT_CONTRACT.md`）：
+
+> **ECHO-Mind 安静地了解你的日常节奏，每天告诉你：今天的你，和通常的你有什么不同？**
+
+核心链路：`Passive Sensing → Derived Features → Daily Behavior Aggregate → Personal Baseline → Daily Portrait → Today → 7/28 Day Portrait Timeline`。Skill、人工支持、Safety、Workbench、Sandbox 全部保留，但降级为**外围能力**，不再占据产品主叙事。
+
+**Android 主端：**
+- **implemented + tested**：TodayScreen 重做为 **Portrait first**（今天的你 headline → summary → 和你的平常相比 → 为什么这么说？）；Skill 降级为底部"想做点什么？"入口
+- **implemented + tested**：Today 九态状态机（LOADING / WARMING_UP / EARLY_BASELINE / READY / PARTIAL_DATA / LOW_CONFIDENCE / OFFLINE_CACHED / SENSING_DISABLED / ERROR），禁止统一"暂无数据"；感知关闭有"重新开启"入口
+- **implemented + tested**：Room v7 新增 `DailyPortraitEntity` 缓存（today / 7 / 28 天），offline-first：先显示缓存 → 后台刷新 → 平滑替换
+- **implemented + tested**：Trend 升级为 **Portrait Timeline**（7 日相对自身趋势 + 28 日稳定性综述）
+- **implemented + tested**：画像反馈入口（"这个描述像今天的你吗？ [挺像] [不太像]"，本地记录，待后续版本上报）
+
+**机构服务端：**
+- **integrated + tested**：新领域对象 `DailyBehaviorAggregate`（daily_behavior_aggregates，本地时区日界线，禁含任何心理语义字段）
+- **integrated + tested**：`PersonalBaseline`（personal_baselines）：近 28 天 robust statistics（median/MAD/P10/P25/P75/P90）、冷启动三态（WARMING_UP / EARLY_BASELINE / BASELINE_READY）、weekday/weekend 分桶 + all_days 兜底、confidence（HIGH/MEDIUM/LOW）、当天不入基线、Me vs Me 而非 Me vs Population
+- **integrated + tested**：`DailyPortrait`（daily_portraits）：5 维度（RHYTHM / MOVEMENT / SCREEN_PATTERN / DAY_STRUCTURE / STABILITY）+ 确定性模板叙事（无 LLM）+ Explainability facts + 低置信度 abstention
+- **integrated + tested**：Portrait API（`GET /v1/portraits/today`、`GET /v1/portraits?days=7|28`、`GET /v1/baseline/status`、`POST /v1/portraits/rebuild`），GET 全程无副作用
+- **integrated + tested**：语言安全测试（被动画像文案禁止出现：焦虑/抑郁/孤独/压力过大/心理异常/风险/精神疾病/社交退缩，出现即 CI fail）；Portrait golden tests（确定性可 diff）；Baseline 16 类场景单测
+
+**产品边界：** 旧 `DailyNarrative` / `UserProfile` 标记 legacy compatibility（机构后台继续可用），确认无调用方后再迁移。
 
 ### 明确未完成的外部发布门
 
@@ -104,21 +128,21 @@ ECHO Mind 不是"诊断神器"，也不是"聊天机器人陪聊"。它提供的
 
 ## 二、你可以用它做什么？
 
-### 1. 授权被动感知，看见状态节律
+### 1. 每天看到"今天的自己"
 
-完成知情同意后，App 在端侧按 5 分钟窗口聚合活动/屏幕/通知等行为派生特征（原始数据不落盘、不上云），形成你的个人活动节律与数据覆盖度。
+完成知情同意并授权被动感知后，App 学习**你自己**的日常基线，每天回答一个问题：**今天的你，和通常的你有什么不同？**（例如"偏晚 · 安静 · 稳定"，或"今天和平时比较接近"）。所有描述都是行为观察（作息、移动、屏幕互动），不做任何心理判断；数据不足时会明确告诉你"还看不出来"。
 
-### 2. 能力卡片（Skill）
+### 2. 回顾自己的节奏变化
 
-由机构专业人员审签后下发的引导式能力练习（如缓慢呼吸），可随时开始、暂停或停止，执行结果仅记录"开始/完成/停止"状态，不做任何情绪评判。
+在"趋势"页查看最近 7 / 28 天的**画像时间线**——哪些节律最稳定、哪些最近变化较明显，都是和过去的自己比。
 
-### 3. 个人趋势回顾
+### 3. 人工支持入口
 
-在"趋势"页查看一段时间内的数据覆盖度、活动节律与状态线索变化，而不是只盯着某一天。
+当你需要帮助时，可一键向合作机构提交支持请求——请求送达后应用会显示已送达，只有人工确认/接管后才会显示人工已连接。人工支持与日常画像**相互独立**，不会因为你的行为数据而自动触发。
 
-### 4. 人工支持入口
+### 4. 能力卡片（Skill，外围能力）
 
-当你需要帮助时，可一键向合作机构提交支持请求——请求送达后应用会显示已送达，只有人工确认/接管后才会显示人工已连接。
+由机构专业人员审签后下发的引导式能力练习（如缓慢呼吸），可在「能力」页主动浏览并选择，不做任何情绪评判，也不因画像数据自动推荐。
 
 ### 5. 数据权利
 
@@ -126,7 +150,7 @@ ECHO Mind 不是"诊断神器"，也不是"聊天机器人陪聊"。它提供的
 
 ### 一个简单的上手示例
 
-> 你打开 App，完成知情同意并授权被动感知。几天后打开趋势页，你看到最近一周的活动节律与屏幕互动变化——你开始留意自己的状态规律，也更有底气地和支持人员聊聊这件事。
+> 你打开 App，完成知情同意并授权被动感知。第 8 天起，你打开"今天"页看到：今天开始活跃的时间比平时稍晚、白天移动少了一些、屏幕互动和平时接近——你开始留意自己的日常节奏，也更有底气地和支持人员聊聊这件事。
 
 ---
 

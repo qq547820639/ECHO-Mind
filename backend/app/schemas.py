@@ -382,3 +382,54 @@ class TenantFlagUpdate(BaseModel):
 class SkillBatchRetire(BaseModel):
     """P5 灰度回滚：批量回滚 Skill 入参。"""
     skill_ids: list[str] = Field(min_length=1, max_length=200)
+
+
+# ===== Portrait Core（v0.7，Milestone D/E）=====
+
+
+class PortraitOut(BaseModel):
+    """当日画像输出契约。
+
+    - headline 为最多 3 个两字标签；
+    - dimensions 取值禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL（产品契约）；
+    - timezone_used 为生成画像时实际使用的用户时区。
+    """
+
+    date: date
+    status: str
+    confidence: str
+    baseline_days: int = 0
+    baseline_version: str | None = None
+    headline: list[str] = Field(default_factory=list)
+    summary: str = ""
+    dimensions: dict[str, Any] = Field(default_factory=dict)
+    coverage: dict[str, Any] = Field(default_factory=dict)
+    facts: list[dict[str, Any]] = Field(default_factory=list)
+    timezone_used: str = "Asia/Shanghai"
+
+
+class PortraitListOut(BaseModel):
+    """最近 N 天画像列表（按 local_date 升序）。"""
+
+    user_id: str
+    days: int
+    portraits: list[PortraitOut] = Field(default_factory=list)
+
+
+class BaselineStatusOut(BaseModel):
+    """基线状态只读视图（GET 无写副作用）。"""
+
+    status: str
+    baseline_days: int = 0
+    baseline_version: str | None = None
+    window_start: date | None = None
+    window_end: date | None = None
+    bucket_usage: str = "all_days"
+    today_coverage: float = 0.0
+
+
+class PortraitRebuildIn(BaseModel):
+    """显式重建当日画像入参。local_date 缺省为今天（用户本地日期）。"""
+
+    user_id: str
+    local_date: date | None = None

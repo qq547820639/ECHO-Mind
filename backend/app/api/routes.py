@@ -18,6 +18,7 @@ from app.api import (
     legacy,
     narratives,
     onboarding,
+    portraits,
     profiles,
     sandbox,
     skills,
@@ -30,6 +31,7 @@ router.include_router(onboarding.router)
 router.include_router(consent.router)
 router.include_router(features.router)
 router.include_router(narratives.router)
+router.include_router(portraits.router)
 router.include_router(profiles.router)
 router.include_router(escalations.router)
 router.include_router(data_rights.router)

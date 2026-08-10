@@ -147,16 +147,64 @@ internal val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/**
+ * v6 → v7 迁移（Milestone H）：新增 portrait_daily 表（每日画像离线缓存）。
+ * 纯增量 CREATE TABLE IF NOT EXISTS（幂等），无数据改写；旧表不动。
+ * 列名与 [DailyPortraitEntity] 字段一致（Room 按列名匹配）。
+ */
+internal val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS portrait_daily (
+                id TEXT NOT NULL PRIMARY KEY,
+                localDate TEXT NOT NULL,
+                userId TEXT NOT NULL,
+                status TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                headlineJson TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                dimensionsJson TEXT NOT NULL,
+                factsJson TEXT NOT NULL,
+                coverageJson TEXT,
+                timezoneUsed TEXT,
+                fetchedAt INTEGER NOT NULL
+            )"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_portrait_daily_localDate ON portrait_daily (localDate)")
+    }
+}
+
 class AppContainer(context: Context) {
     val cipher = FieldCipher()
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
-    val database = Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
-        // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
-        .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
-        .build()
-    val repository = LocalRepository(database, cipher, preferences, ApiClient { preferences.accessToken })
+
+    /**
+     * SQLCipher 全库加密数据库。
+     *
+     * 生产（真机/模拟器）：native lib 可用 → 恒走 SQLCipher 加密分支（口令由 Keystore 派生）。
+     * JVM 单测（Robolectric）：宿主 JVM 无 sqlcipher native lib，降级普通 SQLite——
+     * 仅测试路径生效，生产安全语义完全不变（与 FieldCipher 的 JVM-only 降级一致）。
+     */
+    val database = runCatching { net.sqlcipher.database.SQLiteDatabase.loadLibs(context) }
+        .map {
+            Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
+                .addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                )
+                // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
+                .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
+                .build()
+        }
+        .getOrElse {
+            // JVM 单测降级：sqlcipher native lib 不可用 → 普通 SQLite（仅测试；生产恒加密）
+            Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
+                .addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                )
+                .build()
+        }
+    val repository = LocalRepository(database, cipher, preferences, ApiClient(tokenProvider = { preferences.accessToken }))
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
     val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(repository)

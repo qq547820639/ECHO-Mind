@@ -36,7 +36,7 @@ internal enum class SyncAction {
  *
  * - **每个事件独立处理**：单事件失败（含毒丸/解密失败）不中断整队列；
  * - 事件类型映射（含 skill_completion → POST /v1/skills/completions）；
- * - 410 Gone：deprecated 事件类型（checkin/journal/questionnaire:*/practice）→ 删除 outbox（terminal）+ 迁移 telemetry；
+ * - 410 Gone：deprecated 事件类型（checkin / journal / questionnaire 前缀 / practice）→ 删除 outbox（terminal）+ 迁移 telemetry；
  * - max attempts（[MAX_ATTEMPTS]）：超限 → dead-letter（本地 SharedPreferences 记录 event_id），不再重试；
  * - 429 Retry-After：读取 Retry-After 头并记录，返回 Result.retry()（WorkManager 指数退避已有）；
  * - 401/403/412/422：保留现有 failure 语义（不删除）但不中断队列，continue 处理下一事件。
@@ -45,24 +45,40 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     override suspend fun doWork(): Result {
         val container = (applicationContext as EchoMindApplication).container
         val dao = container.database.dao()
-        val client = ApiClient { container.preferences.accessToken }
+        val client = ApiClient(tokenProvider = { container.preferences.accessToken })
         val context = applicationContext
         if (container.preferences.accessToken.isNullOrBlank()) return Result.success()
+
+        // v0.6.2（Batch A）：认证暂停态（401/403）→ 直接 success 返回，暂停后台重试；
+        // 直到用户重新认证成功清除 lastAuthBlockedAt（见 LocalRepository.verifyOnboardingCode）
+        if (container.preferences.authRequired) return Result.success()
 
         // v0.6.1（P1-6）：批开始记录"尝试同步"时间（不再复用成功时间戳）
         container.preferences.lastSyncAttemptAt = System.currentTimeMillis()
         container.preferences.lastSyncHttpCode = null
         var anyRetry = false
         var anyBlockedPending = false
+        var anyAuthBlocked = false
         var anySuccess = false
         var anyFailure = false
         var lastCode: Int? = null
+        // v0.6.2（Batch A）：批次级分类计数（不再用 lastCode 覆盖式代表整批）
+        var authCount = 0
+        var consentCount = 0
+        var retryableCount = 0
+        var permanentCount = 0
+        var unknownTypeCount = 0
+        var decryptCount = 0
 
         for (event in dao.pendingOutbox()) {
             val path = resolvePath(event.eventType)
             if (path == null) {
-                // 未知事件类型：删除，避免毒化队列
+                // 未知事件类型：dead-letter + telemetry + 删除，避免毒化队列（v0.6.2 Batch A）
+                container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:unknown_type")
+                container.preferences.recordUnknownTypeTelemetry(event.eventType)
                 dao.deleteOutbox(event.eventId)
+                unknownTypeCount++
+                anyFailure = true
                 continue
             }
             // 速率限制：derived_feature 每分钟最多 20 条；超限不阻塞其他事件
@@ -75,11 +91,13 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                     // 解密失败 = 毒丸：直接 dead-letter，不阻塞队列
                     container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:decrypt_failure")
                     dao.deleteOutbox(event.eventId)
+                    decryptCount++
                     anyFailure = true
                     continue
                 }
             val response = runCatching { client.postFull(path, payload) }.getOrElse {
                 dao.incrementAttempts(event.eventId)
+                retryableCount++
                 anyRetry = true
                 anyFailure = true
                 continue
@@ -112,12 +130,14 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                 SyncAction.RETRY -> {
                     dao.incrementAttempts(event.eventId)
                     response.third?.let { container.preferences.recordRetryAfter(event.eventType, it) }
+                    retryableCount++
                     anyRetry = true
                     anyFailure = true
                 }
                 SyncAction.DEAD_LETTER -> {
                     container.preferences.addDeadLetterEvent("${event.eventType}:${event.eventId}:http_${response.first}")
                     dao.deleteOutbox(event.eventId)
+                    permanentCount++
                     anyFailure = true
                     // v0.6.1（P0-2）：escalation dead-letter → 用户可见 FAILED（需联系机构）
                     if (event.eventType == "escalation") {
@@ -126,7 +146,14 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                 }
                 SyncAction.KEEP_PENDING -> {
                     dao.incrementAttempts(event.eventId)
-                    anyBlockedPending = true
+                    // v0.6.2（Batch A）：区分 auth（401/403）与 consent（412/422）
+                    if (response.first == 401 || response.first == 403) {
+                        authCount++
+                        anyAuthBlocked = true
+                    } else {
+                        consentCount++
+                        anyBlockedPending = true
+                    }
                 }
             }
         }
@@ -135,6 +162,8 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         val remaining = dao.pendingOutbox().size
         container.preferences.pendingCountSnapshot = remaining
         container.preferences.lastSyncHttpCode = lastCode
+        // v0.6.2（Batch A）：批内遇 auth 错误 → 持久化认证暂停态（供 doWork 开头暂停后台重试）
+        if (anyAuthBlocked) container.preferences.lastAuthBlockedAt = System.currentTimeMillis()
         when {
             remaining == 0 && !anyFailure -> {
                 container.preferences.lastSuccessfulSyncAt = System.currentTimeMillis()
@@ -142,10 +171,10 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
             }
             anySuccess -> {
                 container.preferences.lastPartialSyncAt = System.currentTimeMillis()
-                container.preferences.lastSyncErrorClass = errorClassFor(anyBlockedPending, lastCode)
+                container.preferences.lastSyncErrorClass = errorClassFor(anyAuthBlocked, anyBlockedPending, lastCode)
             }
             else -> {
-                container.preferences.lastSyncErrorClass = errorClassFor(anyBlockedPending, lastCode)
+                container.preferences.lastSyncErrorClass = errorClassFor(anyAuthBlocked, anyBlockedPending, lastCode)
             }
         }
         // v0.6.1（P1-7）：Onboarding READY 收敛——服务端 ack 依据
@@ -154,6 +183,8 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
             runCatching { container.repository.confirmServerActivation() }
         }
         return when {
+            // v0.6.2（Batch A）：auth 是暂停不是放弃——不再因 auth 返回 Result.retry()，
+            // 避免 WorkManager 高频重试；仅网络类/可重试失败与 consent 阻塞保留重试
             anyRetry || anyBlockedPending -> Result.retry()
             else -> Result.success()
         }
@@ -166,13 +197,14 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         /**
          * 批次结果 → 错误类别（分类而非原始 exception；UI 据此显示可读文案）。
          * category: auth / consent / terminal / retryable / offline
+         *
+         * v0.6.2（Batch A）：批次级聚合——auth 优先于 consent（认证暂停覆盖其他类别）。
          */
-        internal fun errorClassFor(anyBlockedPending: Boolean, lastCode: Int?): String = when {
-            lastCode == 401 || lastCode == 403 -> "auth"
-            lastCode == 412 || lastCode == 422 -> "consent"
+        internal fun errorClassFor(anyAuthBlocked: Boolean, anyBlockedPending: Boolean, lastCode: Int?): String = when {
+            anyAuthBlocked -> "auth"
+            anyBlockedPending || lastCode == 412 || lastCode == 422 -> "consent"
             lastCode == 410 -> "terminal"
             lastCode != null && (lastCode >= 500 || lastCode == 429) -> "retryable"
-            anyBlockedPending -> "consent"
             else -> "retryable"
         }
 

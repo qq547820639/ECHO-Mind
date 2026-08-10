@@ -118,4 +118,21 @@ class ApiClient(
             connection.disconnect()
         }
     }
+
+    // ===== Portrait（Milestone F/G：Today Portrait + Portrait Timeline） =====
+    // 阻塞式 HttpURLConnection，与既有 get/postWithBody 模式一致；
+    // suspend 签名让调用方（LocalRepository）可统一在 IO 协程内调度。
+    // 错误处理沿用现有模式：返回 (code, body)，非 2xx / 解析失败由 LocalRepository 判定。
+
+    /** GET /v1/portraits/today：今日画像（含 date/status/summary/dimensions/facts 等）。 */
+    suspend fun getTodayPortrait(): Pair<Int, String?> = get("/v1/portraits/today")
+
+    /** GET /v1/portraits?days=7|28：批量画像（portraits 数组，元素同 today 结构）。 */
+    suspend fun getPortraits(days: Int): Pair<Int, String?> = get("/v1/portraits?days=$days")
+
+    /** GET /v1/baseline/status：基线状态（baseline_days/window/bucket_usage 等）。 */
+    suspend fun getBaselineStatus(): Pair<Int, String?> = get("/v1/baseline/status")
+
+    /** POST /v1/portraits/rebuild：服务端重算今日画像，响应同 today 结构。 */
+    suspend fun rebuildPortrait(): Pair<Int, String?> = postWithBody("/v1/portraits/rebuild", "{}")
 }

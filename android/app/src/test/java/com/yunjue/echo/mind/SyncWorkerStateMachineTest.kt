@@ -130,26 +130,54 @@ class SyncWorkerStateMachineTest {
         assertNull(parseRetryAfterSeconds("-5"))
     }
 
-    // ===== SyncResult → SyncState 映射（PRD 契约点 9） =====
+    // ===== SyncResult → SyncState 映射（PRD 契约点 9；v0.6.2 批次级分类） =====
 
     @Test
     fun syncStateMappingCoversAllBranches() {
         // 2xx/409 + 无 pending → synced
-        assertEquals(SyncState.SYNCED, mapSyncState(pendingCount = 0, lastHttpCode = 200, networkAvailable = true, deadLetterCount = 0))
+        assertEquals(
+            SyncState.SYNCED,
+            mapSyncState(pendingCount = 0, networkAvailable = true, deadLetterCount = 0, authBlocked = false, consentBlocked = false, retrying = false)
+        )
         // pending > 0 + 正常 → pending
-        assertEquals(SyncState.PENDING, mapSyncState(pendingCount = 3, lastHttpCode = null, networkAvailable = true, deadLetterCount = 0))
+        assertEquals(
+            SyncState.PENDING,
+            mapSyncState(pendingCount = 3, networkAvailable = true, deadLetterCount = 0, authBlocked = false, consentBlocked = false, retrying = false)
+        )
         // 网络异常（pending>0）→ offline
-        assertEquals(SyncState.OFFLINE, mapSyncState(pendingCount = 3, lastHttpCode = null, networkAvailable = false, deadLetterCount = 0))
-        // 401/403 → blocked_by_auth
-        assertEquals(SyncState.BLOCKED_BY_AUTH, mapSyncState(pendingCount = 2, lastHttpCode = 401, networkAvailable = true, deadLetterCount = 0))
-        assertEquals(SyncState.BLOCKED_BY_AUTH, mapSyncState(pendingCount = 2, lastHttpCode = 403, networkAvailable = true, deadLetterCount = 0))
+        assertEquals(
+            SyncState.OFFLINE,
+            mapSyncState(pendingCount = 3, networkAvailable = false, deadLetterCount = 0, authBlocked = false, consentBlocked = false, retrying = false)
+        )
+        // 401/403 → blocked_by_auth（认证暂停）
+        assertEquals(
+            SyncState.BLOCKED_BY_AUTH,
+            mapSyncState(pendingCount = 2, networkAvailable = true, deadLetterCount = 0, authBlocked = true, consentBlocked = false, retrying = false)
+        )
         // 412 → blocked_by_consent
-        assertEquals(SyncState.BLOCKED_BY_CONSENT, mapSyncState(pendingCount = 2, lastHttpCode = 412, networkAvailable = true, deadLetterCount = 0))
+        assertEquals(
+            SyncState.BLOCKED_BY_CONSENT,
+            mapSyncState(pendingCount = 2, networkAvailable = true, deadLetterCount = 0, authBlocked = false, consentBlocked = true, retrying = false)
+        )
         // 5xx/429 → retrying
-        assertEquals(SyncState.RETRYING, mapSyncState(pendingCount = 2, lastHttpCode = 500, networkAvailable = true, deadLetterCount = 0))
-        assertEquals(SyncState.RETRYING, mapSyncState(pendingCount = 2, lastHttpCode = 429, networkAvailable = true, deadLetterCount = 0))
+        assertEquals(
+            SyncState.RETRYING,
+            mapSyncState(pendingCount = 2, networkAvailable = true, deadLetterCount = 0, authBlocked = false, consentBlocked = false, retrying = true)
+        )
         // dead-letter 存在 → failed_terminal（旧版数据无需再上传）
-        assertEquals(SyncState.FAILED_TERMINAL, mapSyncState(pendingCount = 1, lastHttpCode = null, networkAvailable = true, deadLetterCount = 2))
+        assertEquals(
+            SyncState.FAILED_TERMINAL,
+            mapSyncState(pendingCount = 1, networkAvailable = true, deadLetterCount = 2, authBlocked = false, consentBlocked = false, retrying = false)
+        )
+    }
+
+    @Test
+    fun syncStateAuthTakesPrecedenceOverOtherCategories() {
+        // 认证暂停优先于 consent / retrying / offline / synced（v0.6.2 Batch A）
+        assertEquals(
+            SyncState.BLOCKED_BY_AUTH,
+            mapSyncState(pendingCount = 0, networkAvailable = false, deadLetterCount = 3, authBlocked = true, consentBlocked = true, retrying = true)
+        )
     }
 
     @Test
@@ -175,9 +203,21 @@ class SyncWorkerStateMachineTest {
 
     @Test
     fun pendingTextConveysLocalSafety() {
-        assertTrue(syncStateText(SyncState.PENDING, 3).contains("3 项待上传"))
+        assertTrue(syncStateText(SyncState.PENDING, 3).contains("3 项待同步"))
         assertTrue(syncStateText(SyncState.PENDING, 3).contains("数据仍安全保存在本机"))
-        assertTrue(syncStateText(SyncState.OFFLINE, 0).contains("等待网络恢复"))
-        assertTrue(syncStateText(SyncState.BLOCKED_BY_AUTH, 0).contains("登录已失效"))
+        assertTrue(syncStateText(SyncState.OFFLINE, 0).contains("正在等待网络"))
+        assertTrue(syncStateText(SyncState.BLOCKED_BY_AUTH, 0).contains("需要重新登录"))
+    }
+
+    // ===== v0.6.2（Batch A）：批次级错误分类聚合 =====
+
+    @Test
+    fun errorClassPrefersAuthOverConsentAndRetryable() {
+        assertEquals("auth", SyncWorker.errorClassFor(anyAuthBlocked = true, anyBlockedPending = true, lastCode = 500))
+        assertEquals("auth", SyncWorker.errorClassFor(anyAuthBlocked = true, anyBlockedPending = false, lastCode = 412))
+        assertEquals("consent", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = true, lastCode = 200))
+        assertEquals("consent", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 422))
+        assertEquals("retryable", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 500))
+        assertEquals("retryable", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = null))
     }
 }

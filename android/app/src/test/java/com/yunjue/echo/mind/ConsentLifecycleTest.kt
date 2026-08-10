@@ -52,7 +52,7 @@ class ConsentLifecycleTest {
             .build()
         cipher = FieldCipher()
         preferences = AppPreferences(context, cipher)
-        repository = LocalRepository(db, cipher, preferences, ApiClient { null })
+        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
         runBlocking {
             preferences.setPassiveSensingEnabled(true)
             preferences.setMicEnabled(true)
@@ -77,9 +77,11 @@ class ConsentLifecycleTest {
 
         performPassiveSensingStop(context, preferences, repository)
 
-        // 1. consent=false 已持久化（总关 → 麦克风同时停用）
+        // 1. consent=false 已持久化
         assertFalse("consent 应持久化为 false", preferences.passiveSensingEnabledFlow().first())
-        assertFalse("总关后麦克风应同时停用", preferences.micEnabledFlow().first())
+        // 麦克风：总关停止采集（服务门禁停止 micCollector），但独立 micEnabled 偏好保留
+        // （重新开启主开关后可恢复；mic 实际采集由 PassiveSensingService 门禁统一控制）
+        assertTrue("micEnabled 独立偏好保留（采集由主开关门禁控制）", preferences.micEnabledFlow().first())
         // 2. hub 缓冲清空（内存）
         assertTrue("hub 缓冲应已清空", hub.isEmpty())
         // 3. revoke evidence 入 outbox（consent/passive_sensing/granted=false）

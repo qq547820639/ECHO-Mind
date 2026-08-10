@@ -16,27 +16,17 @@ import kotlin.math.sqrt
 class FeatureExtractor {
 
     /**
-     * 从各 Collector 缓冲提取并聚合窗口特征。
+     * 从各 Collector 缓冲提取并聚合窗口特征（Batch A v0.6.2 后已废弃）。
      *
-     * SensorCollector 的缓冲无时间戳，视为窗口内最新数据；
-     * Screen/Notification/AppActivity 的事件含时间戳，按 [windowStart, windowEnd) 过滤。
+     * 单一数据源收敛后，SensorCollector / ScreenCollector / AppActivityCollector
+     * 不再保留本地缓冲，一律经 [SensingEventHub] 共享层消费，故本方法委托 [extractFromHub]。
      */
+    @Deprecated("Collector 本地缓冲已移除，请使用 extractFromHub()")
     fun extractFromCollectors(
         windowStart: Instant,
         windowEnd: Instant,
-        sensorCollector: SensorCollector? = null,
-        screenCollector: ScreenCollector? = null,
-        notificationCollector: NotificationCollector? = null,
-        appActivityCollector: AppActivityCollector? = null
-    ): List<DerivedFeatureInput> = extract(
-        windowStart = windowStart,
-        windowEnd = windowEnd,
-        accelSamples = sensorCollector?.accelerometerBuffer?.toList().orEmpty(),
-        gyroSamples = sensorCollector?.gyroscopeBuffer?.toList().orEmpty(),
-        screenEvents = screenCollector?.snapshot().orEmpty(),
-        notifications = notificationCollector?.snapshot().orEmpty(),
-        appActivities = appActivityCollector?.snapshot().orEmpty()
-    )
+        hub: SensingEventHub
+    ): List<DerivedFeatureInput> = extractFromHub(windowStart, windowEnd, hub)
 
     /**
      * 从 [SensingEventHub] 共享缓冲提取并聚合窗口特征（T02 采集链路主路径）。

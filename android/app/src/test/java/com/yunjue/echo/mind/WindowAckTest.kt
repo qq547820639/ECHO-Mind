@@ -53,7 +53,7 @@ class WindowAckTest {
             .build()
         cipher = FieldCipher()
         preferences = AppPreferences(context, cipher)
-        repository = LocalRepository(db, cipher, preferences, ApiClient { null })
+        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
     }
 
     @After
@@ -75,31 +75,63 @@ class WindowAckTest {
         )
     }
 
+    /**
+     * 构造一个「写入必失败」的数据库：注入自定义 SupportSQLiteOpenHelper.Factory，
+     * getWritableDatabase() 抛异常 → saveDerivedFeatures 的 withTransaction 必然失败。
+     * （Robolectric 中 in-memory Room 的 close() 会透明重开新库，无法用 close 模拟写入失败。）
+     */
+    private fun failingDatabase(): EchoDatabase =
+        Room.databaseBuilder(context, EchoDatabase::class.java, "window-ack-fail.db")
+            .allowMainThreadQueries()
+            .openHelperFactory(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Factory {
+                override fun create(configuration: androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration):
+                    androidx.sqlite.db.SupportSQLiteOpenHelper =
+                    object : androidx.sqlite.db.SupportSQLiteOpenHelper {
+                        override val databaseName: String = configuration.name ?: "window-ack-fail.db"
+                        override fun setWriteAheadLoggingEnabled(enabled: Boolean) = Unit
+                        override fun close() = Unit
+                        override val writableDatabase: androidx.sqlite.db.SupportSQLiteDatabase
+                            get() = throw IllegalStateException("injected db write failure")
+                        override val readableDatabase: androidx.sqlite.db.SupportSQLiteDatabase
+                            get() = throw IllegalStateException("injected db write failure")
+                    }
+            })
+            .build()
+
     // ===== Room 写入失败 → false + 失败计数 =====
 
     @Test
     fun roomFailureReturnsFalseAndRecordsPersistenceFailure() = runBlocking {
-        // 关闭 db 模拟 Room 写入异常；crypto/encrypt 异常走同一 catch 路径（withTransaction 内抛错）
-        db.close()
-        val ok = repository.saveDerivedFeatures(listOf(sampleInput()))
-        assertFalse("Room 写入失败应返回 false（触发重试）", ok)
-        assertTrue("连续失败计数应递增", preferences.consecutivePersistenceFailures >= 1)
-        assertTrue("最近失败时间应被记录", preferences.lastPersistenceFailure != null)
+        val failingDb = failingDatabase()
+        try {
+            val failingRepo = LocalRepository(failingDb, cipher, preferences, ApiClient(tokenProvider = { null }))
+            val ok = failingRepo.saveDerivedFeatures(listOf(sampleInput()))
+            assertFalse("Room 写入失败应返回 false（触发重试）", ok)
+            assertTrue("连续失败计数应递增", preferences.consecutivePersistenceFailures >= 1)
+            assertTrue("最近失败时间应被记录", preferences.lastPersistenceFailure != null)
+        } finally {
+            failingDb.close()
+        }
     }
 
     // ===== 成功路径：落库 + outbox + 失败计数清零 =====
 
     @Test
     fun successPersistsFeatureVectorAndOutboxAndResetsFailureCount() = runBlocking {
-        // 先制造一次失败，再成功 → 计数清零
-        db.close()
-        repository.saveDerivedFeatures(listOf(sampleInput()))
-        assertTrue(preferences.consecutivePersistenceFailures >= 1)
+        // 先制造一次失败（注入失败 factory），再成功 → 计数清零
+        val failingDb = failingDatabase()
+        try {
+            LocalRepository(failingDb, cipher, preferences, ApiClient(tokenProvider = { null }))
+                .saveDerivedFeatures(listOf(sampleInput()))
+        } finally {
+            failingDb.close()
+        }
+        assertTrue("失败路径应使连续失败计数 ≥ 1", preferences.consecutivePersistenceFailures >= 1)
 
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = LocalRepository(db, cipher, preferences, ApiClient { null })
+        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
 
         val ok = repository.saveDerivedFeatures(listOf(sampleInput()))
         assertTrue(ok)

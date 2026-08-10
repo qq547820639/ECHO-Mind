@@ -440,6 +440,193 @@
         }
       }
     },
+    "/v1/portraits/today": {
+      "get": {
+        "summary": "Get Today Portrait",
+        "description": "只读：今日画像。已生成返回完整；否则返回轻量状态视图（不写库）。",
+        "operationId": "get_today_portrait_v1_portraits_today_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/portraits": {
+      "get": {
+        "summary": "List Portraits",
+        "description": "只读：最近 N 天画像列表（按 local_date 升序，含 coverage）。",
+        "operationId": "list_portraits_v1_portraits_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/baseline/status": {
+      "get": {
+        "summary": "Baseline Status",
+        "description": "只读：基线状态（绝不 rebuild / 写库）。",
+        "operationId": "baseline_status_v1_baseline_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/portraits/rebuild": {
+      "post": {
+        "summary": "Rebuild Portrait",
+        "description": "显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。",
+        "operationId": "rebuild_portrait_v1_portraits_rebuild_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortraitRebuildIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/profile/{user_id}": {
       "get": {
         "summary": "Get Profile",
@@ -681,7 +868,7 @@
     "/v1/escalations/metrics": {
       "get": {
         "summary": "Escalation Metrics",
-        "description": "聚合指标：SQL 下推（v0.6.1），避免全表加载到 Python。\n\n- 状态分布 / 总数 / SLA 中位数全部在数据库聚合；\n- 兼容旧响应字段（total / open / closed / ack_p50 / takeover_p50）。",
+        "description": "聚合指标（v0.6.2 起延迟为真实百分位）。\n\n- 状态分布 / 总数在数据库聚合；\n- ACK / 接管延迟按秒列表在 Python 计算真实 P50/P95（线性插值，\n  与 SQL percentile_cont 语义一致）；超大表改 percentile_cont 下推；\n- 兼容旧响应字段（total / open / closed / ack_p50 / takeover_p50），\n  新增 ack_p95 / takeover_p95（只增不改）。",
         "operationId": "escalation_metrics_v1_escalations_metrics_get",
         "responses": {
           "200": {
@@ -2638,6 +2825,70 @@
         "title": "ActivationCodeOut",
         "description": "激活码管理视图（不含明文）。"
       },
+      "BaselineStatusOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "baseline_days": {
+            "type": "integer",
+            "title": "Baseline Days",
+            "default": 0
+          },
+          "baseline_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Version"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "bucket_usage": {
+            "type": "string",
+            "title": "Bucket Usage",
+            "default": "all_days"
+          },
+          "today_coverage": {
+            "type": "number",
+            "title": "Today Coverage",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "BaselineStatusOut",
+        "description": "基线状态只读视图（GET 无写副作用）。"
+      },
       "CheckinCreate": {
         "properties": {
           "event_id": {
@@ -3332,6 +3583,134 @@
         ],
         "title": "OnboardingVerifyOut",
         "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。"
+      },
+      "PortraitListOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "portraits": {
+            "items": {
+              "$ref": "#/components/schemas/PortraitOut"
+            },
+            "type": "array",
+            "title": "Portraits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "days"
+        ],
+        "title": "PortraitListOut",
+        "description": "最近 N 天画像列表（按 local_date 升序）。"
+      },
+      "PortraitOut": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "baseline_days": {
+            "type": "integer",
+            "title": "Baseline Days",
+            "default": 0
+          },
+          "baseline_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Version"
+          },
+          "headline": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Headline"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "default": ""
+          },
+          "dimensions": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Dimensions"
+          },
+          "coverage": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Coverage"
+          },
+          "facts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "timezone_used": {
+            "type": "string",
+            "title": "Timezone Used",
+            "default": "Asia/Shanghai"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "status",
+          "confidence"
+        ],
+        "title": "PortraitOut",
+        "description": "当日画像输出契约。\n\n- headline 为最多 3 个两字标签；\n- dimensions 取值禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL（产品契约）；\n- timezone_used 为生成画像时实际使用的用户时区。"
+      },
+      "PortraitRebuildIn": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "local_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "PortraitRebuildIn",
+        "description": "显式重建当日画像入参。local_date 缺省为今天（用户本地日期）。"
       },
       "PracticeCompletionCreate": {
         "properties": {

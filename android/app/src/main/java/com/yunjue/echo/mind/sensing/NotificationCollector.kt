@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.sensing
 
-import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
@@ -17,7 +16,7 @@ class NotificationCollector : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val pkg = sbn?.packageName ?: return
-        val category = sbn.notification?.category ?: Notification.CATEGORY_UNKNOWN
+        val category = sbn.notification?.category ?: CATEGORY_UNKNOWN
         SensingEventHub.getInstance()
             .onNotificationPosted(NotificationMeta(System.currentTimeMillis(), pkg, category))
     }
@@ -34,5 +33,11 @@ class NotificationCollector : NotificationListenerService() {
 
     companion object {
         const val MAX_BUFFER_SIZE = 512
+
+        /**
+         * Android 通知 category 无 CATEGORY_UNKNOWN 常量；category 为 String 契约，
+         * 缺省时以本地常量 "unknown" 兜底（后端按字符串消费）。
+         */
+        const val CATEGORY_UNKNOWN = "unknown"
     }
 }

@@ -90,35 +90,41 @@ def issue_code(
     return code, raw
 
 
-def _count_recent_failures(db: Session, *, code_hash: str | None, actor_ip: str | None, device_id: str | None) -> int:
-    """窗口内失败尝试数（按维度）。任一维度超限即拒绝（fail-closed）。"""
+def _count_recent_failures(db: Session, *, code_hash: str | None, actor_ip: str | None, device_id: str | None) -> dict[str, int]:
+    """窗口内失败尝试数（按维度独立计数）。
+
+    v0.6.2 修复：原实现返回三个维度中的最大值，再与 ``max(limits)`` 比较，
+    导致 per-code 限额（10）被抬到 20、维度阈值整体失效。现返回
+    ``{"code": …, "ip": …, "device": …}``，由调用方按各自阈值独立判定
+    （fail-closed：任一维度超限即拒绝）。
+    """
     cutoff = datetime.now(UTC) - RATE_LIMIT_WINDOW
-    window_max = 0
+    counts = {"code": 0, "ip": 0, "device": 0}
     if code_hash:
-        window_max = max(window_max, db.scalar(
+        counts["code"] = db.scalar(
             select(func.count()).select_from(ActivationAttempt).where(
                 ActivationAttempt.code_hash == code_hash,
                 ActivationAttempt.result == "failure",
                 ActivationAttempt.attempted_at >= cutoff,
             )
-        ) or 0)
+        ) or 0
     if actor_ip:
-        window_max = max(window_max, db.scalar(
+        counts["ip"] = db.scalar(
             select(func.count()).select_from(ActivationAttempt).where(
                 ActivationAttempt.actor_ip == actor_ip,
                 ActivationAttempt.result == "failure",
                 ActivationAttempt.attempted_at >= cutoff,
             )
-        ) or 0)
+        ) or 0
     if device_id:
-        window_max = max(window_max, db.scalar(
+        counts["device"] = db.scalar(
             select(func.count()).select_from(ActivationAttempt).where(
                 ActivationAttempt.device_id == device_id,
                 ActivationAttempt.result == "failure",
                 ActivationAttempt.attempted_at >= cutoff,
             )
-        ) or 0)
-    return window_max
+        ) or 0
+    return counts
 
 
 def _record_attempt(
@@ -182,10 +188,14 @@ def redeem_code(
                         device_id=device_id, result="failure")
         return None, "not_found"
 
-    # rate limit（code / IP / device 三维）
+    # rate limit（code / IP / device 三维，各自独立阈值，fail-closed：任一超限即拒绝）
     recent = _count_recent_failures(db, code_hash=code_hash, actor_ip=actor_ip, device_id=device_id)
-    limits = (MAX_FAILURES_PER_CODE, MAX_FAILURES_PER_IP, MAX_FAILURES_PER_DEVICE)
-    if recent >= max(limits) or (row.attempt_count or 0) >= (row.max_attempts or 5):
+    rate_limited = (
+        recent["code"] >= MAX_FAILURES_PER_CODE
+        or recent["ip"] >= MAX_FAILURES_PER_IP
+        or recent["device"] >= MAX_FAILURES_PER_DEVICE
+    )
+    if rate_limited or (row.attempt_count or 0) >= (row.max_attempts or 5):
         _reject(db, code_hash=code_hash, actor_ip=actor_ip, device_id=device_id,
                 tenant_id=row.tenant_id, reason="rate_limited")
         return None, "rate_limited"

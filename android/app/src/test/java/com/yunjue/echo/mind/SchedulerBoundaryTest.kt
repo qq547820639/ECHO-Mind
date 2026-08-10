@@ -48,7 +48,8 @@ class SchedulerBoundaryTest {
         val base = Instant.parse("2026-08-01T00:00:00Z")
         val keep = SensingWindowScheduler.FLUSHED_WINDOW_KEEP
 
-        for (i in 0 until keep) {
+        // 写入 keep+1 个窗口：flushed 集有界（保留最近 keep 个）→ 最老的被淘汰
+        for (i in 0 until keep + 1) {
             val ws = base.plusMillis(i * 300_000L)
             hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
             scheduler.flushWindow(ws, ws.plusMillis(300_000L)) { true }

@@ -9,9 +9,13 @@
 
 v0.6.1（hardening 需求十四）：列表 cursor 分页 + 状态/负责人过滤 +
 metrics 聚合下推 SQL（避免 dashboard 全表加载到 Python）。
+
+v0.6.2：metrics 延迟改为真实 P50/P95（Python 线性插值，兼容 percentile_cont
+语义）；状态分布/总数仍 SQL 聚合。
 """
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -179,10 +183,13 @@ def escalation_metrics(
         "professional", "admin", "auditor", "quality_reviewer", "security_auditor",
     ))],
 ):
-    """聚合指标：SQL 下推（v0.6.1），避免全表加载到 Python。
+    """聚合指标（v0.6.2 起延迟为真实百分位）。
 
-    - 状态分布 / 总数 / SLA 中位数全部在数据库聚合；
-    - 兼容旧响应字段（total / open / closed / ack_p50 / takeover_p50）。
+    - 状态分布 / 总数在数据库聚合；
+    - ACK / 接管延迟按秒列表在 Python 计算真实 P50/P95（线性插值，
+      与 SQL percentile_cont 语义一致）；超大表改 percentile_cont 下推；
+    - 兼容旧响应字段（total / open / closed / ack_p50 / takeover_p50），
+      新增 ack_p95 / takeover_p95（只增不改）。
     """
     settings = get_settings()
     total = db.scalar(select(func.count()).select_from(Escalation)
@@ -192,24 +199,65 @@ def escalation_metrics(
             Escalation.tenant_id == principal.tenant_id,
         ).group_by(Escalation.status)
     ).all())
-    ack_sql = select(func.avg(func.julianday(Escalation.ack_at) - func.julianday(Escalation.opened_at))) \
-        .where(Escalation.tenant_id == principal.tenant_id, Escalation.ack_at.is_not(None))
-    take_sql = select(func.avg(func.julianday(Escalation.takeover_at) - func.julianday(Escalation.opened_at))) \
-        .where(Escalation.tenant_id == principal.tenant_id, Escalation.takeover_at.is_not(None))
 
-    def _p50_approx(avg_days: float | None) -> float | None:
-        # 平均值近似中位数的轻量下推；如需精确 p50 由 analytics 层处理。
-        return round(avg_days * 86400) if avg_days is not None else None
+    # 真实百分位延迟（v0.6.2 修复）：原实现以 AVG 近似 P50，精度不可靠。
+    # 现在按 ACK / 接管 latency 秒列表在 Python 计算真实 P50/P95（线性插值，
+    # 与 SQL percentile_cont 语义一致）。escalations 数据量可控，全量载入可行；
+    # 若未来表增长到超大，应改为 percentile_cont 下推（见 TODO）。
+    ack_rows = db.scalars(select(Escalation).where(
+        Escalation.tenant_id == principal.tenant_id,
+        Escalation.ack_at.is_not(None),
+    )).all()
+    take_rows = db.scalars(select(Escalation).where(
+        Escalation.tenant_id == principal.tenant_id,
+        Escalation.takeover_at.is_not(None),
+    )).all()
 
-    ack_avg = db.scalar(ack_sql)
-    take_avg = db.scalar(take_sql)
+    def _latencies(rows: list[Escalation], end_attr: str) -> list[float]:
+        out: list[float] = []
+        for row in rows:
+            opened = row.opened_at
+            ended = getattr(row, end_attr)
+            if opened is None or ended is None:
+                continue
+            # SQLite 返回 naive datetime，统一按 UTC 解释。
+            aware_o = opened if opened.tzinfo else opened.replace(tzinfo=UTC)
+            aware_e = ended if ended.tzinfo else ended.replace(tzinfo=UTC)
+            out.append((aware_e - aware_o).total_seconds())
+        return out
+
+    def _percentile(sorted_vals: list[float], p: float) -> float | None:
+        """线性插值百分位（与 percentile_cont 一致）；空列表返回 None。"""
+        if not sorted_vals:
+            return None
+        k = (len(sorted_vals) - 1) * p
+        lo = math.floor(k)
+        hi = math.ceil(k)
+        if lo == hi:
+            return sorted_vals[lo]
+        frac = k - lo
+        return sorted_vals[lo] * (1 - frac) + sorted_vals[hi] * frac
+
+    def _round_opt(value: float | None) -> int | None:
+        return round(value) if value is not None else None
+
+    ack_secs = sorted(_latencies(ack_rows, "ack_at"))
+    take_secs = sorted(_latencies(take_rows, "takeover_at"))
+    ack_p50 = _round_opt(_percentile(ack_secs, 0.50))
+    ack_p95 = _round_opt(_percentile(ack_secs, 0.95))
+    take_p50 = _round_opt(_percentile(take_secs, 0.50))
+    take_p95 = _round_opt(_percentile(take_secs, 0.95))
+
     return {
         "total": total,
         "by_status": by_status,
         "open": sum(by_status.get(s, 0) for s in ("open", "acknowledged", "taken_over")),
         "closed": sum(by_status.get(s, 0) for s in ("closed", "reviewed")),
-        "ack_p50_seconds": _p50_approx(ack_avg),
-        "takeover_p50_seconds": _p50_approx(take_avg),
+        # TODO(超大表)：数据量过大时改 percentile_cont 下推，保持响应契约不变。
+        "ack_p50_seconds": ack_p50,
+        "ack_p95_seconds": ack_p95,
+        "takeover_p50_seconds": take_p50,
+        "takeover_p95_seconds": take_p95,
         "ack_sla_seconds": settings.ack_sla_seconds,
         "takeover_sla_seconds": settings.takeover_sla_seconds,
     }

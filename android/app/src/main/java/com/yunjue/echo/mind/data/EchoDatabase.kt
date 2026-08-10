@@ -250,6 +250,46 @@ interface EscalationDao {
     suspend fun delete(eventId: String)
 }
 
+/**
+ * 每日画像本地缓存（Room v7，Milestone H offline-first）。
+ *
+ * - id = "${localDate}_${userId}"（localDate 为**端侧本地时区**日期；时区修改后
+ *   新"今天"不与该键冲突，重新拉取而非误用旧画像）
+ * - headline / dimensions / facts / coverage 以 JSON 字符串存储（解析由 LocalRepository 承担）
+ * - queryByDateRange 用 ISO 日期字符串比较（yyyy-MM-dd 字典序 = 时间序）
+ * - queryLatest 供 Today 页缓存优先展示
+ */
+@Entity(tableName = "portrait_daily")
+data class DailyPortraitEntity(
+    @PrimaryKey val id: String,
+    val localDate: String,
+    val userId: String,
+    val status: String,
+    val confidence: String,
+    val headlineJson: String,
+    val summary: String,
+    val dimensionsJson: String,
+    val factsJson: String,
+    val coverageJson: String?,
+    val timezoneUsed: String?,
+    val fetchedAt: Long
+)
+
+@Dao
+interface PortraitDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(value: DailyPortraitEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(values: List<DailyPortraitEntity>)
+
+    @Query("SELECT * FROM portrait_daily WHERE localDate >= :from AND localDate <= :to ORDER BY localDate ASC")
+    suspend fun queryByDateRange(from: String, to: String): List<DailyPortraitEntity>
+
+    @Query("SELECT * FROM portrait_daily ORDER BY localDate DESC LIMIT 1")
+    suspend fun queryLatest(): DailyPortraitEntity?
+}
+
 @Database(
     entities = [
         CheckinEntity::class,
@@ -260,13 +300,15 @@ interface EscalationDao {
         ConsentEntity::class,
         FeatureVectorEntity::class,
         ActiveSkillSessionEntity::class,
-        EscalationEntity::class
+        EscalationEntity::class,
+        DailyPortraitEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {
     abstract fun dao(): EchoDao
     abstract fun consentDao(): ConsentDao
     abstract fun escalationDao(): EscalationDao
+    abstract fun portraitDao(): PortraitDao
 }

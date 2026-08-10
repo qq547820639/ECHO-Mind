@@ -243,6 +243,9 @@ class SensingWindowSchedulerTest {
             true
         }
         assertTrue("start 后应处于运行状态", scheduler.running)
+        // 让循环首轮迭代先执行：读取当前时钟（12:03）并调度 delay(waitMs)，
+        // 之后再推进时钟与虚拟时间，否则首轮读到的是已推进后的时钟（错过 12:00 窗口）
+        runCurrent()
 
         // 推进到 12:05 边界 → flush 12:00 窗口
         clock.advanceMs(2 * 60 * 1000L)
@@ -250,7 +253,8 @@ class SensingWindowSchedulerTest {
         runCurrent()
         assertEquals(listOf(Instant.parse("2026-08-01T12:00:00Z")), flushedStarts)
 
-        // 推进到 12:10 边界 → flush 12:05 窗口
+        // 推进到 12:10 边界 → flush 12:05 窗口（上一窗口已 clearConsumed，需重新注入样本）
+        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
         clock.advanceMs(5 * 60 * 1000L)
         advanceTimeBy(5 * 60 * 1000L)
         runCurrent()

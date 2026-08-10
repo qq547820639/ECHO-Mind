@@ -28,9 +28,13 @@ import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
-import com.yunjue.echo.mind.model.NarrativeDisplay
-import com.yunjue.echo.mind.model.NarrativeFetchResult
+import com.yunjue.echo.mind.model.DailyPortraitDto
+import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
+import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.model.ProfileDisplay
+import com.yunjue.echo.mind.model.dimensionDisplayName
+import com.yunjue.echo.mind.model.dimensionTrendSymbol
+import com.yunjue.echo.mind.model.portraitStabilitySummary
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +44,6 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /** T12.3：日记录入已停用提示文案（同时作为单测的不变量锚点）。 */
@@ -71,8 +74,8 @@ fun RecordScreen(repository: LocalRepository) {
     }
 }
 
-/** T12.3：练习打卡已改为 Skill 驱动提示文案（同时作为单测的不变量锚点）。 */
-internal const val PRACTICE_DEPRECATION_NOTICE = "练习打卡已改为能力卡片驱动，请在「能力」标签查看下发的 Skill。"
+/** T12.3：练习打卡已停用提示文案（同时作为单测的不变量锚点）。 */
+internal const val PRACTICE_DEPRECATION_NOTICE = "练习打卡已停用，练习改由「能力」标签下发的 Skill 卡片驱动。"
 
 @Composable
 fun PracticeScreen(repository: LocalRepository) {
@@ -112,7 +115,7 @@ enum class TrendNoDataReason {
 }
 
 /**
- * 七态解析纯函数（契约点 8）：
+ * 七态解析纯函数（契约点 8；Milestone G 后 items 为画像/叙事数据集合，语义不变）：
  * - API 失败 → ERROR（区别于真无数据的 NO_DATA）；
  * - 感知关闭/权限被撤 → PERMISSION_DISABLED；
  * - 缓存兜底 → OFFLINE_CACHED；有数据缺窗口 → PARTIAL；否则 FRESH。
@@ -121,14 +124,14 @@ internal fun resolveTrendState(
     loading: Boolean,
     loadFailed: Boolean,
     offlineCached: Boolean,
-    narratives: List<NarrativeDisplay>?,
+    items: Collection<*>?,
     permissionEnabled: Boolean,
     isPartial: Boolean
 ): TrendUiState = when {
     loading -> TrendUiState.LOADING
     !permissionEnabled -> TrendUiState.PERMISSION_DISABLED
     loadFailed -> TrendUiState.ERROR
-    narratives.isNullOrEmpty() -> TrendUiState.NO_DATA
+    items.isNullOrEmpty() -> TrendUiState.NO_DATA
     offlineCached -> TrendUiState.OFFLINE_CACHED
     isPartial -> TrendUiState.PARTIAL
     else -> TrendUiState.FRESH
@@ -203,39 +206,11 @@ internal fun appSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
 
 /**
- * 活动节律定性摘要（非诊断；v0.6.1 P1-9 语义收紧）：
- * 只表达「活动传感数据覆盖天数」，不得包装成"活动量高低"。
+ * v0.6.2（A4）：电池优化设置页（无需特殊权限，直接打开系统"忽略电池优化"列表）。
+ * 用于 SYSTEM_BACKGROUND NO_DATA 态的"前往系统设置"CTA。
  */
-internal fun activityRhythmSummary(narratives: List<NarrativeDisplay>): String {
-    val daysWithActivity = narratives.count { n -> n.events.any { it.source == "accel" || it.source == "gyro" } }
-    return if (daysWithActivity == 0) {
-        "暂无足够的活动传感数据覆盖。"
-    } else {
-        "近 ${narratives.size} 天中 ${daysWithActivity} 天有活动传感数据覆盖（仅用于观察时间分布，不代表活动量高低，非诊断）。"
-    }
-}
-
-/** 行为模式定性摘要（非诊断）。 */
-internal fun behaviorPatternSummary(narratives: List<NarrativeDisplay>): String {
-    val screenDays = narratives.count { n -> n.events.any { it.source == "screen" } }
-    val appDays = narratives.count { n -> n.events.any { it.source == "app_activity" } }
-    return if (screenDays == 0 && appDays == 0) {
-        "暂无屏幕互动数据。"
-    } else {
-        "近 ${narratives.size} 天中 ${screenDays} 天有屏幕事件、${appDays} 天有 App 活跃记录，仅用于观察数字互动节律（非诊断）。"
-    }
-}
-
-/** 基线稳定性定性摘要（非诊断）。 */
-internal fun baselineStabilitySummary(narratives: List<NarrativeDisplay>, coverage: Float): String {
-    return if (narratives.isEmpty()) {
-        "暂无足够数据评估基线稳定性。"
-    } else if (coverage >= 0.5f) {
-        "数据覆盖较稳定，可用于观察相对个人基线的变化。"
-    } else {
-        "数据覆盖不足，暂不足以评估基线稳定性。"
-    }
-}
+internal fun batteryOptimizationSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
 
 internal fun formatTimestamp(epochMs: Long): String {
     if (epochMs <= 0L) return "暂无"
@@ -252,43 +227,47 @@ internal const val PERSISTENCE_FAILURE_LOOKBACK_MS = 24 * 60 * 60 * 1000L
 internal const val COLLECTOR_HEARTBEAT_STALE_MS = 3 * 24 * 60 * 60 * 1000L
 
 @Composable
-fun TrendScreen(repository: LocalRepository) {
+fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
     val context = LocalContext.current
-    var narrativeResult by remember { mutableStateOf<NarrativeFetchResult?>(null) }
+    // 7 日 / 28 日窗口（Milestone G：Portrait Timeline）
+    var windowDays by remember { mutableStateOf(7) }
     var profile by remember { mutableStateOf<ProfileDisplay?>(null) }
-    var loading by remember { mutableStateOf(true) }
     var retryKey by remember { mutableStateOf(0) }
+    val timeline by repository.observePortraits(windowDays).collectAsState()
 
     // 被动感知 consent + 租户 flag：任一关闭 → permission_disabled 态
     val consent by repository.passiveSensingConsentFlow().collectAsState(initial = false)
     val flags by repository.featureFlagsFlow.collectAsState(initial = emptyMap())
     val permissionEnabled = consent && (flags["passive_sensing_enabled"] ?: false)
 
-    LaunchedEffect(retryKey) {
-        loading = true
-        withContext(Dispatchers.IO) {
-            narrativeResult = runCatching { repository.fetchNarratives(7) }.getOrNull()
-            profile = runCatching { repository.fetchProfile() }.getOrNull()
+    LaunchedEffect(retryKey, windowDays) {
+        repository.refreshPortraits(windowDays)
+        // profile 仅用于 NO_DATA 细分原因（observation_days / sources_present_union）
+        profile = withContext(Dispatchers.IO) {
+            runCatching { repository.fetchProfile() }.getOrNull()
         }
-        loading = false
     }
 
     val state = resolveTrendState(
-        loading = loading,
-        loadFailed = narrativeResult?.loadFailed == true || profile?.loadFailed == true,
-        offlineCached = narrativeResult?.fromCache == true,
-        narratives = narrativeResult?.narratives,
+        loading = timeline.loading,
+        loadFailed = timeline.loadFailed,
+        offlineCached = timeline.fromCache,
+        items = if (timeline.portraits.isEmpty()) null else timeline.portraits,
         permissionEnabled = permissionEnabled,
-        isPartial = narrativeResult?.isPartial == true
+        isPartial = timeline.isPartial
     )
 
     // NO_DATA 细分原因（T02 七态细化；v0.6.1 全部输入真实接入）：
     // - 系统后台限制：电池优化被豁免失败（isIgnoringBatteryOptimizations=false）
     //   → 系统可限制后台；或 collector heartbeat 超过 3 天无新采集
     // - source gaps：profile.sources_present_union 与期望核心源对比（服务端已下推）
-    val batteryRestricted = !android.os.PowerManager.runCatching {
-        context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-    }.getOrNull()?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+    val lastSyncTs = repository.lastSyncTimestamp()
+    val lastCollectionTs = repository.lastCollectionTimestamp()
+    // 电池优化被豁免失败（isIgnoringBatteryOptimizations=false）→ 系统可能限制后台活动
+    val batteryRestricted = runCatching {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        pm?.isIgnoringBatteryOptimizations(context.packageName) == false
+    }.getOrDefault(true)
     val heartbeatStale = lastCollectionTs > 0L &&
         System.currentTimeMillis() - lastCollectionTs > COLLECTOR_HEARTBEAT_STALE_MS
     val systemBackgroundRestricted = batteryRestricted || heartbeatStale
@@ -305,13 +284,25 @@ fun TrendScreen(repository: LocalRepository) {
         permissionGranted = permissionEnabled
     )
 
-    val lastSyncTs = repository.lastSuccessfulSyncAt()
-    val lastCollectionTs = repository.lastCollectionTimestamp()
-
     Page("趋势") {
         // 契约点 2 固定免责文案（单测锚点）
         Text(TREND_DISCLAIMER)
         HorizontalDivider()
+
+        // 7 日 / 28 日窗口切换
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = windowDays == 7,
+                onClick = { windowDays = 7 },
+                label = { Text("近 7 天") }
+            )
+            FilterChip(
+                selected = windowDays == 28,
+                onClick = { windowDays = 28 },
+                label = { Text("近 28 天") }
+            )
+        }
+
         when (state) {
             TrendUiState.LOADING -> {
                 CircularProgressIndicator()
@@ -329,74 +320,149 @@ fun TrendScreen(repository: LocalRepository) {
             }
             TrendUiState.NO_DATA -> {
                 Text(trendNoDataReasonText(noDataReason))
+                // v0.6.2（A4）：NO_DATA 态补充展示最近采集 / 最近成功同步时间；
+                // 文案只陈述事实，不焦虑不诊断（trendNoDataReasonText 语义保持）
+                Text("最近成功采集：${formatTimestamp(lastCollectionTs)}")
+                Text("最近成功同步：${formatTimestamp(lastSyncTs)}")
+                // 仅「可一键修复」的原因提供 CTA：
+                // - CLOSED：支持页可重新开启
+                // - SYSTEM_BACKGROUND：系统设置可调整电池/后台限制
+                // NEW_USER / SOURCE_GAPS / AWAITING_UPLOAD / PERSISTENCE_FAILURE /
+                // PERMISSION / UNKNOWN 不可一键修复 → 无 CTA 只保留文案
+                when (noDataReason) {
+                    TrendNoDataReason.CLOSED -> OutlinedButton(onClick = onGoToSupport) {
+                        Text("前往支持页重新开启")
+                    }
+                    TrendNoDataReason.SYSTEM_BACKGROUND -> OutlinedButton(onClick = {
+                        runCatching { context.startActivity(batteryOptimizationSettingsIntent(context)) }
+                    }) {
+                        Text("前往系统设置")
+                    }
+                    else -> Unit
+                }
             }
             TrendUiState.OFFLINE_CACHED -> {
                 Text("当前离线，以下为缓存的趋势数据。")
-                TrendContent(narrativeResult, lastCollectionTs, lastSyncTs)
+                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs)
             }
-            TrendUiState.FRESH, TrendUiState.PARTIAL -> TrendContent(narrativeResult, lastCollectionTs, lastSyncTs)
+            TrendUiState.FRESH, TrendUiState.PARTIAL -> PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs)
         }
     }
 }
 
+/**
+ * Portrait Timeline 内容（Milestone G）：
+ * - 7 日视图：各维度（节律/移动/屏幕）相对趋势符号矩阵（↑↓→~，不做精确数字强调）
+ * - 28 日视图：各维度概览 + 确定性综述（最稳定 / 变化较明显）
+ * - 不做心理状态解释（TREND_DISCLAIMER 语义保持）
+ */
 @Composable
-private fun TrendContent(result: NarrativeFetchResult?, lastCollectionTs: Long, lastSyncTs: Long) {
-    val narratives = result?.narratives.orEmpty()
+private fun PortraitTimelineContent(timeline: PortraitTimelineUiState, lastCollectionTs: Long, lastSyncTs: Long) {
+    val portraits = timeline.portraits
 
-    // 日期轴 + 数据覆盖度（7 天覆盖条）
-    Text("数据覆盖度：${((result?.dataCoverage ?: 0f) * 100).toInt()}%（近 7 天）", style = MaterialTheme.typography.titleMedium)
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        val days = (0L until 7L).map { LocalDate.now(ZoneOffset.UTC).minusDays(it) }
-        days.reversed().forEach { day ->
-            val hasData = narratives.any { it.date == day.toString() }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier
-                        .size(16.dp)
-                        .background(if (hasData) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                )
-                Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-
-    // missing window 标注
-    if (result?.isPartial == true) {
-        Text("缺失窗口：${result.missingDates.joinToString("、").ifEmpty { "无" }}")
-    }
-
-    HorizontalDivider()
-    Text("最近状态线索", style = MaterialTheme.typography.titleMedium)
-    if (narratives.isEmpty()) {
-        Text("暂无状态线索。")
-    } else {
-        narratives.takeLast(3).forEach { n ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(n.date, style = MaterialTheme.typography.labelMedium)
-                    n.events.take(3).forEach { e ->
-                        // v0.6.1（P1-9）：source code → 人类可读名称；内部码不出现在普通 UI
-                        Text("${sourceDisplayName(e.source)}：${e.summary}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (n.events.isEmpty()) {
-                        Text("无事件摘要", style = MaterialTheme.typography.bodySmall)
-                    }
+    // 数据覆盖度（近 N 天窗口）
+    Text("数据覆盖度：${coveragePercent(portraits, timeline.days)}%（近 ${timeline.days} 天）", style = MaterialTheme.typography.titleMedium)
+    // 日期覆盖条（仅最近 7 天窗口展示单日格子；28 天不逐日铺开）
+    if (timeline.days <= 7) {
+        val days = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            days.forEach { day ->
+                val hasData = portraits.any { it.date == day.toString() }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier
+                            .size(16.dp)
+                            .background(if (hasData) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                    )
+                    Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
     }
 
+    // missing window 标注
+    if (timeline.isPartial) {
+        Text("缺失窗口：${timeline.missingDates.joinToString("、").ifEmpty { "无" }}")
+    }
+
     HorizontalDivider()
-    Text("活动节律", style = MaterialTheme.typography.titleMedium)
-    Text(activityRhythmSummary(narratives))
-    Text("行为模式", style = MaterialTheme.typography.titleMedium)
-    Text(behaviorPatternSummary(narratives))
-    Text("基线稳定性", style = MaterialTheme.typography.titleMedium)
-    Text(baselineStabilitySummary(narratives, result?.dataCoverage ?: 0f))
+    if (timeline.days <= 7) {
+        SevenDayTrendMatrix(portraits, timeline.days)
+    } else {
+        TwentyEightDayOverview(portraits)
+    }
 
     HorizontalDivider()
     Text("最近成功采集：${formatTimestamp(lastCollectionTs)}")
     Text("最近成功同步：${formatTimestamp(lastSyncTs)}")
+}
+
+/** 数据覆盖度（0..100 整数百分比）：窗口内有画像的天数 / 窗口天数。 */
+internal fun coveragePercent(portraits: List<DailyPortraitDto>, days: Int): Int {
+    if (days <= 0) return 0
+    val today = LocalDate.now()
+    val window = (0 until days).map { today.minusDays((days - 1 - it).toLong()).toString() }.toSet()
+    val present = portraits.map { it.date }.filter { it in window }.toSet()
+    return (present.size * 100 / days).coerceIn(0, 100)
+}
+
+/**
+ * 7 日视图：维度（节律/移动/屏幕互动）× 最近 [days] 天相对趋势符号矩阵。
+ * 符号来自 [dimensionTrendSymbol]（↑ 偏早/增多、↓ 偏晚/减少、→ 接近、~ 不规律/波动、– 缺失）。
+ */
+@Composable
+private fun SevenDayTrendMatrix(portraits: List<DailyPortraitDto>, days: Int) {
+    val dates = (0 until days).map { LocalDate.now().minusDays((days - 1 - it).toLong()) }
+    val byDate = portraits.associateBy { it.date }
+    Text("相对趋势（↑ 偏早/增多 · ↓ 偏晚/减少 · → 接近，仅观察不解释）", style = MaterialTheme.typography.bodySmall)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // 表头：维度 + 日期
+        Row {
+            Box(Modifier.weight(1.6f)) { Text("维度", style = MaterialTheme.typography.labelSmall) }
+            dates.forEach { day ->
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        PORTRAIT_TREND_DIMENSIONS.forEach { dim ->
+            Row {
+                Box(Modifier.weight(1.6f)) {
+                    Text(dimensionDisplayName(dim), style = MaterialTheme.typography.bodySmall)
+                }
+                dates.forEach { day ->
+                    val value = byDate[day.toString()]?.dimensions?.get(dim)
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(dimensionTrendSymbol(value), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 28 日视图：各维度概览（接近/偏早增多/偏晚减少天数）+ 确定性综述
+ * （最稳定 = SIMILAR 比例最高；变化较明显 = 非 SIMILAR 最多）。
+ */
+@Composable
+private fun TwentyEightDayOverview(portraits: List<DailyPortraitDto>) {
+    Text("近 28 天各维度概览（仅观察，不解释）", style = MaterialTheme.typography.titleMedium)
+    PORTRAIT_TREND_DIMENSIONS.forEach { dim ->
+        val values = portraits.mapNotNull { it.dimensions[dim] }
+        if (values.isEmpty()) {
+            Text("${dimensionDisplayName(dim)}：暂无数据", style = MaterialTheme.typography.bodySmall)
+        } else {
+            val similar = values.count { it == "SIMILAR" }
+            val up = values.count { dimensionTrendSymbol(it) == "↑" }
+            val down = values.count { dimensionTrendSymbol(it) == "↓" }
+            Text(
+                "${dimensionDisplayName(dim)}：$similar 天接近 · $up 天偏早/增多 · $down 天偏晚/减少",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+    Text(portraitStabilitySummary(portraits), style = MaterialTheme.typography.titleMedium)
 }
 
 // ===== 支持与设置（PRD v0.6 契约点 3：统一"数据与感知" consent 中心） =====
@@ -438,9 +504,12 @@ fun SupportScreen(container: AppContainer) {
     val consecutiveFailures = container.preferences.consecutivePersistenceFailures
     val syncState = mapSyncState(
         pendingCount = pending,
-        lastHttpCode = container.preferences.lastSyncHttpCode,
         networkAvailable = isNetworkAvailable(context),
-        deadLetterCount = container.preferences.deadLetterCount()
+        deadLetterCount = container.preferences.deadLetterCount(),
+        // v0.6.2（Batch A）：批次级分类结果（不再使用 lastSyncHttpCode 覆盖式映射）
+        authBlocked = container.preferences.authRequired,
+        consentBlocked = container.preferences.lastSyncErrorClass == "consent",
+        retrying = container.preferences.lastSyncErrorClass == "retryable"
     )
     val syncLabel = syncStateText(syncState, pending)
 
@@ -531,6 +600,10 @@ fun SupportScreen(container: AppContainer) {
     }
 
     Page("支持与设置") {
+        // 危机按钮 accessibility 文案：在组合作用域解析资源（lint：不在 semantics lambda 内查询资源）
+        val crisis12356Desc = stringResource(R.string.crisis_call_12356_desc)
+        val crisis110Desc = stringResource(R.string.crisis_call_110_desc)
+        val crisis120Desc = stringResource(R.string.crisis_call_120_desc)
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.crisis_title), style = MaterialTheme.typography.titleMedium)
@@ -539,19 +612,19 @@ fun SupportScreen(container: AppContainer) {
                 Button(
                     onClick = { context.startActivity(dialIntent("12356")) },
                     modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = context.getString(R.string.crisis_call_12356_desc)
+                        contentDescription = crisis12356Desc
                     }
                 ) { Text(stringResource(R.string.crisis_call_12356)) }
                 OutlinedButton(
                     onClick = { context.startActivity(dialIntent("110")) },
                     modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = context.getString(R.string.crisis_call_110_desc)
+                        contentDescription = crisis110Desc
                     }
                 ) { Text(stringResource(R.string.crisis_call_110)) }
                 OutlinedButton(
                     onClick = { context.startActivity(dialIntent("120")) },
                     modifier = Modifier.fillMaxWidth().semantics {
-                        contentDescription = context.getString(R.string.crisis_call_120_desc)
+                        contentDescription = crisis120Desc
                     }
                 ) { Text(stringResource(R.string.crisis_call_120)) }
             }

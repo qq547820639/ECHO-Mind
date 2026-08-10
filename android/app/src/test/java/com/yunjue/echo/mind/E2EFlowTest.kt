@@ -79,7 +79,7 @@ class E2EFlowTest {
         val input = features.first()
 
         // 验证 DerivedFeatureInput 字段集合（data class 属性）
-        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.toSet()
+        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.filterNot { it.startsWith("$") }.toSet()
         val expectedFields = setOf(
             "schemaVersion", "source", "windowStart", "windowEnd", "summary", "vector", "sourcesPresent"
         )
@@ -122,7 +122,7 @@ class E2EFlowTest {
     @Test
     fun derivedFeatureInputContainsNoRawSensorFields() {
         // 隐私不变量：DerivedFeatureInput 模型不包含任何原始传感字段
-        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.toSet()
+        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.filterNot { it.startsWith("$") }.toSet()
 
         // 映射到后端字段名（camelCase → snake_case）
         val backendFieldNames = inputFields.map { name ->
@@ -167,10 +167,10 @@ class E2EFlowTest {
         // 构造大量信号触发长摘要
         val accelSamples = (1..500).map { floatArrayOf(it.toFloat() * 0.01f, 0f, 9.8f) }
         val screenEvents = (1..100).map {
-            ScreenCollector.ScreenEvent(now.minusSeconds(300 - it * 2).toEpochMilli(), ScreenCollector.ScreenState.ON)
+            ScreenCollector.ScreenEvent(now.minusSeconds((300 - it * 2).toLong()).toEpochMilli(), ScreenCollector.ScreenState.ON)
         }
         val notifications = (1..200).map {
-            NotificationCollector.NotificationMeta(now.minusSeconds(300 - it).toEpochMilli(), "pkg$it", "social")
+            NotificationCollector.NotificationMeta(now.minusSeconds((300 - it).toLong()).toEpochMilli(), "pkg$it", "social")
         }
 
         val features = FeatureExtractor().extract(
@@ -247,7 +247,7 @@ class E2EFlowTest {
             durationSeconds = 180
         )
         // 模型字段集合 = {skillId, status, durationSeconds, clientTime, eventId}
-        val fields = SkillCompletionInput::class.java.declaredFields.map { it.name }.toSet()
+        val fields = SkillCompletionInput::class.java.declaredFields.map { it.name }.filterNot { it.startsWith("$") }.toSet()
         assertEquals(
             setOf("skillId", "status", "durationSeconds", "clientTime", "eventId"),
             fields
@@ -293,7 +293,11 @@ class E2EFlowTest {
         //   actionType / estimatedDuration / completionSchema / safetyConstraints / revision
         val displayFields = SkillDisplay::class.java.declaredFields
             .map { it.name }
-            .filter { it != "Companion" } // companion 静态字段不计入数据字段
+            // 过滤合成字段（$stable）与 companion 静态字段（Companion / 静态常量）
+            .filter { !it.startsWith("$") && it != "Companion" }
+            .filterNot { name ->
+                SkillDisplay::class.java.declaredFields.any { it.name == name && java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            }
             .toSet()
         val expectedFields = setOf(
             "id", "name", "version",
@@ -410,7 +414,7 @@ class E2EFlowTest {
         val input = features.first()
 
         // Step 2: 验证 ingest payload 字段对齐（无原始传感字段）
-        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.toSet()
+        val inputFields = DerivedFeatureInput::class.java.declaredFields.map { it.name }.filterNot { it.startsWith("$") }.toSet()
         for (forbidden in forbiddenRawFields) {
             assertFalse(
                 "DerivedFeatureInput 不应含原始传感字段: $forbidden",
@@ -434,7 +438,7 @@ class E2EFlowTest {
             assertFalse("trigger_conditions 不应引用 passive_feature.summary", cond.contains("passive_feature.summary"))
             assertFalse("trigger_conditions 不应引用 derived_feature", cond.contains("derived_feature"))
         }
-        val displayFields = SkillDisplay::class.java.declaredFields.map { it.name }.toSet()
+        val displayFields = SkillDisplay::class.java.declaredFields.map { it.name }.filterNot { it.startsWith("$") }.toSet()
         assertFalse("SkillDisplay 不应含 content_hash 字段", "content_hash" in displayFields)
         assertFalse("SkillDisplay 不应含 tenant_id 字段", "tenant_id" in displayFields)
         assertFalse("SkillDisplay 不应含 user_id 字段", "user_id" in displayFields)

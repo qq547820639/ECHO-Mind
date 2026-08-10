@@ -8,10 +8,7 @@ import com.yunjue.echo.mind.model.ProfileDisplay
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
 import com.yunjue.echo.mind.ui.TrendNoDataReason
 import com.yunjue.echo.mind.ui.TrendUiState
-import com.yunjue.echo.mind.ui.activityRhythmSummary
 import com.yunjue.echo.mind.ui.appSettingsIntent
-import com.yunjue.echo.mind.ui.baselineStabilitySummary
-import com.yunjue.echo.mind.ui.behaviorPatternSummary
 import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
 import com.yunjue.echo.mind.ui.resolveTrendState
 import com.yunjue.echo.mind.ui.trendNoDataReasonText
@@ -52,7 +49,7 @@ class TrendDataSourceTest {
             TrendUiState.LOADING,
             resolveTrendState(
                 loading = true, loadFailed = false, offlineCached = false,
-                narratives = null, permissionEnabled = true, isPartial = false
+                items = null, permissionEnabled = true, isPartial = false
             )
         )
     }
@@ -64,7 +61,7 @@ class TrendDataSourceTest {
             TrendUiState.ERROR,
             resolveTrendState(
                 loading = false, loadFailed = true, offlineCached = false,
-                narratives = emptyList(), permissionEnabled = true, isPartial = false
+                items = emptyList(), permissionEnabled = true, isPartial = false
             )
         )
         // 真无数据（成功但空）→ NO_DATA
@@ -72,7 +69,7 @@ class TrendDataSourceTest {
             TrendUiState.NO_DATA,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = false,
-                narratives = emptyList(), permissionEnabled = true, isPartial = false
+                items = emptyList(), permissionEnabled = true, isPartial = false
             )
         )
         // error 必须不等于 no data
@@ -85,7 +82,7 @@ class TrendDataSourceTest {
             TrendUiState.PERMISSION_DISABLED,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = false,
-                narratives = listOf(narrative("2026-07-27")), permissionEnabled = false, isPartial = false
+                items = listOf(narrative("2026-07-27")), permissionEnabled = false, isPartial = false
             )
         )
     }
@@ -96,7 +93,7 @@ class TrendDataSourceTest {
             TrendUiState.OFFLINE_CACHED,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = true,
-                narratives = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = false
+                items = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = false
             )
         )
     }
@@ -107,7 +104,7 @@ class TrendDataSourceTest {
             TrendUiState.PARTIAL,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = false,
-                narratives = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = true
+                items = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = true
             )
         )
     }
@@ -118,7 +115,7 @@ class TrendDataSourceTest {
             TrendUiState.FRESH,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = false,
-                narratives = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = false
+                items = listOf(narrative("2026-07-27")), permissionEnabled = true, isPartial = false
             )
         )
     }
@@ -176,26 +173,10 @@ class TrendDataSourceTest {
     // ---------- 定性摘要（非诊断） ----------
 
     @Test
-    fun activityRhythmSummaryIsNonDiagnostic() {
-        val text = activityRhythmSummary(listOf(narrative("2026-07-27", source = "accel")))
-        assertTrue(text.contains("活动节律") || text.contains("活动信号"))
-        assertFalse("定性摘要不得含情绪词", text.contains("情绪"))
-        assertFalse("定性摘要不得含诊断词", text.contains("诊断") && text.contains("你"))
-    }
-
-    @Test
-    fun behaviorPatternSummaryIsNonDiagnostic() {
-        val text = behaviorPatternSummary(listOf(narrative("2026-07-27", source = "screen")))
-        assertTrue(text.contains("屏幕事件") || text.contains("屏幕互动"))
-        assertFalse(text.contains("情绪"))
-    }
-
-    @Test
-    fun baselineStabilitySummaryHandlesEmptyAndCoverage() {
-        val emptyText = baselineStabilitySummary(emptyList(), 0f)
-        assertTrue(emptyText.contains("暂无足够数据"))
-        val stableText = baselineStabilitySummary(listOf(narrative("2026-07-27")), 0.9f)
-        assertTrue(stableText.contains("覆盖"))
+    fun portraitSummaryIsDeterministicAndNonDiagnostic() {
+        // 28 日综述（Milestone G）：最稳定 = SIMILAR 比例最高；变化较明显 = 非 SIMILAR 最多。
+        // 纯函数计算详见 PortraitTimelineTest；此处仅验证不包含情绪/诊断措辞的锚点文案存在。
+        assertTrue(TREND_DISCLAIMER.contains("不能知道或判断你的真实情绪"))
     }
 
     // ---------- ProfileDisplay loadFailed 语义 ----------

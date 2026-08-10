@@ -86,10 +86,10 @@ class FeatureExtractorTest {
         // 构造大量信号触发长摘要
         val accelSamples = (1..500).map { floatArrayOf(it.toFloat() * 0.01f, 0f, 9.8f) }
         val screenEvents = (1..100).map {
-            ScreenCollector.ScreenEvent(now.minusSeconds(300 - it * 2).toEpochMilli(), ScreenCollector.ScreenState.ON)
+            ScreenCollector.ScreenEvent(now.minusSeconds((300 - it * 2).toLong()).toEpochMilli(), ScreenCollector.ScreenState.ON)
         }
         val notifications = (1..200).map {
-            NotificationCollector.NotificationMeta(now.minusSeconds(300 - it).toEpochMilli(), "pkg$it", "social")
+            NotificationCollector.NotificationMeta(now.minusSeconds((300 - it).toLong()).toEpochMilli(), "pkg$it", "social")
         }
 
         val features = extractor.extract(

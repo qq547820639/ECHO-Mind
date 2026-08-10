@@ -5,16 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
-import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
  * 屏幕状态采集器：监听 ACTION_SCREEN_ON / ACTION_SCREEN_OFF，
- * 记录时间戳 + 状态。原始数据仅端侧内存缓冲。
- * 事件同时写入 [SensingEventHub]（T02 共享层）；hub 为空时保持纯本地缓冲。
+ * 记录时间戳 + 状态。事件只写入 [SensingEventHub]（单一数据源，Batch A v0.6.2）；
+ * [snapshot] 委托 hub，本采集器不保留本地缓冲。
  */
-class ScreenCollector(context: Context, private val hub: SensingEventHub? = null) {
+class ScreenCollector(context: Context, private val hub: SensingEventHub) {
     private val appContext = context.applicationContext
-    private val buffer = ConcurrentLinkedDeque<ScreenEvent>()
     @Volatile
     var running: Boolean = false
         private set
@@ -26,10 +24,7 @@ class ScreenCollector(context: Context, private val hub: SensingEventHub? = null
                 Intent.ACTION_SCREEN_OFF -> ScreenState.OFF
                 else -> return
             }
-            val event = ScreenEvent(System.currentTimeMillis(), state)
-            buffer.offerLast(event)
-            while (buffer.size > MAX_BUFFER_SIZE) buffer.pollFirst()
-            hub?.onScreenEvent(event)
+            hub.onScreenEvent(ScreenEvent(System.currentTimeMillis(), state))
         }
     }
 
@@ -52,12 +47,14 @@ class ScreenCollector(context: Context, private val hub: SensingEventHub? = null
         running = false
     }
 
-    fun snapshot(): List<ScreenEvent> = buffer.toList()
+    /** 屏幕事件快照（委托 hub，单一数据源）。 */
+    fun snapshot(): List<ScreenEvent> = hub.snapshotScreen()
 
     enum class ScreenState { ON, OFF }
     data class ScreenEvent(val timestamp: Long, val state: ScreenState)
 
     companion object {
+        /** hub 对屏幕事件缓冲的容量上限。 */
         const val MAX_BUFFER_SIZE = 512
     }
 }

@@ -7,91 +7,614 @@
 <style>
 :root{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:#292725;background:#f6f5f2}
 body{margin:0}header{padding:22px 28px;background:white;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2}
-main{padding:22px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.card{background:white;border:1px solid #ddd;border-radius:14px;padding:18px;margin:12px 0}.red{border-left:7px solid #9b2020}.warn{background:#fff5e8}
-button{padding:9px 14px;margin:4px;border-radius:9px;border:1px solid #777;background:#fff;cursor:pointer}.primary{background:#292725;color:white}
-input,select{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px;margin:4px 0}input[type=checkbox]{width:auto}
-.muted{color:#6b6762;font-size:14px}.status{font-weight:700}.breach{color:#9b2020;font-weight:700}
+main{padding:22px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.card{background:white;border:1px solid #ddd;border-radius:14px;padding:18px;margin:12px 0}
+.red{border-left:7px solid #9b2020}.amber{border-left:7px solid #c79a2a;background:#fff8e6}.warn{background:#fff5e8}
+button{padding:9px 14px;margin:4px;border-radius:9px;border:1px solid #777;background:#fff;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #9db8d2;outline-offset:1px}
+.primary{background:#292725;color:white}
+input,select,textarea{padding:10px;width:min(760px,90%);border:1px solid #aaa;border-radius:8px;margin:4px 0}input[type=checkbox]{width:auto}
+.muted{color:#6b6762;font-size:14px}.status{font-weight:700}.breach{color:#9b2020;font-weight:700}.amber-warn{color:#8a6d1a;font-weight:700}
 .block{border-top:1px dashed #ccc;padding-top:10px;margin-top:10px}.tag{display:inline-block;background:#eee;border-radius:6px;padding:2px 8px;margin:2px;font-size:13px}
 code{background:#f0efec;border-radius:4px;padding:1px 5px}
+details.block summary{cursor:pointer;font-weight:700;color:#292725}
+details.block summary::before{content:"▸ ";color:#6b6762}
+details.block[open] summary::before{content:"▾ "}
+/* 非阻塞提示条 */
+#banner{display:none;margin:10px auto;max-width:1180px;padding:10px 16px;border-radius:10px;font-size:14px;position:sticky;top:64px;z-index:5}
+#banner.ok{display:block;background:#e6f2e6;border:1px solid #6f9a6f;color:#274d27}
+#banner.err{display:block;background:#fbeaea;border:1px solid #c77;color:#7a2222}
+#banner.info{display:block;background:#eef2f8;border:1px solid #9db8d2;color:#27405f}
+/* 模态 */
+dialog{border:1px solid #ddd;border-radius:14px;padding:22px;max-width:620px;width:92%;max-height:85vh;overflow:auto}
+dialog::backdrop{background:rgba(20,18,14,.45)}
+dialog h3{margin-top:0}
+.field-row{margin:10px 0}
+.field-row label{display:block;font-weight:600;margin-bottom:2px}
+.field-row .required::after{content:" *";color:#9b2020}
+.inline-error{color:#9b2020;font-size:13px;margin:4px 0}
+.field-error{border-color:#9b2020!important}
+/* 工具条 */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar label{white-space:nowrap}
+.toolbar input,.toolbar select{width:auto;margin:0}
+.pager{margin-left:auto;display:flex;align-items:center;gap:6px}
+/* 队列 */
+.loading,.empty{text-align:center;padding:28px;color:#6b6762}
+.queue-actions{display:flex;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <header><h1>ECHO Mind 人工接管工作台 <small>v{{ version }}</small></h1><p>仅供授权值班人员使用。最终专业判断和处置由机构人员承担。</p></header>
+<div id="banner" role="status" aria-live="polite"></div>
 <main>
-<section class="card"><label>Bearer Token（仅存于当前浏览器会话）</label><br><input id="token" type="password" placeholder="粘贴 on_call/professional token"><button class="primary" onclick="saveToken();loadAll()">连接</button><button onclick="sessionStorage.clear();location.reload()">清除</button></section>
+<section class="card"><label for="token">Bearer Token（仅存于当前浏览器会话，不写入 localStorage）</label><br>
+<input id="token" type="password" placeholder="粘贴 on_call/professional token" autocomplete="off">
+<button class="primary" id="connectBtn">连接</button>
+<button id="clearBtn">清除</button>
+<span id="authState" class="muted" role="status"></span></section>
+
 <section id="metrics" class="grid"></section>
-<div id="queue"></div>
-<section id="closePanel"></section>
-<section id="caseReview"></section>
+
+<section class="card">
+ <div class="toolbar">
+  <label class="muted" for="fStatus">状态</label>
+  <select id="fStatus" aria-label="按状态过滤">
+   <option value="">全部</option><option value="open">待确认</option><option value="acknowledged">已确认</option>
+   <option value="taken_over">已接管</option><option value="closed">已关闭</option><option value="reviewed">已复盘</option>
+  </select>
+  <label class="muted" for="fLevel">级别</label>
+  <select id="fLevel" aria-label="按级别过滤"><option value="">全部</option><option value="L2">L2</option><option value="L3">L3</option></select>
+  <label class="muted" for="fAssignee">负责人</label>
+  <input id="fAssignee" placeholder="负责人 user_id" aria-label="按负责人过滤">
+  <label class="muted" for="fLimit">每页</label>
+  <select id="fLimit" aria-label="每页条数"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option></select>
+ </div>
+ <div class="toolbar">
+  <input id="search" placeholder="客户端搜索：用户 / 风险类型 / 触发词" aria-label="客户端搜索当前页">
+  <div class="pager">
+   <button id="prevPage">上一页</button>
+   <span id="pageInfo" class="muted" role="status"></span>
+   <button id="nextPage">下一页</button>
+  </div>
+ </div>
+ <div id="queue" aria-busy="false"></div>
+</section>
+
+<section id="caseReview" hidden></section>
 </main>
+
+<dialog id="confirmDialog" aria-labelledby="confirmTitle">
+ <h3 id="confirmTitle">操作确认</h3>
+ <p id="confirmText" role="status"></p>
+ <div id="confirmError" class="inline-error" role="alert" hidden></div>
+ <button class="primary" id="confirmOk">确认</button>
+ <button id="confirmCancel">取消</button>
+</dialog>
+
+<dialog id="closeDialog" aria-labelledby="closeTitle">
+ <h3 id="closeTitle">关闭事件：接管处置记录（必填项以 * 标注）</h3>
+ <form id="closeForm" novalidate>
+  <div class="field-row"><label class="required" for="c_disp">最终处置</label>
+   <input id="c_disp" placeholder="最终处置结论"></div>
+  <div class="field-row"><label class="required" for="c_method">联系方式</label>
+   <select id="c_method"><option value="">请选择</option><option>电话</option><option>短信</option><option>App 内联系</option><option>现场</option></select></div>
+  <div class="field-row"><label class="required" for="c_succeeded">是否联系成功</label>
+   <select id="c_succeeded"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select></div>
+  <div class="field-row"><label class="required" for="c_safety">当前安全状况</label>
+   <input id="c_safety" placeholder="例如：情绪平稳，无即时危险"></div>
+  <div class="field-row">
+   <label><input type="checkbox" id="c_ec"> 已联系紧急联系人</label>　
+   <label><input type="checkbox" id="c_12356"> 已转介 12356 心理援助热线</label>　
+   <label><input type="checkbox" id="c_ems"> 已联系 110/120</label>
+  </div>
+  <div class="field-row"><label class="required" for="c_follow">后续随访计划</label>
+   <input id="c_follow" placeholder="例如：24 小时内电话随访"></div>
+  <div class="field-row"><label class="required" for="c_sign">人工签名</label>
+   <input id="c_sign" placeholder="值班人员签名"></div>
+  <div id="closeErrors" class="inline-error" role="alert"></div>
+  <button class="primary" type="submit">提交关闭</button>
+  <button type="button" id="closeCancel">取消</button>
+ </form>
+</dialog>
+
+<dialog id="reviewDialog" aria-labelledby="reviewTitle">
+ <h3 id="reviewTitle">复盘结论（事件必须先关闭）</h3>
+ <form id="reviewForm" novalidate>
+  <div class="field-row"><label class="required" for="reviewNotes">复盘结论</label>
+   <textarea id="reviewNotes" rows="5" placeholder="本次升级链路、处置是否及时得当、可改进事项"></textarea></div>
+  <div id="reviewErrors" class="inline-error" role="alert"></div>
+  <button class="primary" type="submit">提交复盘</button>
+  <button type="button" id="reviewCancel">取消</button>
+ </form>
+</dialog>
+
 <script>
-const tokenInput=document.getElementById('token');tokenInput.value=sessionStorage.getItem('echo_token')||'';
-const headers=()=>({"Authorization":"Bearer "+tokenInput.value,"Content-Type":"application/json","X-Request-ID":"console_"+crypto.randomUUID()});
-function saveToken(){sessionStorage.setItem('echo_token',tokenInput.value)}
+// ===== 认证抽象层 =====
+// authAdapter：后端认证统一接入点。
+// 默认实现 = Bearer token + sessionStorage（token 不写入 localStorage，避免持久化泄漏）。
+// OIDC / SSO / MFA 接入点：替换下面五个方法即可（例如从 IdP 换取 access_token 后
+// 在此统一注入 Authorization 头 / 处理过期刷新），服务端认证逻辑无需改动。
+const authAdapter = {
+  getHeaders() {
+    const t = sessionStorage.getItem('echo_token') || '';
+    return { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json',
+             'X-Request-ID': 'console_' + crypto.randomUUID() };
+  },
+  isAuthenticated() { return !!sessionStorage.getItem('echo_token'); },
+  getTokenInfo() {
+    const t = sessionStorage.getItem('echo_token') || '';
+    return { present: !!t, scheme: 'Bearer', storage: 'sessionStorage',
+             hint: 'OIDC/SSO/MFA 可在此接入' };
+  },
+  saveToken(token) { sessionStorage.setItem('echo_token', token); },
+  clearToken() { sessionStorage.removeItem('echo_token'); },
+};
+
+// ===== 全局状态 =====
+const state = {
+  metrics: null,        // /v1/escalations/metrics 缓存（含 SLA 参考秒数）
+  rows: [],             // 当前页（服务端过滤 + 分页后）
+  filters: { status: '', level: '', assigned_to: '' },
+  limit: 50,
+  search: '',
+  cursors: [null],      // keyset cursor 栈（支持回退到上一页）
+  pageIndex: 0,
+  nextCursor: '',
+  totalFiltered: null,
+  loading: false,
+  lastFocused: null,    // 模态关闭后焦点还原
+};
+const $ = (id) => document.getElementById(id);
+const LEVEL_LABELS = ['第一值班人', '第二值班人', '机构负责人'];
+const STATUS_LABELS = { open: '待确认', acknowledged: '已确认', taken_over: '已接管',
+                        closed: '已关闭', reviewed: '已复盘' };
+
 function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-const LEVEL_LABELS=['第一值班人','第二值班人','机构负责人'];
-const yn=v=>v===null||v===undefined?'—':(v?'是':'否');
+const yn = v => v === null || v === undefined ? '—' : (v ? '是' : '否');
 function fmtWait(s){if(s===null||s===undefined)return '—';const m=Math.floor(s/60);if(m<1)return s+' 秒';if(m<60)return m+' 分钟';return Math.floor(m/60)+' 小时 '+(m%60)+' 分钟'}
-async function loadAll(){saveToken();await Promise.all([loadMetrics(),loadQueue()])}
-async function loadMetrics(){
- const r=await fetch('/v1/escalations/metrics',{headers:headers()});if(!r.ok){return}
- const x=await r.json();document.getElementById('metrics').innerHTML=`<div class="card"><b>事件总数</b><div>${x.total}</div></div><div class="card"><b>处理中</b><div>${x.open}</div></div><div class="card"><b>ACK P50</b><div>${x.ack_p50_seconds??'—'} 秒</div></div><div class="card"><b>接管 P50</b><div>${x.takeover_p50_seconds??'—'} 秒</div></div>`
+
+// ===== 非阻塞提示条 =====
+let bannerTimer = null;
+function showBanner(text, kind = 'info') {
+  const b = $('banner');
+  b.className = kind;
+  b.textContent = text;
+  b.setAttribute('role', kind === 'err' ? 'alert' : 'status');
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { b.className = ''; }, kind === 'err' ? 8000 : 4000);
 }
-async function loadQueue(){
- const r=await fetch('/v1/escalations',{headers:headers()});
- if(!r.ok){document.getElementById('queue').innerHTML='<div class="card">加载失败：'+esc(await r.text())+'</div>';return}
- const data=await r.json();
- document.getElementById('queue').innerHTML=data.map(x=>{
-  const lvl=LEVEL_LABELS[x.escalation_level]||x.escalation_level;
+
+// 提取错误响应的可读 detail（字符串 / {message, missing_fields} 对象）
+async function errorDetail(r, fallback) {
+  try {
+    const t = await r.text();
+    const j = JSON.parse(t);
+    const d = j && j.detail;
+    if (typeof d === 'string') return d;
+    if (d && typeof d === 'object') {
+      const parts = [];
+      if (d.message) parts.push(d.message);
+      if (Array.isArray(d.missing_fields) && d.missing_fields.length) {
+        parts.push('缺失字段：' + d.missing_fields.join('、'));
+      }
+      if (parts.length) return parts.join('；');
+      return JSON.stringify(d);
+    }
+    return fallback;
+  } catch { return fallback; }
+}
+
+async function api(path, options = {}) {
+  return fetch(path, { ...options, headers: authAdapter.getHeaders() });
+}
+
+// ===== 加载 =====
+async function loadAll() {
+  await Promise.all([loadMetrics(), loadQueue({ reset: true })]);
+}
+
+async function loadMetrics() {
+  try {
+    const r = await api('/v1/escalations/metrics');
+    state.metrics = r.ok ? await r.json() : null;
+  } catch { state.metrics = null; }
+  renderMetrics();
+}
+
+function renderMetrics() {
+  const x = state.metrics;
+  $('metrics').innerHTML = x ? `
+    <div class="card"><b>事件总数</b><div>${esc(x.total)}</div></div>
+    <div class="card"><b>处理中</b><div>${esc(x.open)}</div></div>
+    <div class="card"><b>ACK P50 / P95</b><div>${esc(x.ack_p50_seconds ?? '—')} / ${esc(x.ack_p95_seconds ?? '—')} 秒</div></div>
+    <div class="card"><b>接管 P50 / P95</b><div>${esc(x.takeover_p50_seconds ?? '—')} / ${esc(x.takeover_p95_seconds ?? '—')} 秒</div></div>
+  ` : '<div class="card muted">指标不可用（连接服务端后重试）</div>';
+}
+
+function queueUrl() {
+  const p = new URLSearchParams();
+  if (state.filters.status) p.set('status', state.filters.status);
+  if (state.filters.level) p.set('level', state.filters.level);
+  if (state.filters.assigned_to) p.set('assigned_to', state.filters.assigned_to);
+  p.set('limit', String(state.limit));
+  const cursor = state.cursors[state.pageIndex];
+  if (cursor) p.set('cursor', cursor);
+  return '/v1/escalations?' + p.toString();
+}
+
+async function loadQueue({ reset = false } = {}) {
+  if (reset) { state.cursors = [null]; state.pageIndex = 0; state.nextCursor = ''; }
+  state.loading = true;
+  $('queue').setAttribute('aria-busy', 'true');
+  renderQueue(); // 立即呈现 loading 态
+  try {
+    const r = await api(queueUrl());
+    if (!r.ok) {
+      // 请求失败：保留旧列表，仅提示错误条（partial failure）
+      const msg = await errorDetail(r, '加载失败（HTTP ' + r.status + '）');
+      showBanner(msg, 'err');
+      return;
+    }
+    state.rows = await r.json();
+    state.nextCursor = r.headers.get('X-Next-Cursor') || '';
+    state.totalFiltered = r.headers.get('X-Total-Filtered');
+    renderQueue();
+  } catch (e) {
+    showBanner((e && e.message) ? e.message : '加载失败', 'err');
+  } finally {
+    state.loading = false;
+    $('queue').setAttribute('aria-busy', 'false');
+  }
+}
+
+// ===== 队列渲染 =====
+// 接近 SLA 上限（>80% SLA）→ amber 警示；服务端 breach 字段 → 红色超时。
+function slaWarnThreshold(x) {
+  const m = state.metrics;
+  if (!m) return null;
+  if (!x.ack_at && m.ack_sla_seconds) return 0.8 * m.ack_sla_seconds;
+  if (!x.takeover_at && m.takeover_sla_seconds) return 0.8 * m.takeover_sla_seconds;
+  return null;
+}
+
+function renderQueue() {
+  const host = $('queue');
+  if (state.loading && state.rows.length === 0) {
+    host.innerHTML = '<div class="loading" role="status">加载中…</div>';
+    renderPagination();
+    return;
+  }
+  const kw = state.search.trim().toLowerCase();
+  const visible = state.rows
+    .filter(x => !kw || [x.user_id, x.risk_type, x.trigger]
+      .some(f => String(f || '').toLowerCase().includes(kw)))
+    .slice() // 不改动原始数组
+    .sort((a, b) => (b.waiting_seconds ?? 0) - (a.waiting_seconds ?? 0)); // 默认按已等待降序
+  if (!visible.length) {
+    host.innerHTML = state.rows.length
+      ? '<div class="empty">无匹配：当前页没有命中搜索/过滤条件</div>'
+      : '<div class="empty">当前无事件</div>';
+    renderPagination();
+    return;
+  }
+  host.innerHTML = visible.map(renderCard).join('');
+  renderPagination();
+}
+
+function renderCard(x) {
+  const lvl = LEVEL_LABELS[x.escalation_level] ?? x.escalation_level;
+  const statusLabel = STATUS_LABELS[x.status] ?? x.status;
   // 仅表示服务端接收确认，与人工确认/接管严格区分。
-  const delivery=x.delivery_confirmed?'服务端已确认送达':'<span class="breach">未送达</span>';
-  const secondDuty=x.second_duty_notified?`已通知 ${esc(x.notified_l1_at||'')}`:'未通知';
-  return `<article class="card red ${x.ack_sla_breached||x.takeover_sla_breached?'warn':''}"><div class="status">${esc(x.level)} · ${esc(x.status)} · 升级层级：${esc(lvl)}</div><h3>${esc(x.risk_type)} <span class="muted">(${esc(x.trigger)})</span></h3><p>${esc(x.evidence_summary)}</p><p class="muted">用户：${esc(x.user_id)}　城市：${esc(x.user_city||'未登记')}　开启：${esc(x.opened_at)}　已等待：${fmtWait(x.waiting_seconds)}　负责人：${esc(x.assigned_to||'未分配')}</p><p class="muted">送达：${delivery}　紧急联系人：${esc(x.emergency_contact_status)}　第二值班：${secondDuty}</p>${x.chain_broken?'<p class="breach">机构链路失效（chain broken）</p>':''}${x.ack_sla_breached?'<p class="breach">ACK SLA 已超时</p>':''}${x.takeover_sla_breached?'<p class="breach">接管 SLA 已超时</p>':''}<button onclick="act('${x.id}','ack')">确认</button><button onclick="act('${x.id}','takeover')">接管</button><button onclick="openCloseForm('${x.id}')">关闭</button><button onclick="reviewEsc('${x.id}')">复盘</button><button onclick="caseReview('${x.id}')">个案复核</button></article>`
- }).join('') || '<div class="card">当前无事件</div>';
+  const delivery = x.delivery_confirmed ? '服务端已确认送达' : '<span class="breach">未送达</span>';
+  const secondDuty = x.second_duty_notified ? '已通知' : '未通知';
+  const threshold = slaWarnThreshold(x);
+  const breach = x.ack_sla_breached || x.takeover_sla_breached;
+  const amber = !breach && threshold !== null && (x.waiting_seconds ?? 0) > threshold;
+  const cardClass = breach ? 'red' : (amber ? 'amber' : 'red');
+  const amberLine = amber
+    ? '<p class="amber-warn">接近 SLA 上限（' + Math.round(((x.waiting_seconds ?? 0) / threshold) * 100) + '%）</p>'
+    : '';
+  return `<article class="card ${cardClass}">
+    <div class="status">${esc(x.level)} · ${esc(statusLabel)} · 升级层级：${esc(lvl)}</div>
+    <h3>${esc(x.risk_type)} <span class="muted">(${esc(x.trigger)})</span></h3>
+    <p>${esc(x.evidence_summary ?? '')}</p>
+    <p class="muted">用户：${esc(x.user_id)}　城市：${esc(x.user_city || '未登记')}　开启：${esc(x.opened_at)}　已等待：${fmtWait(x.waiting_seconds)}　负责人：${esc(x.assigned_to || '未分配')}</p>
+    <p class="muted">送达：${delivery}　紧急联系人：${esc(x.emergency_contact_status)}　第二值班：${secondDuty}</p>
+    ${x.chain_broken ? '<p class="breach">机构链路失效（chain broken）</p>' : ''}
+    ${x.ack_sla_breached ? '<p class="breach">ACK SLA 已超时</p>' : ''}
+    ${x.takeover_sla_breached ? '<p class="breach">接管 SLA 已超时</p>' : ''}
+    ${amberLine}
+    <div class="queue-actions">
+      <button data-action="ack" data-id="${esc(x.id)}">确认</button>
+      <button data-action="takeover" data-id="${esc(x.id)}">接管</button>
+      <button data-action="close" data-id="${esc(x.id)}">关闭</button>
+      <button data-action="review" data-id="${esc(x.id)}">复盘</button>
+      <button data-action="case-review" data-id="${esc(x.id)}">个案复核</button>
+    </div>
+  </article>`;
 }
-async function act(id,action){const r=await fetch(`/v1/escalations/${id}/${action}`,{method:'POST',headers:headers()});alert(r.ok?'已更新':await r.text());loadAll()}
-function openCloseForm(id){
- document.getElementById('closePanel').innerHTML=`<div class="card"><h3>关闭事件 ${esc(id)}：接管处置记录（全部必填）</h3>
- <label>联系方式</label><br><select id="c_method"><option value="">请选择</option><option>电话</option><option>短信</option><option>App 内联系</option><option>现场</option></select><br>
- <label>是否联系成功</label><br><select id="c_succeeded"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select><br>
- <label>当前安全状况</label><br><input id="c_safety" placeholder="例如：情绪平稳，无即时危险"><br>
- <label><input type="checkbox" id="c_ec"> 已联系紧急联系人</label>　<label><input type="checkbox" id="c_12356"> 已转介 12356 心理援助热线</label>　<label><input type="checkbox" id="c_ems"> 已联系 110/120</label><br>
- <label>后续随访计划</label><br><input id="c_follow" placeholder="例如：24 小时内电话随访"><br>
- <label>人工签名</label><br><input id="c_sign" placeholder="值班人员签名"><br>
- <label>最终处置</label><br><input id="c_disp" placeholder="最终处置结论"><br>
- <button class="primary" onclick="submitClose('${id}')">提交关闭</button><button onclick="document.getElementById('closePanel').innerHTML=''">取消</button></div>`;
- document.getElementById('closePanel').scrollIntoView();
+
+function renderPagination() {
+  const total = state.totalFiltered !== null ? Number(state.totalFiltered) : null;
+  $('pageInfo').textContent = total !== null
+    ? '共 ' + total + ' 条 · 第 ' + (state.pageIndex + 1) + ' 页'
+    : '第 ' + (state.pageIndex + 1) + ' 页';
+  $('prevPage').disabled = state.pageIndex === 0;
+  $('nextPage').disabled = !state.nextCursor;
 }
-async function submitClose(id){
- const val=i=>document.getElementById(i).value.trim();
- const sel=document.getElementById('c_succeeded').value;
- const body={disposition:val('c_disp')||null,contact_method:val('c_method')||null,contact_succeeded:sel===''?null:sel==='true',safety_status:val('c_safety')||null,emergency_contact_called:document.getElementById('c_ec').checked,referred_12356:document.getElementById('c_12356').checked,called_emergency_services:document.getElementById('c_ems').checked,follow_up_plan:val('c_follow')||null,operator_signature:val('c_sign')||null};
- const r=await fetch(`/v1/escalations/${id}/close`,{method:'POST',headers:headers(),body:JSON.stringify(body)});
- if(r.ok){alert('已关闭');document.getElementById('closePanel').innerHTML=''}
- else{let msg;try{const j=await r.json();msg=j.detail&&j.detail.missing_fields?'缺失字段：'+j.detail.missing_fields.join(', '):JSON.stringify(j.detail)}catch(e){msg='请求失败'}alert('关闭失败：'+msg)}
- loadAll();
+
+function nextPage() {
+  if (!state.nextCursor) return;
+  state.cursors.push(state.nextCursor);
+  state.pageIndex += 1;
+  loadQueue();
 }
-async function reviewEsc(id){const review_notes=prompt('请输入复盘结论（事件必须先关闭）');if(!review_notes)return;const r=await fetch(`/v1/escalations/${id}/review`,{method:'POST',headers:headers(),body:JSON.stringify({review_notes})});alert(r.ok?'已复盘':await r.text());loadAll()}
-async function caseReview(id){
- const r=await fetch(`/v1/escalations/${id}/case-review`,{headers:headers()});
- const el=document.getElementById('caseReview');
- if(!r.ok){el.innerHTML='<div class="card">个案复核加载失败（需 professional/on_call/quality_reviewer 角色并完成二次认证）：'+esc(await r.text())+'</div>';el.scrollIntoView();return}
- const x=await r.json();
- el.innerHTML=`<div class="card red"><h2>个案复核证据链 · ${esc(x.escalation.id)}</h2>
- <div class="block"><h3>事件与触发</h3><p>${esc(x.escalation.level)} · ${esc(x.escalation.status)} · ${esc(x.escalation.risk_type)}（${esc(x.escalation.trigger)}）</p><p>${esc(x.escalation.evidence_summary)}</p><p class="muted">开启：${esc(x.escalation.opened_at)}　升级层级：${esc(LEVEL_LABELS[x.escalation.escalation_level]||x.escalation.escalation_level)}　链路失效：${yn(x.escalation.chain_broken)}　送达：${x.escalation.delivery_confirmed?'服务端已确认送达':'未送达'}</p></div>
- <div class="block"><h3>用户直接表达</h3>${x.direct_expressions.map(d=>`<p><span class="tag">${esc(d.source)}</span> ${esc(d.text)} <span class="muted">${esc(d.client_time)}</span></p>`).join('')||'<p class="muted">无</p>'}</div>
- <div class="block"><h3>规则触发依据</h3>${x.rule_hits.map(h=>`<p><span class="tag">${esc(h.severity)}</span> <code>${esc(h.rule_pack_version)}</code> ${h.matched_rules.map(m=>`<code>${esc(m.rule_id)}</code>${m.pattern?` <span class="muted">${esc(m.pattern)}</span>`:''}`).join('；')||'<span class="muted">无命中明细</span>'} <span class="muted">${esc(h.created_at)}</span></p>`).join('')||'<p class="muted">无规则命中记录</p>'}</div>
- <div class="block"><h3>安全分类器结果</h3><p>最近严重度：${esc(x.safety_classifier.latest_severity??'—')}　标签：${(x.safety_classifier.latest_labels||[]).map(esc).join(', ')||'—'}</p><p class="muted">当前规则包：${esc(x.safety_classifier.current_rule_pack_version)}　信号总数：${x.safety_classifier.signal_count}　红色信号：${x.safety_classifier.red_signal_count}</p></div>
- <div class="block"><h3>量表原始答案（筛查不是诊断）</h3>${x.questionnaires.map(q=>`<p><span class="tag">${esc(q.instrument)} v${esc(q.version)}</span> 分数 ${q.score} · ${esc(q.interpretation)}<br><span class="muted">原始答案：${esc(JSON.stringify(q.answers))}　${esc(q.created_at)}</span></p>`).join('')||'<p class="muted">无量表记录</p>'}</div>
- <div class="block"><h3>最近签到趋势（${x.recent_trend.window_days} 天）</h3>${x.recent_trend.points.map(p=>`<p class="muted">${esc(p.date)}：情绪 ${p.mood} / 压力 ${p.stress} / 精力 ${p.energy} / 睡眠恢复 ${p.sleep_recovery}</p>`).join('')||'<p class="muted">窗口内无签到</p>'}<p class="muted">${esc(x.recent_trend.neutral_message)}</p></div>
- <div class="block"><h3>数据质量</h3><p class="muted">覆盖天数：${x.data_quality.data_days}/${x.data_quality.window_days}（覆盖率 ${x.data_quality.coverage}）　基线就绪：${yn(x.data_quality.baseline_ready)}　量表记录：${x.data_quality.questionnaire_count}　风险信号：${x.data_quality.risk_signal_count}</p></div>
- <div class="block"><h3>历史风险事件</h3>${x.risk_history.map(h=>`<p class="muted">${h.is_current?'<b>【当前】</b> ':''}${esc(h.opened_at)} · ${esc(h.trigger)} · ${esc(h.status)}${h.disposition?` · ${esc(h.disposition)}`:''}</p>`).join('')||'<p class="muted">无</p>'}</div>
- <div class="block"><h3>人工处置记录</h3><p class="muted">确认：${esc(x.human_handling.ack_at||'—')}　接管：${esc(x.human_handling.takeover_at||'—')}　负责人：${esc(x.human_handling.assigned_to||'—')}　关闭：${esc(x.human_handling.closed_at||'—')}　复盘：${esc(x.human_handling.reviewed_at||'—')}</p><p class="muted">联系方式：${esc(x.human_handling.contact_method||'—')}　联系成功：${yn(x.human_handling.contact_succeeded)}　当前安全状况：${esc(x.human_handling.safety_status||'—')}</p><p class="muted">联系紧急联系人：${yn(x.human_handling.emergency_contact_called)}　转介 12356：${yn(x.human_handling.referred_12356)}　联系 110/120：${yn(x.human_handling.called_emergency_services)}</p><p class="muted">最终处置：${esc(x.human_handling.disposition||'—')}　随访计划：${esc(x.human_handling.follow_up_plan||'—')}　人工签名：${esc(x.human_handling.operator_signature||'—')}</p>${x.human_handling.audit_trail.map(a=>`<p class="muted">${esc(a.occurred_at)} · ${esc(a.actor_type)}/${esc(a.actor_id)} · ${esc(a.action)}</p>`).join('')}</div>
- <p class="muted">${esc(x.boundary)}</p></div>`;
- el.scrollIntoView();
+function prevPage() {
+  if (state.pageIndex === 0) return;
+  state.pageIndex -= 1;
+  loadQueue();
 }
-if(tokenInput.value)loadAll();
+
+// ===== 模态通用（焦点管理 + Esc 关闭还原） =====
+function openDialog(dialog, focusSel) {
+  state.lastFocused = document.activeElement;
+  dialog.showModal();
+  if (focusSel) { const el = dialog.querySelector(focusSel); if (el) el.focus(); }
+}
+function closeDialog(dialog) {
+  if (dialog.open) dialog.close();
+  const f = state.lastFocused;
+  if (f && f.isConnected) f.focus();
+}
+for (const d of [$('confirmDialog'), $('closeDialog'), $('reviewDialog')]) {
+  d.addEventListener('close', () => {
+    const f = state.lastFocused;
+    if (f && f.isConnected) f.focus();
+  });
+}
+
+// ===== 确认模态（ack / takeover） =====
+let confirmAction = null;
+function askConfirm(type, id, text) {
+  confirmAction = { type, id };
+  $('confirmText').textContent = text;
+  $('confirmError').hidden = true;
+  openDialog($('confirmDialog'), '#confirmOk');
+}
+$('confirmCancel').addEventListener('click', () => closeDialog($('confirmDialog')));
+$('confirmOk').addEventListener('click', async () => {
+  if (!confirmAction) return;
+  const { type, id } = confirmAction;
+  const ok = $('confirmOk');
+  ok.disabled = true;
+  try {
+    const r = await api('/v1/escalations/' + encodeURIComponent(id) + '/' + type, { method: 'POST' });
+    if (r.ok) {
+      closeDialog($('confirmDialog'));
+      showBanner(type === 'ack' ? '已确认' : '已接管', 'ok');
+      loadAll();
+    } else {
+      const msg = await errorDetail(r, '操作失败');
+      $('confirmError').textContent = msg;
+      $('confirmError').hidden = false;
+    }
+  } catch (e) {
+    $('confirmError').textContent = (e && e.message) ? e.message : '请求失败';
+    $('confirmError').hidden = false;
+  } finally { ok.disabled = false; }
+});
+
+// ===== 关闭模态（结构化表单 + 内联必填校验） =====
+let closeTargetId = null;
+const CLOSE_REQUIRED = [
+  ['c_disp', '最终处置'], ['c_method', '联系方式'], ['c_succeeded', '是否联系成功'],
+  ['c_safety', '当前安全状况'], ['c_follow', '后续随访计划'], ['c_sign', '人工签名'],
+];
+function openCloseForm(id) {
+  closeTargetId = id;
+  $('closeForm').reset();
+  $('closeErrors').textContent = '';
+  for (const [fieldId] of CLOSE_REQUIRED) $(fieldId).classList.remove('field-error');
+  $('closeTitle').textContent = '关闭事件 ' + id + '：接管处置记录（必填项以 * 标注）';
+  openDialog($('closeDialog'), '#c_disp');
+}
+function validateCloseForm() {
+  const missing = [];
+  for (const [fieldId, label] of CLOSE_REQUIRED) {
+    const el = $(fieldId);
+    const ok = fieldId === 'c_method' ? !!el.value
+      : (fieldId === 'c_succeeded' ? el.value !== '' : !!el.value.trim());
+    el.classList.toggle('field-error', !ok);
+    if (!ok) missing.push(label);
+  }
+  return missing;
+}
+function showCloseErrors(missing, serverMsg) {
+  const box = $('closeErrors');
+  if (serverMsg) { box.textContent = serverMsg; return; }
+  box.textContent = missing.length ? '请填写必填项：' + missing.join('、') : '';
+}
+$('closeCancel').addEventListener('click', () => closeDialog($('closeDialog')));
+$('closeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const missing = validateCloseForm();
+  if (missing.length) { showCloseErrors(missing); return; }
+  const body = {
+    disposition: $('c_disp').value.trim(),
+    contact_method: $('c_method').value,
+    contact_succeeded: $('c_succeeded').value === 'true',
+    safety_status: $('c_safety').value.trim(),
+    emergency_contact_called: $('c_ec').checked,
+    referred_12356: $('c_12356').checked,
+    called_emergency_services: $('c_ems').checked,
+    follow_up_plan: $('c_follow').value.trim(),
+    operator_signature: $('c_sign').value.trim(),
+  };
+  const submitBtn = $('closeForm').querySelector('button[type=submit]');
+  submitBtn.disabled = true;
+  try {
+    const r = await api('/v1/escalations/' + encodeURIComponent(closeTargetId) + '/close', {
+      method: 'POST', body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      closeDialog($('closeDialog'));
+      showBanner('事件已关闭', 'ok');
+      loadAll();
+    } else {
+      const msg = await errorDetail(r, '关闭失败');
+      showCloseErrors([], msg);
+    }
+  } catch (err) {
+    showCloseErrors([], (err && err.message) ? err.message : '关闭请求失败');
+  } finally { submitBtn.disabled = false; }
+});
+
+// ===== 复盘模态 =====
+let reviewTargetId = null;
+function openReview(id) {
+  reviewTargetId = id;
+  $('reviewForm').reset();
+  $('reviewErrors').textContent = '';
+  $('reviewNotes').classList.remove('field-error');
+  openDialog($('reviewDialog'), '#reviewNotes');
+}
+$('reviewCancel').addEventListener('click', () => closeDialog($('reviewDialog')));
+$('reviewForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const notes = $('reviewNotes').value.trim();
+  if (!notes) { $('reviewErrors').textContent = '复盘结论不能为空'; $('reviewNotes').classList.add('field-error'); return; }
+  const submitBtn = $('reviewForm').querySelector('button[type=submit]');
+  submitBtn.disabled = true;
+  try {
+    const r = await api('/v1/escalations/' + encodeURIComponent(reviewTargetId) + '/review', {
+      method: 'POST', body: JSON.stringify({ review_notes: notes }),
+    });
+    if (r.ok) {
+      closeDialog($('reviewDialog'));
+      showBanner('已复盘', 'ok');
+      loadAll();
+    } else {
+      const msg = await errorDetail(r, '复盘提交失败');
+      $('reviewErrors').textContent = msg;
+    }
+  } catch (err) {
+    $('reviewErrors').textContent = (err && err.message) ? err.message : '复盘请求失败';
+  } finally { submitBtn.disabled = false; }
+});
+
+// ===== 个案复核（保留证据链 + 可折叠分块） =====
+function caseReviewBlock(title, inner) {
+  return '<details class="block"><summary>' + esc(title) + '</summary>' + inner + '</details>';
+}
+async function caseReview(id) {
+  const el = $('caseReview');
+  el.hidden = false;
+  el.innerHTML = '<div class="card loading" role="status">个案复核加载中…</div>';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  let r;
+  try {
+    r = await api('/v1/escalations/' + encodeURIComponent(id) + '/case-review');
+  } catch (e) {
+    el.innerHTML = '<div class="card red"><h3>个案复核加载失败</h3><p>' + esc((e && e.message) || '网络请求失败') + '</p></div>';
+    return;
+  }
+  if (!r.ok) {
+    const msg = await errorDetail(r, '个案复核加载失败');
+    el.innerHTML = '<div class="card red"><h3>个案复核加载失败</h3>' +
+      '<p class="muted">需要 professional/on_call/quality_reviewer 角色并完成二次认证</p>' +
+      '<p>' + esc(msg) + '</p></div>';
+    return;
+  }
+  const x = await r.json();
+  const escEsc = x.escalation;
+  const hh = x.human_handling || {};
+  const auditLines = (hh.audit_trail || [])
+    .map(a => '<p class="muted">' + esc(a.occurred_at) + ' · ' + esc(a.actor_type) + '/' + esc(a.actor_id) + ' · ' + esc(a.action) + '</p>')
+    .join('') || '<p class="muted">无审计轨迹</p>';
+  el.innerHTML = `<div class="card red"><h2>个案复核证据链 · ${esc(x.escalation.id)}</h2>
+   <div class="block"><h3>事件与触发</h3><p>${esc(escEsc.level)} · ${esc(escEsc.status)} · ${esc(escEsc.risk_type)}（${esc(escEsc.trigger)}）</p><p>${esc(escEsc.evidence_summary)}</p><p class="muted">开启：${esc(escEsc.opened_at)}　升级层级：${esc(LEVEL_LABELS[escEsc.escalation_level] ?? escEsc.escalation_level)}　链路失效：${yn(escEsc.chain_broken)}　送达：${escEsc.delivery_confirmed ? '服务端已确认送达' : '未送达'}</p></div>
+   <div class="block"><h3>用户直接表达</h3>${(x.direct_expressions || []).map(d => `<p><span class="tag">${esc(d.source)}</span> ${esc(d.text)} <span class="muted">${esc(d.client_time)}</span></p>`).join('') || '<p class="muted">无</p>'}</div>
+   <div class="block"><h3>规则触发依据</h3>${(x.rule_hits || []).map(h => `<p><span class="tag">${esc(h.severity)}</span> <code>${esc(h.rule_pack_version)}</code> ${(h.matched_rules || []).map(m => `<code>${esc(m.rule_id)}</code>${m.pattern ? ` <span class="muted">${esc(m.pattern)}</span>` : ''}`).join('；') || '<span class="muted">无命中明细</span>'} <span class="muted">${esc(h.created_at)}</span></p>`).join('') || '<p class="muted">无规则命中记录</p>'}</div>
+   ${caseReviewBlock('安全分类器结果', `<p>最近严重度：${esc((x.safety_classifier && x.safety_classifier.latest_severity) ?? '—')}　标签：${((x.safety_classifier && x.safety_classifier.latest_labels) || []).map(esc).join(', ') || '—'}</p><p class="muted">当前规则包：${esc(x.safety_classifier ? x.safety_classifier.current_rule_pack_version : '')}　信号总数：${esc(x.safety_classifier ? x.safety_classifier.signal_count : '—')}　红色信号：${esc(x.safety_classifier ? x.safety_classifier.red_signal_count : '—')}</p>`)}
+   ${caseReviewBlock('量表原始答案（筛查不是诊断）', (x.questionnaires || []).map(q => `<p><span class="tag">${esc(q.instrument)} v${esc(q.version)}</span> 分数 ${esc(q.score)} · ${esc(q.interpretation)}<br><span class="muted">原始答案：${esc(JSON.stringify(q.answers))}　${esc(q.created_at)}</span></p>`).join('') || '<p class="muted">无量表记录</p>')}
+   ${caseReviewBlock('最近签到趋势', (x.recent_trend && x.recent_trend.points || []).map(p => `<p class="muted">${esc(p.date)}：情绪 ${esc(p.mood)} / 压力 ${esc(p.stress)} / 精力 ${esc(p.energy)} / 睡眠恢复 ${esc(p.sleep_recovery)}</p>`).join('') || '<p class="muted">窗口内无签到</p>' + (x.recent_trend ? '<p class="muted">' + esc(x.recent_trend.neutral_message) + '</p>' : ''))}
+   ${caseReviewBlock('数据质量', `<p class="muted">覆盖天数：${esc(x.data_quality ? x.data_quality.data_days : '—')}/${esc(x.data_quality ? x.data_quality.window_days : '—')}（覆盖率 ${esc(x.data_quality ? x.data_quality.coverage : '—')}）　基线就绪：${yn(x.data_quality ? x.data_quality.baseline_ready : null)}　量表记录：${esc(x.data_quality ? x.data_quality.questionnaire_count : '—')}　风险信号：${esc(x.data_quality ? x.data_quality.risk_signal_count : '—')}</p>`)}
+   ${caseReviewBlock('历史风险事件', (x.risk_history || []).map(h => `<p class="muted">${h.is_current ? '<b>【当前】</b> ' : ''}${esc(h.opened_at)} · ${esc(h.trigger)} · ${esc(h.status)}${h.disposition ? ` · ${esc(h.disposition)}` : ''}</p>`).join('') || '<p class="muted">无</p>')}
+   <div class="block"><h3>人工处置记录</h3><p class="muted">确认：${esc(hh.ack_at || '—')}　接管：${esc(hh.takeover_at || '—')}　负责人：${esc(hh.assigned_to || '—')}　关闭：${esc(hh.closed_at || '—')}　复盘：${esc(hh.reviewed_at || '—')}</p><p class="muted">联系方式：${esc(hh.contact_method || '—')}　联系成功：${yn(hh.contact_succeeded)}　当前安全状况：${esc(hh.safety_status || '—')}</p><p class="muted">联系紧急联系人：${yn(hh.emergency_contact_called)}　转介 12356：${yn(hh.referred_12356)}　联系 110/120：${yn(hh.called_emergency_services)}</p><p class="muted">最终处置：${esc(hh.disposition || '—')}　随访计划：${esc(hh.follow_up_plan || '—')}　人工签名：${esc(hh.operator_signature || '—')}</p>${auditLines}</div>
+   <p class="muted">${esc(x.boundary)}</p></div>`;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ===== 事件委托（队列内按钮） =====
+$('queue').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  if (action === 'ack') {
+    askConfirm('ack', id, '确认已收到事件 ' + id + '？（仅表示值班人员确认，不代表已接管）');
+  } else if (action === 'takeover') {
+    askConfirm('takeover', id, '接管事件 ' + id + '？（同时写入确认时间戳，处置责任归属当前值班人）');
+  } else if (action === 'close') {
+    openCloseForm(id);
+  } else if (action === 'review') {
+    openReview(id);
+  } else if (action === 'case-review') {
+    caseReview(id);
+  }
+});
+
+// ===== 过滤器 / 搜索 / 分页控件 =====
+$('fStatus').addEventListener('change', () => {
+  state.filters.status = $('fStatus').value;
+  loadQueue({ reset: true });
+});
+$('fLevel').addEventListener('change', () => {
+  state.filters.level = $('fLevel').value;
+  loadQueue({ reset: true });
+});
+$('fAssignee').addEventListener('change', () => {
+  state.filters.assigned_to = $('fAssignee').value.trim();
+  loadQueue({ reset: true });
+});
+$('fLimit').addEventListener('change', () => {
+  state.limit = Number($('fLimit').value);
+  loadQueue({ reset: true });
+});
+$('search').addEventListener('input', () => {
+  state.search = $('search').value;
+  renderQueue();
+});
+$('prevPage').addEventListener('click', prevPage);
+$('nextPage').addEventListener('click', nextPage);
+
+// ===== 认证控件 =====
+$('token').value = sessionStorage.getItem('echo_token') || '';
+function updateAuthState() {
+  const info = authAdapter.getTokenInfo();
+  $('authState').textContent = info.present
+    ? '已连接（' + info.scheme + '，存储：' + info.storage + '）'
+    : '未连接';
+}
+$('connectBtn').addEventListener('click', () => {
+  authAdapter.saveToken($('token').value.trim());
+  updateAuthState();
+  loadAll();
+});
+$('clearBtn').addEventListener('click', () => {
+  authAdapter.clearToken();
+  $('token').value = '';
+  updateAuthState();
+  showBanner('会话凭据已清除', 'info');
+  loadAll();
+});
+
+// ===== 启动 =====
+updateAuthState();
+if (sessionStorage.getItem('echo_token')) loadAll();
 </script>
 </body>
 </html>

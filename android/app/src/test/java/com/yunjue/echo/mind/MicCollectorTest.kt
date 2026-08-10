@@ -281,7 +281,7 @@ class MicCollectorTest {
     fun extractorVectorDimensionWithin256() {
         val extractor = MicFeatureExtractor()
         // 1 秒 16kHz 音频
-        val samples = ShortArray(16000) { (Math.sin(it * 0.1) * 10000).toShort() }
+        val samples = ShortArray(16000) { (Math.sin(it * 0.1) * 10000).toInt().toShort() }
         val feature = extractor.extract(samples, MicFeatureExtractor.SAMPLE_RATE_16K)
         assertTrue("vector 维度 ≤ 256", feature.vector.size <= 256)
         assertEquals(
@@ -294,7 +294,7 @@ class MicCollectorTest {
     @Test
     fun extractorSummaryUnder4000Chars() {
         val extractor = MicFeatureExtractor()
-        val samples = ShortArray(16000 * 5) { (Math.sin(it * 0.05) * 20000).toShort() }
+        val samples = ShortArray(16000 * 5) { (Math.sin(it * 0.05) * 20000).toInt().toShort() }
         val feature = extractor.extract(samples, MicFeatureExtractor.SAMPLE_RATE_16K)
         assertTrue("summary ≤ 4000 字符", feature.summary.length <= 4000)
         assertTrue("summary 非空", feature.summary.isNotBlank())
@@ -327,7 +327,7 @@ class MicCollectorTest {
         assertEquals(MicFeatureExtractor.MIN_DB, silentFeature.rmsDb)
 
         // 大音量正弦波 → RMS dB 应高于 MIN_DB
-        val loud = ShortArray(1600) { (Math.sin(it * 0.1) * 30000).toShort() }
+        val loud = ShortArray(1600) { (Math.sin(it * 0.1) * 30000).toInt().toShort() }
         val loudFeature = extractor.extract(loud, MicFeatureExtractor.SAMPLE_RATE_16K)
         assertTrue("大音量 RMS dB 应高于静音", loudFeature.rmsDb > silentFeature.rmsDb)
     }
@@ -335,7 +335,7 @@ class MicCollectorTest {
     @Test
     fun extractorSummaryContainsExpectedKeywords() {
         val extractor = MicFeatureExtractor()
-        val samples = ShortArray(16000) { (Math.sin(it * 0.1) * 10000).toShort() }
+        val samples = ShortArray(16000) { (Math.sin(it * 0.1) * 10000).toInt().toShort() }
         val feature = extractor.extract(samples, MicFeatureExtractor.SAMPLE_RATE_16K)
         // summary 应包含语速 / 音量等中文描述关键词之一
         val keywords = listOf("语速", "音量", "停顿", "基频")

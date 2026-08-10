@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from sqlalchemy import text
+
 from app.auth import create_access_token
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.models import Checkin, EmergencyContact, Escalation, QuestionnaireResult, RiskSignal, User
 from app.services.crypto import encrypt_text
 from app.services.safety import RULE_PACK_VERSION
@@ -107,6 +109,24 @@ def test_no_human_received_wording_anywhere(client, user_headers):
     status = client.get(f"/v1/escalations/{esc_id}/user-status", headers=user_headers)
     assert status.status_code == 200
     assert "人工已收到" not in status.text
+
+
+def test_console_page_renders_without_blocking_js(client):
+    """工作台页面：Jinja 可渲染；核心工作流无 alert()/prompt() 阻塞式交互。
+
+    v0.6.2（C1）：ack/takeover/close/review 全部改页内模态，禁止阻塞弹窗。
+    """
+    resp = client.get("/console")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "{{ version }}" not in html  # Jinja 变量已渲染
+    assert "alert(" not in html and "prompt(" not in html
+    assert "人工已收到" not in html
+    src = CONSOLE_HTML.read_text(encoding="utf-8")
+    assert "alert(" not in src and "prompt(" not in src
+    # 关键交互路径在页面脚本中注册（连接 / 确认模态 / 关闭模态 / 复盘模态）。
+    for marker in ("authAdapter", "closeDialog", "reviewDialog", "confirmDialog", "X-Next-Cursor"):
+        assert marker in src, marker
 
 
 def test_case_review_evidence_blocks_complete_and_traceable(client, user_headers):
@@ -262,3 +282,36 @@ def test_close_with_complete_record_persists_fields(client, user_headers, profes
     for key, value in FULL_CLOSE_PAYLOAD.items():
         assert body[key] == value, key
     assert body["closed_at"] is not None
+
+
+def test_metrics_real_p50_p95(client, user_headers):
+    """metrics 返回真实 P50/P95（v0.6.2：原 AVG 近似改为线性插值百分位）。
+
+    ack latencies=[10,20,30,40,50] → P50=30, P95=48；
+    takeover latencies=[20,40]（仅接管两个事件）→ P50=30, P95=39。
+    """
+    esc_ids = [open_escalation(client, user_headers, event_id=f"evt_pct_{i}") for i in range(5)]
+    ack_lat = [10, 20, 30, 40, 50]
+    takeover_idx = {1, 3}  # takeover latencies = [20, 40]
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with engine.begin() as conn:
+        for i, esc_id in enumerate(esc_ids):
+            opened = base + timedelta(seconds=i * 3600)
+            acked = opened + timedelta(seconds=ack_lat[i])
+            takeover_at = opened + timedelta(seconds=ack_lat[i]) if i in takeover_idx else None
+            conn.execute(
+                text("UPDATE escalations SET opened_at=:o, ack_at=:a, takeover_at=:t WHERE id=:id"),
+                {
+                    "o": opened.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    "a": acked.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    "t": takeover_at.strftime("%Y-%m-%d %H:%M:%S.%f") if takeover_at else None,
+                    "id": esc_id,
+                },
+            )
+    m = client.get("/v1/escalations/metrics", headers=headers_for("professional")).json()
+    assert m["ack_p50_seconds"] == 30
+    assert m["ack_p95_seconds"] == 48
+    assert m["takeover_p50_seconds"] == 30
+    assert m["takeover_p95_seconds"] == 39
+    # 响应只增不改：既有 SLA 参考字段仍保留。
+    assert m["ack_sla_seconds"] and m["takeover_sla_seconds"]

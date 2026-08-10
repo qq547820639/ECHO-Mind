@@ -36,6 +36,12 @@
 | PUT | `/v1/tenant/flags` | admin | 修改本租户 feature flag（body=`{"flag_key": "...", "value": false}`，审计记录 `tenant.flags.update`） |
 | GET | `/v1/audit/events` | auditor/admin | 审计事件查询 |
 | GET | `/v1/audit/verify` | auditor/admin | 审计哈希链验证 |
+| GET | `/v1/portraits/today` | user/professional | **今日个人画像**（只读无副作用：已生成返回完整画像；未生成返回轻量状态视图 `{"date","status","confidence","baseline_days",...}`；status ∈ WARMING_UP/EARLY_BASELINE/READY/PARTIAL_DATA/LOW_CONFIDENCE） |
+| GET | `/v1/portraits?days=7` | user/professional | **最近 N 天画像列表**（`days` 1–90，默认 7；按 local_date 升序，含 dimensions/coverage/facts；只读无副作用） |
+| GET | `/v1/baseline/status` | user/professional | **基线状态**（只读：status/baseline_days/baseline_version/window_start/window_end/bucket_usage/today_coverage） |
+| POST | `/v1/portraits/rebuild` | user/professional/admin | **显式重建当日画像**（写路径：upsert aggregate+baseline+portrait，写审计；user 只能重建自己，professional/admin 可代重建） |
+
+> **Portrait Core（v0.7）**：Portrait 只在写路径生成（feature ingest / background rebuild / explicit rebuild）；GET 一律无副作用、不触发重建。画像只做行为观察（Me vs Me），被动画像文案禁止出现心理解释词（CI 强制）。
 
 ## 已停用接口（410 Gone）
 

@@ -190,9 +190,11 @@ def test_migration_replays_on_sqlite(tmp_path, monkeypatch):
             }
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert {"escalations", "risk_signals", "audit_events"} <= tables
-        # v0.6.1：迁移链头为 20260810_0004（activation codes / sandbox slots）
-        assert head == "20260810_0004"
+        # v0.7 Portrait Core：迁移链头为 20260810_0007（daily_behavior_aggregates /
+        # personal_baselines / daily_portraits）
+        assert head == "20260810_0007"
         assert {"activation_codes", "activation_attempts", "sandbox_tenant_slots"} <= tables
+        assert {"daily_behavior_aggregates", "personal_baselines", "daily_portraits"} <= tables
         command.downgrade(cfg, "base")
         with create_engine(f"sqlite:///{db_file}").connect() as conn:
             remaining = conn.execute(

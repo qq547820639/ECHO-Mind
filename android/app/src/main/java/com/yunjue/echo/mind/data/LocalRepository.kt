@@ -1,15 +1,24 @@
 package com.yunjue.echo.mind.data
 
 import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.model.BaselineStatusDto
+import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
 import com.yunjue.echo.mind.model.NarrativeFetchResult
+import com.yunjue.echo.mind.model.PortraitFactDto
+import com.yunjue.echo.mind.model.PortraitStateInputs
+import com.yunjue.echo.mind.model.PortraitStatus
+import com.yunjue.echo.mind.model.PortraitTimelineUiState
+import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.ProfileDisplay
 import com.yunjue.echo.mind.model.SafetyDecision
 import com.yunjue.echo.mind.model.Severity
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
+import com.yunjue.echo.mind.model.resolveTodayPortraitState
+import com.yunjue.echo.mind.model.todayLocalDateString
 import com.yunjue.echo.mind.security.FieldCipher
 import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +33,7 @@ import org.json.JSONObject
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -66,7 +76,7 @@ class LocalRepository(
     private val db: EchoDatabase,
     private val cipher: FieldCipher,
     private val preferences: AppPreferences,
-    private val apiClient: ApiClient = ApiClient { preferences.accessToken }
+    private val apiClient: ApiClient = ApiClient(tokenProvider = { preferences.accessToken })
 ) {
     fun observeCheckins(): Flow<List<CheckinEntity>> = db.dao().observeCheckins()
     fun observeJournals(): Flow<List<JournalEntity>> = db.dao().observeJournals()
@@ -89,6 +99,13 @@ class LocalRepository(
     fun lastCollectionTimestamp(): Long = preferences.lastCollectionTimestamp
     fun lastSyncHttpCode(): Int? = preferences.lastSyncHttpCode
     fun deadLetterCount(): Int = preferences.deadLetterCount()
+
+    // v0.6.2（Batch A）：批次级分类状态（认证暂停 / 错误类别，供 mapSyncState 消费）。
+    /** 是否处于认证暂停态（批内 401/403 后为 true；重新认证成功后清除）。 */
+    fun isAuthBlocked(): Boolean = preferences.authRequired
+
+    /** 最近一次同步错误类别（auth / consent / retryable / terminal；无错误为 null）。 */
+    fun lastSyncErrorClass(): String? = preferences.lastSyncErrorClass
 
     // ===== 持久化失败观测（T02 窗口 ACK 可观测性） =====
 
@@ -536,6 +553,8 @@ class LocalRepository(
                     }
                     preferences.userId = result.userId
                     preferences.accessToken = result.accessToken
+                    // v0.6.2（Batch A）：重新认证成功 → 清除 401/403 认证暂停态（恢复后台同步）
+                    preferences.clearAuthBlocked()
                     preferences.onboardingState = AppPreferences.ONBOARDING_BOUND
                     result
                 }
@@ -868,6 +887,356 @@ class LocalRepository(
             if (o != null) o.optString("description").ifBlank { o.optString("key") }
             else optString(i)
         }.filter { it.isNotBlank() }
+
+    // ===== Portrait（Milestone F/G/H：Today Portrait + Portrait Timeline + Room 缓存 offline-first） =====
+    //
+    // 数据加载顺序（spec）：先显示缓存 → 后台刷新 → 平滑替换。
+    // - refreshTodayPortrait：先读 Room 缓存立即发出（OFFLINE_CACHED + offline=false，不显示离线横幅），
+    //   再网络刷新；成功 → 写缓存并发出真实状态；失败 → 有缓存则 OFFLINE_CACHED(offline=true)，无缓存则 ERROR。
+    // - 状态判定统一走 [resolveTodayPortraitState] 纯函数（便于纯 JVM 单测）。
+
+    private val _todayPortraitState = MutableStateFlow(
+        PortraitUiState(status = PortraitStatus.LOADING, portrait = null, offline = false)
+    )
+
+    /** 观察 Today 画像九态（Milestone F）。 */
+    fun observeTodayPortrait(): StateFlow<PortraitUiState> = _todayPortraitState
+
+    private val _timelineState = MutableStateFlow(PortraitTimelineUiState(days = 7))
+
+    /**
+     * 观察画像时间线（Milestone G）。[days] 为请求窗口（7/28），
+     * 实际窗口记录在 [PortraitTimelineUiState.days]（由 [refreshPortraits] 更新）。
+     */
+    fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
+
+    /**
+     * 刷新 Today 画像（缓存优先，后台刷新，平滑替换）。
+     *
+     * @param networkAvailable 当前是否有网络（UI 从 ConnectivityManager 读取传入；
+     *     无网络且有缓存时直接走缓存，不发起超时请求）
+     */
+    suspend fun refreshTodayPortrait(networkAvailable: Boolean = true) {
+        val sensingEnabled = runCatching {
+            preferences.passiveSensingPrefs.passiveSensingEnabled.first()
+        }.getOrDefault(false)
+        val userId = preferences.userId
+        val now = Instant.now()
+        val today = todayLocalDateString(now, ZoneId.systemDefault())
+        val cached = runCatching { db.portraitDao().queryLatest() }.getOrNull()
+            ?.takeIf { it.localDate == today && it.userId == userId }
+
+        if (!sensingEnabled) {
+            // 感知开关关闭 → SENSING_DISABLED（最高优先级，不显示缓存画像）
+            _todayPortraitState.value = PortraitUiState(PortraitStatus.SENSING_DISABLED)
+            return
+        }
+
+        // 1. 先显示缓存（不显示离线横幅，后台刷新中）
+        if (cached != null) {
+            _todayPortraitState.value =
+                PortraitUiState(PortraitStatus.OFFLINE_CACHED, cached.toDto(), offline = false)
+        } else {
+            _todayPortraitState.value = PortraitUiState(PortraitStatus.LOADING)
+        }
+
+        withContext(Dispatchers.IO) {
+            if (!networkAvailable) {
+                // 2a. 无网络：直接走缓存（有缓存 OFFLINE_CACHED，无缓存 ERROR）
+                _todayPortraitState.value = PortraitUiState(
+                    status = resolveTodayPortraitState(
+                        PortraitStateInputs(
+                            sensingEnabled = true, loading = false, hasCache = cached != null,
+                            networkAvailable = false, fetchFailed = false, serverStatus = null
+                        )
+                    ),
+                    portrait = cached?.toDto(),
+                    offline = true
+                )
+                return@withContext
+            }
+            // 2b. 网络刷新
+            val fetch = try {
+                apiClient.getTodayPortrait()
+            } catch (e: Exception) {
+                null
+            }
+            if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+                val dto = parseDailyPortrait(fetch.second!!)
+                if (dto != null) {
+                    // 写缓存（REPLACE：同 localDate+userId 覆盖）
+                    runCatching {
+                        db.portraitDao().insert(dto.toEntity(userId, today, System.currentTimeMillis()))
+                    }
+                    // 平滑替换：发出服务端真实状态
+                    _todayPortraitState.value = PortraitUiState(
+                        status = resolveTodayPortraitState(
+                            PortraitStateInputs(
+                                sensingEnabled = true, loading = false, hasCache = cached != null,
+                                networkAvailable = true, fetchFailed = false, serverStatus = dto.status
+                            )
+                        ),
+                        portrait = dto,
+                        offline = false
+                    )
+                    return@withContext
+                }
+            }
+            // 2c. 失败：有缓存 → OFFLINE_CACHED；无缓存 → ERROR
+            _todayPortraitState.value = PortraitUiState(
+                status = resolveTodayPortraitState(
+                    PortraitStateInputs(
+                        sensingEnabled = true, loading = false, hasCache = cached != null,
+                        networkAvailable = networkAvailable, fetchFailed = true, serverStatus = null
+                    )
+                ),
+                portrait = cached?.toDto(),
+                offline = true
+            )
+        }
+    }
+
+    /**
+     * 刷新画像时间线（Milestone G，GET /v1/portraits?days=7|28）。
+     * 成功 → 写缓存（按天 REPLACE）；失败 → Room 窗口内缓存兜底（fromCache=true），无缓存则 loadFailed。
+     */
+    suspend fun refreshPortraits(days: Int) {
+        val sensingEnabled = runCatching {
+            preferences.passiveSensingPrefs.passiveSensingEnabled.first()
+        }.getOrDefault(false)
+        val zone = ZoneId.systemDefault()
+        val now = Instant.now()
+        val todayDate = LocalDate.ofInstant(now, zone)
+        val today = todayDate.toString()
+        val from = todayDate.minusDays((days - 1).toLong()).toString()
+
+        if (!sensingEnabled) {
+            // 感知关闭：清空数据（UI 依据 permissionEnabled 显示 PERMISSION_DISABLED）
+            _timelineState.value = PortraitTimelineUiState(days = days, loading = false, portraits = emptyList())
+            return
+        }
+        _timelineState.value = PortraitTimelineUiState(days = days, loading = true)
+
+        withContext(Dispatchers.IO) {
+            val fetch = try {
+                apiClient.getPortraits(days)
+            } catch (e: Exception) {
+                null
+            }
+            if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+                val list = parsePortraitList(fetch.second!!)
+                runCatching {
+                    db.portraitDao().insertAll(
+                        list.map { it.toEntity(preferences.userId, it.date, System.currentTimeMillis()) }
+                    )
+                }
+                val expected = (0 until days).map { todayDate.minusDays((days - 1 - it).toLong()).toString() }
+                val present = list.map { it.date }.toSet()
+                val missing = expected.filter { it !in present }
+                _timelineState.value = PortraitTimelineUiState(
+                    days = days,
+                    portraits = list,
+                    loading = false,
+                    loadFailed = false,
+                    fromCache = false,
+                    isPartial = missing.isNotEmpty() && list.isNotEmpty(),
+                    missingDates = missing
+                )
+            } else {
+                // 失败兜底：Room 窗口缓存
+                val cached = runCatching {
+                    db.portraitDao().queryByDateRange(from, today).map { it.toDto() }
+                }.getOrDefault(emptyList())
+                if (cached.isNotEmpty()) {
+                    val expected = (0 until days).map { todayDate.minusDays((days - 1 - it).toLong()).toString() }
+                    val present = cached.map { it.date }.toSet()
+                    val missing = expected.filter { it !in present }
+                    _timelineState.value = PortraitTimelineUiState(
+                        days = days,
+                        portraits = cached,
+                        loading = false,
+                        loadFailed = false,
+                        fromCache = true,
+                        isPartial = missing.isNotEmpty(),
+                        missingDates = missing
+                    )
+                } else {
+                    _timelineState.value = PortraitTimelineUiState(
+                        days = days, portraits = emptyList(), loading = false, loadFailed = true
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 拉取基线状态（GET /v1/baseline/status）；失败返回 null。
+     * 当前版本不直接驱动 UI，保留供后续基线可视化使用。
+     */
+    suspend fun fetchBaselineStatus(): BaselineStatusDto? = withContext(Dispatchers.IO) {
+        val fetch = try {
+            apiClient.getBaselineStatus()
+        } catch (e: Exception) {
+            return@withContext null
+        }
+        if (fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+            parseBaselineStatus(fetch.second!!)
+        } else {
+            null
+        }
+    }
+
+    /**
+     * 记录画像反馈（Milestone F）：「这个描述像今天的你吗？」点击后**仅本地记录**
+     * （date → 挺像/不太像），不新增网络请求；后续版本再按 date 上报
+     * /v1/portraits/{date}/feedback（后端当前无此端点）。
+     */
+    fun recordPortraitFeedback(date: String, helpful: Boolean) {
+        preferences.recordPortraitFeedback(date, helpful)
+    }
+
+    /** 某日画像反馈（true=挺像 / false=不太像 / null=未反馈），供 UI 去重展示。 */
+    fun portraitFeedback(date: String): Boolean? = preferences.portraitFeedback(date)
+
+    // ----- Portrait 解析与实体转换（org.json，与 fetchNarratives/fetchProfile 同模式） -----
+
+    private fun parseDailyPortrait(json: String): DailyPortraitDto? = runCatching {
+        val o = JSONObject(json)
+        val dimensions = mutableMapOf<String, String>()
+        o.optJSONObject("dimensions")?.let { d ->
+            d.keys().forEach { k ->
+                d.optString(k).takeIf { it.isNotBlank() && it != "null" }?.let { dimensions[k] = it }
+            }
+        }
+        DailyPortraitDto(
+            date = o.optString("date"),
+            status = o.optString("status"),
+            confidence = o.optString("confidence"),
+            baselineDays = o.optInt("baseline_days", 0),
+            baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
+            headline = o.optJSONArray("headline")?.toStringList() ?: emptyList(),
+            summary = o.optString("summary"),
+            dimensions = dimensions,
+            coverage = o.optJSONObject("coverage")?.toAnyMap(),
+            facts = o.optJSONArray("facts")?.let { arr ->
+                (0 until arr.length()).mapNotNull { i ->
+                    val f = arr.optJSONObject(i) ?: return@mapNotNull null
+                    PortraitFactDto(
+                        label = f.optString("label"),
+                        todayText = f.optString("today_text"),
+                        baselineText = f.optString("baseline_text"),
+                        deltaText = f.optString("delta_text")
+                    )
+                }
+            } ?: emptyList(),
+            timezoneUsed = o.optString("timezone_used").takeIf { it.isNotBlank() && it != "null" }
+        )
+    }.getOrNull()
+
+    private fun parsePortraitList(body: String): List<DailyPortraitDto> = runCatching {
+        val root = JSONObject(body)
+        val arr = root.optJSONArray("portraits") ?: return@runCatching emptyList<DailyPortraitDto>()
+        (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let { parseDailyPortrait(it.toString()) }
+        }.sortedBy { it.date }
+    }.getOrDefault(emptyList())
+
+    private fun parseBaselineStatus(body: String): BaselineStatusDto? = runCatching {
+        val o = JSONObject(body)
+        BaselineStatusDto(
+            status = o.optString("status"),
+            baselineDays = o.optInt("baseline_days", 0),
+            baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
+            windowStart = o.optString("window_start").takeIf { it.isNotBlank() && it != "null" },
+            windowEnd = o.optString("window_end").takeIf { it.isNotBlank() && it != "null" },
+            bucketUsage = o.optJSONObject("bucket_usage")?.toAnyMap(),
+            todayCoverage = o.optJSONObject("today_coverage")?.toAnyMap()
+        )
+    }.getOrNull()
+
+    /** Room 缓存行 → DTO（缓存未存 baseline 字段，重建为默认值；仅用于展示）。 */
+    private fun DailyPortraitEntity.toDto(): DailyPortraitDto = DailyPortraitDto(
+        date = localDate,
+        status = status,
+        confidence = confidence,
+        baselineDays = 0,
+        headline = runCatching { JSONArray(headlineJson).toStringList() }.getOrDefault(emptyList()),
+        summary = summary,
+        dimensions = runCatching {
+            val o = JSONObject(dimensionsJson)
+            val m = mutableMapOf<String, String>()
+            o.keys().forEach { k -> o.optString(k).takeIf { it.isNotBlank() && it != "null" }?.let { m[k] = it } }
+            m
+        }.getOrDefault(emptyMap()),
+        coverage = coverageJson?.let { runCatching { JSONObject(it).toAnyMap() }.getOrNull() },
+        facts = runCatching {
+            val arr = JSONArray(factsJson)
+            (0 until arr.length()).mapNotNull { i ->
+                val f = arr.optJSONObject(i) ?: return@mapNotNull null
+                PortraitFactDto(
+                    label = f.optString("label"),
+                    todayText = f.optString("today_text"),
+                    baselineText = f.optString("baseline_text"),
+                    deltaText = f.optString("delta_text")
+                )
+            }
+        }.getOrDefault(emptyList()),
+        timezoneUsed = timezoneUsed
+    )
+
+    /** DTO → Room 缓存行；localDate 为端侧本地时区日期（timezone 修改后键值随之变化）。 */
+    private fun DailyPortraitDto.toEntity(userId: String, localDate: String, nowMs: Long): DailyPortraitEntity =
+        DailyPortraitEntity(
+            id = "${localDate}_$userId",
+            localDate = localDate,
+            userId = userId,
+            status = status,
+            confidence = confidence,
+            headlineJson = JSONArray(headline).toString(),
+            summary = summary,
+            dimensionsJson = JSONObject().apply {
+                dimensions.forEach { (k, v) -> put(k, v) }
+            }.toString(),
+            factsJson = JSONArray().apply {
+                facts.forEach { fact ->
+                    put(
+                        JSONObject().apply {
+                            put("label", fact.label)
+                            put("today_text", fact.todayText)
+                            put("baseline_text", fact.baselineText)
+                            put("delta_text", fact.deltaText)
+                        }
+                    )
+                }
+            }.toString(),
+            coverageJson = coverage?.let { toJsonObject(it).toString() },
+            timezoneUsed = timezoneUsed,
+            fetchedAt = nowMs
+        )
+
+    /** Map<String, Any> → JSONObject（Number/Boolean 原样，其余转字符串）。 */
+    private fun toJsonObject(map: Map<String, Any>): JSONObject = JSONObject().apply {
+        map.forEach { (k, v) ->
+            when (v) {
+                is Number, is Boolean -> put(k, v)
+                else -> put(k, v.toString())
+            }
+        }
+    }
+
+    /** JSONObject → Map<String, Any>（Number/Boolean 原样，其余转字符串；JSON null 跳过）。 */
+    private fun JSONObject.toAnyMap(): Map<String, Any> {
+        val out = mutableMapOf<String, Any>()
+        keys().forEach { k ->
+            val v = opt(k)
+            when (v) {
+                null, JSONObject.NULL -> Unit
+                is Boolean, is Number -> out[k] = v
+                else -> out[k] = v.toString()
+            }
+        }
+        return out
+    }
 
     companion object {
         /** Skill 缓存过期阈值：1 小时。 */

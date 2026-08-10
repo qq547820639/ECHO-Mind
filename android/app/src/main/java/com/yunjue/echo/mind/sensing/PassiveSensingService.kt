@@ -113,20 +113,19 @@ class PassiveSensingService : Service() {
      * 三重门控（internal 便于单测）：
      * 1. 用户 consent：PassiveSensingPrefs.passiveSensingEnabled（Onboarding/Support 写入）
      * 2. 租户 feature flag：passive_sensing_enabled，无缓存/网络失败默认 false（fail-closed）
-     * 3. 必要权限：POST_NOTIFICATIONS（API 33+）/ BODY_SENSORS / 通知使用权 / 使用情况访问
+     * 3. 必要权限：POST_NOTIFICATIONS（API 33+）/ 通知使用权 / 使用情况访问
+     *    （BODY_SENSORS 已移除：加速度/陀螺仪为普通传感器，Android 12+ 不需要该权限，
+     *    它保护的是心率等医学类传感器，见 docs/19b_权限矩阵_v0.6.2.md）
      */
     internal fun canStartSensing(): Boolean {
         val flagEnabled = isPassiveSensingEnabled()
         val consentGranted = isUserConsentGranted()
         val postNotificationsGranted = Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        val bodySensorsGranted =
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
         return passiveSensingGatePasses(
             flagEnabled = flagEnabled,
             consentGranted = consentGranted,
             postNotificationsGranted = postNotificationsGranted,
-            bodySensorsGranted = bodySensorsGranted,
             notificationAccessGranted = hasNotificationAccess(this),
             usageAccessGranted = hasUsageAccess(this)
         )
@@ -139,7 +138,7 @@ class PassiveSensingService : Service() {
      * 隐私敏感 flag 在异常场景下停用而非启用。
      */
     private fun isPassiveSensingEnabled(): Boolean {
-        val appPrefs = AppPreferences(this, FieldCipher(this))
+        val appPrefs = AppPreferences(this, FieldCipher())
         return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: false
     }
 
@@ -230,16 +229,16 @@ class PassiveSensingService : Service() {
 
         /**
          * 三重门控纯函数（便于单测）：任一输入为 false 即不启动（fail-closed）。
+         * v0.6.2（Batch A 权限矩阵）：BODY_SENSORS 已移除（普通传感器无需该权限）。
          */
         internal fun passiveSensingGatePasses(
             flagEnabled: Boolean,
             consentGranted: Boolean,
             postNotificationsGranted: Boolean,
-            bodySensorsGranted: Boolean,
             notificationAccessGranted: Boolean,
             usageAccessGranted: Boolean
         ): Boolean = flagEnabled && consentGranted && postNotificationsGranted &&
-            bodySensorsGranted && notificationAccessGranted && usageAccessGranted
+            notificationAccessGranted && usageAccessGranted
 
         /** 通知使用权是否已授权（系统设置）。 */
         internal fun hasNotificationAccess(context: Context): Boolean = runCatching {

@@ -189,3 +189,71 @@ enum class SyncState {
     BLOCKED_BY_CONSENT,
     FAILED_TERMINAL
 }
+
+// ===== Portrait（Milestone F/G/H：Today Portrait + Portrait Timeline + Room 缓存） =====
+
+/**
+ * 单条画像事实（对齐 GET /v1/portraits/today 响应的 facts 数组元素）。
+ *
+ * - label：事实标签（如「起床时间」）
+ * - todayText：今天的观察
+ * - baselineText：平常（基线）的观察
+ * - deltaText：今天与平常的差异描述
+ * 仅用于 UI 渲染（「为什么这么说？」展开区），不参与上行同步。
+ */
+data class PortraitFactDto(
+    val label: String,
+    val todayText: String,
+    val baselineText: String,
+    val deltaText: String
+)
+
+/**
+ * 每日画像展示模型（Milestone F）：对齐 GET /v1/portraits/today / /v1/portraits 响应元素。
+ *
+ * - status：服务端画像状态（WARMING_UP / EARLY_BASELINE / READY / PARTIAL_DATA / LOW_CONFIDENCE）
+ * - confidence：HIGH / MEDIUM / LOW
+ * - baselineDays / baselineVersion：基线积累天数与版本（冷启动阶段文案依据）
+ * - headline：当日要点短句列表（渲染为 chips）
+ * - summary：服务端自然语言段落
+ * - dimensions：维度键 → 取值（RHYTHM/MOVEMENT/SCREEN_PATTERN/DAY_STRUCTURE/STABILITY）
+ * - coverage：服务端数据覆盖信息（可选，值类型不定）
+ * - facts：事实对照列表（「为什么这么说？」区）
+ * - timezoneUsed：服务端计算该画像所用的时区（端侧缓存键与日期处理依据）
+ * 仅用于 UI 渲染 + Room 缓存，不参与上行同步。
+ */
+data class DailyPortraitDto(
+    val date: String,
+    val status: String,
+    val confidence: String,
+    val baselineDays: Int,
+    val baselineVersion: String? = null,
+    val headline: List<String> = emptyList(),
+    val summary: String = "",
+    val dimensions: Map<String, String> = emptyMap(),
+    val coverage: Map<String, Any>? = null,
+    val facts: List<PortraitFactDto> = emptyList(),
+    val timezoneUsed: String? = null
+)
+
+/**
+ * 基线状态展示模型（Milestone F）：对齐 GET /v1/baseline/status 响应。
+ * 当前版本不直接驱动 UI，保留供后续版本做基线可视化（与 ApiClient.getBaselineStatus 配套）。
+ */
+data class BaselineStatusDto(
+    val status: String,
+    val baselineDays: Int,
+    val baselineVersion: String? = null,
+    val windowStart: String? = null,
+    val windowEnd: String? = null,
+    val bucketUsage: Map<String, Any>? = null,
+    val todayCoverage: Map<String, Any>? = null
+)
+
+/**
+ * 画像批量拉取结果（Milestone G）：对齐 GET /v1/portraits?days=7|28 响应。
+ * portraits 数组元素结构与 [DailyPortraitDto] 一致（含 date）。
+ */
+data class PortraitListDto(
+    val portraits: List<DailyPortraitDto> = emptyList()
+)

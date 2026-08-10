@@ -61,7 +61,7 @@ class HardeningV061Test {
             .build()
         cipher = FieldCipher()
         preferences = AppPreferences(context, cipher)
-        repository = LocalRepository(db, cipher, preferences, ApiClient { null })
+        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
     }
 
     @After
@@ -257,22 +257,23 @@ class HardeningV061Test {
         assertEquals("同一 event_id 只入队一次", 1, completions.size)
     }
 
-    // ===== P1-6：同步状态语义 =====
+    // ===== P1-6：同步状态语义（v0.6.2 Batch A：批次级分类签名） =====
 
     @Test
     fun partialBatchClassification() {
-        // success + 429 → 部分成功
-        assertEquals("retryable", SyncWorker.errorClassFor(anyBlockedPending = false, lastCode = 429))
+        // success + 429 → retryable
+        assertEquals("retryable", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 429))
         // success + 412 → consent blocked
-        assertEquals("consent", SyncWorker.errorClassFor(anyBlockedPending = true, lastCode = 412))
+        assertEquals("consent", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = true, lastCode = 412))
         // success + 5xx
-        assertEquals("retryable", SyncWorker.errorClassFor(anyBlockedPending = false, lastCode = 500))
-        // 全部成功 → null（无错误类别）
-        assertNull(SyncWorker.errorClassFor(anyBlockedPending = false, lastCode = 200))
-        // auth
-        assertEquals("auth", SyncWorker.errorClassFor(anyBlockedPending = false, lastCode = 401))
+        assertEquals("retryable", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 500))
+        // auth（401/403 批次级标志）→ auth，且优先于其他类别
+        assertEquals("auth", SyncWorker.errorClassFor(anyAuthBlocked = true, anyBlockedPending = false, lastCode = 401))
+        assertEquals("auth", SyncWorker.errorClassFor(anyAuthBlocked = true, anyBlockedPending = true, lastCode = 500))
         // terminal
-        assertEquals("terminal", SyncWorker.errorClassFor(anyBlockedPending = false, lastCode = 410))
+        assertEquals("terminal", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 410))
+        // 全成功：errorClassFor 返回兜底 retryable；doWork 成功路径写回 null（此处不再 assertNull）
+        assertEquals("retryable", SyncWorker.errorClassFor(anyAuthBlocked = false, anyBlockedPending = false, lastCode = 200))
     }
 
     // ===== P1-7：Onboarding READY 收敛 =====

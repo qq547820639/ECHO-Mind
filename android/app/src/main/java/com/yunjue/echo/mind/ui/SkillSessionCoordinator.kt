@@ -60,9 +60,9 @@ class SkillSessionCoordinator(private val repository: LocalRepository) {
     /** skillId -> SessionView（进程内单例流）。 */
     val sessions: StateFlow<Map<String, SessionView>> = _sessions.asStateFlow()
 
-    /** 是否有任何活动会话（single-active 全局状态）。 */
+    /** 是否有任何活动会话（single-active 全局状态）。RUNNING/PAUSED 视为活动。 */
     val anyActive: Boolean
-        get() = _sessions.value.values.any { it.status.isActive }
+        get() = _sessions.value.values.any { it.status == SkillRunStatus.RUNNING || it.status == SkillRunStatus.PAUSED }
 
     private fun publish() {
         _sessions.value = runtime.mapValues { it.value.view() }
@@ -137,8 +137,8 @@ class SkillSessionCoordinator(private val repository: LocalRepository) {
      * - completion 入 Outbox（幂等 event_id）；app restart 后仍可同步；
      * - 从协调器状态中移除。
      */
-    suspend fun finish(skill: SkillDisplay, terminal: () -> String) = mutex.withLock {
-        val rt = runtime[skill.id] ?: return
+    suspend fun finish(skill: SkillDisplay, terminal: () -> String): Unit = mutex.withLock {
+        val rt = runtime[skill.id] ?: return@withLock
         val status = terminal()
         val input = SkillCompletionInput(
             skillId = skill.id,

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind
 
 import com.yunjue.echo.mind.sensing.AppActivityCollector
-import com.yunjue.echo.mind.sensing.MicFeatureExtractor
 import com.yunjue.echo.mind.sensing.NotificationCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
@@ -15,7 +14,8 @@ import org.junit.Test
 /**
  * T02 SensingEventHub 单测（纯 JVM，不依赖 Android 框架）。
  *
- * - 多 modality 聚合：accel/gyro/screen/notification/app_activity/mic_opt 独立缓冲
+ * - 多 modality 聚合：accel/gyro/screen/notification/app_activity 独立缓冲
+ *   （Batch A v0.6.2：麦克风派生特征为 MicCollector 的 canonical 源，不经 hub）
  * - snapshot / clearModality / clearAll 行为
  * - **不保存通知正文**：NotificationMeta 数据类不含 text/title 字段（编译期 + 运行时断言）
  * - 单例语义：getInstance() 返回同一实例；resetForTest 后新建
@@ -50,14 +50,12 @@ class SensingEventHubTest {
         hub.onScreenEvent(ScreenCollector.ScreenEvent(now, ScreenCollector.ScreenState.ON))
         hub.onNotificationPosted(NotificationCollector.NotificationMeta(now, "com.test", "social"))
         hub.onAppActivity(AppActivityCollector.AppActivity(now, "com.test"))
-        hub.onMicDerivedFeature(MicFeatureExtractor().emptyFeature())
 
         assertEquals(1, hub.snapshotAccel().size)
         assertEquals(1, hub.snapshotGyro().size)
         assertEquals(1, hub.snapshotScreen().size)
         assertEquals(1, hub.snapshotNotifications().size)
         assertEquals(1, hub.snapshotAppActivity().size)
-        assertEquals(1, hub.snapshotMicDerived().size)
         assertFalse(hub.isEmpty())
     }
 
@@ -101,7 +99,6 @@ class SensingEventHubTest {
         assertTrue(hub.snapshotScreen().isEmpty())
         assertTrue(hub.snapshotNotifications().isEmpty())
         assertTrue(hub.snapshotAppActivity().isEmpty())
-        assertTrue(hub.snapshotMicDerived().isEmpty())
     }
 
     @Test
@@ -118,7 +115,11 @@ class SensingEventHubTest {
     @Test
     fun notificationMetaHasNoTextOrTitleField() {
         // 运行时断言：hub 只保存最小化 metadata（timestamp/packageName/category）
-        val fields = NotificationCollector.NotificationMeta::class.java.declaredFields.map { it.name }.toSet()
+        // （过滤 Compose 编译器合成的 $stable 字段）
+        val fields = NotificationCollector.NotificationMeta::class.java.declaredFields
+            .map { it.name }
+            .filterNot { it.startsWith("$") }
+            .toSet()
         assertFalse("NotificationMeta 不应含 text 字段（不保存通知正文）", "text" in fields)
         assertFalse("NotificationMeta 不应含 title 字段（不保存通知标题）", "title" in fields)
         assertFalse("NotificationMeta 不应含 content 字段", "content" in fields)

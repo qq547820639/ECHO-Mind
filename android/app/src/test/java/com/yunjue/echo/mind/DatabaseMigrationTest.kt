@@ -8,9 +8,11 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.ConsentEntity
+import com.yunjue.echo.mind.data.DailyPortraitEntity
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.FeatureVectorEntity
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -83,16 +85,18 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun v5EntitiesRegisterActiveSkillSessionAndNotSensorSample() {
+    fun v5EntitiesRegisterActiveSkillSessionAndNotSensorSample() = runBlocking {
         // 编译期保证 + 运行时断言：@Database entities 含 ActiveSkillSessionEntity，不含 SensorSampleEntity
-        val entities = EchoDatabase::class.java
-            .getAnnotation(androidx.room.Database::class.java)!!
-            .entities
-        val names = entities.map { it.simpleName }
-        assertFalse("SensorSampleEntity 不应注册到 v5", "SensorSampleEntity" in names)
-        assertTrue("FeatureVectorEntity 应注册", "FeatureVectorEntity" in names)
-        assertTrue("ConsentEntity 应注册", "ConsentEntity" in names)
-        assertTrue("ActiveSkillSessionEntity 应注册", "ActiveSkillSessionEntity" in names)
+        // （Room @Database 注解为 CLASS retention，运行期不可反射；Room 2.8 已移除
+        // getRequiredEntities —— 改以真实建库验证实体注册（schema 表集合是实体的运行时投影））
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val tables = tableNames()
+        assertTrue("ActiveSkillSessionEntity 应注册（active_skill_sessions 表存在）", tables.contains("active_skill_sessions"))
+        assertFalse("SensorSampleEntity 不应注册（无 sensor_samples 表）", tables.contains("sensor_samples"))
+        assertTrue("FeatureVectorEntity 应注册（feature_vectors 表存在）", tables.contains("feature_vectors"))
+        assertTrue("ConsentEntity 应注册（consents 表存在）", tables.contains("consents"))
     }
 
     @Test
@@ -203,7 +207,7 @@ class DatabaseMigrationTest {
             updatedAt = 1000L
         )
         dao.upsertActiveSkillSession(entity)
-        val loaded = dao.activeSkillSession()
+        val loaded = dao.activeSkillSessionBySkillId("sk_test")
         assertEquals("skse_test_1", loaded?.sessionId)
         assertEquals("sk_test", loaded?.skillId)
         assertEquals("paused", loaded?.status)
@@ -211,10 +215,10 @@ class DatabaseMigrationTest {
 
         // REPLACE 语义：同一 sessionId 覆盖
         dao.upsertActiveSkillSession(entity.copy(status = "running", segmentStartedAtMs = 2000L, updatedAt = 2000L))
-        assertEquals("running", dao.activeSkillSession()?.status)
+        assertEquals("running", dao.activeSkillSessionBySkillId("sk_test")?.status)
 
         dao.deleteActiveSkillSession("skse_test_1")
-        assertEquals("删除后应为 null", null, dao.activeSkillSession())
+        assertEquals("删除后应为 null", null, dao.activeSkillSessionBySkillId("sk_test"))
     }
 
     @Test
@@ -313,5 +317,87 @@ class DatabaseMigrationTest {
             assertTrue("synced 列应存在", columns.contains("synced"))
             assertTrue("createdAt 列应存在", columns.contains("createdAt"))
         }
+    }
+
+    // ===== Milestone H：v6 → v7（portrait_daily） =====
+
+    @Test
+    fun migration67CreatesPortraitDailyTable() {
+        // 用 v6 库（无 portrait_daily）执行 MIGRATION_6_7，验证建表成功且幂等
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-67-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(6) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) = Unit
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            assertFalse("迁移前无 portrait_daily 表", hasTable(rawDb, "portrait_daily"))
+            MIGRATION_6_7.migrate(rawDb)
+            assertTrue("MIGRATION_6_7 应创建 portrait_daily", hasTable(rawDb, "portrait_daily"))
+            // 幂等：重复执行不报错
+            MIGRATION_6_7.migrate(rawDb)
+            assertTrue("重复迁移应幂等", hasTable(rawDb, "portrait_daily"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    @Test
+    fun portraitDaoInsertQueryRangeAndLatest() = runBlocking {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val dao = db!!.portraitDao()
+
+        dao.insert(
+            DailyPortraitEntity(
+                id = "2026-08-08_u_test", localDate = "2026-08-08", userId = "u_test",
+                status = "READY", confidence = "MEDIUM", headlineJson = "[]", summary = "s1",
+                dimensionsJson = "{}", factsJson = "[]", coverageJson = null, timezoneUsed = "Asia/Shanghai",
+                fetchedAt = 1L
+            )
+        )
+        dao.insert(
+            DailyPortraitEntity(
+                id = "2026-08-09_u_test", localDate = "2026-08-09", userId = "u_test",
+                status = "READY", confidence = "HIGH", headlineJson = "[\"h\"]", summary = "s2",
+                dimensionsJson = "{\"RHYTHM\":\"EARLIER\"}", factsJson = "[]", coverageJson = null,
+                timezoneUsed = null, fetchedAt = 2L
+            )
+        )
+        dao.insert(
+            DailyPortraitEntity(
+                id = "2026-08-10_u_test", localDate = "2026-08-10", userId = "u_test",
+                status = "PARTIAL_DATA", confidence = "LOW", headlineJson = "[]", summary = "s3",
+                dimensionsJson = "{}", factsJson = "[]", coverageJson = "{\"today\":0.5}", timezoneUsed = "UTC",
+                fetchedAt = 3L
+            )
+        )
+
+        // queryByDateRange：ISO 日期字典序 = 时间序
+        val range = dao.queryByDateRange("2026-08-08", "2026-08-10")
+        assertEquals(3, range.size)
+        assertEquals(listOf("2026-08-08", "2026-08-09", "2026-08-10"), range.map { it.localDate })
+        assertEquals("EARLIER", JSONObject(range[1].dimensionsJson).optString("RHYTHM"))
+
+        // queryLatest：最近一天优先
+        val latest = dao.queryLatest()
+        assertEquals("2026-08-10", latest?.localDate)
+        assertEquals("PARTIAL_DATA", latest?.status)
+
+        // REPLACE：同 id（localDate+user）覆盖
+        dao.insert(
+            DailyPortraitEntity(
+                id = "2026-08-10_u_test", localDate = "2026-08-10", userId = "u_test",
+                status = "READY", confidence = "HIGH", headlineJson = "[]", summary = "s3b",
+                dimensionsJson = "{}", factsJson = "[]", coverageJson = null, timezoneUsed = null, fetchedAt = 4L
+            )
+        )
+        assertEquals(3, dao.queryByDateRange("2026-08-01", "2026-08-31").size)
+        assertEquals("READY", dao.queryLatest()?.status)
     }
 }

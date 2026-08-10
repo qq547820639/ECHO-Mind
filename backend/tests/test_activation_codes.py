@@ -172,6 +172,58 @@ def test_rate_limit_per_ip_blocks_repeated_failures():
         db.commit()
 
 
+def test_rate_limit_per_code_threshold_applies_at_code_limit():
+    """同一 code 窗口内失败达到 MAX_FAILURES_PER_CODE（10）即拒绝（fail-closed）。
+
+    v0.6.2 修复回归：原实现取三维最大计数再与 max(limits)=20 比较，per-code
+    限额被抬到 20；修复后每维度独立阈值，第 11 次失败（换新 IP/device）命中
+    code 维度即被限流，不得再返回 revoked。
+    """
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
+    from app.services.activation import MAX_FAILURES_PER_CODE
+
+    _seed_user("u_code_rl", "EXT-CODE-RL-1")
+    _, raw = _issue(user_id="u_code_rl", max_attempts=50)
+    # 吊销该码制造失败（沿用 test_brute_force_attempt_limit_blocks 模式）。
+    with SessionLocal() as db:
+        row = db.scalar(select(ActivationCode).where(ActivationCode.code_hash == hash_code(raw)))
+        row.revoked_at = datetime.now(UTC)
+        db.commit()
+    # 前 MAX_FAILURES_PER_CODE 次失败：尚未触及 code 阈值，返回 revoked。
+    for i in range(MAX_FAILURES_PER_CODE):
+        with SessionLocal() as db:
+            row, reason = redeem_code(db, code=raw, actor_ip=f"30.0.0.{i}", device_id=f"dev-c{i}")
+            assert row is None and reason == "revoked"
+            db.commit()
+    # 第 MAX_FAILURES_PER_CODE + 1 次（全新 IP/device）：code 维度计数=10 → rate_limited。
+    with SessionLocal() as db:
+        row, reason = redeem_code(db, code=raw, actor_ip="30.9.9.9", device_id="dev-new")
+        assert row is None and reason == "rate_limited"
+        db.commit()
+
+
+def test_rate_limit_ip_dimension_does_not_block_other_ips():
+    """IP 维度限流只作用于该 IP；换新 IP 尝试未失败的码不被误伤（维度独立）。"""
+    from app.services.activation import MAX_FAILURES_PER_IP
+
+    _seed_user("u_ip_rl", "EXT-IP-RL-1")
+    _, raw = _issue(user_id="u_ip_rl", max_attempts=50)
+    # 同一 IP 用错误码制造失败，超过 IP 维度阈值（错误码不递增 attempt_count）。
+    wrong = "WRONG-CODE-IPRL-1"
+    for _ in range(MAX_FAILURES_PER_IP + 2):
+        with SessionLocal() as db:
+            redeem_code(db, code=wrong, actor_ip="40.40.40.40", device_id="dev-ip")
+            db.commit()
+    # 换新 IP + 新 device：code/IP/device 三维计数均为 0 → 兑换成功。
+    with SessionLocal() as db:
+        row, reason = redeem_code(db, code=raw, actor_ip="41.41.41.41", device_id="dev-new")
+        assert row is not None, reason
+        db.commit()
+
+
 def test_concurrent_redemption_only_one_wins():
     """并发消费同一码：只有一个线程能成功（原子 UPDATE ... WHERE used_at IS NULL）。
 

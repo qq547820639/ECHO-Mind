@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
  *
  * 职责：
  * - 统一接收 NotificationCollector（系统实例化的 NotificationListenerService）与各 Collector 的事件；
- * - 维护各 modality 的并发安全缓冲（accel / gyro / screen / notification / app_activity / mic_opt），
+ * - 维护各 modality 的并发安全缓冲（accel / gyro / screen / notification / app_activity），
  *   供 FeatureExtractor 按 5 分钟窗口消费；
  * - **不保存通知正文**：通知仅保存最小化 metadata（timestamp / packageName / category），
  *   与 [NotificationCollector.NotificationMeta] 完全一致，无 title / text 字段；
@@ -16,6 +16,11 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * - `clearAll()` 仅用于 consent revoke / 服务停止（不用于 flush 路径）。
  *
  * 纯 Kotlin 可单测：缓冲使用 [ConcurrentLinkedDeque]，不依赖任何 Android 框架类。
+ *
+ * 单一数据源约定（Batch A v0.6.2）：SensorCollector / ScreenCollector / AppActivityCollector
+ * 不再保留本地缓冲，只写本 hub；snapshot() 委托本 hub。麦克风派生特征是唯一例外：
+ * [MicCollector] 作为 MicDerivedFeatureSource 保留自身派生缓冲（mic canonical 源），
+ * 不经过本 hub。
  */
 class SensingEventHub {
 
@@ -25,8 +30,7 @@ class SensingEventHub {
         GYRO("gyro"),
         SCREEN("screen"),
         NOTIFICATION("notification"),
-        APP_ACTIVITY("app_activity"),
-        MIC_OPT("mic_opt")
+        APP_ACTIVITY("app_activity")
     }
 
     /**
@@ -40,8 +44,7 @@ class SensingEventHub {
         val gyro: List<FloatArray>,
         val screen: List<ScreenCollector.ScreenEvent>,
         val notifications: List<NotificationCollector.NotificationMeta>,
-        val appActivities: List<AppActivityCollector.AppActivity>,
-        val micDerived: List<MicFeatureExtractor.MicDerivedFeature>
+        val appActivities: List<AppActivityCollector.AppActivity>
     )
 
     private val accelBuffer = ConcurrentLinkedDeque<FloatArray>()
@@ -49,7 +52,6 @@ class SensingEventHub {
     private val screenBuffer = ConcurrentLinkedDeque<ScreenCollector.ScreenEvent>()
     private val notificationBuffer = ConcurrentLinkedDeque<NotificationCollector.NotificationMeta>()
     private val appActivityBuffer = ConcurrentLinkedDeque<AppActivityCollector.AppActivity>()
-    private val micDerivedBuffer = ConcurrentLinkedDeque<MicFeatureExtractor.MicDerivedFeature>()
 
     // ===== 写入（Collector 侧） =====
 
@@ -79,11 +81,6 @@ class SensingEventHub {
         trim(appActivityBuffer, AppActivityCollector.MAX_BUFFER_SIZE)
     }
 
-    fun onMicDerivedFeature(feature: MicFeatureExtractor.MicDerivedFeature) {
-        micDerivedBuffer.offerLast(feature)
-        trim(micDerivedBuffer, MicCollector.MAX_BUFFER_SIZE)
-    }
-
     // ===== 快照（FeatureExtractor 侧） =====
 
     fun snapshotAccel(): List<FloatArray> = accelBuffer.toList()
@@ -91,7 +88,6 @@ class SensingEventHub {
     fun snapshotScreen(): List<ScreenCollector.ScreenEvent> = screenBuffer.toList()
     fun snapshotNotifications(): List<NotificationCollector.NotificationMeta> = notificationBuffer.toList()
     fun snapshotAppActivity(): List<AppActivityCollector.AppActivity> = appActivityBuffer.toList()
-    fun snapshotMicDerived(): List<MicFeatureExtractor.MicDerivedFeature> = micDerivedBuffer.toList()
 
     /** 按 modality 取快照（泛型返回，调用方自行 cast）。 */
     fun snapshot(modality: Modality): List<Any> = when (modality) {
@@ -100,7 +96,6 @@ class SensingEventHub {
         Modality.SCREEN -> snapshotScreen()
         Modality.NOTIFICATION -> snapshotNotifications()
         Modality.APP_ACTIVITY -> snapshotAppActivity()
-        Modality.MIC_OPT -> snapshotMicDerived()
     }
 
     /** 一次性非破坏快照全部 modality（窗口 flush 用，供 [clearConsumed] 消费）。 */
@@ -109,8 +104,7 @@ class SensingEventHub {
         gyro = snapshotGyro(),
         screen = snapshotScreen(),
         notifications = snapshotNotifications(),
-        appActivities = snapshotAppActivity(),
-        micDerived = snapshotMicDerived()
+        appActivities = snapshotAppActivity()
     )
 
     /**
@@ -126,13 +120,12 @@ class SensingEventHub {
         snapshot.screen.forEach { screenBuffer.remove(it) }
         snapshot.notifications.forEach { notificationBuffer.remove(it) }
         snapshot.appActivities.forEach { appActivityBuffer.remove(it) }
-        snapshot.micDerived.forEach { micDerivedBuffer.remove(it) }
     }
 
     /** 是否完全无数据（所有 modality 缓冲均为空）。 */
     fun isEmpty(): Boolean =
         accelBuffer.isEmpty() && gyroBuffer.isEmpty() && screenBuffer.isEmpty() &&
-            notificationBuffer.isEmpty() && appActivityBuffer.isEmpty() && micDerivedBuffer.isEmpty()
+            notificationBuffer.isEmpty() && appActivityBuffer.isEmpty()
 
     // ===== 清空 =====
 
@@ -142,7 +135,6 @@ class SensingEventHub {
         Modality.SCREEN -> screenBuffer.clear()
         Modality.NOTIFICATION -> notificationBuffer.clear()
         Modality.APP_ACTIVITY -> appActivityBuffer.clear()
-        Modality.MIC_OPT -> micDerivedBuffer.clear()
     }
 
     /** consent revoke / 服务停止时安全清空全部缓冲（不用于窗口 flush 路径）。 */
@@ -152,7 +144,6 @@ class SensingEventHub {
         screenBuffer.clear()
         notificationBuffer.clear()
         appActivityBuffer.clear()
-        micDerivedBuffer.clear()
     }
 
     private fun <T> trim(buffer: ConcurrentLinkedDeque<T>, maxSize: Int) {
