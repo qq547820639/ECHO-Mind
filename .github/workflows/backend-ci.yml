@@ -1,32 +1,135 @@
+# backend-ci（T03 深化）：ruff + mypy + SQLite 测试 + PostgreSQL 测试/迁移 round-trip
+# + coverage + 静态检查 + OpenAPI/契约漂移 + 故障注入矩阵。
+#
+# 说明：actions 暂 pin 到 major tag（本机无网络无法核实 commit SHA）；
+# 上线前请将下方标注 `# TODO(T03): pin to commit SHA` 的 uses 替换为 40 位 commit SHA
+# （.github/dependabot.yml 已启用 github-actions 自动升级）。
 name: backend-ci
 on:
   pull_request:
   push:
     branches: [main, "feat/**", "release/**"]
 jobs:
-  test:
+  lint-typecheck:
+    name: lint + typecheck (ruff + mypy)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: cd backend && ruff check app tests
+      - run: cd backend && mypy app
+
+  test-sqlite:
+    name: test (SQLite 默认路径)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
       - run: cd backend && pytest -q
+
+  test-postgres:
+    name: test (PostgreSQL 16) + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: echo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/echo
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
+      # 跳过 sqlite_only 用例（conftest 根据 DATABASE_URL 自动 skip）；覆盖阈值见 coverage baseline
+      - run: cd backend && pytest -q -m "not sqlite_only" --cov=app --cov-report=term-missing --cov-fail-under=70
+
+  alembic-postgres:
+    name: alembic round-trip (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: echo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/echo
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
+      - run: cd backend && alembic upgrade head
+      - run: cd backend && alembic downgrade base
+      - run: cd backend && alembic upgrade head
+
+  static-checks:
+    name: static checks (content / claims / dynamic code / safety eval)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
       - run: python scripts/validate_content_packs.py
       - run: python scripts/claim_scan.py
       - run: python scripts/check_dynamic_code.py
       - run: python scripts/safety_eval.py
-      - run: cd backend && python scripts/export_openapi.py
-      - run: |
-          cd backend
-          rm -f /tmp/echo-migration.db
-          DATABASE_URL=sqlite:////tmp/echo-migration.db alembic upgrade head
-          DATABASE_URL=sqlite:////tmp/echo-migration.db alembic downgrade base
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
         with:
           name: api-and-safety-reports
           path: |
             docs/openapi.json
             safety-eval/evaluation_report.v1.json
             content-packs/MANIFEST.generated.json
+
+  openapi-drift:
+    name: OpenAPI drift (export + diff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install -e 'backend[dev]'
+      - run: cd backend && python scripts/export_openapi.py
+      - run: git diff --exit-code docs/openapi.json
+
+  contract-drift:
+    name: contract drift + fault injection matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: python scripts/contract_drift_check.py
+      - run: python scripts/fault_injection_check.py

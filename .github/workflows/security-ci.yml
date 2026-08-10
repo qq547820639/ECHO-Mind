@@ -1,3 +1,11 @@
+# security-ci（T03 深化）：TruffleHog + SBOM + CodeQL(python) + dependency-review(PR)
+# + pip-audit + osv-scanner + trivy filesystem。
+#
+# 说明：
+# - Kotlin SAST 列为 P2（02c H.4）：v0.6 CodeQL 仅覆盖 python；Kotlin 经全仓 osv-scanner
+#   覆盖 Gradle lockfile 依赖审计；
+# - actions 暂 pin 到 major tag/已知 tag；上线前替换为 commit SHA（无法离线核实 SHA）。
+# - dependency-review 仅在 pull_request 触发时生效。
 name: security-ci
 on:
   pull_request:
@@ -6,23 +14,62 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
       security-events: write
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: trufflesecurity/trufflehog@main
+      - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
+      - uses: trufflesecurity/trufflehog@v3 # TODO(T03): pin to commit SHA（原 @main 可变分支）
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
           extra_args: --only-verified
-      - uses: anchore/sbom-action@v0
+
+      - uses: anchore/sbom-action@v0 # TODO(T03): pin to commit SHA
         with:
           path: .
           format: spdx-json
           output-file: sbom.spdx.json
-      - uses: actions/upload-artifact@v4
+
+      # CodeQL：v0.6 先覆盖 python（Kotlin/Java SAST 为 P2，依赖 Gradle build 较慢）
+      - uses: github/codeql-action/init@v3 # TODO(T03): pin to commit SHA
         with:
-          name: sbom
-          path: sbom.spdx.json
+          languages: python
+      - uses: github/codeql-action/analyze@v3 # TODO(T03): pin to commit SHA
+
+      # dependency-review：仅 PR 触发（需 pull-requests: read）
+      - uses: actions/dependency-review-action@v4 # TODO(T03): pin to commit SHA
+        if: github.event_name == 'pull_request'
+
+      # Python 依赖审计：pip-audit（backend/pyproject.toml 为 PEP 621 依赖清单）
+      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+        with: {python-version: "3.13"}
+      - run: pip install pip-audit
+      - run: pip-audit -r backend/pyproject.toml
+
+      # Gradle/全仓依赖审计：osv-scanner（覆盖 gradle lockfile 与 Python 依赖）
+      - uses: google/osv-scanner-action@v2 # TODO(T03): pin to commit SHA
+        with:
+          scan-args: "--recursive ."
+
+      # 容器/文件系统扫描：trivy filesystem（backend 依赖目录）
+      - uses: aquasecurity/trivy-action@0.24.0 # TODO(T03): pin to commit SHA（验证 tag 存在）
+        with:
+          scan-type: fs
+          scan-ref: backend/
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+      - uses: github/codeql-action/upload-sarif@v3 # TODO(T03): pin to commit SHA
+        with:
+          sarif_file: trivy-results.sarif
+
+      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+        with:
+          name: sbom-and-security-reports
+          path: |
+            sbom.spdx.json
+            trivy-results.sarif
