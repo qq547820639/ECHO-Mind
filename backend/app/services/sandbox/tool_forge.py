@@ -2,6 +2,9 @@
 
 根据 gap.suggested_tool_type 选择模板，组装 parameters_schema / returns_schema /
 guardrails / steps。guardrails 必含三条安全底线。
+
+v0.6 final 契约：模板库不含任何情绪评分模板（情绪检查类模板已删除），
+被动特征不得产出情绪评分 / 趋势标签等情绪推断工具。
 """
 from __future__ import annotations
 
@@ -16,7 +19,7 @@ REQUIRED_GUARDRAILS: tuple[str, ...] = (
     "命中红色信号立即冻结",
 )
 
-# 按 suggested_tool_type 索引的模板字典
+# 按 suggested_tool_type 索引的模板字典（无情绪评分模板，PRD 契约点 2）
 _TEMPLATES: dict[str, dict[str, Any]] = {
     "data_check": {
         "description": "检测当日感知数据覆盖度，识别缺失的信号源并输出覆盖率。",
@@ -78,37 +81,6 @@ _TEMPLATES: dict[str, dict[str, Any]] = {
         "steps": [
             {"key": "probe", "description": "查询指定 source 的最新 DerivedFeature"},
             {"key": "fallback", "description": "若缺失则标记需要端侧补采，不主动推断情绪"},
-        ],
-    },
-    "mood_check": {
-        "description": "基于近期叙事与派生特征做情绪检查，输出情绪评分与趋势。",
-        "parameters_schema": {
-            "type": "object",
-            "properties": {
-                "time_window": {
-                    "type": "string",
-                    "description": "回溯窗口，如 '7d'",
-                },
-            },
-            "required": ["time_window"],
-        },
-        "returns_schema": {
-            "type": "object",
-            "properties": {
-                "mood_score": {
-                    "type": "number",
-                    "description": "情绪评分 0-100，越低越偏暗",
-                },
-                "trend": {
-                    "type": "string",
-                    "description": "趋势标签：improving/stable/declining",
-                },
-            },
-            "required": ["mood_score", "trend"],
-        },
-        "steps": [
-            {"key": "aggregate", "description": "汇总时间窗口内叙事与特征摘要（非诊断表达）"},
-            {"key": "score", "description": "输出情绪评分与趋势标签，不下诊断结论"},
         ],
     },
     "observation_wait": {

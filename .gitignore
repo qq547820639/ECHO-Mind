@@ -20,6 +20,11 @@ local.properties
 .vscode/
 .DS_Store
 
+# Local agent/tool workspaces (not part of the product repo)
+.codebuddy/
+.trae/
+.workbuddy/
+
 # Runtime
 runtime/
 exports/

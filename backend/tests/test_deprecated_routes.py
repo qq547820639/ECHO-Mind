@@ -102,7 +102,8 @@ def test_get_journals_still_reads_history(client, user_headers):
     assert rows[0]["body"] == "历史日记正文"
 
 
-def test_get_trends_summary_still_available(client, user_headers):
-    # GET /v1/trends/summary 保留（T12 未移除查询路由）。
+def test_trends_summary_removed_returns_404(client, user_headers):
+    # v0.6 final：GET /v1/trends/summary 已从公开契约移除（全仓无真实调用方）。
+    # build_trend 保留为 escalation case-review 内部 data_quality 用途（非公开 API）。
     response = client.get("/v1/trends/summary?user_id=u_demo", headers=user_headers)
-    assert response.status_code == 200
+    assert response.status_code == 404

@@ -73,8 +73,11 @@ def build_daily_narrative(
     events = [{
         "source": f.source,
         "summary": f.summary,
+        # v0.6 final：事实性覆盖信息（窗口内实际信号源），非情绪语义
+        "sources_present": list(f.sources_present or []),
     } for f in features]
-    gaps: list[str] = []  # 预留：后续标记感知覆盖缺口
+    # legacy 预留：缺口真值由 SandboxRun.gaps_found 承担（v0.8 removal target）
+    gaps: list[str] = []
 
     existing = db.scalar(select(DailyNarrative).where(
         DailyNarrative.tenant_id == tenant_id,
@@ -134,9 +137,17 @@ def rebuild_profile(db: Session, *, tenant_id: str, user_id: str) -> UserProfile
         DerivedFeature.window_start >= since_dt,
     )).all()
     observation_days = len({f.window_start.date() for f in features})
+    # v0.6 final：近 7 天观察窗口内实际信号源并集（与 gap_finder 同口径：sources_present
+    # 非空取并集，空列表 fallback 到单数 source；供机构工作台观测覆盖度）
+    sources_union = (
+        set().union(*[set(f.sources_present or []) or {f.source} for f in features])
+        if features
+        else set()
+    )
     traits = {
         "observation_days": observation_days,
         "narrative_days_last_7": len(narratives),
+        "sources_present_union": sorted(sources_union),
     }
 
     existing = db.scalar(select(UserProfile).where(

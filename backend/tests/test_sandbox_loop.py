@@ -9,6 +9,7 @@
 - 红色关键词 Tool 被拒绝：Tool description 含"自杀" → validate 失败
 """
 from datetime import datetime, timedelta, timezone
+import json
 
 from app.database import SessionLocal
 from app.models import DerivedFeature, Skill, Tool
@@ -22,7 +23,10 @@ from app.services.sandbox import (
     schedule_sandbox_run,
     validate_tools,
 )
+from app.services.sandbox.gap_finder import EXPECTED_SOURCES
 from app.services.sandbox.runner import SandboxRunner
+from app.services.sandbox.skill_induct import _TOOL_TYPE_TO_ACTION_TYPE
+from app.services.sandbox.tool_forge import _TEMPLATES
 
 
 def _noon() -> datetime:
@@ -342,3 +346,224 @@ def test_full_loop_no_data_cold_start():
         assert result.skills_inducted > 0
         # Skill 已创建
         assert db.query(Skill).filter_by(tenant_id="t_demo", user_id="u_demo").count() > 0
+
+
+# ---------- v0.6 final：sources_present 并集契约 ----------
+
+def _db_feature(event_id: str, source: str, *, sources_present: list[str] | None = None,
+                window_start: datetime | None = None) -> DerivedFeature:
+    """构造已落库的 DerivedFeature（测试内直接建行，不走 ingest 路由）。"""
+    ws = window_start or _noon()
+    return DerivedFeature(
+        tenant_id="t_demo",
+        user_id="u_demo",
+        event_id=event_id,
+        schema_version="feat-v1",
+        source=source,
+        window_start=ws,
+        window_end=ws + timedelta(minutes=30),
+        summary="测试特征",
+        vector=[0.1],
+        sources_present=list(sources_present or []),
+    )
+
+
+def _gap_ids(db, *, run_date=None) -> set[str]:
+    today = run_date or datetime.now(timezone.utc).date()
+    summary = audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today)
+    gaps = find_gaps(db, tenant_id="t_demo", user_id="u_demo", run_date=today, audit_summary=summary)
+    return {g["gap_id"] for g in gaps}
+
+
+def test_gap_finder_uses_sources_present_union():
+    """单窗口 source=accel + sources_present=全 5 项 → 不产生任何 source_missing gap。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        db.add(_db_feature(
+            "evt_union_full_0001",
+            "accel",
+            sources_present=["accel", "gyro", "screen", "notification", "app_activity"],
+        ))
+        db.commit()
+        gap_ids = _gap_ids(db, run_date=today)
+        assert not any(g.startswith("source_missing_") for g in gap_ids)
+        # 仅可能剩下观测不足（observation_days<3）
+        assert gap_ids == {"observation_insufficient"}
+
+
+def test_gap_finder_multi_window_union_no_false_missing():
+    """两个 accel 窗口分别声明 screen/notification 不同 sources_present → 并集后不误报缺失。"""
+    today = datetime.now(timezone.utc).date()
+    noon = _noon()
+    with SessionLocal() as db:
+        db.add(_db_feature("evt_union_a_0001", "accel",
+                           sources_present=["accel", "screen"], window_start=noon))
+        db.add(_db_feature("evt_union_b_0001", "accel",
+                           sources_present=["accel", "notification"],
+                           window_start=noon + timedelta(minutes=30)))
+        db.commit()
+        summary = audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today)
+        # audit_day summary 携带并集（供下游观测）
+        assert summary["sources_present"] == sorted(["accel", "screen", "notification"])
+        gaps = find_gaps(db, tenant_id="t_demo", user_id="u_demo", run_date=today, audit_summary=summary)
+        descs = [g["description"] for g in gaps]
+        assert "缺少gyro信号" in descs
+        assert "缺少app_activity信号" in descs
+        assert "缺少screen信号" not in descs
+        assert "缺少notification信号" not in descs
+
+
+def test_gap_finder_fallback_to_source_when_sources_present_empty():
+    """sources_present 为空的历史记录 → fallback 到单数 source。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        db.add(_db_feature("evt_fallback_0001", "screen", sources_present=[]))
+        db.commit()
+        descs = [g["description"] for g in find_gaps(
+            db, tenant_id="t_demo", user_id="u_demo", run_date=today,
+            audit_summary=audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today),
+        )]
+        assert "缺少accel信号" in descs
+        assert "缺少gyro信号" in descs
+        assert "缺少notification信号" in descs
+        assert "缺少app_activity信号" in descs
+        assert "缺少screen信号" not in descs
+
+
+def test_gap_finder_partial_permissions_only_accel_screen():
+    """部分权限关闭（只有 accel+screen）→ 仅缺失其余核心 source。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        db.add(_db_feature("evt_partial_0001", "accel",
+                           sources_present=["accel", "screen"]))
+        db.commit()
+        descs = [g["description"] for g in find_gaps(
+            db, tenant_id="t_demo", user_id="u_demo", run_date=today,
+            audit_summary=audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today),
+        )]
+        assert "缺少gyro信号" in descs
+        assert "缺少notification信号" in descs
+        assert "缺少app_activity信号" in descs
+        assert "缺少accel信号" not in descs
+        assert "缺少screen信号" not in descs
+
+
+def test_gap_finder_mic_opt_missing_no_gap():
+    """mic_opt 未授权不形成核心 coverage failure（不在 EXPECTED_SOURCES）。"""
+    today = datetime.now(timezone.utc).date()
+    assert "mic_opt" not in EXPECTED_SOURCES
+    with SessionLocal() as db:
+        # 核心 5 项齐全但没有任何 mic_opt 窗口 → 不产生 source_missing gap
+        db.add(_db_feature("evt_mic_0001", "accel",
+                           sources_present=["accel", "gyro", "screen", "notification", "app_activity"]))
+        db.commit()
+        gap_ids = _gap_ids(db, run_date=today)
+        assert not any(g.startswith("source_missing_") for g in gap_ids)
+        # mic_opt 单独存在也不会计入 EXPECTED（union 自然包含，但永不强制）
+        with SessionLocal() as db2:
+            db2.add(_db_feature("evt_mic_0002", "mic_opt", sources_present=["mic_opt"]))
+            db2.commit()
+            summary = audit_day(db2, tenant_id="t_demo", user_id="u_demo", run_date=today)
+            assert "mic_opt" in summary["sources_present"]
+
+
+def test_gap_finder_health_not_mandatory():
+    """health 不在 EXPECTED_SOURCES，不得擅自变 mandatory。"""
+    today = datetime.now(timezone.utc).date()
+    assert "health" not in EXPECTED_SOURCES
+    with SessionLocal() as db:
+        db.add(_db_feature("evt_health_0001", "accel",
+                           sources_present=["accel", "gyro", "screen", "notification", "app_activity"]))
+        db.commit()
+        gap_ids = _gap_ids(db, run_date=today)
+        assert not any(g.startswith("source_missing_") for g in gap_ids)
+
+
+def test_gap_finder_no_data_gap_id_stable():
+    """feature_count==0 → gap_id='no_data'（幂等稳定）。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        gap_ids = _gap_ids(db, run_date=today)
+        assert "no_data" in gap_ids
+
+
+def test_gap_finder_observation_insufficient():
+    """profile_traits.observation_days < 3 → observation_insufficient 缺口。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        db.add(_db_feature("evt_obs_0001", "accel",
+                           sources_present=["accel", "gyro", "screen", "notification", "app_activity"]))
+        db.commit()
+        gaps = find_gaps(
+            db, tenant_id="t_demo", user_id="u_demo", run_date=today,
+            audit_summary=audit_day(db, tenant_id="t_demo", user_id="u_demo", run_date=today),
+        )
+        obs = next(g for g in gaps if g["gap_id"] == "observation_insufficient")
+        assert obs["severity"] == "low"
+        assert obs["suggested_tool_type"] == "observation_wait"
+
+
+def test_gap_finder_legacy_single_source_behavior():
+    """legacy 单 source（无 sources_present）行为保持：只识别缺失的 4 个 source。"""
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        db.add(DerivedFeature(
+            tenant_id="t_demo", user_id="u_demo", event_id="evt_legacy_0001",
+            schema_version="feat-v1", source="screen",
+            window_start=_noon(), window_end=_noon() + timedelta(minutes=30),
+            summary="屏幕使用正常", vector=[0.1],
+        ))
+        db.commit()
+        gap_ids = _gap_ids(db, run_date=today)
+        assert gap_ids == {
+            "source_missing_accel",
+            "source_missing_gyro",
+            "source_missing_notification",
+            "source_missing_app_activity",
+            "observation_insufficient",
+        }
+
+
+# ---------- v0.6 final：结构性边界（情绪/自杀/诊断推断零容忍） ----------
+
+def test_gap_finder_never_generates_mood_or_crisis_gap():
+    """Gap Finder 永远不会生成 mood/depression/suicide/diagnosis 类型 gap。"""
+    forbidden = ("mood", "depression", "suicide", "diagnos", "危机", "情绪")
+    today = datetime.now(timezone.utc).date()
+    with SessionLocal() as db:
+        # 无数据场景
+        gaps_no_data = find_gaps(
+            db, tenant_id="t_demo", user_id="u_demo", run_date=today,
+            audit_summary={"feature_count": 0, "profile_traits": {"observation_days": 0}},
+        )
+        # 缺 source 场景
+        gaps_missing = find_gaps(
+            db, tenant_id="t_demo", user_id="u_demo", run_date=today,
+            audit_summary={
+                "feature_count": 1,
+                "profile_traits": {"observation_days": 5},
+            },
+        )
+        for gap in gaps_no_data + gaps_missing:
+            text = f"{gap['gap_id']} {gap['description']}".lower()
+            assert not any(term in text for term in forbidden), f"gap 含情绪/危机语义: {gap}"
+
+
+def test_tool_forge_no_passive_mood_template():
+    """Tool Forge 不存在被动情绪评分模板（mood_check 不在模板中，关键词不出现）。"""
+    assert "mood_check" not in _TEMPLATES
+    forbidden_keywords = ("mood_score", "improving", "declining", "情绪评分", "情绪趋势")
+    for template in _TEMPLATES.values():
+        blob = json.dumps(template, ensure_ascii=False)
+        assert not any(kw in blob for kw in forbidden_keywords), (
+            f"Tool 模板仍含情绪评分语义: {template.get('description')}"
+        )
+
+
+def test_skill_induct_no_passive_mood_skill_path():
+    """Skill induction 不存在基于被动特征形成情绪 Skill 的路径。"""
+    assert "mood_check" not in _TOOL_TYPE_TO_ACTION_TYPE
+    # 任何 tool_type 都不映射到 reflection_prompt 的情绪来源（mood_check 已删）；
+    # 合法映射值必须全部在 ACTION_TYPE_WHITELIST 内。
+    from app.schemas import ACTION_TYPE_WHITELIST
+    assert all(v in ACTION_TYPE_WHITELIST for v in _TOOL_TYPE_TO_ACTION_TYPE.values())

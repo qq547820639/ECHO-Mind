@@ -213,6 +213,23 @@ def test_red_summary_never_triggers_passive_escalation(client, user_headers):
         assert all(e.trigger != "passive_red_signal" for e in escalations)
 
 
+def test_ingest_never_creates_risk_signal_or_escalation(client, user_headers):
+    """结构性边界：/v1/features/ingest 永不创建 RiskSignal/Escalation（被动 RED 零容忍）。"""
+    _grant_passive_consent(client, user_headers)
+    for idx, source in enumerate(("accel", "gyro", "screen", "notification", "app_activity", "health")):
+        payload = _feature_payload(f"evt_no_signal_{idx:02d}", "平稳", source=source)
+        response = client.post("/v1/features/ingest", json=payload, headers=user_headers)
+        assert response.status_code == 200
+        assert response.json()["escalation_id"] is None
+    with SessionLocal() as db:
+        assert db.query(RiskSignal).filter(
+            RiskSignal.tenant_id == "t_demo", RiskSignal.user_id == "u_demo",
+        ).count() == 0
+        assert db.query(Escalation).filter(
+            Escalation.tenant_id == "t_demo", Escalation.user_id == "u_demo",
+        ).count() == 0
+
+
 def test_audit_chain_remains_valid(client, user_headers):
     _grant_passive_consent(client, user_headers)
     client.post("/v1/features/ingest",

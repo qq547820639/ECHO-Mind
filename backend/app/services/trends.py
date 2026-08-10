@@ -13,6 +13,10 @@ def _mad(values: list[float]) -> float:
     return median([abs(x - center) for x in values])
 
 
+# legacy: 仅内部数据质量用途（escalation case-review 的 recent_trend/data_quality），
+# 不再暴露为公开 API（GET /v1/trends/summary 已于 v0.6 final 移除），v0.8 后移除。
+# 基于 Checkin 主动签到历史（mood/stress/energy/sleep_recovery）聚合，仅个人趋势回顾，
+# 不构成诊断或治疗建议。
 def build_trend(db: Session, tenant_id: str, user_id: str, days: int) -> dict:
     since = datetime.now(timezone.utc) - timedelta(days=days)
     rows = db.scalars(

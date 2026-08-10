@@ -15,6 +15,7 @@ from app.auth import (
     PSYCH_CONTENT_ROLES,
     READ_ONLY_ROLES,
     Principal,
+    create_access_token,
     get_principal,
     require_roles,
 )
@@ -57,6 +58,8 @@ from app.schemas import (
     JournalCreate,
     JournalRevise,
     L0ScreeningCreate,
+    OnboardingVerifyIn,
+    OnboardingVerifyOut,
     PracticeCompletionCreate,
     QuestionnaireCreate,
     SandboxRunCreate,
@@ -431,6 +434,57 @@ def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal:
     return {"id": row.id, "relationship": row.relationship}
 
 
+@router.post("/onboarding/verify-code", response_model=OnboardingVerifyOut)
+def verify_onboarding_code(payload: OnboardingVerifyIn, db: DB):
+    """激活码交换（v0.6 final）：预认证薄路由，供端侧激活使用。
+
+    - 跨租户查 ``User.external_ref == code``；0 命中 → 404（不泄露租户存在性）。
+    - 命中且 status=="restricted"（或已不可用）→ 403。
+    - 命中且 status=="active" → 签发 role=user 短时凭证。
+    响应不含 tenant_id / role / external_ref 等内部字段（JWT 载荷内部字段对用户透明）。
+    """
+    code = payload.code.strip()
+    user = db.scalar(select(User).where(User.external_ref == code))
+    if user is None:
+        raise HTTPException(status_code=404, detail="无效激活码")
+    if user.status != "active":
+        # restricted / withdrawal_pending 等一律拒绝；统一文案，不泄露内部状态细节。
+        raise HTTPException(status_code=403, detail="该激活码已受限，请联系机构")
+
+    access_token = create_access_token(subject=user.id, tenant_id=user.tenant_id, role="user")
+    consent_versions: dict[str, str] = {}
+    for consent_type in ("psychological_data", "passive_sensing", "voice_features"):
+        consent = latest_consent(db, user.tenant_id, user.id, consent_type)
+        if consent is not None:
+            consent_versions[consent_type] = consent.version
+    screening = db.scalar(
+        select(OnboardingScreening).where(
+            OnboardingScreening.tenant_id == user.tenant_id,
+            OnboardingScreening.user_id == user.id,
+        ).order_by(OnboardingScreening.created_at.desc()).limit(1)
+    )
+    l0_decision = screening.decision if screening is not None else None
+
+    append_audit(
+        db,
+        tenant_id=user.tenant_id,
+        actor_type="user",
+        actor_id=user.id,
+        action="onboarding.verify",
+        object_type="user",
+        object_id=user.id,
+        metadata={"restricted": False, "l0_decision": l0_decision},
+    )
+    db.commit()
+    return OnboardingVerifyOut(
+        user_id=user.id,
+        access_token=access_token,
+        consent_versions=consent_versions,
+        l0_decision=l0_decision,
+        restricted=False,
+    )
+
+
 @router.post("/checkins")
 def create_checkin(payload: CheckinCreate, request: Request, db: DB, principal: PRINCIPAL):
     # T12.1 主动签到录入入口已停用：改由被动感知范式（POST /v1/features/ingest）处理。
@@ -507,13 +561,6 @@ def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PR
     # T12.1 练习完成录入入口已停用：改由被动感知范式处理。保留认证链，有效身份返回 410。
     ensure_user(db, principal, payload.user_id)
     raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
-
-
-@router.get("/trends/summary")
-def trends(user_id: str, db: DB, principal: PRINCIPAL, days: int = Query(14, ge=7, le=90)):
-    require_psych_content_role(db, principal, user_id=user_id)
-    ensure_user(db, principal, user_id)
-    return build_trend(db, principal.tenant_id, user_id, days)
 
 
 @router.post("/escalations")

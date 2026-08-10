@@ -15,6 +15,9 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import AuditEvent
 from app.services.audit import append_audit, tenant_append_serialized, verify_audit_chain
+import pytest
+pytestmark = pytest.mark.sqlite_only  # 依赖 SQLite 内存/文件库语义，PG job 跳过
+
 
 THREAD_COUNT = 50
 

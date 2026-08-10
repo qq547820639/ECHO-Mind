@@ -167,7 +167,12 @@ def test_orm_escalation_fact_field_tamper_blocked(client, user_headers):
         assert db.get(Escalation, esc_id).evidence_summary == "用户主动求助"
 
 
+@pytest.mark.sqlite_only
 def test_migration_replays_on_sqlite(tmp_path, monkeypatch):
+    """v0.6 final：迁移链头为 20260810_0002（users.external_ref 索引）；SQLite round-trip。
+
+    sqlite_only：显式构造 sqlite:/// 临时库，PostgreSQL job 跳过（PG round-trip 由 CI job 覆盖）。
+    """
     from alembic import command
     from alembic.config import Config
 
@@ -185,7 +190,8 @@ def test_migration_replays_on_sqlite(tmp_path, monkeypatch):
             }
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert {"escalations", "risk_signals", "audit_events"} <= tables
-        assert head == "20260810_0001"
+        # v0.6 final：迁移链头为 20260810_0002（users.external_ref 索引）
+        assert head == "20260810_0002"
         command.downgrade(cfg, "base")
         with create_engine(f"sqlite:///{db_file}").connect() as conn:
             remaining = conn.execute(

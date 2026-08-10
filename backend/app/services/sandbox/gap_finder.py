@@ -1,6 +1,15 @@
 """沙箱缺口识别：基于 audit_day 汇总结果标记感知覆盖缺口。
 
 只读，不写库；返回缺口列表供 tool_forge 消费。
+
+v0.6 final sources_present 契约：
+- 覆盖度判定以「当日全部 DerivedFeature.sources_present 并集」为权威；
+- 某行 sources_present 为空/None（旧客户端或历史数据）时 fallback 到该行 source；
+- EXPECTED_SOURCES 保持 5 项（accel/gyro/screen/notification/app_activity），
+  mic_opt 可选（缺失不产生 gap）、health 不强制（不擅自 mandatory）；
+- gap_id 稳定幂等：no_data / source_missing_{source} / observation_insufficient
+  跨日重复运行产生相同 id 的 gap（runner 侧 gaps_found 覆写、Skill 归纳按
+  content_hash 幂等，无新表）。
 """
 from __future__ import annotations
 
@@ -13,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models import DerivedFeature
 
-# 端侧派生特征期望覆盖的 source 集合
+# 端侧派生特征期望覆盖的 source 集合（mic_opt 可选、health 不强制）
 EXPECTED_SOURCES: tuple[str, ...] = (
     "accel",
     "gyro",
@@ -21,6 +30,16 @@ EXPECTED_SOURCES: tuple[str, ...] = (
     "notification",
     "app_activity",
 )
+
+
+def _row_sources(row: DerivedFeature) -> set[str]:
+    """窗口内实际信号源集合：sources_present 非空时取并集，否则 fallback 到单数 source。
+
+    与 audit_day 的本地 helper 保持同口径（避免跨模块耦合过深）。
+    """
+    if getattr(row, "sources_present", None):
+        return set(row.sources_present)
+    return {row.source}
 
 
 def find_gaps(
@@ -38,6 +57,7 @@ def find_gaps(
       - feature_count==0 → "无感知数据"（high）
       - 某个 source 缺失 → "缺少{source}信号"（medium）
       - profile_traits.observation_days < 3 → "观测数据不足"（low）
+    覆盖度判定：当日全部窗口 sources_present 并集（空则回退单数 source）。
     （"持续低落状态"情绪推断规则已按 PRD 契约点 2 移除。）
     """
     gaps: list[dict[str, Any]] = []
@@ -52,9 +72,11 @@ def find_gaps(
             "suggested_tool_type": "data_check",
         })
 
-    # 2. 逐 source 覆盖检查（当日 DerivedFeature 中缺失的 source）
+    # 2. 逐 source 覆盖检查（当日全部窗口 sources_present 并集为权威；空则回退单数 source）
     day_features = _day_features(db, tenant_id, user_id, run_date)
-    present_sources = {f.source for f in day_features}
+    present_sources = (
+        set().union(*[_row_sources(f) for f in day_features]) if day_features else set()
+    )
     for source in EXPECTED_SOURCES:
         if source not in present_sources:
             gaps.append({

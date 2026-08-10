@@ -90,6 +90,8 @@ class EmergencyContact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+# legacy: v0.8 removal target — Checkin 仅历史只读兼容（case-review 直接证据、
+# DSR delete 矩阵、内部 build_trend 仍读）；写入口 POST /v1/checkins 维持 410 存根。
 class Checkin(Base):
     __tablename__ = "checkins"
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("chk"))
@@ -129,6 +131,8 @@ class JournalEntry(Base):
     )
 
 
+# legacy: v0.8 removal target — QuestionnaireResult 仅历史只读兼容（case-review、DSR delete 矩阵）；
+# 写入口 POST /v1/questionnaires/... 维持 410 存根。
 class QuestionnaireResult(Base):
     __tablename__ = "questionnaire_results"
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("qr"))
@@ -144,6 +148,8 @@ class QuestionnaireResult(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_questionnaire_tenant_event"),)
 
 
+# legacy: v0.8 removal target — PracticeCompletion 仅历史只读兼容（case-review、DSR delete 矩阵）；
+# 写入口 POST /v1/practices/completions 维持 410 存根。
 class PracticeCompletion(Base):
     __tablename__ = "practice_completions"
     id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("pc"))

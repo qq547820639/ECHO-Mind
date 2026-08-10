@@ -55,6 +55,29 @@ class EmergencyContactCreate(BaseModel):
     relationship: str = Field(min_length=1, max_length=80)
 
 
+class OnboardingVerifyIn(BaseModel):
+    """激活码交换入参（v0.6 final）。
+
+    仅接受机构分发的激活码/邀请码；不接收 device_id 等内部标识之外的字段。
+    code 最小 8 位（如 `XXXX-XXXX-XXXX`），最长 80。
+    """
+    code: str = Field(min_length=8, max_length=80)
+
+
+class OnboardingVerifyOut(BaseModel):
+    """激活码交换输出契约（v0.6 final）。
+
+    仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等
+    内部字段（JWT 载荷内部字段对用户透明）。
+    """
+    user_id: str
+    access_token: str
+    consent_versions: dict[str, str] = Field(default_factory=dict)
+    l0_decision: str | None = None
+    restricted: bool = False
+
+
+# legacy: v0.8 removal target — CheckinCreate 仅历史兼容（POST /v1/checkins 410 存根）。
 class CheckinCreate(BaseModel):
     event_id: str = Field(min_length=8, max_length=80)
     user_id: str
@@ -85,6 +108,7 @@ class JournalRevise(BaseModel):
     client_time: datetime
 
 
+# legacy: v0.8 removal target — QuestionnaireCreate 仅历史兼容（POST /v1/questionnaires/... 410 存根）。
 class QuestionnaireCreate(BaseModel):
     event_id: str = Field(min_length=8, max_length=80)
     user_id: str
@@ -99,6 +123,7 @@ class QuestionnaireCreate(BaseModel):
         return values
 
 
+# legacy: v0.8 removal target — PracticeCompletionCreate 仅历史兼容（POST /v1/practices/completions 410 存根）。
 class PracticeCompletionCreate(BaseModel):
     event_id: str = Field(min_length=8, max_length=80)
     user_id: str
@@ -295,6 +320,8 @@ class TenantPortraitOut(BaseModel):
     仅返回聚合统计，不含单个用户 ID/特征；小桶（<5）已合并到 "other"（且 other<5 时不输出）。
     suppression 标记各敏感维度的抑制状态（"ok" 或 "suppressed"）。
     """
+    # legacy: v0.8 removal target — 情绪维度已废弃（PRD 契约点 2），字段保留恒空 + suppressed
+    # 仅为 OpenAPI 兼容历史消费者；不再有任何写入路径。
     mood_distribution: dict[str, int] = Field(default_factory=dict)
     observation_stats: dict[str, float] = Field(default_factory=dict)
     active_users_7d: int = 0

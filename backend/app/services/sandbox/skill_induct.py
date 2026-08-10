@@ -30,11 +30,11 @@ DEFAULT_COMPLETION_SCHEMA: dict[str, Any] = {
 }
 
 #: tool_type → action_type 映射（白名单内；未命中给安全默认 guided_steps）
+#: v0.6 final：情绪检查类映射已删除（不存在基于被动特征形成情绪 Skill 的路径）。
 _TOOL_TYPE_TO_ACTION_TYPE: dict[str, str] = {
     "data_check": "checklist",
     "signal_probe": "checklist",
     "observation_wait": "journaling",
-    "mood_check": "reflection_prompt",
     "breathing": "breathing",
 }
 

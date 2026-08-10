@@ -18,6 +18,9 @@ from app.database import Base, SessionLocal
 from app.models import SandboxRun, User
 from app.services.sandbox import schedule_sandbox_run
 from app.services.sandbox.runner import SandboxRunner
+import pytest
+pytestmark = pytest.mark.sqlite_only  # 依赖 SQLite 内存/文件库语义，PG job 跳过
+
 
 
 def _make_file_db(tmp_path, name: str):

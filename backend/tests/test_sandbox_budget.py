@@ -12,6 +12,9 @@ from app.database import SessionLocal
 from app.models import User
 from app.services.sandbox import schedule_sandbox_run
 from app.services.sandbox.runner import SandboxRunner
+import pytest
+pytestmark = pytest.mark.sqlite_only  # 依赖 SQLite 内存/文件库语义，PG job 跳过
+
 
 
 # ---------- P2.2 超时转 failed ----------

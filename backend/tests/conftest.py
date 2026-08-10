@@ -1,6 +1,8 @@
 import os
-os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
-os.environ["JWT_SECRET"] = "test-secret-at-least-32-bytes-long"
+
+# 测试默认使用 SQLite 内存库；CI 的 PostgreSQL job 通过环境变量覆盖（setdefault 不覆盖已设置的）。
+os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET", "test-secret-at-least-32-bytes-long")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +10,32 @@ from app.auth import create_access_token
 from app.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import Consent, Tenant, User
+
+
+def _is_postgres() -> bool:
+    return (os.environ.get("DATABASE_URL") or "").startswith("postgres")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "sqlite_only: 依赖 SQLite 内存库语义的用例（PG job 跳过）")
+    config.addinivalue_line("markers", "postgres_only: 依赖 PostgreSQL 语义的用例（SQLite 默认路径跳过）")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """按当前 DATABASE_URL 跳过不适用的用例：
+    - PG 运行时跳过 sqlite_only；
+    - SQLite 运行时跳过 postgres_only。
+    """
+    if _is_postgres():
+        skip_marker = "sqlite_only"
+        reason = "当前运行于 PostgreSQL，跳过 SQLite-only 用例"
+    else:
+        skip_marker = "postgres_only"
+        reason = "当前运行于 SQLite 默认路径，跳过 PostgreSQL-only 用例"
+    skip = pytest.mark.skip(reason=reason)
+    for item in items:
+        if skip_marker in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture(autouse=True)
