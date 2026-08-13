@@ -82,6 +82,11 @@
       },
       {
         "method": "GET",
+        "path": "/v1/me/messages",
+        "note": "分析消息（周小结，拉取式推送过渡）：确定性幂等 message.id；<3 天画像返回 message=null（abstain）；principal.subject 确定用户"
+      },
+      {
+        "method": "GET",
         "path": "/v1/portraits/today",
         "note": "旧路径保留兼容（user_id query param）"
       },

@@ -12,6 +12,7 @@ import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.LegacyInputRepository
 import com.yunjue.echo.mind.data.LocalDataRights
 import com.yunjue.echo.mind.data.LocalPortraitDataSource
+import com.yunjue.echo.mind.data.MessageRepository
 import com.yunjue.echo.mind.data.NarrativeProfileRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
 import com.yunjue.echo.mind.data.PortraitRepository
@@ -261,6 +262,8 @@ class AppContainer(context: Context) {
     val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox, localPortraitDataSource)
     // v0.7 本地优先：本地数据权利（本地模式导出/删除，数据不出设备）
     val localDataRights = LocalDataRights(database, cipher)
+    // v0.7 分析消息（拉取式推送过渡）：订阅拉服务端小结 / 本地模式端侧算小结
+    val messageRepository = MessageRepository(preferences, apiClient, localPortraitDataSource)
     val narrativeProfileRepository = NarrativeProfileRepository(preferences, apiClient)
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */

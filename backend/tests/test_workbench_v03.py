@@ -315,3 +315,25 @@ def test_metrics_real_p50_p95(client, user_headers):
     assert m["takeover_p95_seconds"] == 39
     # 响应只增不改：既有 SLA 参考字段仍保留。
     assert m["ack_sla_seconds"] and m["takeover_sla_seconds"]
+
+
+def test_x_total_filtered_aligns_with_filters(client, user_headers, staff_headers):
+    """v0.7 修复：X-Total-Filtered 必须与 status/level/assigned_to 过滤条件对齐。"""
+    with SessionLocal() as db:
+        for i in range(3):
+            db.add(Escalation(
+                event_id=f"evt_tf_{i}", tenant_id="t_demo", user_id="u_demo", level="L3",
+                trigger="help_requested", evidence_summary="s", status="open",
+            ))
+        db.add(Escalation(
+            event_id="evt_tf_closed", tenant_id="t_demo", user_id="u_demo", level="L3",
+            trigger="help_requested", evidence_summary="s", status="closed",
+        ))
+        db.commit()
+
+    resp_open = client.get("/v1/escalations?status=open", headers=staff_headers)
+    assert resp_open.status_code == 200
+    assert resp_open.headers["X-Total-Filtered"] == "3"
+
+    resp_all = client.get("/v1/escalations", headers=staff_headers)
+    assert resp_all.headers["X-Total-Filtered"] == "4"

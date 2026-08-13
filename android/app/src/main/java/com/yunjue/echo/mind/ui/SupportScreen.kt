@@ -3,6 +3,8 @@ package com.yunjue.echo.mind.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.R
@@ -106,6 +109,21 @@ fun SupportScreen(container: AppContainer) {
 
     // ===== 麦克风可选模块开关（T03.3） =====
     var showMicConfirm by remember { mutableStateOf(false) }
+
+    // Android 13+ 持续通知权限：重新开启被动感知时补申请（前台服务通知可见性；
+    // 拒绝仅降级——通知不可见，采集继续）。Onboarding 已请求过一次，此处兜底。
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { /* 结果无需处理：授权与否只影响通知可见性 */ }
+    fun requestNotifPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -306,6 +324,8 @@ fun SupportScreen(container: AppContainer) {
                         onCheckedChange = { enabled ->
                             scope.launch {
                                 if (enabled) {
+                                    // v0.7：重新开启时补申请持续通知权限（通知可见性，拒绝仅降级）
+                                    requestNotifPermissionIfNeeded()
                                     // v0.6.1（P0-3 B）：OFF→ON 统一走协调器
                                     // （先产生 granted 证据，再启动服务；同步顺序先于新特征）
                                     ServiceRevocationCoordinator.reEnablePassiveSensing(

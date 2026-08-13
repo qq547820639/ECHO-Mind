@@ -89,6 +89,9 @@ class ApiClient(
     /** GET /v1/me/baseline/status：基线状态（baseline_days/window/bucket_usage 等）。 */
     suspend fun getBaselineStatus(): Pair<Int, String?> = get("/v1/me/baseline/status")
 
+    /** GET /v1/me/messages：分析消息（周小结；message 可为 null = 数据不足 abstain）。 */
+    suspend fun getMessages(): Pair<Int, String?> = get("/v1/me/messages")
+
     /** POST /v1/me/portraits/rebuild：服务端重算今日画像（当前用户，body 无需 user_id），响应同 today 结构。 */
     suspend fun rebuildPortrait(): Pair<Int, String?> =
         post("/v1/me/portraits/rebuild", "{}").let { (code, body, _) -> code to body }

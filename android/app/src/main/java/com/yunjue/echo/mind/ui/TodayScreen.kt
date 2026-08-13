@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.PortraitRepository
+import com.yunjue.echo.mind.data.MessageRepository
 import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.data.SyncStateRepository
 import com.yunjue.echo.mind.data.SyncWorker
@@ -63,6 +65,7 @@ import com.yunjue.echo.mind.model.PORTRAIT_DIMENSIONS
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.SyncState
+import com.yunjue.echo.mind.model.baselineProgressText
 import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.dimensionValueText
 import com.yunjue.echo.mind.model.todayPortraitStateText
@@ -89,6 +92,7 @@ fun TodayScreen(
     portraitRepository: PortraitRepository,
     syncStateRepository: SyncStateRepository,
     skillRepository: SkillRepository,
+    messageRepository: MessageRepository,
     coordinator: SkillSessionCoordinator,
     onGoToSkills: () -> Unit,
     onGoToTrend: () -> Unit,
@@ -97,11 +101,13 @@ fun TodayScreen(
 ) {
     val context = LocalContext.current
     val state by portraitRepository.observeTodayPortrait().collectAsState()
+    val message by messageRepository.message.collectAsState()
     var retryKey by remember { mutableStateOf(0) }
 
-    // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次
+    // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次（画像 + 周小结）
     LaunchedEffect(retryKey) {
         portraitRepository.refreshTodayPortrait(networkAvailable = isNetworkAvailable(context))
+        messageRepository.refresh()
     }
 
     // 同步状态 chip（沿用既有行为，PRD 契约点 9）
@@ -139,6 +145,18 @@ fun TodayScreen(
             item { Text(PORTRAIT_COPY_LOCAL_BANNER, Modifier.padding(top = 8.dp)) }
         }
 
+        // 分析消息（周小结：订阅模式来自服务端 / 本地模式由端侧引擎生成）
+        message?.let { msg ->
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(msg.title, style = MaterialTheme.typography.titleSmall)
+                        Text(msg.body, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
         // ===== 九态渲染（spec：禁止统一显示「暂无数据」） =====
         when (state.status) {
             PortraitStatus.LOADING -> item {
@@ -149,11 +167,13 @@ fun TodayScreen(
 
             PortraitStatus.WARMING_UP -> item {
                 Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
+                BaselineProgress(state.portrait?.baselineDays ?: 0)
             }
 
             // EARLY_BASELINE / LOW_CONFIDENCE：显示当天事实（服务端 summary 即「数据不够完整」文案）
             PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE -> item {
                 PortraitSummaryOnly(state)
+                BaselineProgress(state.portrait?.baselineDays ?: 0)
             }
 
             PortraitStatus.READY -> item {
@@ -250,6 +270,19 @@ private fun PortraitSummaryOnly(state: PortraitUiState) {
     val portrait = state.portrait
     if (portrait == null) return
     Text(portrait.summary, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 20.dp))
+}
+
+/** 基线积累进度（v0.7 UX：X/7 天 + 进度条；天数 clamp 0..7）。 */
+@Composable
+private fun BaselineProgress(baselineDays: Int) {
+    val progress = baselineDays.coerceIn(0, 7) / 7f
+    Column(
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+        Text(baselineProgressText(baselineDays), style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 /**

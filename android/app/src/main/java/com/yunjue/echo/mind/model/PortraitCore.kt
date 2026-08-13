@@ -140,6 +140,13 @@ fun todayPortraitStateText(status: PortraitStatus): String = when (status) {
     PortraitStatus.READY -> ""
 }
 
+/**
+ * 基线积累进度文案（v0.7 UX：WARMING_UP / EARLY_BASELINE 显示 X/7 天进度）。
+ * 纯函数（单测锚点）；天数 clamp 到 0..7。
+ */
+fun baselineProgressText(days: Int): String =
+    "已积累 ${days.coerceIn(0, 7)}/7 天，基线即将成型"
+
 // ===== 维度展示（Milestone F/G） =====
 
 /**

@@ -190,6 +190,12 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         if (remaining == 0 && !anyFailure && container.preferences.onboardingState == AppPreferences.ONBOARDING_READY_OFFLINE) {
             runCatching { container.onboardingRepository.confirmServerActivation() }
         }
+        // v0.7 分析消息（拉取式推送过渡）：订阅模式批末拉取周小结，
+        // 新小结（id 未见过）发本地通知；网络失败静默（下次批再试）。
+        runCatching {
+            container.messageRepository.refresh()
+            container.messageRepository.postNotificationIfNew(applicationContext)
+        }
         // B1：批内 429 的 Retry-After 聚合后持久化，供下一次 enqueue 的退避基准使用。
         // 无 429 时（null）清除历史值，恢复默认 30s 指数退避。
         persistRetryAfter(context, batchRetryAfterSeconds)

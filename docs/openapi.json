@@ -805,6 +805,27 @@
         ]
       }
     },
+    "/v1/me/messages": {
+      "get": {
+        "summary": "Me Messages",
+        "operationId": "me_messages_v1_me_messages_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/profile/{user_id}": {
       "get": {
         "summary": "Get Profile",

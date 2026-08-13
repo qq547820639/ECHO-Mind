@@ -418,7 +418,9 @@ internal fun rememberSkillList(skillRepository: SkillRepository): Pair<SkillFetc
 fun SkillListScreen(
     skillRepository: SkillRepository,
     featureFlagRepository: FeatureFlagRepository,
-    coordinator: SkillSessionCoordinator
+    coordinator: SkillSessionCoordinator,
+    localMode: Boolean = false,
+    onGoToSupport: () -> Unit = {}
 ) {
     val (skillState, retry) = rememberSkillList(skillRepository)
 
@@ -444,6 +446,19 @@ fun SkillListScreen(
                     stringResource(R.string.skills_delivery_paused),
                     Modifier.padding(top = 40.dp)
                 )
+            }
+            // v0.7 本地优先：本地模式（未订阅）能力练习不可用——订阅空态替代「加载失败」
+            localMode && skillState.loadFailed -> item {
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(stringResource(R.string.skills_subscription_hint))
+                    Button(onClick = onGoToSupport, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.skills_subscribe_button))
+                    }
+                }
             }
             skillState.loadFailed -> item {
                 Column(

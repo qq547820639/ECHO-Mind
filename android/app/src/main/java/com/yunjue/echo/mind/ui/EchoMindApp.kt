@@ -89,6 +89,7 @@ fun EchoMindApp(container: AppContainer) {
                     portraitRepository = container.portraitRepository,
                     syncStateRepository = container.syncStateRepository,
                     skillRepository = container.skillRepository,
+                    messageRepository = container.messageRepository,
                     coordinator = container.skillSessionCoordinator,
                     onGoToSkills = { tabName = Tab.SKILLS.name },
                     onGoToTrend = { tabName = Tab.TREND.name },
@@ -103,7 +104,13 @@ fun EchoMindApp(container: AppContainer) {
                         }
                     }
                 )
-                Tab.SKILLS -> SkillListScreen(container.skillRepository, container.featureFlagRepository, container.skillSessionCoordinator)
+                Tab.SKILLS -> SkillListScreen(
+                    container.skillRepository,
+                    container.featureFlagRepository,
+                    container.skillSessionCoordinator,
+                    localMode = container.preferences.localMode,
+                    onGoToSupport = { tabName = Tab.SUPPORT.name }
+                )
                 Tab.TREND -> TrendScreen(container.portraitRepository, container.syncStateRepository, container.featureFlagRepository, onGoToSupport = { tabName = Tab.SUPPORT.name })
                 Tab.SUPPORT -> SupportScreen(container)
             }

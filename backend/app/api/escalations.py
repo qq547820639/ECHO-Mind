@@ -138,9 +138,15 @@ def list_escalations(
             else:
                 contact_status.setdefault(contact.user_id, "不可用")
     last = rows[-1] if rows else None
-    total_filtered = db.scalar(
-        select(func.count()).select_from(Escalation).where(Escalation.tenant_id == principal.tenant_id)
-    ) or 0
+    # v0.7 修复：X-Total-Filtered 必须与过滤条件对齐（此前报未过滤总数，分页语义误导）。
+    count_query = select(func.count()).select_from(Escalation).where(Escalation.tenant_id == principal.tenant_id)
+    if status:
+        count_query = count_query.where(Escalation.status == status)
+    if level:
+        count_query = count_query.where(Escalation.level == level)
+    if assigned_to:
+        count_query = count_query.where(Escalation.assigned_to == assigned_to)
+    total_filtered = db.scalar(count_query) or 0
     # 分页元数据经响应头透出（保持 body 数组契约不变）
     resp = response
     resp.headers["X-Next-Cursor"] = f"{last.opened_at}_{last.id}" if (has_more and last is not None) else ""

@@ -27,6 +27,10 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - **Narrative 词汇**（Psychology Review）："移动较少/移动较多/接近" 替换 "安静/活跃/稳定"
 
 ### Android
+- **分析消息闭环（拉取式推送过渡）**：后端新增 `GET /v1/me/messages`（近 7 天画像确定性生成「本周节律小结」，幂等 message.id，<3 天 abstain，词表安全 fail-closed）；Android `MessageRepository` 订阅模式拉取（SyncWorker 批末、新小结发本地通知 + 新渠道），本地模式用 `LocalPortraitDigest`（与后端逐语义镜像）端侧生成同款小结；Today 页顶部小结卡片。真实推送（FCM）配好后替换拉取式实现。
+- **基线进度可视化**：WARMING_UP / EARLY_BASELINE 显示「已积累 X/7 天」+ 进度条（服务端与本地画像共用 baseline_days）。
+- **本地模式「能力」页订阅空态**：未订阅时显示订阅提示 + 开通入口（替代「加载失败/重试」）。
+- **重新开启感知补申请 POST_NOTIFICATIONS**（支持页开关）；Onboarding 从系统设置返回后按真实授权回填（不再乐观置位）。
 - **本地优先架构 + 端侧画像引擎（订阅制改造）**：无账号/激活码门槛——Onboarding 删除激活码验证，默认本地模式（画像由端侧引擎生成、数据只保存在本机、outbox/SyncWorker 静默）；订阅改为「支持」页可选入口（免费本地版 + 可选付费订阅：订阅激活码复用 verify-code 机制，开通后开启云端同步与专业支持）。端侧引擎镜像后端画像流水线（日聚合 → 28 天基线 → 5 维度画像 → 确定性中文叙事，`localportrait/` 纯 Kotlin 模块，与服务端同输入同输出、有 golden 场景一致性单测）；数据源为本地 `feature_vectors`（Room v8 加 sourcesPresentJson 列，迁移 7→8 纯加列）。已订阅时服务端失败/无网络自动回退本地画像（Today/Trend/Baseline 三处），Today 页显示「画像由本机数据生成」横幅。
 - **强类型 Portrait DTO**：`PortraitDimensionDto(value, metric, z)` 嵌套解析（弃用 Map<String,String>/optString）；BaselineStatusDto 类型对齐（bucket_usage String / todayCoverage Double）
 - **Privacy Fail-Closed**：SQLCipher 加载失败 fail closed（不回退明文 Room）；FieldCipher 接口化 + AndroidKeystoreFieldCipher（Keystore 不可用即抛异常）+ JvmTestFieldCipher（显式测试实现）
@@ -39,20 +43,20 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 
 ## 验证（本环境实际执行）
 
-> 下表为 2026-08-14 在 HEAD `9e23c32`（v0.7 封板后 7 个提交）开发机实测回写：
+> 下表为 2026-08-14 在开发机实测回写：
 > macOS + Corretto 17 + Android SDK（/tmp/echo-build）+ backend/.venv。
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest（全量） | 1055 passed / 1 skipped |
+| 后端 pytest（全量） | 1062 passed / 1 skipped |
 | ruff check app tests | 0 errors（历史 F401 债务已清零） |
 | mypy app | 0 errors（历史类型债务已清零） |
 | Alembic upgrade→downgrade→upgrade | roundtrip PASS（head 20260813_0001 portrait_feedback） |
 | fault_injection_check.py | 18/18 PASS（checker 已修复 LocalRepository 拆分后的路径引用） |
-| contract_drift_check.py | CONTRACT OK（58 路径，manifest v0.7.0） |
-| OpenAPI 导出 | PASS（58 路径，title：ECHO Mind Portrait Core API） |
+| contract_drift_check.py | CONTRACT OK（59 路径，manifest v0.7.0） |
+| OpenAPI 导出 | PASS（59 路径，title：ECHO Mind Portrait Core API） |
 | safety_eval / claim_scan / dynamic_code / content packs | PASS |
-| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 336 tests 0 失败（含离线画像引擎 golden 一致性 + 迁移 7→8 + 本地优先模式 39 项新增）/ APK 构建成功 / lint 0 error / detekt 0 findings |
+| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 343 tests 0 失败 / APK 构建成功 / lint 0 error / detekt 0 findings |
 | Android instrumentation（connectedDebugAndroidTest） | NOT RUN — 无 androidTest 用例且无模拟器（CI 空通过，见 android-ci.yml） |
 | PostgreSQL integration | NOT RUN — ENVIRONMENT BLOCKED（无 Docker/psql） |
 

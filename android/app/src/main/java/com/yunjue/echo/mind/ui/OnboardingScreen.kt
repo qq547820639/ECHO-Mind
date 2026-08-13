@@ -13,8 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.SyncWorker
@@ -94,6 +97,30 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     val notifPermLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> notifPermAuthorized = granted }
+
+    // v0.7 UX：使用情况访问 / 通知使用权是「跳系统设置页授权」，无法拿到返回回调——
+    // 用 pending 标记 + ON_RESUME 真实校验替代乐观置位（返回后按实际授权状态回填）。
+    var pendingUsageVerify by remember { mutableStateOf(false) }
+    var pendingNotifListenerVerify by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (pendingUsageVerify) {
+                    pendingUsageVerify = false
+                    usageAuthorized = PassiveSensingService.hasUsageAccess(context)
+                    if (!usageAuthorized) usageSkipped = true
+                }
+                if (pendingNotifListenerVerify) {
+                    pendingNotifListenerVerify = false
+                    notificationAuthorized = PassiveSensingService.hasNotificationAccess(context)
+                    if (!notificationAuthorized) notificationSkipped = true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showSafety by remember { mutableStateOf(false) }
     var step by remember {
@@ -305,8 +332,9 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                         runCatching { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
                         usageAuthorized = true
                         usageSkipped = false
+                        pendingUsageVerify = true
                     },
-                    onSkip = { usageSkipped = true; usageAuthorized = false }
+                    onSkip = { usageSkipped = true; usageAuthorized = false; pendingUsageVerify = false }
                 )
                 SensingCapabilityRow(
                     name = "通知使用权",
@@ -320,8 +348,9 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                         runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                         notificationAuthorized = true
                         notificationSkipped = false
+                        pendingNotifListenerVerify = true
                     },
-                    onSkip = { notificationSkipped = true; notificationAuthorized = false }
+                    onSkip = { notificationSkipped = true; notificationAuthorized = false; pendingNotifListenerVerify = false }
                 )
                 SensingCapabilityRow(
                     name = "麦克风",

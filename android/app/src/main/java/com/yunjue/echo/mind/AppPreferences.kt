@@ -322,6 +322,17 @@ class AppPreferences(
     val localMode: Boolean
         get() = accessToken.isNullOrBlank()
 
+    // ===== 分析消息（v0.7 拉取式推送过渡） =====
+    // 已读小结的幂等 id（新 id 才发本地通知；本地模式小结仅展示不通知）。
+
+    var lastSeenMessageId: String?
+        get() = if (prefs.contains("last_seen_message_id")) prefs.getString("last_seen_message_id", null) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("last_seen_message_id") else edit.putString("last_seen_message_id", value)
+            edit.apply()
+        }
+
     companion object {
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
 

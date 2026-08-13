@@ -294,6 +294,18 @@ data class BaselineStatusDto(
 )
 
 /**
+ * 分析消息（v0.7：GET /v1/me/messages 与本地小结共用）。
+ *
+ * - id：确定性幂等（SHA-256 前 16 位），客户端据此去重（新小结才发通知）；
+ * - 仅用于展示/通知，不参与上行同步；文案受画像契约词表约束（无心理推断）。
+ */
+data class MessageDisplay(
+    val id: String,
+    val title: String,
+    val body: String
+)
+
+/**
  * 画像批量拉取结果（Milestone G）：对齐 GET /v1/portraits?days=7|28 响应。
  * portraits 数组元素结构与 [DailyPortraitDto] 一致（含 date）。
  */
