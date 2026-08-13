@@ -22,7 +22,6 @@ import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.EchoMindApplication
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -94,18 +93,13 @@ class PassiveSensingService : Service() {
                 // 已运行时不重复启动（幂等）
                 if (started) return START_STICKY
                 // 三重门控含 DataStore 异步读（consent）：不能在主线程 runBlocking（ANR/死锁风险）。
-                // 用 goAsync() 把门控移到后台协程；门控不通过则 stopSelf（fail-closed），
+                // 门控在后台协程执行，结果回主线程处理；门控不通过则 stopSelf（fail-closed），
                 // startSensing 仍回主线程执行（startForeground/传感器注册）。
-                val pending = goAsync()
                 val mainHandler = Handler(Looper.getMainLooper())
                 sensingScope.launch {
                     val allowed = runCatching { canStartSensing() }.getOrDefault(false)
                     mainHandler.post {
-                        try {
-                            if (allowed) startSensing() else stopSelf()
-                        } finally {
-                            pending.finish()
-                        }
+                        if (allowed) startSensing() else stopSelf()
                     }
                 }
             }
@@ -149,8 +143,10 @@ class PassiveSensingService : Service() {
      * 隐私敏感 flag 在异常场景下停用而非启用。
      */
     private fun isPassiveSensingEnabled(): Boolean {
-        val appPrefs = AppPreferences(this, AndroidKeystoreFieldCipher())
-        return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: false
+        // 复用 Application 容器的 preferences（避免每次门控都新建 Keystore 字段加密器；
+        // 容器不可用——如 Robolectric 单测无 AndroidKeyStore——时 fail-closed 默认 false）。
+        val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
+        return container?.preferences?.getFeatureFlagsSnapshot()?.get("passive_sensing_enabled") ?: false
     }
 
     /** 用户 consent：异步读取 PassiveSensingPrefs（DataStore）当前值（fail-closed，失败默认 false）。 */

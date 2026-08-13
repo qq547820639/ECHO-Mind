@@ -171,7 +171,7 @@ class E2EFlowTest {
         val now = Instant.now()
         // 构造大量信号触发长摘要（accel 样本时间戳递增，落在窗口内）
         val accelSamples = (1..500).map {
-            SensorSample(now.minusSeconds(300 - it / 2).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, it.toFloat() * 0.01f, 0f, 9.8f)
+            SensorSample(now.minusSeconds((300 - it / 2).toLong()).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, it.toFloat() * 0.01f, 0f, 9.8f)
         }
         val screenEvents = (1..100).map {
             ScreenCollector.ScreenEvent(now.minusSeconds((300 - it * 2).toLong()).toEpochMilli(), ScreenCollector.ScreenState.ON)

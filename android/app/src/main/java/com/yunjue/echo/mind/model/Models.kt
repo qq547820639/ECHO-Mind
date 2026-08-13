@@ -259,8 +259,7 @@ data class PortraitDimensionDto(
  * - facts：事实对照列表（「为什么这么说？」区）
  * - timezoneUsed：服务端计算该画像所用的时区（端侧缓存键与日期处理依据）
  * - localDate：服务器画像自身的日期（Room 缓存 identity，Phase 6.4 不再用端侧日期覆盖）
- */
- * 仅用于 UI 渲染 + Room 缓存，不参与上行同步。
+ * - 仅用于 UI 渲染 + Room 缓存，不参与上行同步。
  */
 data class DailyPortraitDto(
     val date: String,

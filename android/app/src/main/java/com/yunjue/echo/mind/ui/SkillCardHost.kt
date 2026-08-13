@@ -334,8 +334,6 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator:
             ActionRenderer(
                 skill = skill,
                 session = session,
-                repository = repository,
-                sessionId = "coordinator-owned",
                 uiStatus = uiStatus,
                 uiStep = uiStep,
                 uiDuration = uiDuration,

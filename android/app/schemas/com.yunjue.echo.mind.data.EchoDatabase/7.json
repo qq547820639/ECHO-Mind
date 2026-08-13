@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "6d67eecb69d31a0330057c424f8efb45",
+    "identityHash": "5da5ed16db4834a5f66478edf5baf576",
     "entities": [
       {
         "tableName": "checkins",
@@ -558,7 +558,7 @@
       },
       {
         "tableName": "portrait_daily",
-        "createSql": "CREATE TABLE IF NOT EXISTS `portrait_daily` (`id` TEXT NOT NULL, `localDate` TEXT NOT NULL, `userId` TEXT NOT NULL, `status` TEXT NOT NULL, `confidence` TEXT NOT NULL, `headlineJson` TEXT NOT NULL, `summary` TEXT NOT NULL, `dimensionsJson` TEXT NOT NULL, `factsJson` TEXT NOT NULL, `coverageJson` TEXT, `timezoneUsed` TEXT, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `localDate` TEXT NOT NULL, `userId` TEXT NOT NULL, `status` TEXT NOT NULL, `confidence` TEXT NOT NULL, `headlineJson` TEXT NOT NULL, `summary` TEXT NOT NULL, `dimensionsJson` TEXT NOT NULL, `factsJson` TEXT NOT NULL, `coverageJson` TEXT, `timezoneUsed` TEXT, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -617,14 +617,12 @@
           {
             "fieldPath": "coverageJson",
             "columnName": "coverageJson",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "timezoneUsed",
             "columnName": "timezoneUsed",
-            "affinity": "TEXT",
-            "notNull": false
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "fetchedAt",
@@ -642,19 +640,19 @@
         "indices": [
           {
             "name": "index_portrait_daily_localDate",
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_portrait_daily_localDate` ON `portrait_daily` (`localDate`)",
             "unique": false,
-            "origin": "CREATE INDEX IF NOT EXISTS `index_portrait_daily_localDate` ON `portrait_daily` (`localDate`)",
-            "columns": [
+            "columnNames": [
               "localDate"
-            ]
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_portrait_daily_localDate` ON `${TABLE_NAME}` (`localDate`)"
           }
         ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6d67eecb69d31a0330057c424f8efb45')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5da5ed16db4834a5f66478edf5baf576')"
     ]
   }
 }

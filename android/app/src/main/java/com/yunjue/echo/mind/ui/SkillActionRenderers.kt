@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.model.SkillDisplay
 
 /**
@@ -30,8 +29,6 @@ import com.yunjue.echo.mind.model.SkillDisplay
 internal fun ActionRenderer(
     skill: SkillDisplay,
     session: SkillRunSession,
-    repository: LocalRepository,
-    sessionId: String,
     uiStatus: SkillRunStatus,
     uiStep: Int,
     uiDuration: Int,

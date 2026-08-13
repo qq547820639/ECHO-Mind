@@ -66,7 +66,7 @@ class TrendDataSourceTest {
             TrendUiState.ERROR,
             resolveTrendState(
                 loading = false, loadFailed = true, offlineCached = false,
-                items = emptyList(), permissionEnabled = true, isPartial = false
+                items = emptyList<NarrativeDisplay>(), permissionEnabled = true, isPartial = false
             )
         )
         // 真无数据（成功但空）→ NO_DATA
@@ -74,7 +74,7 @@ class TrendDataSourceTest {
             TrendUiState.NO_DATA,
             resolveTrendState(
                 loading = false, loadFailed = false, offlineCached = false,
-                items = emptyList(), permissionEnabled = true, isPartial = false
+                items = emptyList<NarrativeDisplay>(), permissionEnabled = true, isPartial = false
             )
         )
         // error 必须不等于 no data

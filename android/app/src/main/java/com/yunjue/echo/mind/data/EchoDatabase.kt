@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.data
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -244,7 +245,7 @@ interface EscalationDao {
  * - queryByDateRange 用 ISO 日期字符串比较（yyyy-MM-dd 字典序 = 时间序）
  * - queryLatest 供 Today 页缓存优先展示
  */
-@Entity(tableName = "portrait_daily")
+@Entity(tableName = "portrait_daily", indices = [Index(value = ["localDate"])])
 data class DailyPortraitEntity(
     @PrimaryKey val id: String,
     val localDate: String,

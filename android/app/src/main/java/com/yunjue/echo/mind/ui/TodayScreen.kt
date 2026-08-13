@@ -63,6 +63,7 @@ import com.yunjue.echo.mind.model.SyncState
 import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.dimensionValueText
 import com.yunjue.echo.mind.model.todayPortraitStateText
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 

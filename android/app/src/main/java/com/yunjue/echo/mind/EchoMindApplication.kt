@@ -18,8 +18,12 @@ class EchoMindApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         // 预热 DataStore（PassiveSensingPrefs）：
-        // 触发 PassiveSensingPrefs 实例化及 by preferencesDataStore 委托的 DataStore 引用创建，
-        // 实际磁盘 IO 在首次 collect 时异步进行，不阻塞主线程。
-        container.passiveSensingPrefs
+        // 直接实例化 PassiveSensingPrefs，触发 by preferencesDataStore 委托的 DataStore 引用创建
+        // （DataStore 全局唯一，所有实例共享同一实例），实际磁盘 IO 在首次 collect 时异步进行，
+        // 不阻塞主线程。
+        // 注意：不通过 container 预热——container 会级联构造 AndroidKeystoreFieldCipher
+        // （生产 fail-closed 的 Keystore 初始化），应延迟到真正需要加密/建库时再触发；
+        // 同时避免 Robolectric 单测在 Application.onCreate 阶段就构造生产 Keystore 导致失败。
+        PassiveSensingPrefs(this)
     }
 }

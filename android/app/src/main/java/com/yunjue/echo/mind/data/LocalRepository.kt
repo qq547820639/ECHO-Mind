@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.math.BigDecimal
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
@@ -1218,13 +1219,20 @@ class LocalRepository(
         }
     }
 
-    /** JSONObject → Map<String, Any>（Number/Boolean 原样，其余转字符串；JSON null 跳过）。 */
+    /**
+     * JSONObject → Map<String, Any>（Boolean 原样；Number 原样，其中 BigDecimal 归一为 Double；
+     * 其余转字符串；JSON null 跳过）。
+     *
+     * org.json 20240303 将带小数点的 JSON 数字解析为 java.math.BigDecimal，若原样透传会让
+     * coverage 契约值类型漂移（调用方/契约测试期望 Double），故在此归一。
+     */
     private fun JSONObject.toAnyMap(): Map<String, Any> {
         val out = mutableMapOf<String, Any>()
         keys().forEach { k ->
             val v = opt(k)
             when (v) {
                 null, JSONObject.NULL -> Unit
+                is BigDecimal -> out[k] = v.toDouble()
                 is Boolean, is Number -> out[k] = v
                 else -> out[k] = v.toString()
             }
@@ -1260,10 +1268,23 @@ class LocalRepository(
                 confidence = o.optString("confidence"),
                 baselineDays = o.optInt("baseline_days", 0),
                 baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
-                headline = o.optJSONArray("headline")?.toStringList() ?: emptyList(),
+                headline = o.optJSONArray("headline")?.let { arr ->
+                    (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }
+                } ?: emptyList(),
                 summary = o.optString("summary"),
                 dimensions = dimensions,
-                coverage = o.optJSONObject("coverage")?.toAnyMap(),
+                coverage = o.optJSONObject("coverage")?.let { co ->
+                    val out = mutableMapOf<String, Any>()
+                    co.keys().forEach { k ->
+                        when (val v = co.opt(k)) {
+                            null, JSONObject.NULL -> Unit
+                            is BigDecimal -> out[k] = v.toDouble()
+                            is Boolean, is Number -> out[k] = v
+                            else -> out[k] = v.toString()
+                        }
+                    }
+                    out
+                },
                 facts = o.optJSONArray("facts")?.let { arr ->
                     (0 until arr.length()).mapNotNull { i ->
                         val f = arr.optJSONObject(i) ?: return@mapNotNull null
