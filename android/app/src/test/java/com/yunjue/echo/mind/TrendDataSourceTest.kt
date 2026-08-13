@@ -4,11 +4,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
 import com.yunjue.echo.mind.model.NarrativeFetchResult
+import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.ProfileDisplay
+import com.yunjue.echo.mind.model.SensingDiagnostics
+import com.yunjue.echo.mind.sensing.CapabilityState
+import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
 import com.yunjue.echo.mind.ui.TrendNoDataReason
 import com.yunjue.echo.mind.ui.TrendUiState
 import com.yunjue.echo.mind.ui.appSettingsIntent
+import com.yunjue.echo.mind.ui.missingSourcesFromCapabilities
 import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
 import com.yunjue.echo.mind.ui.resolveTrendState
 import com.yunjue.echo.mind.ui.trendNoDataReasonText
@@ -204,65 +209,119 @@ class TrendDataSourceTest {
         assertTrue("fetchProfile 失败应 loadFailed=true（趋势页区分 error）", failed.loadFailed)
     }
 
-    // ---------- T02 七态细化：NO_DATA 原因解析 ----------
+    // ---------- T02 七态细化：NO_DATA 原因解析（Phase 6.5.3 新签名） ----------
+
+    private fun availability(
+        baselineDays: Int = 5,
+        missingSources: List<String> = emptyList()
+    ): PortraitAvailability = PortraitAvailability(
+        baselineStatus = "BASELINE_READY",
+        baselineDays = baselineDays,
+        missingSources = missingSources
+    )
+
+    private fun diagnostics(
+        sensingActive: Boolean = true,
+        sensorState: CapabilityState = CapabilityState.AVAILABLE,
+        lastCollectionAt: Long = System.currentTimeMillis(),
+        consecutivePersistenceFailures: Int = 0,
+        pendingUploadCount: Int = 0
+    ): SensingDiagnostics = SensingDiagnostics(
+        capabilities = mapOf(SensingCapability.SENSOR to sensorState),
+        sensingActive = sensingActive,
+        lastCollectionAt = lastCollectionAt,
+        consecutivePersistenceFailures = consecutivePersistenceFailures,
+        pendingUploadCount = pendingUploadCount
+    )
 
     @Test
-    fun noDataReasonNewUserWhenNoObservationDays() {
+    fun noDataReasonNewUserWhenNoBaselineDays() {
+        // baselineDays == 0 → 新用户尚无窗口（替代 legacy observationDays）
         assertEquals(
             TrendNoDataReason.NEW_USER,
             resolveTrendNoDataReason(
-                observationDays = 0,
-                systemBackgroundRestricted = false,
-                persistenceFailedRecently = false,
-                pendingUploadCount = 0,
-                missingSources = emptyList()
+                availability = availability(baselineDays = 0),
+                diagnostics = diagnostics()
             )
         )
         assertTrue(trendNoDataReasonText(TrendNoDataReason.NEW_USER).contains("刚开始使用"))
     }
 
     @Test
+    fun noDataReasonClosedWhenSensingInactive() {
+        // consent/总开关关闭 → CLOSED
+        assertEquals(
+            TrendNoDataReason.CLOSED,
+            resolveTrendNoDataReason(
+                availability = availability(),
+                diagnostics = diagnostics(sensingActive = false)
+            )
+        )
+    }
+
+    @Test
+    fun noDataReasonPermissionWhenSensorDenied() {
+        // SENSOR 能力被拒 → PERMISSION
+        assertEquals(
+            TrendNoDataReason.PERMISSION,
+            resolveTrendNoDataReason(
+                availability = availability(),
+                diagnostics = diagnostics(sensorState = CapabilityState.DENIED)
+            )
+        )
+    }
+
+    @Test
     fun noDataReasonPrioritizesSystemBackgroundAndPersistence() {
+        // 无近期采集（从未采集）→ SYSTEM_BACKGROUND
         assertEquals(
             TrendNoDataReason.SYSTEM_BACKGROUND,
             resolveTrendNoDataReason(
-                observationDays = 5,
-                systemBackgroundRestricted = true,
-                persistenceFailedRecently = false,
-                pendingUploadCount = 0,
-                missingSources = emptyList()
+                availability = availability(baselineDays = 5),
+                diagnostics = diagnostics(lastCollectionAt = 0L)
             )
         )
         assertEquals(
             TrendNoDataReason.PERSISTENCE_FAILURE,
             resolveTrendNoDataReason(
-                observationDays = 5,
-                systemBackgroundRestricted = false,
-                persistenceFailedRecently = true,
-                pendingUploadCount = 0,
-                missingSources = emptyList()
+                availability = availability(baselineDays = 5),
+                diagnostics = diagnostics(consecutivePersistenceFailures = 2)
             )
         )
         assertEquals(
             TrendNoDataReason.AWAITING_UPLOAD,
             resolveTrendNoDataReason(
-                observationDays = 5,
-                systemBackgroundRestricted = false,
-                persistenceFailedRecently = false,
-                pendingUploadCount = 3,
-                missingSources = emptyList()
+                availability = availability(baselineDays = 5),
+                diagnostics = diagnostics(pendingUploadCount = 3)
             )
         )
         assertEquals(
             TrendNoDataReason.SOURCE_GAPS,
             resolveTrendNoDataReason(
-                observationDays = 5,
-                systemBackgroundRestricted = false,
-                persistenceFailedRecently = false,
-                pendingUploadCount = 0,
-                missingSources = listOf("gyro")
+                availability = availability(baselineDays = 5, missingSources = listOf("gyro")),
+                diagnostics = diagnostics()
             )
         )
+    }
+
+    @Test
+    fun missingSourcesDerivedFromCapabilityStates() {
+        // SENSOR 可用 + SCREEN 可用 → accel/gyro/screen 不缺失；notification/app_activity 缺失
+        val caps = mapOf(
+            SensingCapability.SENSOR to CapabilityState.AVAILABLE,
+            SensingCapability.SCREEN to CapabilityState.AVAILABLE,
+            SensingCapability.NOTIFICATION to CapabilityState.DENIED,
+            SensingCapability.USAGE to CapabilityState.DENIED
+        )
+        assertEquals(
+            listOf("notification", "app_activity"),
+            missingSourcesFromCapabilities(caps)
+        )
+        // 全部 AVAILABLE → 无缺失
+        val allOk = SensingCapability.entries.associateWith { CapabilityState.AVAILABLE }
+        assertTrue(missingSourcesFromCapabilities(allOk).isEmpty())
+        // 能力缺失（未提供）视为 UNAVAILABLE → 对应 source 缺失（fail-safe）
+        assertTrue(missingSourcesFromCapabilities(emptyMap()).isNotEmpty())
     }
 
     @Test

@@ -119,20 +119,22 @@ class ApiClient(
         }
     }
 
-    // ===== Portrait（Milestone F/G：Today Portrait + Portrait Timeline） =====
+    // ===== Portrait（Milestone F/G/H：Today Portrait + Portrait Timeline） =====
+    // Phase 1（Contract Closure）：改走 authenticated current-user 端点 /v1/me/*，
+    // 由认证 Principal 确定 user（不再需要显式 user_id query param——
+    // 旧 /v1/portraits/*?user_id= 路径要求必填 user_id，Android 不发送会 422）。
     // 阻塞式 HttpURLConnection，与既有 get/postWithBody 模式一致；
     // suspend 签名让调用方（LocalRepository）可统一在 IO 协程内调度。
-    // 错误处理沿用现有模式：返回 (code, body)，非 2xx / 解析失败由 LocalRepository 判定。
 
-    /** GET /v1/portraits/today：今日画像（含 date/status/summary/dimensions/facts 等）。 */
-    suspend fun getTodayPortrait(): Pair<Int, String?> = get("/v1/portraits/today")
+    /** GET /v1/me/portraits/today：今日画像（含 date/status/summary/dimensions/facts 等）。 */
+    suspend fun getTodayPortrait(): Pair<Int, String?> = get("/v1/me/portraits/today")
 
-    /** GET /v1/portraits?days=7|28：批量画像（portraits 数组，元素同 today 结构）。 */
-    suspend fun getPortraits(days: Int): Pair<Int, String?> = get("/v1/portraits?days=$days")
+    /** GET /v1/me/portraits?days=7|28：批量画像（portraits 数组，元素同 today 结构）。 */
+    suspend fun getPortraits(days: Int): Pair<Int, String?> = get("/v1/me/portraits?days=$days")
 
-    /** GET /v1/baseline/status：基线状态（baseline_days/window/bucket_usage 等）。 */
-    suspend fun getBaselineStatus(): Pair<Int, String?> = get("/v1/baseline/status")
+    /** GET /v1/me/baseline/status：基线状态（baseline_days/window/bucket_usage 等）。 */
+    suspend fun getBaselineStatus(): Pair<Int, String?> = get("/v1/me/baseline/status")
 
-    /** POST /v1/portraits/rebuild：服务端重算今日画像，响应同 today 结构。 */
-    suspend fun rebuildPortrait(): Pair<Int, String?> = postWithBody("/v1/portraits/rebuild", "{}")
+    /** POST /v1/me/portraits/rebuild：服务端重算今日画像（当前用户，body 无需 user_id），响应同 today 结构。 */
+    suspend fun rebuildPortrait(): Pair<Int, String?> = postWithBody("/v1/me/portraits/rebuild", "{}")
 }

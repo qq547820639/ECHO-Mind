@@ -22,7 +22,7 @@ def _feature_payload(event_id: str, summary: str, source: str = "screen") -> dic
     return {
         "event_id": event_id,
         "user_id": "u_demo",
-        "schema_version": "feat-v1",
+        "schema_version": "passive-core-v1",
         "source": source,
         "window_start": start.isoformat(),
         "window_end": (start + timedelta(minutes=30)).isoformat(),

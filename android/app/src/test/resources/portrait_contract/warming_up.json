@@ -1,0 +1,13 @@
+{
+  "date": "2026-08-10",
+  "status": "WARMING_UP",
+  "confidence": "LOW",
+  "baseline_days": 0,
+  "baseline_version": null,
+  "headline": [],
+  "summary": "正在积累基线数据，画像将在积累更多数据后逐步完善。",
+  "dimensions": {},
+  "coverage": {"coverage_score": 0.0},
+  "facts": [],
+  "timezone_used": "Asia/Shanghai"
+}

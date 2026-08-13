@@ -95,7 +95,7 @@ def test_gap_finder_missing_source():
             tenant_id="t_demo",
             user_id="u_demo",
             event_id="evt_gap_src_0001",
-            schema_version="feat-v1",
+            schema_version="passive-core-v1",
             source="screen",
             window_start=noon,
             window_end=noon + timedelta(minutes=30),
@@ -358,7 +358,7 @@ def _db_feature(event_id: str, source: str, *, sources_present: list[str] | None
         tenant_id="t_demo",
         user_id="u_demo",
         event_id=event_id,
-        schema_version="feat-v1",
+        schema_version="mic-feature-v1" if source == "mic_opt" else "passive-core-v1",
         source=source,
         window_start=ws,
         window_end=ws + timedelta(minutes=30),
@@ -509,7 +509,7 @@ def test_gap_finder_legacy_single_source_behavior():
     with SessionLocal() as db:
         db.add(DerivedFeature(
             tenant_id="t_demo", user_id="u_demo", event_id="evt_legacy_0001",
-            schema_version="feat-v1", source="screen",
+            schema_version="passive-core-v1", source="screen",
             window_start=_noon(), window_end=_noon() + timedelta(minutes=30),
             summary="屏幕使用正常", vector=[0.1],
         ))

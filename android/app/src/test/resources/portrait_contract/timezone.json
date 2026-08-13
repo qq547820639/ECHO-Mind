@@ -1,0 +1,13 @@
+{
+  "date": "2026-08-10",
+  "status": "READY",
+  "confidence": "HIGH",
+  "baseline_days": 21,
+  "summary": "时区与本地日期校验：timezone_used 为非默认时区，date 为服务端本地日期。",
+  "dimensions": {
+    "RHYTHM": {"value": "SIMILAR", "metric": "active_start_minute", "z": 0.1},
+    "STABILITY": {"value": "VERY_SIMILAR", "metric": null, "z": null, "diff_count": 0}
+  },
+  "facts": [],
+  "timezone_used": "America/Los_Angeles"
+}

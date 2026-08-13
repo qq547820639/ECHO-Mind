@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-10",
+  "status": "READY",
+  "confidence": "HIGH",
+  "baseline_days": 21,
+  "baseline_version": "base-v1",
+  "headline": ["作息后移", "屏幕时间后移"],
+  "summary": "今天你的作息比平常晚约40分钟，夜间屏幕使用时段后移。",
+  "dimensions": {
+    "RHYTHM": {"value": "LATER", "metric": "active_start_minute", "z": 1.2},
+    "MOVEMENT": {"value": "SIMILAR", "metric": "movement_index", "z": 0.1},
+    "SCREEN_AMOUNT": {"value": "SIMILAR", "metric": "screen_on_minutes", "z": 0.0},
+    "SCREEN_TIMING": {"value": "LATER", "metric": "late_screen_minutes", "z": 1.0},
+    "DAY_STRUCTURE": {"value": "SIMILAR", "metric": "active_hour_spread", "z": -0.2},
+    "STABILITY": {"value": "SLIGHTLY_DIFFERENT", "metric": null, "z": null, "diff_count": 2}
+  },
+  "coverage": {"coverage_score": 0.92, "windows_expected": 288, "windows_present": 265},
+  "facts": [
+    {"label": "起床时间", "today_text": "今天 08:12 起床", "baseline_text": "平常 07:30 起床", "delta_text": "比平常晚 42 分钟"},
+    {"label": "夜间屏幕", "today_text": "今天 22:00 后仍在使用屏幕", "baseline_text": "平常 21:30 后基本不使用", "delta_text": "夜间屏幕时段后移约 30 分钟"}
+  ],
+  "timezone_used": "Asia/Shanghai"
+}

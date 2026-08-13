@@ -1,0 +1,13 @@
+{
+  "date": "2026-08-10",
+  "status": "LOW_CONFIDENCE",
+  "confidence": "LOW",
+  "baseline_days": 3,
+  "baseline_version": null,
+  "headline": [],
+  "summary": "当前数据不足，画像置信度较低。",
+  "dimensions": {},
+  "coverage": {"coverage_score": 0.2},
+  "facts": [],
+  "timezone_used": "Asia/Shanghai"
+}

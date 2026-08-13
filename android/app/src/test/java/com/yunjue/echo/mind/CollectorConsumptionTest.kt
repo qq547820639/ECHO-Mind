@@ -70,7 +70,7 @@ class CollectorConsumptionTest {
         // 单一数据源：collector.snapshotAccel 委托 hub
         assertEquals(hub.snapshotAccel().size, collector.snapshotAccel().size)
 
-        val features = extractor.extractFromHub(windowStart, windowEnd, hub)
+        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
         assertEquals("accel 样本应产出窗口特征", 1, features.size)
         assertEquals("accel", features.first().source)
         assertTrue("sourcesPresent 应含 accel", "accel" in features.first().sourcesPresent)
@@ -90,7 +90,7 @@ class CollectorConsumptionTest {
         }
 
         assertEquals("gyro 样本应写入 hub", 3, hub.snapshotGyro().size)
-        val features = extractor.extractFromHub(windowStart, windowEnd, hub)
+        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
         assertEquals("gyro 样本应产出窗口特征", 1, features.size)
         assertEquals("gyro", features.first().source)
     }
@@ -166,7 +166,7 @@ class CollectorConsumptionTest {
         // 单一数据源：collector.snapshot 委托 hub
         assertEquals(hub.snapshotAppActivity().size, collector.snapshot().size)
 
-        val features = extractor.extractFromHub(windowStart, windowEnd, hub)
+        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
         assertEquals(1, features.size)
         assertEquals("app_activity", features.first().source)
     }
@@ -182,11 +182,12 @@ class CollectorConsumptionTest {
         typeField.isAccessible = true
         typeField.setInt(sensor, sensorType)
         // SensorEvent(Sensor, accuracy, timestamp, values) 在 SDK stub 中隐藏：反射调用
+        // Phase 4.1：timestamp 语义为纳秒（与真实 Android 一致）；SensorCollector 会除以 1e6 得到 epoch ms。
         val eventCtor = SensorEvent::class.java.getDeclaredConstructor(
             Sensor::class.java, Int::class.java, Long::class.java, FloatArray::class.java
         )
         eventCtor.isAccessible = true
-        return eventCtor.newInstance(sensor, 0, System.currentTimeMillis(), values)
+        return eventCtor.newInstance(sensor, 0, System.currentTimeMillis() * 1_000_000L, values)
     }
 
     /**

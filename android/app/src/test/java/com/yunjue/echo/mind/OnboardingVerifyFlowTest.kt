@@ -2,7 +2,7 @@ package com.yunjue.echo.mind
 
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.OnboardingVerifyException
-import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -24,12 +24,12 @@ class OnboardingVerifyFlowTest {
 
     private fun prefs(): AppPreferences = AppPreferences(
         ApplicationProvider.getApplicationContext(),
-        FieldCipher()
+        JvmTestFieldCipher()
     )
 
     @Test
     fun initialStateIsNotStartedAndNotCompleted() {
-        val preferences = AppPreferences(ApplicationProvider.getApplicationContext(), FieldCipher())
+        val preferences = AppPreferences(ApplicationProvider.getApplicationContext(), JvmTestFieldCipher())
         assertEquals(AppPreferences.ONBOARDING_NOT_STARTED, preferences.onboardingState)
         assertFalse("未开始不应视为已完成", preferences.onboardingCompleted)
         assertFalse("未开始 serverActivated 应为 false", preferences.serverActivated)

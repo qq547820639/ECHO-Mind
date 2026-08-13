@@ -56,6 +56,7 @@ def main() -> int:
     sync_worker = _read("android/app/src/main/java/com/yunjue/echo/mind/data/SyncWorker.kt")
     state_machine_test = _read("android/app/src/test/java/com/yunjue/echo/mind/SyncWorkerStateMachineTest.kt")
     routes = _read("backend/app/api/routes.py")
+    onboarding_api = _read("backend/app/api/onboarding.py")
     window_ack_test = _read("android/app/src/test/java/com/yunjue/echo/mind/WindowAckTest.kt")
     scheduler_test = _read("android/app/src/test/java/com/yunjue/echo/mind/SensingWindowSchedulerTest.kt")
     active_session_test = _read("android/app/src/test/java/com/yunjue/echo/mind/ActiveSkillSessionTest.kt")
@@ -103,8 +104,8 @@ def main() -> int:
     # 9 429 Retry-After → RETRY + 记录
     results.append(_check(
         "9 429 retry-after",
-        "retryAfterSeconds" in sync_worker and "rateLimit429Retries" in state_machine_test,
-        "429 → RETRY + 记录 Retry-After；测试覆盖",
+        "recordRetryAfter" in sync_worker and "rateLimit429Retries" in state_machine_test,
+        "429 → RETRY + 记录 Retry-After（SyncWorker 经 response.third 的 Retry-After 写入 recordRetryAfter）；测试覆盖",
     ))
     # 10 500 → RETRY；超限 DEAD_LETTER
     results.append(_check(
@@ -169,8 +170,10 @@ def main() -> int:
     ))
     results.append(_check(
         "verify-code 404/403",
-        "无效激活码" in routes and "已受限" in routes and "verify-code" in _read("docs/openapi.json"),
-        "verify-code 404/403 + OpenAPI 契约；测试覆盖",
+        ("无效激活码" in onboarding_api or "无效激活码" in routes)
+        and ("已受限" in onboarding_api or "已受限" in routes)
+        and "verify-code" in _read("docs/openapi.json"),
+        "verify-code 404/403（onboarding router，routes.py include 转发）+ OpenAPI 契约；测试覆盖",
     ))
     results.append(_check(
         "onboarding 七态",

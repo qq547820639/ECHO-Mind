@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.model.SyncState
-import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,7 +33,7 @@ class SyncWorkerAuthPauseTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        preferences = AppPreferences(context, FieldCipher())
+        preferences = AppPreferences(context, JvmTestFieldCipher())
         preferences.clearAuthBlocked()
     }
 
@@ -59,7 +59,7 @@ class SyncWorkerAuthPauseTest {
     fun authBlockedStateSurvivesPrefsReopen() {
         // 同一 SharedPreferences 存储：新实例仍读到暂停态（模拟进程内多次读取）
         preferences.lastAuthBlockedAt = System.currentTimeMillis()
-        val reopened = AppPreferences(context, FieldCipher())
+        val reopened = AppPreferences(context, JvmTestFieldCipher())
         assertTrue("暂停态应持久化到 SharedPreferences", reopened.authRequired)
         reopened.clearAuthBlocked()
         assertFalse(reopened.authRequired)

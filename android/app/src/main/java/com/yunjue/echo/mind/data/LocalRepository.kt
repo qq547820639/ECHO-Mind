@@ -7,6 +7,7 @@ import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.model.NarrativeDisplay
 import com.yunjue.echo.mind.model.NarrativeEventDisplay
 import com.yunjue.echo.mind.model.NarrativeFetchResult
+import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStateInputs
 import com.yunjue.echo.mind.model.PortraitStatus
@@ -491,6 +492,9 @@ class LocalRepository(
      * 服务端 ack 依据收敛：GET /v1/onboarding/consents/latest 核对本地已提交的
      * 各 consent 均已在服务端生效后，置 serverActivated=true 并推进 READY。
      *
+     * Phase 6（Portrait Core）：ack 依据为 passive_sensing（核心同意）；
+     * psychological_data（legacy）不再要求。
+     *
      * 幂等：已 READY 时直接返回；网络失败保持 READY_OFFLINE（下次同步重试）。
      */
     suspend fun confirmServerActivation(): Boolean {
@@ -501,8 +505,9 @@ class LocalRepository(
                 val (code, body) = apiClient.get("/v1/onboarding/consents/latest?user_id=${preferences.userId}")
                 if (code in 200..299 && !body.isNullOrBlank()) {
                     val o = JSONObject(body)
-                    // 服务端 ack 依据：至少 psychological_data 已 grant 且被动感知 grant 与本地一致
-                    val psy = o.optJSONObject("psychological_data")
+                    // Phase 6（Portrait Core）：服务端 ack 依据为 passive_sensing（核心同意，
+                    // 随带被动行为节律/派生数据/基线/画像/保留撤回语义）；
+                    // psychological_data 为 legacy 外围（新 Onboarding 不再提交），不再作为 READY 前提。
                     val localPassive = kotlinx.coroutines.runBlocking {
                         preferences.passiveSensingPrefs.passiveSensingEnabled.first()
                     }
@@ -512,7 +517,7 @@ class LocalRepository(
                     } else {
                         serverPassive == null || serverPassive.optBoolean("granted") == false
                     }
-                    val accepted = psy != null && psy.optBoolean("granted") && passiveOk
+                    val accepted = passiveOk
                     if (accepted) {
                         preferences.serverActivated = true
                         preferences.onboardingState = AppPreferences.ONBOARDING_READY
@@ -551,8 +556,14 @@ class LocalRepository(
                     if (result.userId.isBlank() || result.accessToken.isBlank()) {
                         throw OnboardingVerifyException("malformed")
                     }
+                    // Phase 3.3（Portrait Cache User Isolation）：激活码重新登录 / 账户切换时，
+                    // 若 userId 变化，清理上一账户的本地敏感缓存（Portrait 缓存 + 支持请求等）。
+                    val previousUserId = preferences.userId
                     preferences.userId = result.userId
                     preferences.accessToken = result.accessToken
+                    if (previousUserId.isNotBlank() && previousUserId != result.userId) {
+                        runCatching { db.portraitDao().deleteByUser(previousUserId) }
+                    }
                     // v0.6.2（Batch A）：重新认证成功 → 清除 401/403 认证暂停态（恢复后台同步）
                     preferences.clearAuthBlocked()
                     preferences.onboardingState = AppPreferences.ONBOARDING_BOUND
@@ -913,6 +924,10 @@ class LocalRepository(
     /**
      * 刷新 Today 画像（缓存优先，后台刷新，平滑替换）。
      *
+     * Phase 6.4（Timezone Identity）：缓存 identity 使用**服务器返回的 local_date**
+     * （dto.date / timezone_used），不再用端侧 LocalDate.now()/ZoneId.systemDefault()
+     * 覆盖服务器日期。端侧「今天」仅用于发起请求；存储与展示以服务器日期为准。
+     *
      * @param networkAvailable 当前是否有网络（UI 从 ConnectivityManager 读取传入；
      *     无网络且有缓存时直接走缓存，不发起超时请求）
      */
@@ -921,10 +936,12 @@ class LocalRepository(
             preferences.passiveSensingPrefs.passiveSensingEnabled.first()
         }.getOrDefault(false)
         val userId = preferences.userId
-        val now = Instant.now()
-        val today = todayLocalDateString(now, ZoneId.systemDefault())
-        val cached = runCatching { db.portraitDao().queryLatest() }.getOrNull()
-            ?.takeIf { it.localDate == today && it.userId == userId }
+        // 端侧「今天」仅用于请求触发（获取服务器视角的今日画像）
+        val localToday = todayLocalDateString(Instant.now(), ZoneId.systemDefault())
+        // 缓存读取：先取该用户最新缓存，命中条件为「服务器 local_date == 端侧今天」
+        // （服务器日期优先；端侧日期仅作匹配键，不覆盖存储 identity）
+        val cached = runCatching { db.portraitDao().queryLatest(userId) }.getOrNull()
+            ?.takeIf { it.localDate == localToday && it.userId == userId }
 
         if (!sensingEnabled) {
             // 感知开关关闭 → SENSING_DISABLED（最高优先级，不显示缓存画像）
@@ -962,11 +979,11 @@ class LocalRepository(
                 null
             }
             if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
-                val dto = parseDailyPortrait(fetch.second!!)
+                val dto = LocalRepository.parseDailyPortrait(fetch.second!!)
                 if (dto != null) {
-                    // 写缓存（REPLACE：同 localDate+userId 覆盖）
+                    // 写缓存：identity = 服务器 local_date（dto.date），不覆盖为端侧日期
                     runCatching {
-                        db.portraitDao().insert(dto.toEntity(userId, today, System.currentTimeMillis()))
+                        db.portraitDao().insert(dto.toEntity(userId, dto.date, System.currentTimeMillis()))
                     }
                     // 平滑替换：发出服务端真实状态
                     _todayPortraitState.value = PortraitUiState(
@@ -997,8 +1014,9 @@ class LocalRepository(
     }
 
     /**
-     * 刷新画像时间线（Milestone G，GET /v1/portraits?days=7|28）。
-     * 成功 → 写缓存（按天 REPLACE）；失败 → Room 窗口内缓存兜底（fromCache=true），无缓存则 loadFailed。
+     * 刷新画像时间线（Milestone G，GET /v1/me/portraits?days=7|28）。
+     * 成功 → 写缓存（按天 REPLACE，identity = 服务器 local_date）；失败 → Room 窗口内缓存兜底
+     * （fromCache=true，Phase 3.3 userId 隔离 + Phase 6.4 服务器日期 identity），无缓存则 loadFailed。
      */
     suspend fun refreshPortraits(days: Int) {
         val sensingEnabled = runCatching {
@@ -1024,7 +1042,7 @@ class LocalRepository(
                 null
             }
             if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
-                val list = parsePortraitList(fetch.second!!)
+                val list = LocalRepository.parsePortraitList(fetch.second!!)
                 runCatching {
                     db.portraitDao().insertAll(
                         list.map { it.toEntity(preferences.userId, it.date, System.currentTimeMillis()) }
@@ -1043,9 +1061,9 @@ class LocalRepository(
                     missingDates = missing
                 )
             } else {
-                // 失败兜底：Room 窗口缓存
+                // 失败兜底：Room 窗口缓存（Phase 3.3：SQL 层按 userId 隔离）
                 val cached = runCatching {
-                    db.portraitDao().queryByDateRange(from, today).map { it.toDto() }
+                    db.portraitDao().queryByDateRange(preferences.userId, from, today).map { it.toDto() }
                 }.getOrDefault(emptyList())
                 if (cached.isNotEmpty()) {
                     val expected = (0 until days).map { todayDate.minusDays((days - 1 - it).toLong()).toString() }
@@ -1080,79 +1098,47 @@ class LocalRepository(
             return@withContext null
         }
         if (fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
-            parseBaselineStatus(fetch.second!!)
+            LocalRepository.parseBaselineStatus(fetch.second!!)
         } else {
             null
         }
     }
 
     /**
-     * 记录画像反馈（Milestone F）：「这个描述像今天的你吗？」点击后**仅本地记录**
-     * （date → 挺像/不太像），不新增网络请求；后续版本再按 date 上报
-     * /v1/portraits/{date}/feedback（后端当前无此端点）。
+     * 记录画像反馈（Phase 6.6）：「这个描述像今天的你吗？」。
+     *
+     * - 本地即时记录（preferences，UI 去重）；
+     * - **同时入 Outbox**（eventType="portrait_feedback"）→ SyncWorker 可靠同步
+     *   POST /v1/me/portraits/feedback（断网留存、重试、dead-letter 防护）；
+     * - 同步字段：portrait_id（= 服务器 local_date）/ feedback（LIKE|NOT_LIKE）/
+     *   portrait_schema_version / created_at；不默认上传自由文本；
+     * - 幂等：event_id 为本地 UUID（服务端按 event_id 去重）。
      */
-    fun recordPortraitFeedback(date: String, helpful: Boolean) {
+    suspend fun recordPortraitFeedback(date: String, helpful: Boolean) {
         preferences.recordPortraitFeedback(date, helpful)
+        val eventId = "pf_${UUID.randomUUID()}"
+        val payload = JSONObject().apply {
+            put("event_id", eventId)
+            put("user_id", preferences.userId)
+            put("portrait_id", date)
+            put("feedback", if (helpful) "LIKE" else "NOT_LIKE")
+            put("portrait_schema_version", PORTRAIT_SCHEMA_VERSION_LOCAL)
+            put("created_at", Instant.now().toString())
+        }
+        enqueue(eventId, "portrait_feedback", payload, 40)
     }
 
     /** 某日画像反馈（true=挺像 / false=不太像 / null=未反馈），供 UI 去重展示。 */
     fun portraitFeedback(date: String): Boolean? = preferences.portraitFeedback(date)
 
     // ----- Portrait 解析与实体转换（org.json，与 fetchNarratives/fetchProfile 同模式） -----
-
-    private fun parseDailyPortrait(json: String): DailyPortraitDto? = runCatching {
-        val o = JSONObject(json)
-        val dimensions = mutableMapOf<String, String>()
-        o.optJSONObject("dimensions")?.let { d ->
-            d.keys().forEach { k ->
-                d.optString(k).takeIf { it.isNotBlank() && it != "null" }?.let { dimensions[k] = it }
-            }
-        }
-        DailyPortraitDto(
-            date = o.optString("date"),
-            status = o.optString("status"),
-            confidence = o.optString("confidence"),
-            baselineDays = o.optInt("baseline_days", 0),
-            baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
-            headline = o.optJSONArray("headline")?.toStringList() ?: emptyList(),
-            summary = o.optString("summary"),
-            dimensions = dimensions,
-            coverage = o.optJSONObject("coverage")?.toAnyMap(),
-            facts = o.optJSONArray("facts")?.let { arr ->
-                (0 until arr.length()).mapNotNull { i ->
-                    val f = arr.optJSONObject(i) ?: return@mapNotNull null
-                    PortraitFactDto(
-                        label = f.optString("label"),
-                        todayText = f.optString("today_text"),
-                        baselineText = f.optString("baseline_text"),
-                        deltaText = f.optString("delta_text")
-                    )
-                }
-            } ?: emptyList(),
-            timezoneUsed = o.optString("timezone_used").takeIf { it.isNotBlank() && it != "null" }
-        )
-    }.getOrNull()
-
-    private fun parsePortraitList(body: String): List<DailyPortraitDto> = runCatching {
-        val root = JSONObject(body)
-        val arr = root.optJSONArray("portraits") ?: return@runCatching emptyList<DailyPortraitDto>()
-        (0 until arr.length()).mapNotNull { i ->
-            arr.optJSONObject(i)?.let { parseDailyPortrait(it.toString()) }
-        }.sortedBy { it.date }
-    }.getOrDefault(emptyList())
-
-    private fun parseBaselineStatus(body: String): BaselineStatusDto? = runCatching {
-        val o = JSONObject(body)
-        BaselineStatusDto(
-            status = o.optString("status"),
-            baselineDays = o.optInt("baseline_days", 0),
-            baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
-            windowStart = o.optString("window_start").takeIf { it.isNotBlank() && it != "null" },
-            windowEnd = o.optString("window_end").takeIf { it.isNotBlank() && it != "null" },
-            bucketUsage = o.optJSONObject("bucket_usage")?.toAnyMap(),
-            todayCoverage = o.optJSONObject("today_coverage")?.toAnyMap()
-        )
-    }.getOrNull()
+    //
+    // Phase 1.2（跨端契约测试）：parseDailyPortrait / parsePortraitList / parseBaselineStatus
+    // 为**纯函数**（不依赖实例状态），已移入 companion object 并改为 internal，供
+    // PortraitContractParseTest（纯 JVM）直接以 `LocalRepository.parseDailyPortrait(json)` 调用。
+    // 生产调用方（refreshTodayPortrait / refreshPortraits / fetchBaselineStatus）以
+    // `LocalRepository.parseXxx(...)` 静态语义访问，行为不变。
+    //
 
     /** Room 缓存行 → DTO（缓存未存 baseline 字段，重建为默认值；仅用于展示）。 */
     private fun DailyPortraitEntity.toDto(): DailyPortraitDto = DailyPortraitDto(
@@ -1164,8 +1150,12 @@ class LocalRepository(
         summary = summary,
         dimensions = runCatching {
             val o = JSONObject(dimensionsJson)
-            val m = mutableMapOf<String, String>()
-            o.keys().forEach { k -> o.optString(k).takeIf { it.isNotBlank() && it != "null" }?.let { m[k] = it } }
+            val m = mutableMapOf<String, PortraitDimensionDto>()
+            o.keys().forEach { k ->
+                o.optJSONObject(k)?.let { entry ->
+                    PortraitDimensionDto.parse(entry)?.let { m[k] = it }
+                }
+            }
             m
         }.getOrDefault(emptyMap()),
         coverage = coverageJson?.let { runCatching { JSONObject(it).toAnyMap() }.getOrNull() },
@@ -1195,7 +1185,13 @@ class LocalRepository(
             headlineJson = JSONArray(headline).toString(),
             summary = summary,
             dimensionsJson = JSONObject().apply {
-                dimensions.forEach { (k, v) -> put(k, v) }
+                dimensions.forEach { (k, v) ->
+                    put(k, JSONObject().apply {
+                        put("value", v.value)
+                        v.metric?.let { put("metric", it) }
+                        v.z?.let { put("z", it) }
+                    })
+                }
             }.toString(),
             factsJson = JSONArray().apply {
                 facts.forEach { fact ->
@@ -1241,5 +1237,72 @@ class LocalRepository(
     companion object {
         /** Skill 缓存过期阈值：1 小时。 */
         private const val SKILL_CACHE_TTL_MS = 3_600_000L
+
+        /** 画像 schema 版本（对齐后端 portrait-v1；feedback 上报口径）。 */
+        internal const val PORTRAIT_SCHEMA_VERSION_LOCAL = "portrait-v1"
+
+        // ----- Portrait 解析纯函数（Phase 1.2：companion internal，供纯 JVM 契约测试调用） -----
+
+        /** 解析 /v1/portraits/today 或 /v1/portraits 单元素为 [DailyPortraitDto]；失败返回 null。 */
+        internal fun parseDailyPortrait(json: String): DailyPortraitDto? = runCatching {
+            val o = JSONObject(json)
+            // Phase 1.1：dimensions 为嵌套对象 {"RHYTHM": {"value","metric","z"}}，
+            // 强类型解析（不再用 optString 吞掉嵌套对象）。
+            val dimensions = mutableMapOf<String, PortraitDimensionDto>()
+            o.optJSONObject("dimensions")?.let { d ->
+                d.keys().forEach { k ->
+                    d.optJSONObject(k)?.let { entry ->
+                        PortraitDimensionDto.parse(entry)?.let { dimensions[k] = it }
+                    }
+                }
+            }
+            DailyPortraitDto(
+                date = o.optString("date"),
+                status = o.optString("status"),
+                confidence = o.optString("confidence"),
+                baselineDays = o.optInt("baseline_days", 0),
+                baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
+                headline = o.optJSONArray("headline")?.toStringList() ?: emptyList(),
+                summary = o.optString("summary"),
+                dimensions = dimensions,
+                coverage = o.optJSONObject("coverage")?.toAnyMap(),
+                facts = o.optJSONArray("facts")?.let { arr ->
+                    (0 until arr.length()).mapNotNull { i ->
+                        val f = arr.optJSONObject(i) ?: return@mapNotNull null
+                        PortraitFactDto(
+                            label = f.optString("label"),
+                            todayText = f.optString("today_text"),
+                            baselineText = f.optString("baseline_text"),
+                            deltaText = f.optString("delta_text")
+                        )
+                    }
+                } ?: emptyList(),
+                timezoneUsed = o.optString("timezone_used").takeIf { it.isNotBlank() && it != "null" }
+            )
+        }.getOrNull()
+
+        /** 解析 /v1/portraits 批量响应为 [DailyPortraitDto] 列表（按 date 升序）。 */
+        internal fun parsePortraitList(body: String): List<DailyPortraitDto> = runCatching {
+            val root = JSONObject(body)
+            val arr = root.optJSONArray("portraits") ?: return@runCatching emptyList<DailyPortraitDto>()
+            (0 until arr.length()).mapNotNull { i ->
+                arr.optJSONObject(i)?.let { parseDailyPortrait(it.toString()) }
+            }.sortedBy { it.date }
+        }.getOrDefault(emptyList())
+
+        /** 解析 /v1/baseline/status 为 [BaselineStatusDto]；失败返回 null。 */
+        internal fun parseBaselineStatus(body: String): BaselineStatusDto? = runCatching {
+            val o = JSONObject(body)
+            BaselineStatusDto(
+                status = o.optString("status"),
+                baselineDays = o.optInt("baseline_days", 0),
+                baselineVersion = o.optString("baseline_version").takeIf { it.isNotBlank() && it != "null" },
+                windowStart = o.optString("window_start").takeIf { it.isNotBlank() && it != "null" },
+                windowEnd = o.optString("window_end").takeIf { it.isNotBlank() && it != "null" },
+                // Phase 1.1：bucket_usage 为 String、today_coverage 为 Double（与后端 BaselineStatusOut 对齐）
+                bucketUsage = o.optString("bucket_usage").takeIf { it.isNotBlank() && it != "null" },
+                todayCoverage = o.optDouble("today_coverage", 0.0)
+            )
+        }.getOrNull()
     }
 }

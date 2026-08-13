@@ -8,6 +8,7 @@ import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.model.Severity
 import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.ui.performPassiveSensingStop
 import kotlinx.coroutines.flow.first
@@ -50,7 +51,7 @@ class ConsentLifecycleTest {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        cipher = FieldCipher()
+        cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
         repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
         runBlocking {

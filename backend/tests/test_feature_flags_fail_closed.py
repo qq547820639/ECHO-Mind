@@ -83,7 +83,7 @@ def test_ingest_with_nonexistent_tenant_still_404_not_410(client):
     response = client.post("/v1/features/ingest", json={
         "event_id": "evt_fc_0001",
         "user_id": "u_demo",
-        "schema_version": "feat-v1",
+        "schema_version": "passive-core-v1",
         "source": "screen",
         "window_start": start.isoformat(),
         "window_end": (start + timedelta(minutes=30)).isoformat(),
@@ -107,7 +107,7 @@ def test_disabled_sensitive_flag_returns_410(client, user_headers):
         response = client.post("/v1/features/ingest", json={
             "event_id": "evt_fc_0002",
             "user_id": "u_demo",
-            "schema_version": "feat-v1",
+            "schema_version": "passive-core-v1",
             "source": "screen",
             "window_start": start.isoformat(),
             "window_end": (start + timedelta(minutes=30)).isoformat(),

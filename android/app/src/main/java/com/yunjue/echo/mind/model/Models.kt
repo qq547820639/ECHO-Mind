@@ -18,7 +18,9 @@ enum class Severity { NONE, YELLOW, RED, EXIT }
 /**
  * 端侧派生特征输入（对应后端 DerivedFeatureIn 契约）。
  *
- * - schemaVersion 固定 "feat-v1"
+ * - schemaVersion：Phase 5 起为 schema registry 版本：
+ *   - "passive-core-v1"：核心 22 维行为特征（accel/gyro/screen/notification/app_activity/health）
+ *   - "mic-feature-v1"：麦克风派生特征（mic_opt，256 维，不进入 Portrait Core aggregate）
  * - source 标识主要信号源（accel/gyro/screen/notification/app_activity/health/mic_opt）
  * - windowStart/windowEnd 为 5 分钟聚合窗口
  * - summary 中文自然语言摘要（≤4000 字）
@@ -29,7 +31,7 @@ enum class Severity { NONE, YELLOW, RED, EXIT }
  * 原始传感数据仅在端侧处理，上传的只有 summary + vector。
  */
 data class DerivedFeatureInput(
-    val schemaVersion: String = "feat-v1",
+    val schemaVersion: String = "passive-core-v1",
     val source: String,
     val windowStart: Instant,
     val windowEnd: Instant,
@@ -209,6 +211,41 @@ data class PortraitFactDto(
 )
 
 /**
+ * 画像维度强类型 DTO（Phase 1.1，Portrait Core Contract Closure）。
+ *
+ * 对齐后端 dimensions 嵌套对象：
+ * ```json
+ * {"RHYTHM": {"value": "LATER", "metric": "active_start_minute", "z": 1.2}}
+ * ```
+ *
+ * - value：相对性取值（EARLIER/LATER/SIMILAR/LESS/MORE/IRREGULAR/...），必填；
+ * - metric：驱动该维度的内部指标名（active_start_minute / movement_index /
+ *   screen_on_minutes / late_screen_minutes / rhythm_regularity 等），可为 null
+ *   （STABILITY 维度无单一 metric）；
+ * - z：该值相对基线的标准化偏离（仅机器内部展示/调试，**不得直接渲染给普通用户**），
+ *   可为 null（数据不足 / 非数值维度）。
+ *
+ * 禁止使用 Map<String, String> / optString() 吞掉嵌套对象（Phase 0 审计确认的契约漂移）。
+ */
+data class PortraitDimensionDto(
+    val value: String,
+    val metric: String? = null,
+    val z: Double? = null
+) {
+    companion object {
+        /** 解析后端维度条目（JSONObject）；解析失败 / 结构非法返回 null（fail-closed）。 */
+        fun parse(json: org.json.JSONObject): PortraitDimensionDto? = runCatching {
+            val value = json.optString("value").takeIf { it.isNotBlank() && it != "null" } ?: return null
+            PortraitDimensionDto(
+                value = value,
+                metric = json.optString("metric").takeIf { it.isNotBlank() && it != "null" },
+                z = if (json.has("z") && !json.isNull("z")) json.optDouble("z") else null
+            )
+        }.getOrNull()
+    }
+}
+
+/**
  * 每日画像展示模型（Milestone F）：对齐 GET /v1/portraits/today / /v1/portraits 响应元素。
  *
  * - status：服务端画像状态（WARMING_UP / EARLY_BASELINE / READY / PARTIAL_DATA / LOW_CONFIDENCE）
@@ -216,10 +253,13 @@ data class PortraitFactDto(
  * - baselineDays / baselineVersion：基线积累天数与版本（冷启动阶段文案依据）
  * - headline：当日要点短句列表（渲染为 chips）
  * - summary：服务端自然语言段落
- * - dimensions：维度键 → 取值（RHYTHM/MOVEMENT/SCREEN_PATTERN/DAY_STRUCTURE/STABILITY）
+ * - dimensions：维度键 → 强类型维度对象（RHYTHM/MOVEMENT/SCREEN_PATTERN/DAY_STRUCTURE/STABILITY，
+ *   v0.7 Phase 5 起为 SCREEN_AMOUNT/SCREEN_TIMING 拆分）
  * - coverage：服务端数据覆盖信息（可选，值类型不定）
  * - facts：事实对照列表（「为什么这么说？」区）
  * - timezoneUsed：服务端计算该画像所用的时区（端侧缓存键与日期处理依据）
+ * - localDate：服务器画像自身的日期（Room 缓存 identity，Phase 6.4 不再用端侧日期覆盖）
+ */
  * 仅用于 UI 渲染 + Room 缓存，不参与上行同步。
  */
 data class DailyPortraitDto(
@@ -230,15 +270,19 @@ data class DailyPortraitDto(
     val baselineVersion: String? = null,
     val headline: List<String> = emptyList(),
     val summary: String = "",
-    val dimensions: Map<String, String> = emptyMap(),
+    val dimensions: Map<String, PortraitDimensionDto> = emptyMap(),
     val coverage: Map<String, Any>? = null,
     val facts: List<PortraitFactDto> = emptyList(),
     val timezoneUsed: String? = null
-)
+) {
+    /** 便捷：维度取值（不存在返回 null）。 */
+    fun dimensionValue(key: String): String? = dimensions[key]?.value
+}
 
 /**
  * 基线状态展示模型（Milestone F）：对齐 GET /v1/baseline/status 响应。
- * 当前版本不直接驱动 UI，保留供后续版本做基线可视化（与 ApiClient.getBaselineStatus 配套）。
+ * Phase 1.1（Contract Closure）：bucket_usage 为 String、today_coverage 为 Double，
+ * 与后端 BaselineStatusOut 类型完全一致（此前误用 Map 解析导致类型漂移）。
  */
 data class BaselineStatusDto(
     val status: String,
@@ -246,8 +290,8 @@ data class BaselineStatusDto(
     val baselineVersion: String? = null,
     val windowStart: String? = null,
     val windowEnd: String? = null,
-    val bucketUsage: Map<String, Any>? = null,
-    val todayCoverage: Map<String, Any>? = null
+    val bucketUsage: String? = null,
+    val todayCoverage: Double = 0.0
 )
 
 /**

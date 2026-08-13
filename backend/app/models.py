@@ -489,7 +489,9 @@ class DailyBehaviorAggregate(Base):
     active_start_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active_end_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notification_count: Mapped[int] = mapped_column(Integer, default=0)
-    rhythm_regularity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Phase 5（C2）：rhythm_regularity 语义实为活跃小时覆盖（active hour spread）/24，
+    # 为消除"regularity 命名误导"更名为 active_hour_spread（migration 20260812_0002）。
+    active_hour_spread: Mapped[float | None] = mapped_column(Float, nullable=True)
     sources_present: Mapped[list[str]] = mapped_column(JSON, default=list)
     missing_sources: Mapped[list[str]] = mapped_column(JSON, default=list)
     schema_version: Mapped[str] = mapped_column(String(40), default="agg-v1")
@@ -529,6 +531,34 @@ class PersonalBaseline(Base):
     )
 
 
+class MaterializationState(Base):
+    """画像自动物化状态（Portrait Core Phase 2）：每日 dirty 跟踪。
+
+    - 每次 ingest 聚合更新后 upsert 本行并置 dirty=true（幂等，唯一约束
+      (tenant_id, user_id, local_date) 保证同一天多次 ingest 只合并为一行）；
+    - materializer 对 dirty 日期执行 build_baseline → generate_portrait，
+      成功后清 dirty、更新 last_materialized_at、递增 materialization_version；
+    - 失败保持 dirty=true，下次触发重试；并发安全由
+      UPDATE ... WHERE dirty=true 原子占位保证（SQLite/PG 均安全）。
+    """
+
+    __tablename__ = "materialization_state"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("mz"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    dirty: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_materialized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Phase 5（D）：最近一次完整画像物化（含 28 天 baseline 重建）时间，可空；
+    # 用于当天数据到达后的 debounce 判断（每 15 分钟最多物化一次，而非每 5 分钟）。
+    last_baseline_rebuild_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    materialization_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "local_date", name="uq_mz_tenant_user_date"),
+    )
+
+
 class DailyPortrait(Base):
     """当日画像（Milestone D/E）：基线就绪后的 5 维度确定性画像。
 
@@ -549,6 +579,9 @@ class DailyPortrait(Base):
     baseline_end: Mapped[date | None] = mapped_column(Date, nullable=True)
     baseline_valid_days: Mapped[int] = mapped_column(Integer, default=0)
     baseline_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Phase 5（C3）：生成画像所用基线 metrics 的规范化序列化 SHA-256 摘要，
+    # 供可复现性校验（相同输入 → 相同摘要）。
+    baseline_snapshot_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     coverage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     dimensions: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     highlights: Mapped[list[str]] = mapped_column(JSON, default=list)

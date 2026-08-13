@@ -1,7 +1,9 @@
 package com.yunjue.echo.mind
 
+import android.hardware.Sensor
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
+import com.yunjue.echo.mind.sensing.SensorSample
 import com.yunjue.echo.mind.sensing.WindowFlushResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -20,6 +22,10 @@ import java.time.Instant
  */
 class SchedulerBoundaryTest {
 
+    /** Phase 4.1：构造窗口内加速度样本（时间戳 = 窗口起点 + 60s）。 */
+    private fun accelSample(windowStartMs: Long): SensorSample =
+        SensorSample(windowStartMs + 60_000L, Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f)
+
     @Test
     fun flushedWindowSetIsBounded() = runTest {
         val hub = SensingEventHub()
@@ -29,7 +35,7 @@ class SchedulerBoundaryTest {
 
         for (i in 0 until (keep + 10)) {
             val ws = base.plusMillis(i * 300_000L)
-            hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+            hub.onAccelSample(accelSample(ws.toEpochMilli()))
             val result = scheduler.flushWindow(ws, ws.plusMillis(300_000L)) { true }
             assertEquals(WindowFlushResult.SUCCESS, result)
         }
@@ -51,13 +57,13 @@ class SchedulerBoundaryTest {
         // 写入 keep+1 个窗口：flushed 集有界（保留最近 keep 个）→ 最老的被淘汰
         for (i in 0 until keep + 1) {
             val ws = base.plusMillis(i * 300_000L)
-            hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+            hub.onAccelSample(accelSample(ws.toEpochMilli()))
             scheduler.flushWindow(ws, ws.plusMillis(300_000L)) { true }
         }
         // 最老的已淘汰
         assertFalse(scheduler.hasFlushed(base.toEpochMilli()))
         // 重新 flush 最老窗口：可再次成功（不再被去重误伤）
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(base.toEpochMilli()))
         val result = scheduler.flushWindow(base, base.plusMillis(300_000L)) { true }
         assertEquals(WindowFlushResult.SUCCESS, result)
         assertTrue(scheduler.hasFlushed(base.toEpochMilli()))
@@ -66,7 +72,7 @@ class SchedulerBoundaryTest {
     @Test
     fun duplicateWindowFlushesOnlyOnce() = runTest {
         val hub = SensingEventHub()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(Instant.parse("2026-08-01T12:00:00Z").toEpochMilli()))
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         val ws = Instant.parse("2026-08-01T12:00:00Z")
         var calls = 0

@@ -21,7 +21,7 @@ def _feature_payload(event_id: str, summary: str, user_id: str = "u_demo", sourc
     return {
         "event_id": event_id,
         "user_id": user_id,
-        "schema_version": "feat-v1",
+        "schema_version": "passive-core-v1",
         "source": source,
         "window_start": start.isoformat(),
         "window_end": (start + timedelta(minutes=30)).isoformat(),

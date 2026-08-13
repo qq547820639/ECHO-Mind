@@ -11,9 +11,14 @@ generate_portrait 流程：
 - EARLY_BASELINE（3-6）：当天事实句，不输出"比平常"；
 - BASELINE_READY（>=7）：confidence_for → LOW → LOW_CONFIDENCE 固定文案；
   否则 READY；today_coverage < 0.4 时 status=PARTIAL_DATA（narrative 加前缀）。
+
+Phase 5（C3）：可复现性 —— baseline_snapshot_digest = SHA-256(基线 metrics
+规范化 JSON 序列化)；相同输入必然产生相同摘要。
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 
 from sqlalchemy import select
@@ -38,6 +43,18 @@ PORTRAIT_SCHEMA_VERSION = "portrait-v1"
 PARTIAL_COVERAGE_THRESHOLD = 0.4
 
 
+def _baseline_digest(metrics: dict) -> str:
+    """基线 metrics 的规范化序列化 SHA-256 摘要（确定性可复现）。"""
+    canonical = json.dumps(
+        metrics,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict:
     if agg is None:
         return {
@@ -53,7 +70,7 @@ def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict:
             "notification_count": 0,
             "active_start_minute": None,
             "active_end_minute": None,
-            "rhythm_regularity": None,
+            "active_hour_spread": None,
             "sources_present": [],
             "missing_sources": [],
         }
@@ -70,7 +87,7 @@ def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict:
         "notification_count": agg.notification_count,
         "active_start_minute": agg.active_start_minute,
         "active_end_minute": agg.active_end_minute,
-        "rhythm_regularity": agg.rhythm_regularity,
+        "active_hour_spread": agg.active_hour_spread,
         "sources_present": list(agg.sources_present or []),
         "missing_sources": list(agg.missing_sources or []),
     }
@@ -104,6 +121,7 @@ def _upsert_portrait(
     baseline_end,
     baseline_valid_days: int,
     baseline_version: str | None,
+    baseline_snapshot_digest: str | None,
 ) -> DailyPortrait:
     existing = db.scalar(select(DailyPortrait).where(
         DailyPortrait.tenant_id == tenant_id,
@@ -119,6 +137,7 @@ def _upsert_portrait(
         existing.baseline_end = baseline_end
         existing.baseline_valid_days = baseline_valid_days
         existing.baseline_version = baseline_version
+        existing.baseline_snapshot_digest = baseline_snapshot_digest
         existing.coverage = coverage
         existing.dimensions = dimensions
         existing.highlights = highlights
@@ -138,6 +157,7 @@ def _upsert_portrait(
         baseline_end=baseline_end,
         baseline_valid_days=baseline_valid_days,
         baseline_version=baseline_version,
+        baseline_snapshot_digest=baseline_snapshot_digest,
         coverage=coverage,
         dimensions=dimensions,
         highlights=highlights,
@@ -187,6 +207,7 @@ def generate_portrait(
         baseline_end=snapshot.window_end,
         baseline_valid_days=snapshot.valid_days,
         baseline_version=snapshot.version,
+        baseline_snapshot_digest=_baseline_digest(snapshot.metrics),
     )
 
     # 产品指标（数据质量/可靠性）：画像生成分类计数（不记录任何特征内容）

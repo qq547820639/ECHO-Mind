@@ -1,0 +1,9 @@
+{
+  "status": "BASELINE_READY",
+  "baseline_days": 21,
+  "baseline_version": "base-v1",
+  "window_start": "2026-07-20",
+  "window_end": "2026-08-09",
+  "bucket_usage": "weekday",
+  "today_coverage": 0.92
+}

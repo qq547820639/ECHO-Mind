@@ -1,0 +1,14 @@
+{
+  "date": "2026-08-10",
+  "status": "READY",
+  "confidence": "HIGH",
+  "baseline_days": 21,
+  "summary": "事实对照：label/today_text/baseline_text/delta_text 四要素。",
+  "dimensions": {},
+  "facts": [
+    {"label": "起床时间", "today_text": "今天 08:12 起床", "baseline_text": "平常 07:30 起床", "delta_text": "比平常晚 42 分钟"},
+    {"label": "屏幕时长", "today_text": "今天屏幕使用 4.5 小时", "baseline_text": "平常 3.8 小时", "delta_text": "比平常多 0.7 小时"},
+    {"label": "活动量", "today_text": "今天活动量中等", "baseline_text": "平常活动量中等", "delta_text": "与平常相当"}
+  ],
+  "timezone_used": "Asia/Shanghai"
+}

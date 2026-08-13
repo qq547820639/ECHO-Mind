@@ -283,11 +283,18 @@ interface PortraitDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(values: List<DailyPortraitEntity>)
 
-    @Query("SELECT * FROM portrait_daily WHERE localDate >= :from AND localDate <= :to ORDER BY localDate ASC")
-    suspend fun queryByDateRange(from: String, to: String): List<DailyPortraitEntity>
+    /**
+     * Phase 3.3（Portrait Cache User Isolation）：所有查询必须在 SQL 层带 userId，
+     * 防止 User B 查询到 User A 的画像缓存（账户切换 / 激活码重新登录后）。
+     */
+    @Query("SELECT * FROM portrait_daily WHERE userId = :userId AND localDate >= :from AND localDate <= :to ORDER BY localDate ASC")
+    suspend fun queryByDateRange(userId: String, from: String, to: String): List<DailyPortraitEntity>
 
-    @Query("SELECT * FROM portrait_daily ORDER BY localDate DESC LIMIT 1")
-    suspend fun queryLatest(): DailyPortraitEntity?
+    @Query("SELECT * FROM portrait_daily WHERE userId = :userId ORDER BY localDate DESC LIMIT 1")
+    suspend fun queryLatest(userId: String): DailyPortraitEntity?
+
+    @Query("DELETE FROM portrait_daily WHERE userId = :userId")
+    suspend fun deleteByUser(userId: String)
 }
 
 @Database(

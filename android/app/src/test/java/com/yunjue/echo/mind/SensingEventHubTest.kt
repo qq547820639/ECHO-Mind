@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind
 
 import com.yunjue.echo.mind.sensing.AppActivityCollector
+import com.yunjue.echo.mind.sensing.SensorSample
 import com.yunjue.echo.mind.sensing.NotificationCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
@@ -45,8 +46,8 @@ class SensingEventHubTest {
         val hub = SensingEventHub()
         val now = System.currentTimeMillis()
 
-        hub.onAccelSample(floatArrayOf(0.1f, 0.2f, 9.8f))
-        hub.onGyroSample(floatArrayOf(0.01f, 0.02f, 0.03f))
+        hub.onAccelSample(SensorSample(now, android.hardware.Sensor.TYPE_ACCELEROMETER, 0.1f, 0.2f, 9.8f))
+        hub.onGyroSample(SensorSample(now, android.hardware.Sensor.TYPE_GYROSCOPE, 0.01f, 0.02f, 0.03f))
         hub.onScreenEvent(ScreenCollector.ScreenEvent(now, ScreenCollector.ScreenState.ON))
         hub.onNotificationPosted(NotificationCollector.NotificationMeta(now, "com.test", "social"))
         hub.onAppActivity(AppActivityCollector.AppActivity(now, "com.test"))
@@ -86,7 +87,7 @@ class SensingEventHubTest {
     fun clearAllClearsEveryModality() {
         val hub = SensingEventHub()
         val now = System.currentTimeMillis()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(SensorSample(now, android.hardware.Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f))
         hub.onScreenEvent(ScreenCollector.ScreenEvent(now, ScreenCollector.ScreenState.ON))
         hub.onNotificationPosted(NotificationCollector.NotificationMeta(now, "pkg", "social"))
         hub.onAppActivity(AppActivityCollector.AppActivity(now, "pkg"))
@@ -147,7 +148,8 @@ class SensingEventHubTest {
     @Test
     fun snapshotAllIsNonDestructive() {
         val hub = SensingEventHub()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        val now = System.currentTimeMillis()
+        hub.onAccelSample(SensorSample(now, android.hardware.Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f))
         hub.onNotificationPosted(NotificationCollector.NotificationMeta(1L, "pkg", "social"))
 
         val snap = hub.snapshotAll()
@@ -160,16 +162,16 @@ class SensingEventHubTest {
     @Test
     fun clearConsumedRemovesOnlySnapshotItems() {
         val hub = SensingEventHub()
-        val first = floatArrayOf(0f, 0f, 9.8f)
+        val first = SensorSample(100L, android.hardware.Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f)
         hub.onAccelSample(first)
 
         val snap = hub.snapshotAll()
         // 快照之后新到项（下一窗口）不应被清除
-        val second = floatArrayOf(1f, 1f, 9.8f)
+        val second = SensorSample(200L, android.hardware.Sensor.TYPE_ACCELEROMETER, 1f, 1f, 9.8f)
         hub.onAccelSample(second)
 
         hub.clearConsumed(snap)
-        // 快照内项（引用相等）被清；快照后新到项保留
+        // 快照内项（data class 值相等）被清；快照后新到项保留
         assertEquals(1, hub.snapshotAccel().size)
         // 再次 clear 新到项 → 清空
         hub.clearConsumed(hub.snapshotAll())

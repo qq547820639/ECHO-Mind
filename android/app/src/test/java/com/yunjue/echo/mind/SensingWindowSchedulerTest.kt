@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind
 
+import android.hardware.Sensor
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.sensing.FeatureExtractor
 import com.yunjue.echo.mind.sensing.MicDerivedFeatureSource
@@ -7,6 +8,7 @@ import com.yunjue.echo.mind.sensing.MicFeatureExtractor
 import com.yunjue.echo.mind.sensing.NotificationCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
+import com.yunjue.echo.mind.sensing.SensorSample
 import com.yunjue.echo.mind.sensing.WindowFlushResult
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -42,6 +44,10 @@ class SensingWindowSchedulerTest {
     }
 
     private val windowMs = 5 * 60 * 1000L
+
+    /** Phase 4.1：构造窗口内加速度样本（0 值三轴 + 指定时间戳）。 */
+    private fun accelSample(timestampMs: Long): SensorSample =
+        SensorSample(timestampMs, Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f)
 
     // ===== 窗口边界（epoch 对齐） =====
 
@@ -82,7 +88,7 @@ class SensingWindowSchedulerTest {
     fun flushWindowExtractsAndClearsHubBuffersOnSuccess() = runTest {
         val hub = SensingEventHub()
         val now = Instant.parse("2026-08-01T12:00:00Z")
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(now.plusSeconds(60).toEpochMilli()))
         hub.onNotificationPosted(NotificationCollector.NotificationMeta(now.plusSeconds(60).toEpochMilli(), "pkg", "social"))
 
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
@@ -147,7 +153,7 @@ class SensingWindowSchedulerTest {
     fun flushFailureKeepsBuffersAndMarksRetryable() = runTest {
         val hub = SensingEventHub()
         val now = Instant.parse("2026-08-01T12:00:00Z")
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(now.plusSeconds(60).toEpochMilli()))
 
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         var callbackCalls = 0
@@ -168,7 +174,7 @@ class SensingWindowSchedulerTest {
     fun flushFailureThenSuccessClearsAndMarksFlushed() = runTest {
         val hub = SensingEventHub()
         val now = Instant.parse("2026-08-01T12:00:00Z")
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(now.plusSeconds(60).toEpochMilli()))
 
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         var attempts = 0
@@ -196,7 +202,7 @@ class SensingWindowSchedulerTest {
     fun flushExceedingMaxRetryDropsWindowButBuffersKept() = runTest {
         val hub = SensingEventHub()
         val now = Instant.parse("2026-08-01T12:00:00Z")
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(now.plusSeconds(60).toEpochMilli()))
 
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         // 连续失败 MAX_WINDOW_RETRY+1 次 → 窗口被丢弃（不再重试）
@@ -214,7 +220,7 @@ class SensingWindowSchedulerTest {
     @Test
     fun sameWindowStartFlushesOnlyOnce() = runTest {
         val hub = SensingEventHub()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(Instant.parse("2026-08-01T12:00:00Z").toEpochMilli() + 60_000L))
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         val ws = Instant.parse("2026-08-01T12:00:00Z")
         val we = Instant.parse("2026-08-01T12:05:00Z")
@@ -235,7 +241,8 @@ class SensingWindowSchedulerTest {
     fun startLoopFlushesAtAlignedBoundary() = runTest {
         val clock = MutableTestClock(Instant.parse("2026-08-01T12:03:00Z").toEpochMilli())
         val hub = SensingEventHub()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        // 样本时间戳 = 当前注入时钟（12:03:00，落在 [12:00, 12:05) 窗口内）
+        hub.onAccelSample(accelSample(clock.millis()))
         val flushedStarts = mutableListOf<Instant>()
         val scheduler = SensingWindowScheduler(hub, clock = clock, windowDurationMs = windowMs)
         scheduler.start(this) { inputs ->
@@ -254,7 +261,8 @@ class SensingWindowSchedulerTest {
         assertEquals(listOf(Instant.parse("2026-08-01T12:00:00Z")), flushedStarts)
 
         // 推进到 12:10 边界 → flush 12:05 窗口（上一窗口已 clearConsumed，需重新注入样本）
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        // 样本时间戳 = 当前注入时钟（12:05:00，落在 [12:05, 12:10) 窗口内）
+        hub.onAccelSample(accelSample(clock.millis()))
         clock.advanceMs(5 * 60 * 1000L)
         advanceTimeBy(5 * 60 * 1000L)
         runCurrent()
@@ -284,7 +292,7 @@ class SensingWindowSchedulerTest {
     fun stopClearsPendingRetries() = runTest {
         val hub = SensingEventHub()
         val now = Instant.parse("2026-08-01T12:00:00Z")
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(accelSample(now.plusSeconds(60).toEpochMilli()))
         val scheduler = SensingWindowScheduler(hub, clock = Clock.systemUTC())
         scheduler.flushWindow(now, now.plusMillis(windowMs)) { false }
         assertEquals(1, scheduler.retryCount(now.toEpochMilli()))

@@ -1,8 +1,15 @@
 from datetime import date, datetime
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-FEATURE_SCHEMA_VERSION = "feat-v1"
+from app.services.schema_registry import (
+    PASSIVE_CORE_V1,
+    SCHEMA_REGISTRY,
+    validate_schema_source,
+)
+
+#: 默认派生特征 schema（Phase 5：由 schema registry 驱动；mic_opt 用 mic-feature-v1）
+FEATURE_SCHEMA_VERSION = PASSIVE_CORE_V1
 
 
 class TenantCreate(BaseModel):
@@ -228,7 +235,9 @@ class DerivedFeatureIn(BaseModel):
 
     event_id: str = Field(min_length=8, max_length=80)
     user_id: str
-    schema_version: str = FEATURE_SCHEMA_VERSION
+    # Phase 5：schema registry 驱动；Literal 让 OpenAPI 表达枚举契约
+    # （passive-core-v1 核心 22 维 / mic-feature-v1 麦克风外围）
+    schema_version: Literal["passive-core-v1", "mic-feature-v1"] = PASSIVE_CORE_V1
     source: Literal["accel", "gyro", "screen", "notification", "app_activity", "health", "mic_opt"]
     window_start: datetime
     window_end: datetime
@@ -242,9 +251,24 @@ class DerivedFeatureIn(BaseModel):
     @field_validator("schema_version")
     @classmethod
     def validate_schema_version(cls, value: str) -> str:
-        if value != FEATURE_SCHEMA_VERSION:
-            raise ValueError("unsupported feature schema version")
+        if value not in SCHEMA_REGISTRY:
+            raise ValueError(f"unsupported feature schema version: {value}")
         return value
+
+    @model_validator(mode="after")
+    def validate_schema_source_combo(self) -> "DerivedFeatureIn":
+        """schema/source 组合必须匹配 registry（如 mic_opt 必须 mic-feature-v1）。
+
+        不匹配 → 422 拒绝 + 遥测计数 ingest_reject_schema_mismatch（隐私安全：
+        不记录特征内容本身）。
+        """
+        error = validate_schema_source(self.schema_version, self.source)
+        if error is not None:
+            from app.services.telemetry import count_event
+
+            count_event("ingest_reject_schema_mismatch")
+            raise ValueError(error)
+        return self
 
 
 #: Skill action_type 白名单（PRD 契约点 4）：白名单外一律不校验通过、不下发、不执行。
@@ -400,6 +424,7 @@ class PortraitOut(BaseModel):
     confidence: str
     baseline_days: int = 0
     baseline_version: str | None = None
+    baseline_snapshot_digest: str | None = None
     headline: list[str] = Field(default_factory=list)
     summary: str = ""
     dimensions: dict[str, Any] = Field(default_factory=dict)
@@ -432,4 +457,14 @@ class PortraitRebuildIn(BaseModel):
     """显式重建当日画像入参。local_date 缺省为今天（用户本地日期）。"""
 
     user_id: str
+    local_date: date | None = None
+
+
+class MePortraitRebuildIn(BaseModel):
+    """当前用户（principal.subject）显式重建画像入参。
+
+    - 不接收 user_id：认证用户由 JWT principal.subject 确定（/v1/me/* 契约）；
+    - local_date 可选，缺省为今天（用户本地日期）。
+    """
+
     local_date: date | None = None

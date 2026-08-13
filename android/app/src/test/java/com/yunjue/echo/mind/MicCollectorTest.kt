@@ -349,7 +349,7 @@ class MicCollectorTest {
 
     @Test
     fun appPreferencesDelegatesMicEnabled() = runBlocking {
-        val appPrefs = AppPreferences(context, com.yunjue.echo.mind.security.FieldCipher())
+        val appPrefs = AppPreferences(context, com.yunjue.echo.mind.security.JvmTestFieldCipher())
         assertFalse("默认关闭", appPrefs.micEnabledFlow().first())
         appPrefs.setMicEnabled(true)
         assertTrue("开启后应读取 true", appPrefs.micEnabledFlow().first())

@@ -151,3 +151,98 @@ def test_rebuild_writes_audit(client, user_headers):
         )).all()
         assert len(events) == 1
         assert events[0].object_type == "daily_portrait"
+
+
+# ===== authenticated current-user 变体（/v1/me/*，user 由 principal.subject 确定） =====
+
+
+def test_me_requires_auth(client):
+    response = client.get("/v1/me/portraits/today")
+    assert response.status_code == 401
+
+
+def test_me_today_no_user_id_param(client, user_headers):
+    """GET /v1/me/portraits/today 不需要 user_id query param（principal.subject 确定）。"""
+    response = client.get("/v1/me/portraits/today", headers=user_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["date"] == str(LOCAL_TODAY)
+    assert body["timezone_used"] == "Asia/Shanghai"
+
+
+def test_me_today_no_side_effect(client, user_headers):
+    """GET /v1/me/portraits/today 前后 daily_portraits 计数不变（只读，不触发 materialize）。"""
+    before = _portrait_count()
+    response = client.get("/v1/me/portraits/today", headers=user_headers)
+    assert response.status_code == 200
+    after = _portrait_count()
+    assert before == after
+
+
+def test_me_rebuild_no_user_id(client, user_headers):
+    """POST /v1/me/portraits/rebuild 不需要 body user_id（从 principal 取）。"""
+    response = client.post("/v1/me/portraits/rebuild", json={}, headers=user_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["date"] == str(LOCAL_TODAY)
+    assert body["status"] in ("WARMING_UP", "EARLY_BASELINE", "READY", "PARTIAL_DATA", "LOW_CONFIDENCE")
+    assert _portrait_count() == 1
+
+
+def test_me_rebuild_with_local_date(client, user_headers):
+    response = client.post("/v1/me/portraits/rebuild",
+                           json={"local_date": "2026-08-10"},
+                           headers=user_headers)
+    assert response.status_code == 200
+    assert response.json()["date"] == "2026-08-10"
+
+
+def test_me_rebuild_writes_audit(client, user_headers):
+    from app.models import AuditEvent
+
+    client.post("/v1/me/portraits/rebuild", json={}, headers=user_headers)
+    with SessionLocal() as db:
+        events = db.scalars(select(AuditEvent).where(
+            AuditEvent.tenant_id == "t_demo",
+            AuditEvent.action == "portrait.rebuild",
+        )).all()
+        assert len(events) == 1
+        assert events[0].actor_id == "u_demo"
+
+
+def test_me_list_portraits(client, user_headers):
+    client.post("/v1/me/portraits/rebuild", json={}, headers=user_headers)
+    response = client.get("/v1/me/portraits", params={"days": 7}, headers=user_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["user_id"] == "u_demo"
+    assert body["days"] == 7
+    dates = [p["date"] for p in body["portraits"]]
+    assert dates == sorted(dates)
+    assert dates == [str(LOCAL_TODAY)]
+
+
+def test_me_list_portraits_days_validation(client, user_headers):
+    assert client.get("/v1/me/portraits", params={"days": 0},
+                      headers=user_headers).status_code == 422
+    assert client.get("/v1/me/portraits", params={"days": 91},
+                      headers=user_headers).status_code == 422
+
+
+def test_me_baseline_status_shape(client, user_headers):
+    response = client.get("/v1/me/baseline/status", headers=user_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] in ("WARMING_UP", "EARLY_BASELINE", "BASELINE_READY")
+    assert isinstance(body["baseline_days"], int)
+    assert "baseline_version" in body
+    assert body["bucket_usage"] in ("weekday", "weekend", "all_days")
+
+
+def test_me_tenant_isolation(client):
+    """跨租户 principal（subject=u_demo, tenant=t_other）访问 /v1/me/* → 404。"""
+    outsider = {"Authorization": f"Bearer {create_access_token('u_demo', 't_other', 'user')}"}
+    assert client.get("/v1/me/portraits/today", headers=outsider).status_code == 404
+    assert client.get("/v1/me/portraits", headers=outsider).status_code == 404
+    assert client.get("/v1/me/baseline/status", headers=outsider).status_code == 404
+    assert client.post("/v1/me/portraits/rebuild", json={}, headers=outsider).status_code == 404

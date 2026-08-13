@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ECHO Mind Android↔Backend Contract Manifest (v0.6 final)",
-  "description": "跨端契约清单：backend 侧以 docs/openapi.json + app/schemas.py 为权威；Android 侧由单元测试断言（SkillActionDispatcherTest / SyncWorkerStateMachineTest / OnboardingVerifyFlowTest 等）。scripts/contract_drift_check.py 据此断言，漂移即 CI 失败。",
-  "version": "0.6.0",
+  "title": "ECHO Mind Android↔Backend Contract Manifest (Portrait Core v0.7)",
+  "description": "跨端契约清单：backend 侧以 docs/openapi.json + app/schemas.py 为权威；Android 侧由单元测试断言（SkillActionDispatcherTest / SyncWorkerStateMachineTest / OnboardingVerifyFlowTest / PortraitContractParseTest 等）。scripts/contract_drift_check.py 据此断言，漂移即 CI 失败。",
+  "version": "0.7.0",
   "endpoints": {
     "required": [
       {
@@ -54,6 +54,46 @@
         "method": "GET",
         "path": "/v1/config/flags",
         "note": "租户 feature flags（passive_sensing_enabled 无缓存默认 false，fail-closed）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/me/portraits/today",
+        "note": "今日画像（principal.subject 确定用户；GET 只读无写副作用）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/me/portraits",
+        "note": "画像列表 ?days=7|28（principal.subject；按 date 升序）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/me/baseline/status",
+        "note": "基线状态（principal.subject；bucket_usage String / today_coverage Double）"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/me/portraits/rebuild",
+        "note": "显式重建画像（body {} 或 {local_date}；principal.subject 确定用户）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/portraits/today",
+        "note": "旧路径保留兼容（user_id query param）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/portraits",
+        "note": "旧路径保留兼容（user_id query param）"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/baseline/status",
+        "note": "旧路径保留兼容（user_id query param）"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/portraits/rebuild",
+        "note": "旧路径保留兼容（body user_id）"
       }
     ],
     "removed": [
@@ -88,22 +128,130 @@
   },
   "fields": {
     "DerivedFeatureIn.sources_present": {
-      "enum": ["accel", "gyro", "screen", "notification", "app_activity", "mic_opt", "health"],
-      "note": "窗口内实际信号源；gap_finder.EXPECTED_SOURCES 仅核心 5 项"
+      "enum": [
+        "accel",
+        "gyro",
+        "screen",
+        "notification",
+        "app_activity",
+        "mic_opt",
+        "health"
+      ],
+      "note": "窗口内实际信号源；gap_finder.EXPECTED_SOURCES 仅核心 5 项；Phase 5 起含 mic_opt/health"
+    },
+    "DerivedFeatureIn.schema_version": {
+      "enum": [
+        "passive-core-v1",
+        "mic-feature-v1"
+      ],
+      "default": "passive-core-v1",
+      "note": "Phase 5 schema registry 驱动；端侧 DerivedFeatureInput 默认 passive-core-v1，mic 特征 mic-feature-v1；feat-v1 已废弃"
     },
     "SkillOut.action_type": {
-      "whitelist": ["guided_steps", "reflection_prompt", "breathing", "journaling", "checklist"],
+      "whitelist": [
+        "guided_steps",
+        "reflection_prompt",
+        "breathing",
+        "journaling",
+        "checklist"
+      ],
       "note": "白名单外 Android fail closed"
     },
-    "SkillOut.estimated_duration": {"type": "integer|null"},
-    "SkillOut.completion_schema": {"type": "object|null"},
-    "SkillOut.safety_constraints": {"type": "array<string>|null"},
-    "SkillOut.revision": {"type": "integer"},
-    "SkillCompletion.status": {"enum": ["started", "completed", "stopped"]},
+    "SkillOut.estimated_duration": {
+      "type": "integer|null"
+    },
+    "SkillOut.completion_schema": {
+      "type": "object|null"
+    },
+    "SkillOut.safety_constraints": {
+      "type": "array<string>|null"
+    },
+    "SkillOut.revision": {
+      "type": "integer"
+    },
+    "SkillCompletion.status": {
+      "enum": [
+        "started",
+        "completed",
+        "stopped"
+      ]
+    },
     "OnboardingVerifyOut": {
-      "fields": ["user_id", "access_token", "consent_versions", "l0_decision", "restricted"],
-      "forbidden": ["tenant_id", "role", "external_ref"],
+      "fields": [
+        "user_id",
+        "access_token",
+        "consent_versions",
+        "l0_decision",
+        "restricted"
+      ],
+      "forbidden": [
+        "tenant_id",
+        "role",
+        "external_ref"
+      ],
       "note": "响应绝不暴露内部字段"
+    },
+    "PortraitOut": {
+      "fields": [
+        "date",
+        "status",
+        "confidence",
+        "baseline_days",
+        "baseline_version",
+        "headline",
+        "summary",
+        "dimensions",
+        "coverage",
+        "facts",
+        "timezone_used"
+      ],
+      "required": [
+        "date",
+        "status",
+        "confidence"
+      ],
+      "note": "status 枚举 WARMING_UP/EARLY_BASELINE/READY/PARTIAL_DATA/LOW_CONFIDENCE；confidence HIGH/MEDIUM/LOW"
+    },
+    "PortraitOut.dimensions": {
+      "type": "object",
+      "nested": {
+        "value": "string",
+        "metric": "string|null",
+        "z": "number|null"
+      },
+      "keys": [
+        "RHYTHM",
+        "MOVEMENT",
+        "SCREEN_AMOUNT",
+        "SCREEN_TIMING",
+        "DAY_STRUCTURE",
+        "STABILITY"
+      ],
+      "note": "Phase 5：SCREEN_PATTERN 拆分为 SCREEN_AMOUNT/SCREEN_TIMING；数据缺失的维度省略（missing != irregular）；STABILITY 额外携带 diff_count"
+    },
+    "PortraitOut.facts": {
+      "fields": [
+        "label",
+        "today_text",
+        "baseline_text",
+        "delta_text"
+      ],
+      "note": "「为什么这么说？」区四要素"
+    },
+    "PortraitOut.timezone_used": {
+      "type": "string",
+      "default": "Asia/Shanghai"
+    },
+    "BaselineStatusOut.bucket_usage": {
+      "type": "string",
+      "enum": [
+        "weekday",
+        "weekend",
+        "all_days"
+      ]
+    },
+    "BaselineStatusOut.today_coverage": {
+      "type": "number"
     }
   },
   "semantics": {
@@ -111,10 +259,23 @@
       "note": "Android SyncState 枚举：SYNCED/PENDING/SYNCING/OFFLINE/RETRYING/BLOCKED_BY_AUTH/BLOCKED_BY_CONSENT/FAILED_TERMINAL；UI 不暴露内部 HTTP 码"
     },
     "410": {
-      "deprecated_event_types": ["checkin", "journal", "questionnaire:*", "practice"],
+      "deprecated_event_types": [
+        "checkin",
+        "journal",
+        "questionnaire:*",
+        "practice"
+      ],
       "android_action": "DELETE_AND_MIGRATE（outbox 删除 + 迁移 telemetry）"
     },
     "429": "Android 记录 Retry-After，WorkManager 指数退避接管重试",
-    "verify_code_preauth": "激活交换无 Authorization；Android postWithBody 在 tokenProvider 为 null 时不带 Bearer 头"
+    "verify_code_preauth": "激活交换无 Authorization；Android postWithBody 在 tokenProvider 为 null 时不带 Bearer 头",
+    "portrait_get_no_side_effect": "GET /portraits/today、/portraits、/baseline/status 一律只读，不得写库/触发 materialize（rebuild 才写）",
+    "dimensions_forbidden_values": "PortraitOut.dimensions[].value 禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL（产品契约：不输出临床/评价性结论）",
+    "portrait_schema_version": "Android DailyPortraitDto 仅消费 value/metric/z；后端 STABILITY 的 diff_count 为附加字段，端侧忽略",
+    "portrait_me_vs_me": "画像只比较今天的你 vs 通常的你（个人基线），禁止人口平均值判断",
+    "portrait_abstain": "数据不足允许 abstain：WARMING_UP/EARLY_BASELINE/LOW_CONFIDENCE 不硬生成画像",
+    "portrait_passive_psych_boundary": "被动感知数据绝不推断情绪/自杀意图/精神疾病；Safety 与画像链独立",
+    "portrait_raw_sensor_never_persisted": "原始 sensor/audio 仅端侧内存，不落盘不上传；上云仅派生特征摘要+向量",
+    "portrait_mic_not_in_core": "mic-feature-v1 不进入 DailyBehaviorAggregate（外围特征，aggregate_eligible=false）"
   }
 }

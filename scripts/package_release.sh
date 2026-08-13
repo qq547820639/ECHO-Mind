@@ -2,10 +2,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${1:-/mnt/data}"
-VERSION="0.2.0"
-BASE="ECHO_Mind_Android_PathA_PilotCandidate_v${VERSION}"
+VERSION="0.7.0"
+BASE="ECHO_Mind_PortraitCore_v${VERSION}"
 # 源码已位于仓库根，打包时固定顶层目录名以保证产物可复现
-PKG_NAME="echo-mind-mobile-path-a"
+PKG_NAME="echo-mind-portrait-core"
 cd "$ROOT"
 ./scripts/release_preflight.sh
 sha256sum -c FILE_HASHES.sha256 >/tmp/echo-hash-check.txt

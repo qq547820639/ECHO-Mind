@@ -24,8 +24,8 @@ android {
         applicationId = "com.yunjue.echo.mind"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.6.0"
+        versionCode = 4
+        versionName = "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
@@ -89,4 +89,9 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Phase 1.2（跨端契约测试）：纯 JVM 单测使用真实 org.json（android.jar stub 在
+    // 非 Robolectric 路径下方法抛异常/返回默认值，无法解析 JSONObject）。org.json:json
+    // 是 android.jar 中 org.json 的官方镜像实现，API 兼容；Robolectric 测试类加载时
+    // 若命中本依赖的 org.json，行为与 android-all 一致。
+    testImplementation("org.json:json:20240303")
 }

@@ -20,7 +20,7 @@ import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.EchoMindApplication
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,25 +110,26 @@ class PassiveSensingService : Service() {
     }
 
     /**
-     * 三重门控（internal 便于单测）：
-     * 1. 用户 consent：PassiveSensingPrefs.passiveSensingEnabled（Onboarding/Support 写入）
-     * 2. 租户 feature flag：passive_sensing_enabled，无缓存/网络失败默认 false（fail-closed）
-     * 3. 必要权限：POST_NOTIFICATIONS（API 33+）/ 通知使用权 / 使用情况访问
-     *    （BODY_SENSORS 已移除：加速度/陀螺仪为普通传感器，Android 12+ 不需要该权限，
-     *    它保护的是心率等医学类传感器，见 docs/19b_权限矩阵_v0.6.2.md）
+     * 核心门控（Phase 6.1 Permission Degraded）：
+     * 仅要求 flag + consent + 核心传感器可用；**不要求** Notification Listener /
+     * Usage Access / Mic（拒绝任一只是 missing source + coverage 下降 + confidence 降低，
+     * 不得整个 sensing 停止）。
      */
     internal fun canStartSensing(): Boolean {
         val flagEnabled = isPassiveSensingEnabled()
         val consentGranted = isUserConsentGranted()
-        val postNotificationsGranted = Build.VERSION.SDK_INT < 33 ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        return passiveSensingGatePasses(
+        return coreSensingGatePasses(
             flagEnabled = flagEnabled,
             consentGranted = consentGranted,
-            postNotificationsGranted = postNotificationsGranted,
-            notificationAccessGranted = hasNotificationAccess(this),
-            usageAccessGranted = hasUsageAccess(this)
+            sensorAvailable = hasCoreSensors()
         )
+    }
+
+    /** 核心传感器是否可用（加速度计或陀螺仪任一存在）。 */
+    private fun hasCoreSensors(): Boolean {
+        val sm = getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager ?: return false
+        return sm.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER) != null ||
+            sm.getDefaultSensor(android.hardware.Sensor.TYPE_GYROSCOPE) != null
     }
 
     /**
@@ -138,7 +139,7 @@ class PassiveSensingService : Service() {
      * 隐私敏感 flag 在异常场景下停用而非启用。
      */
     private fun isPassiveSensingEnabled(): Boolean {
-        val appPrefs = AppPreferences(this, FieldCipher())
+        val appPrefs = AppPreferences(this, AndroidKeystoreFieldCipher())
         return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: false
     }
 
@@ -228,9 +229,23 @@ class PassiveSensingService : Service() {
         const val ACTION_STOP = "com.yunjue.echo.mind.action.STOP_SENSING"
 
         /**
-         * 三重门控纯函数（便于单测）：任一输入为 false 即不启动（fail-closed）。
-         * v0.6.2（Batch A 权限矩阵）：BODY_SENSORS 已移除（普通传感器无需该权限）。
+         * 核心门控纯函数（Phase 6.1 Permission Degraded）：flag + consent + 核心传感器可用。
+         *
+         * 旧三重门控（passiveSensingGatePasses，要求 POST_NOTIFICATIONS + 通知使用权 +
+         * 使用情况访问全具备）已废弃：拒绝 optional 权限不应停止核心 sensing。
+         * 保留旧函数仅为测试兼容（deprecated）。
          */
+        internal fun coreSensingGatePasses(
+            flagEnabled: Boolean,
+            consentGranted: Boolean,
+            sensorAvailable: Boolean
+        ): Boolean = flagEnabled && consentGranted && sensorAvailable
+
+        /**
+         * @deprecated Phase 6.1：改用 [coreSensingGatePasses]（optional 权限不阻断核心 sensing）。
+         * 保留仅为历史测试兼容。
+         */
+        @Deprecated("Phase 6.1：使用 coreSensingGatePasses（仅 flag+consent+核心传感器）")
         internal fun passiveSensingGatePasses(
             flagEnabled: Boolean,
             consentGranted: Boolean,

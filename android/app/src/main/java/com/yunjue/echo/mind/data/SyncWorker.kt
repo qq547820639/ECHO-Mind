@@ -227,6 +227,8 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
             eventType == "dsr" -> "/v1/data-subject-requests"
             eventType == "derived_feature" -> "/v1/features/ingest"
             eventType == "skill_completion" -> "/v1/skills/completions"
+            // Phase 6.6：画像反馈可靠同步（Outbox → POST /v1/me/portraits/feedback）
+            eventType == "portrait_feedback" -> "/v1/me/portraits/feedback"
             else -> null
         }
 

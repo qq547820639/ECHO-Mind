@@ -1,25 +1,30 @@
-"""Milestone B 测试：本地日窗口换算 / 聚合计算 / 幂等 upsert / ingest 端到端。"""
+"""Milestone B + Phase 5 (C2) 测试：本地日窗口换算 / 聚合计算 / 幂等 upsert / ingest 端到端。"""
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import DailyBehaviorAggregate, DerivedFeature
-from app.services.aggregates.calculator import compute_daily_aggregate, upsert_daily_aggregate
+from app.services.aggregates.calculator import (
+    compute_daily_aggregate,
+    expected_window_count,
+    upsert_daily_aggregate,
+)
 from app.services.aggregates.timezone import local_day_window
 
 TODAY = datetime.now(timezone.utc).date()
 
 
 def _feature(event_id: str, *, source: str, window_start: datetime, vector: dict | None = None,
-             sources_present: list[str] | None = None) -> DerivedFeature:
+             sources_present: list[str] | None = None,
+             schema_version: str = "passive-core-v1") -> DerivedFeature:
     v = [0.0] * 22
     if vector:
         for idx, val in vector.items():
             v[idx] = val
     return DerivedFeature(
         id=f"df_{event_id}", tenant_id="t_demo", user_id="u_demo", event_id=f"evt_{event_id}",
-        schema_version="feat-v1", source=source, window_start=window_start,
+        schema_version=schema_version, source=source, window_start=window_start,
         window_end=window_start + timedelta(minutes=5), summary="s", vector=v,
         sources_present=sources_present if sources_present is not None else [source],
     )
@@ -69,6 +74,13 @@ def test_day_window_crosses_midnight_utc():
 
 # ---- 聚合计算 ----
 
+def test_expected_window_count_dynamic_dst():
+    """expected_window_count 动态：普通日 288 / spring-forward 276 / fall-back 300。"""
+    assert expected_window_count("Asia/Shanghai", __import__("datetime").date(2026, 8, 10)) == 288
+    assert expected_window_count("America/New_York", __import__("datetime").date(2026, 3, 8)) == 276
+    assert expected_window_count("America/New_York", __import__("datetime").date(2026, 11, 1)) == 300
+
+
 def test_compute_daily_aggregate():
     tz = "Asia/Shanghai"
     local_date = __import__("datetime").date(2026, 8, 10)
@@ -87,7 +99,7 @@ def test_compute_daily_aggregate():
     ]
     data = compute_daily_aggregate(features, tz, local_date)
     assert data["valid_window_count"] == 6
-    assert data["expected_window_count"] == 288
+    assert data["expected_window_count"] == 288  # 普通日动态仍为 288
     assert data["coverage_score"] == round(6 / 288, 4)
     assert data["movement_index"] == 3.0
     assert data["movement_variability"] == 1.0
@@ -98,10 +110,80 @@ def test_compute_daily_aggregate():
     assert data["notification_count"] == 5
     assert data["active_start_minute"] == 8 * 60
     assert data["active_end_minute"] == 22 * 60 + 5  # 最后一个 active 窗口是 22:00（晚间屏幕）
-    assert data["rhythm_regularity"] == round(4 / 24, 4)
+    assert data["active_hour_spread"] == round(4 / 24, 4)
     assert data["sources_present"] == ["accel", "app_activity", "notification", "screen"]
     assert data["missing_sources"] == ["gyro"]
     assert data["schema_version"] == "agg-v1"
+
+
+def test_coverage_unique_windows_ignores_duplicates():
+    """coverage 只计 unique (window_start, schema, source)：重复/重试不重复计数。"""
+    tz = "Asia/Shanghai"
+    local_date = __import__("datetime").date(2026, 8, 10)
+    utc_start, _ = local_day_window(tz, local_date)
+
+    def local_minute(minute: int) -> datetime:
+        return utc_start + timedelta(minutes=minute)
+
+    features = [
+        _feature("d1", source="screen", window_start=local_minute(8 * 60), vector={14: 1, 16: 60000}),
+        # 同一 window_start + schema + source 的重复行（retry）→ 不重复计数
+        _feature("d2", source="screen", window_start=local_minute(8 * 60), vector={14: 1, 16: 60000}),
+        _feature("d3", source="screen", window_start=local_minute(8 * 60), vector={14: 1, 16: 60000}),
+        _feature("d4", source="accel", window_start=local_minute(9 * 60), vector={7: 2.0}),
+        _feature("d5", source="accel", window_start=local_minute(9 * 60), vector={7: 4.0}),
+    ]
+    data = compute_daily_aggregate(features, tz, local_date)
+    # 3 个 screen 重复 + 2 个 accel 重复 → 去重后 2 个 unique 窗口
+    assert data["valid_window_count"] == 2
+    assert data["coverage_score"] == round(2 / 288, 4)
+
+
+def test_mic_and_health_not_in_aggregate():
+    """mic_opt（mic-feature-v1）与 health 不进入聚合统计（外围特征）。"""
+    tz = "Asia/Shanghai"
+    local_date = __import__("datetime").date(2026, 8, 10)
+    utc_start, _ = local_day_window(tz, local_date)
+
+    def local_minute(minute: int) -> datetime:
+        return utc_start + timedelta(minutes=minute)
+
+    features = [
+        _feature("m1", source="screen", window_start=local_minute(8 * 60), vector={14: 1, 16: 60000}),
+        # mic_opt：mic-feature-v1（aggregate_eligible=False）→ 不参与
+        _feature("m2", source="mic_opt", window_start=local_minute(9 * 60), vector={7: 99.0},
+                 schema_version="mic-feature-v1"),
+        # health：passive-core-v1 但无统计槽位 → 不参与
+        _feature("m3", source="health", window_start=local_minute(10 * 60), vector={16: 999999},
+                 sources_present=["health"]),
+    ]
+    data = compute_daily_aggregate(features, tz, local_date)
+    assert data["valid_window_count"] == 1
+    assert data["screen_on_minutes"] == 1.0
+    assert data["movement_index"] is None
+    assert data["sources_present"] == ["screen"]  # health 仅经核心窗口 sources_present 进入
+    assert data["missing_sources"] == ["accel", "app_activity", "gyro", "notification"]
+
+
+def test_dst_dynamic_expected_and_coverage():
+    """DST 日 expected 动态（23h→276 / 25h→300），coverage 用动态分母。"""
+    # spring-forward 23h 日
+    tz = "America/New_York"
+    local_date = __import__("datetime").date(2026, 3, 8)
+    utc_start, _ = local_day_window(tz, local_date)
+    data = compute_daily_aggregate(
+        [_feature("sf1", source="screen", window_start=utc_start, vector={14: 1, 16: 60000})],
+        tz, local_date)
+    assert data["expected_window_count"] == 276
+    assert data["coverage_score"] == round(1 / 276, 4)
+    # fall-back 25h 日
+    local_date2 = __import__("datetime").date(2026, 11, 1)
+    utc_start2, _ = local_day_window(tz, local_date2)
+    data2 = compute_daily_aggregate(
+        [_feature("fb1", source="screen", window_start=utc_start2, vector={14: 1, 16: 60000})],
+        tz, local_date2)
+    assert data2["expected_window_count"] == 300
+    assert data2["coverage_score"] == round(1 / 300, 4)
 
 
 def test_compute_daily_aggregate_no_active_windows():
@@ -112,7 +194,7 @@ def test_compute_daily_aggregate_no_active_windows():
     data = compute_daily_aggregate(features, tz, local_date)
     assert data["active_start_minute"] is None
     assert data["active_end_minute"] is None
-    assert data["rhythm_regularity"] is None
+    assert data["active_hour_spread"] is None
 
 
 def test_compute_daily_aggregate_defensive_vector_bounds():
@@ -156,7 +238,7 @@ def test_ingest_triggers_aggregate(client, user_headers, passive_sensing_consent
     payload = {
         "event_id": "evt_dag_e2e_0001",
         "user_id": "u_demo",
-        "schema_version": "feat-v1",
+        "schema_version": "passive-core-v1",
         "source": "screen",
         "window_start": datetime.now(timezone.utc).isoformat(),
         "window_end": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
@@ -180,7 +262,7 @@ def test_ingest_replay_does_not_touch_aggregate_twice(client, user_headers, pass
     payload = {
         "event_id": "evt_dag_e2e_0002",
         "user_id": "u_demo",
-        "schema_version": "feat-v1",
+        "schema_version": "passive-core-v1",
         "source": "screen",
         "window_start": datetime.now(timezone.utc).isoformat(),
         "window_end": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),

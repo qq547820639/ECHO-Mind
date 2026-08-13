@@ -134,8 +134,9 @@ class PortraitStateMachineTest {
 
     @Test
     fun partialDataCopyMatchesSpec() {
+        // Phase 6.2（规格 §2.3）：横幅补充「缺失来源不影响已有部分的有效性」
         assertEquals(
-            "今天的数据还不完整，以下画像仅反映已经采集到的部分。",
+            "今天的数据还不完整，以下画像仅反映已经采集到的部分。缺失来源不会影响已有部分的有效性。",
             todayPortraitStateText(PortraitStatus.PARTIAL_DATA)
         )
     }
@@ -147,7 +148,11 @@ class PortraitStateMachineTest {
 
     @Test
     fun sensingDisabledCopyMatchesSpec() {
-        assertEquals("被动感知已关闭。", todayPortraitStateText(PortraitStatus.SENSING_DISABLED))
+        // Phase 6.2（规格 §2.3）：事实 + 恢复路径，不焦虑不推断
+        assertEquals(
+            "被动感知已关闭，ECHO 暂时无法生成画像。重新开启后，它会继续学习你的日常节奏。",
+            todayPortraitStateText(PortraitStatus.SENSING_DISABLED)
+        )
     }
 
     @Test

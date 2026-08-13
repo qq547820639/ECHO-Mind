@@ -13,6 +13,7 @@ import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
 import com.yunjue.echo.mind.sensing.SensorCollector
+import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import com.yunjue.echo.mind.security.FieldCipher
 import net.sqlcipher.database.SupportFactory
 
@@ -175,18 +176,22 @@ internal val MIGRATION_6_7 = object : Migration(6, 7) {
 }
 
 class AppContainer(context: Context) {
-    val cipher = FieldCipher()
+    /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。 */
+    val cipher: FieldCipher = AndroidKeystoreFieldCipher()
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
 
     /**
-     * SQLCipher 全库加密数据库。
+     * SQLCipher 全库加密数据库（Phase 3.1 Privacy Fail-Closed）。
      *
-     * 生产（真机/模拟器）：native lib 可用 → 恒走 SQLCipher 加密分支（口令由 Keystore 派生）。
-     * JVM 单测（Robolectric）：宿主 JVM 无 sqlcipher native lib，降级普通 SQLite——
-     * 仅测试路径生效，生产安全语义完全不变（与 FieldCipher 的 JVM-only 降级一致）。
+     * 生产语义：SQLCipher native lib 加载失败 → **fail closed**（抛 IllegalStateException，
+     * 不创建任何明文敏感数据库）。禁止 `runCatching{...}.getOrElse{普通Room}` 静默回退。
+     *
+     * JVM/Robolectric 测试需要普通 Room 时：使用显式 **Test Database Factory**
+     * （测试内 `Room.inMemoryDatabaseBuilder(...)`，见 DatabaseMigrationTest 等），
+     * 与生产路径完全分离；本容器不提供测试降级。
      */
-    val database = runCatching { net.sqlcipher.database.SQLiteDatabase.loadLibs(context) }
+    val database: EchoDatabase = runCatching { net.sqlcipher.database.SQLiteDatabase.loadLibs(context) }
         .map {
             Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
                 .addMigrations(
@@ -197,12 +202,11 @@ class AppContainer(context: Context) {
                 .build()
         }
         .getOrElse {
-            // JVM 单测降级：sqlcipher native lib 不可用 → 普通 SQLite（仅测试；生产恒加密）
-            Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
-                .addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
-                )
-                .build()
+            // Phase 3.1：SQLCipher 不可用 → fail closed，绝不静默回退明文 Room。
+            throw IllegalStateException(
+                "SQLCipher native library load failed in production: ${it.javaClass.simpleName}: ${it.message}",
+                it,
+            )
         }
     val repository = LocalRepository(database, cipher, preferences, ApiClient(tokenProvider = { preferences.accessToken }))
 

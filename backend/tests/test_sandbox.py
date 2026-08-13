@@ -76,7 +76,7 @@ def test_audit_day_reads_daily_data():
             tenant_id="t_demo",
             user_id="u_demo",
             event_id="evt_sandbox_audit_0001",
-            schema_version="feat-v1",
+            schema_version="passive-core-v1",
             source="screen",
             window_start=noon,
             window_end=noon + timedelta(minutes=30),

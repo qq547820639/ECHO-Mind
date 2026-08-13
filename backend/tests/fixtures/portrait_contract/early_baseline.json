@@ -1,0 +1,13 @@
+{
+  "date": "2026-08-10",
+  "status": "EARLY_BASELINE",
+  "confidence": "LOW",
+  "baseline_days": 5,
+  "baseline_version": null,
+  "headline": [],
+  "summary": "已积累 5 天基线数据，画像将随数据积累逐步完善。",
+  "dimensions": {},
+  "coverage": {"coverage_score": 0.35},
+  "facts": [],
+  "timezone_used": "Asia/Shanghai"
+}

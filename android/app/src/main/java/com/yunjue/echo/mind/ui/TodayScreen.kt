@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,11 +25,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.LocalRepository
@@ -246,11 +250,24 @@ private fun PortraitSummaryOnly(state: PortraitUiState) {
 private fun PortraitFullBody(state: PortraitUiState) {
     val portrait = state.portrait ?: return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // 1. headline chips
+        // 1. headline 标签（Phase 6.5：非交互 semantic 组件——不用 AssistChip(onClick={}) 假交互；
+        //    无 onClick/focusable，不进入焦点顺序；contentDescription 即标签文本供 TalkBack 朗读）
         if (portrait.headline.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 portrait.headline.forEach { headline ->
-                    AssistChip(onClick = {}, label = { Text(headline) })
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.semantics {
+                            contentDescription = headline
+                        }
+                    ) {
+                        Text(
+                            headline,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
         }
@@ -265,14 +282,14 @@ private fun PortraitFullBody(state: PortraitUiState) {
             val orderedKeys = PORTRAIT_DIMENSIONS.filter { it in portrait.dimensions } +
                 portrait.dimensions.keys.filter { it !in PORTRAIT_DIMENSIONS }
             orderedKeys.forEach { key ->
-                val value = portrait.dimensions[key] ?: return@forEach
+                val dim = portrait.dimensions[key] ?: return@forEach
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(dimensionDisplayName(key), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        dimensionValueText(key, value),
+                        dimensionValueText(key, dim.value),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -333,6 +350,7 @@ private fun FactsSection(portrait: DailyPortraitDto) {
 private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiState) {
     val portrait = state.portrait ?: return
     val date = portrait.date
+    val scope = rememberCoroutineScope()
     var feedback by remember(date) { mutableStateOf(repository.portraitFeedback(date)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
@@ -340,11 +358,12 @@ private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiSt
         if (feedback == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = {
-                    repository.recordPortraitFeedback(date, helpful = true)
+                    // Phase 6.6：反馈本地记录 + 入 Outbox（可靠同步），UI 即时反馈
+                    scope.launch { repository.recordPortraitFeedback(date, helpful = true) }
                     feedback = true
                 }) { Text(PORTRAIT_COPY_FEEDBACK_LIKE) }
                 OutlinedButton(onClick = {
-                    repository.recordPortraitFeedback(date, helpful = false)
+                    scope.launch { repository.recordPortraitFeedback(date, helpful = false) }
                     feedback = false
                 }) { Text(PORTRAIT_COPY_FEEDBACK_NOT_LIKE) }
             }

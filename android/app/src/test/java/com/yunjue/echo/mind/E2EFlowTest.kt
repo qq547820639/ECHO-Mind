@@ -1,11 +1,13 @@
 package com.yunjue.echo.mind
 
+import android.hardware.Sensor
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.sensing.FeatureExtractor
 import com.yunjue.echo.mind.sensing.NotificationCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
+import com.yunjue.echo.mind.sensing.SensorSample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -66,7 +68,7 @@ class E2EFlowTest {
         val features = FeatureExtractor().extract(
             windowStart = windowStart,
             windowEnd = now,
-            accelSamples = listOf(floatArrayOf(0.1f, 0.2f, 9.8f)),
+            accelSamples = listOf(SensorSample(now.minusSeconds(250).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, 0.1f, 0.2f, 9.8f)),
             screenEvents = listOf(
                 ScreenCollector.ScreenEvent(now.minusSeconds(60).toEpochMilli(), ScreenCollector.ScreenState.ON)
             ),
@@ -85,8 +87,8 @@ class E2EFlowTest {
         )
         assertEquals("DerivedFeatureInput 字段集合应为 $expectedFields", expectedFields, inputFields)
 
-        // 验证字段值
-        assertEquals("feat-v1", input.schemaVersion)
+        // 验证字段值（Phase 4/5：默认 schema 为 passive-core-v1）
+        assertEquals("passive-core-v1", input.schemaVersion)
         assertTrue("source 应为有效值", input.source in setOf("accel", "gyro", "screen", "notification", "app_activity", "health", "mic_opt"))
         assertEquals(windowStart, input.windowStart)
         assertEquals(now, input.windowEnd)
@@ -101,7 +103,7 @@ class E2EFlowTest {
         val features = FeatureExtractor().extract(
             windowStart = now.minusSeconds(300),
             windowEnd = now,
-            accelSamples = listOf(floatArrayOf(0.1f, 0.2f, 9.8f)),
+            accelSamples = listOf(SensorSample(now.minusSeconds(250).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, 0.1f, 0.2f, 9.8f)),
             screenEvents = listOf(
                 ScreenCollector.ScreenEvent(now.minusSeconds(60).toEpochMilli(), ScreenCollector.ScreenState.ON)
             ),
@@ -144,8 +146,11 @@ class E2EFlowTest {
         val features = FeatureExtractor().extract(
             windowStart = now.minusSeconds(300),
             windowEnd = now,
-            accelSamples = listOf(floatArrayOf(0.1f, 0.2f, 9.8f), floatArrayOf(0.2f, 0.3f, 9.7f)),
-            gyroSamples = listOf(floatArrayOf(0.01f, 0.02f, 0.03f)),
+            accelSamples = listOf(
+                SensorSample(now.minusSeconds(250).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, 0.1f, 0.2f, 9.8f),
+                SensorSample(now.minusSeconds(200).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, 0.2f, 0.3f, 9.7f)
+            ),
+            gyroSamples = listOf(SensorSample(now.minusSeconds(240).toEpochMilli(), Sensor.TYPE_GYROSCOPE, 0.01f, 0.02f, 0.03f)),
             screenEvents = listOf(
                 ScreenCollector.ScreenEvent(now.minusSeconds(60).toEpochMilli(), ScreenCollector.ScreenState.ON)
             ),
@@ -164,8 +169,10 @@ class E2EFlowTest {
     fun derivedFeatureInputSummaryRespects4000CharLimit() {
         // 端侧 FeatureExtractor 已硬性限制 summary ≤4000 字
         val now = Instant.now()
-        // 构造大量信号触发长摘要
-        val accelSamples = (1..500).map { floatArrayOf(it.toFloat() * 0.01f, 0f, 9.8f) }
+        // 构造大量信号触发长摘要（accel 样本时间戳递增，落在窗口内）
+        val accelSamples = (1..500).map {
+            SensorSample(now.minusSeconds(300 - it / 2).toEpochMilli(), Sensor.TYPE_ACCELEROMETER, it.toFloat() * 0.01f, 0f, 9.8f)
+        }
         val screenEvents = (1..100).map {
             ScreenCollector.ScreenEvent(now.minusSeconds((300 - it * 2).toLong()).toEpochMilli(), ScreenCollector.ScreenState.ON)
         }
@@ -197,7 +204,7 @@ class E2EFlowTest {
         //   schema_version / source / window_start / window_end / summary / vector（DerivedFeatureInput）
         //   sources_present（T02 新增）
         val input = DerivedFeatureInput(
-            schemaVersion = "feat-v1",
+            schemaVersion = "passive-core-v1",
             source = "screen",
             windowStart = Instant.now(),
             windowEnd = Instant.now().plusSeconds(300),

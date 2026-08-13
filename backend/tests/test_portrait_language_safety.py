@@ -3,7 +3,6 @@
 禁止词：焦虑、抑郁、孤独、压力过大、心理异常、风险、精神疾病、社交退缩、不健康。
 遍历模板句子常量 + 各状态生成的实际文案（summary + highlights + facts）。
 """
-from datetime import date
 
 from app.database import SessionLocal
 from app.services.aggregates.timezone import local_day_window
@@ -25,7 +24,8 @@ def test_template_sentences_are_clean():
     for mapping in (
         narrative_mod.RHYTHM_SENTENCES,
         narrative_mod.MOVEMENT_SENTENCES,
-        narrative_mod.SCREEN_SENTENCES,
+        narrative_mod.SCREEN_AMOUNT_SENTENCES,
+        narrative_mod.SCREEN_TIMING_SENTENCES,
         narrative_mod.DAY_STRUCTURE_SENTENCES,
         narrative_mod.STABILITY_SENTENCES,
     ):

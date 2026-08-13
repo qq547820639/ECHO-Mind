@@ -2,11 +2,16 @@
 
 - percentile 固定使用线性插值（numpy 风格）；
 - 空值处理：输入为空 → 各统计量返回 None（valid_days=0）；
-- 全零数据正常计算（median=0, mad=0, p10..p90=0）。
+- 全零数据正常计算（median=0, mad=0, p10..p90=0）；
+- circular=True（Phase 5, C3）：对时间类分钟指标（active_start_minute /
+  active_end_minute）使用圆周 median/MAD，p10..p90 恒为 None（圆周分位数无
+  线性意义，且 _scale 的 (p75-p25)/2 在 None 时按 0 处理，退化为 mad 驱动）。
 """
 from __future__ import annotations
 
 from statistics import median as _median
+
+from app.services.baseline.circular import circular_mad, circular_median
 
 
 def median(values: list[float]) -> float | None:
@@ -36,8 +41,12 @@ def percentile(values: list[float], p: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (k - lower)
 
 
-def compute_stats(values: list[float]) -> dict:
-    """计算指标的 robust 统计量；空输入返回全 None + valid_days=0。"""
+def compute_stats(values: list[float], *, circular: bool = False) -> dict:
+    """计算指标的 robust 统计量；空输入返回全 None + valid_days=0。
+
+    circular=True 时：median/mad 使用圆周统计（见模块 docstring），
+    p10/p25/p75/p90 恒为 None。
+    """
     if not values:
         return {
             "median": None,
@@ -47,6 +56,16 @@ def compute_stats(values: list[float]) -> dict:
             "p75": None,
             "p90": None,
             "valid_days": 0,
+        }
+    if circular:
+        return {
+            "median": circular_median(values),
+            "mad": circular_mad(values),
+            "p10": None,
+            "p25": None,
+            "p75": None,
+            "p90": None,
+            "valid_days": len(values),
         }
     return {
         "median": median(values),

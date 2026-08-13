@@ -5,19 +5,20 @@
 """
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC, datetime, timezone
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import SessionLocal
 from app.models import User
 from app.schemas import DerivedFeatureIn
 from app.services.aggregates.calculator import upsert_daily_aggregate
 from app.services.audit import append_audit
+from app.services.portrait.materializer import mark_dirty, materialize_dirty
 from app.services.profile import build_daily_narrative, ingest_feature
+from app.services.schema_registry import is_aggregate_eligible
 
 from app.api.deps import (
     DB,
@@ -67,9 +68,12 @@ def ingest_derived_feature(
         user_id=payload.user_id,
         date=payload.window_start.date(),
     )
-    # Milestone B：非幂等重放时同步更新当日行为聚合（日界线用用户本地时区）
+    # Milestone B：非幂等重放时同步更新当日行为聚合（日界线用用户本地时区）。
+    # Phase 5（C1）：仅 aggregate_eligible schema（passive-core-v1）触发聚合与
+    # 物化；mic_opt 等外围特征仍 ingest 存储但绝不进入 DailyBehaviorAggregate。
     user = db.get(User, payload.user_id)
-    if user is not None:
+    local_today = None
+    if user is not None and is_aggregate_eligible(payload.schema_version):
         tz_name = user.timezone or "Asia/Shanghai"
         ws = payload.window_start
         if ws.tzinfo is None:  # SQLite 路径防御：naive 一律按 UTC 解释
@@ -82,10 +86,31 @@ def ingest_derived_feature(
             local_date=local_date,
             tz_name=tz_name,
         )
+        # Phase 2：聚合更新后标记 dirty（幂等合并；同一天多次 ingest 只合并一行）
+        mark_dirty(db, tenant_id=principal.tenant_id, user_id=payload.user_id, local_date=local_date)
+        # 物化边界：当前用户本地日（晚到日期 <= today 均会补齐）
+        local_today = datetime.now(UTC).astimezone(ZoneInfo(tz_name)).date()
     # PRD v0.6 契约点 1：被动行为数据不得用于推断危机/自杀意图，
     # ingest 不触发任何被动 RED 危机链路（escalation_id 恒为 None）。
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="feature.ingest", object_type="derived_feature", object_id=row.id,
                  metadata={"source": payload.source})
     db.commit()
+    # Phase 2：ingest commit 后独立事务触发自动物化（每天自动生成画像）。
+    # 失败只影响 materialization，不影响 ingest 成功返回；dirty 保持 true 下次重试。
+    # Phase 5（C1）：仅 aggregate_eligible schema 触发物化（mic 等外围特征不触发）。
+    if user is not None and is_aggregate_eligible(payload.schema_version):
+        try:
+            with SessionLocal() as mdb:
+                materialize_dirty(
+                    mdb,
+                    tenant_id=principal.tenant_id,
+                    user_id=payload.user_id,
+                    tz_name=user.timezone or "Asia/Shanghai",
+                    today=local_today,
+                )
+                mdb.commit()
+        except Exception:
+            # 仅物化失败：ingest 已成功返回；dirty 未清 → 下次 ingest 自动重试
+            count_event("portrait_materialize_failed")
     return {"id": row.id, "idempotent_replay": False, "escalation_id": None}

@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "echo-mind-path-a"
-version = "0.6.0"
+name = "echo-mind-portrait-core"
+version = "0.7.0"
 description = "ECHO Mind Path A mobile backend and clinician console"
 requires-python = ">=3.12"
 dependencies = [

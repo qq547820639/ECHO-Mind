@@ -13,18 +13,20 @@ import java.time.Instant
 enum class WindowFlushResult { SUCCESS, FAILURE_RETRYABLE }
 
 /**
- * 5 分钟窗口调度器（T02 P0/P1）。
+ * 5 分钟窗口调度器（T02 P0/P1 + Phase 4 Immutable Window）。
  *
  * - 按固定 5 分钟窗口对齐（基于 epoch 毫秒，可注入 [Clock] 便于测试）；
- * - 每个窗口结束时从 [SensingEventHub] 取非破坏快照（[SensingEventHub.snapshotAll]），
- *   调用 [FeatureExtractor.extractFromHub] 产出 [DerivedFeatureInput]，
+ * - 每个窗口结束时从 [SensingEventHub] 取**不可变快照**（[SensingEventHub.snapshotAll]），
+ *   调用 [FeatureExtractor.extractFromSnapshot] 产出 [DerivedFeatureInput]，
  *   麦克风派生特征经 [MicDerivedFeatureSource.snapshot] 消费并转为 source="mic_opt" 输入；
  * - **ACK 语义（消除静默丢失）**：
- *   1. snapshot（非破坏）→ extract（纯函数）→ 调 [onWindowReady] 持久化；
+ *   1. snapshot（非破坏）→ extract（纯函数，吃快照不读 live hub）→ 调 [onWindowReady] 持久化；
  *   2. 持久化成功（返回 true）→ 才 [SensingEventHub.clearConsumed] + mic clearConsumed
  *      + 窗口进入 flushed 集；
  *   3. 持久化失败（false/异常）→ 快照/缓冲保留、窗口不进 flushed 集、进入 bounded retry
- *      （[MAX_WINDOW_RETRY]），失败可观测（[retryCount]）。
+ *      （[MAX_WINDOW_RETRY]），失败可观测（[retryCount]）；
+ *   4. Phase 4：retry 重处理**同一个** snapshot（不可变；快照后新到事件只能属于后一个窗口，
+ *      绝不重新读 live hub 把新事件混入旧窗口）；success 只清同一批事件。
  * - 服务被系统重启后基于 windowStart 对齐 epoch 恢复窗口（内存缓冲随进程消亡，无脏数据）；
  * - 同一 windowStart 只 flush 一次（去重保护）；flushed 集为有界去重范围（只保留最近 N 个窗口）；
  * - [WINDOW_DURATION_MS] 引用 [FeatureExtractor.WINDOW_DURATION_MS]（5*60*1000）。
@@ -106,8 +108,15 @@ class SensingWindowScheduler(
     /**
      * flush 单个窗口（internal 便于单测直接调用）。
      *
+     * Phase 4（Immutable Window）：
+     * - 非破坏快照 [SensingEventHub.snapshotAll] **一次取定**，传给
+     *   [FeatureExtractor.extractFromSnapshot]——绝不在此处再读 live hub；
+     * - retry 重处理同一快照（[pendingRetries] 保存快照，保证"重试必须重新处理同一个 snapshot"）；
+     * - 成功只清同一批事件（[SensingEventHub.clearConsumed(snapshot)]）；
+     * - terminal failure（超限）记录 gap（dropPendingWindow + 可观测计数），不污染下一窗口；
+     * - 屏幕 carry-over / App foreground 由 shared 状态提供（Phase 4.3）。
+     *
      * - 去重：同一 windowStart 只 flush 一次（成功路径）；
-     * - 非破坏快照提取主模态 + 麦克风特征；
      * - 窗口无任何信号时不调 [onWindowReady]（空窗不产生特征），直接标记 flushed；
      * - [onWindowReady] 返回 true → 清 consumed + 进 flushed 集 + 清 retry；
      *   false/异常 → 保留缓冲，进 bounded retry。
@@ -120,17 +129,23 @@ class SensingWindowScheduler(
         val startMs = windowStart.toEpochMilli()
         if (startMs in flushedWindowStarts) return WindowFlushResult.SUCCESS
 
-        // 1. 非破坏快照（本窗口消费项；快照后新到项保留）
+        // 1. 非破坏快照（本窗口消费项；快照后新到项保留）——Phase 4：不可变，retry 复用同一快照
         val hubSnapshot = hub.snapshotAll()
         val micSnapshot = micCollector?.snapshot().orEmpty()
 
-        // 2. 纯函数提取
+        // 2. 纯函数提取（吃快照，不读 live hub；carry 状态进程级共享）
         val inputs = buildList {
-            addAll(featureExtractor.extractFromHub(windowStart, windowEnd, hub))
+            addAll(featureExtractor.extractFromSnapshot(
+                windowStart,
+                windowEnd,
+                hubSnapshot,
+                screenCarryState = ScreenCollector.carryState(),
+                appForeground = AppActivityCollector.foregroundState()
+            ))
             micSnapshot.forEach { f ->
                 add(
                     DerivedFeatureInput(
-                        schemaVersion = "feat-v1",
+                        schemaVersion = "mic-feature-v1",
                         source = "mic_opt",
                         windowStart = windowStart,
                         windowEnd = windowEnd,

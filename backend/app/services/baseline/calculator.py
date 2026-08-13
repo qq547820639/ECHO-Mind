@@ -22,6 +22,8 @@ from app.services.baseline.models import BaselineSnapshot
 WINDOW_DAYS = 28
 #: 有效日覆盖阈值
 MIN_COVERAGE = 0.25
+#: 桶内最少有效日（不足则 fallback all_days）
+MIN_BUCKET_DAYS = 2
 #: 基线版本（简化方案：固定版本幂等覆盖，不做 revision 递增）
 BASELINE_VERSION = "base-v1"
 
@@ -35,8 +37,11 @@ BASELINE_METRICS = (
     "notification_count",
     "active_start_minute",
     "active_end_minute",
-    "rhythm_regularity",
+    "active_hour_spread",
 )
+
+#: 时间类分钟指标：使用圆周 median/MAD（23:55 与 00:05 正确接近）
+CIRCULAR_METRICS = ("active_start_minute", "active_end_minute")
 
 
 def baseline_state(valid_days: int) -> str:
@@ -52,7 +57,7 @@ def _stats_for(aggs: list[DailyBehaviorAggregate]) -> dict:
     metrics: dict = {}
     for name in BASELINE_METRICS:
         values = [float(getattr(a, name)) for a in aggs if getattr(a, name) is not None]
-        metrics[name] = compute_stats(values)
+        metrics[name] = compute_stats(values, circular=(name in CIRCULAR_METRICS))
     return metrics
 
 
@@ -91,12 +96,12 @@ def build_baseline(
 
     today_bucket = bucket_for_date(today_local)
     if today_bucket == "weekday":
-        if weekday_days >= 2:
+        if weekday_days >= MIN_BUCKET_DAYS:
             bucket, chosen, valid_days = "weekday", weekday_aggs, weekday_days
         else:
             bucket, chosen, valid_days = "all_days", aggs, all_days
     else:
-        if weekend_days >= 2:
+        if weekend_days >= MIN_BUCKET_DAYS:
             bucket, chosen, valid_days = "weekend", weekend_aggs, weekend_days
         else:
             bucket, chosen, valid_days = "all_days", aggs, all_days

@@ -1,13 +1,14 @@
-"""Milestone D 测试：golden 场景 + 确定性断言（直接调 service/engine，不依赖 HTTP）。
+"""Milestone D + Phase 5 (C4) 测试：golden 场景 + 确定性断言（直接调 service/engine，不依赖 HTTP）。
 
 场景：
-- scenario_001 偏晚/移动减少/屏幕接近 → LATER/LESS/SIMILAR + 偏晚 headline；
+- scenario_001 偏晚/移动减少/屏幕接近 → RHYTHM LATER / MOVEMENT LESS / SCREEN_AMOUNT SIMILAR + 偏晚 headline；
 - scenario_002 全相似 → VERY_SIMILAR；
-- scenario_003 屏幕暴增 → SCREEN_PATTERN LATER（晚屏）；
+- scenario_003 屏幕暴增 → SCREEN_AMOUNT MORE + SCREEN_TIMING LATER（多屏+晚屏）；
 - scenario_004 低覆盖 → LOW_CONFIDENCE；
 - scenario_005 冷启动 → WARMING_UP；
 - scenario_006 部分数据 → PARTIAL_DATA；
-- scenario_007 早期基线 → EARLY_BASELINE（事实句）。
+- scenario_007 早期基线 → EARLY_BASELINE（事实句）；
+- scenario_008 RHYTHM 数据缺失 → 维度省略（missing != irregular）。
 """
 from datetime import date, timedelta
 
@@ -28,7 +29,7 @@ def _df_row(event_id: str, *, source: str, local_minute: int, utc_start, vector:
             v[idx] = val
     return DerivedFeature(
         id=f"df_{event_id}", tenant_id="t_demo", user_id="u_demo", event_id=f"evt_{event_id}",
-        schema_version="feat-v1", source=source, window_start=ws,
+        schema_version="passive-core-v1", source=source, window_start=ws,
         window_end=ws + timedelta(minutes=5), summary="s", vector=v,
         sources_present=sources if sources is not None else [source],
     )
@@ -72,7 +73,7 @@ def make_baseline_rows(today: date = TODAY, days: int = 28) -> list[DailyBehavio
             screen_on_minutes=120.0 + k * 2.0, screen_open_count=30,
             late_screen_minutes=20.0 + k, app_switch_count=40 + k,
             active_start_minute=480 + k * 5, active_end_minute=1320 + k * 5,
-            notification_count=10 + k, rhythm_regularity=0.16 + k * 0.005,
+            notification_count=10 + k, active_hour_spread=0.16 + k * 0.005,
             sources_present=["accel", "gyro", "screen", "notification", "app_activity"],
             missing_sources=[], schema_version="agg-v1",
         ))
@@ -87,7 +88,11 @@ def _seed(db, today: date, kwargs: dict, baseline_days: int = 28, pad: int = 240
 
 
 def test_scenario_001_later_less_screen_similar():
-    """偏晚（active_start 540 vs med 495）+ 移动减少（0.5 vs 1.06）+ 屏幕接近（126 vs 126）。"""
+    """偏晚（active_start 540 vs med 495）+ 移动减少（0.5 vs 1.06）+ 屏幕接近（126 vs 126）。
+
+    Phase 5（C4）：active_hour_spread 差异 0.045 < MIN_ABS_DELTA(0.05) → SIMILAR，
+    因此 STABILITY diff_count=2（RHYTHM LATER + MOVEMENT LESS）→ SLIGHTLY_DIFFERENT。
+    """
     today = TODAY
     with SessionLocal() as db:
         _seed(db, today, dict(active_start=540, movement=0.5, screen_minutes=126.0, late_minutes=23.0))
@@ -95,8 +100,12 @@ def test_scenario_001_later_less_screen_similar():
         assert row.status == "READY"
         assert row.dimensions["RHYTHM"]["value"] == "LATER"
         assert row.dimensions["MOVEMENT"]["value"] == "LESS"
-        assert row.dimensions["SCREEN_PATTERN"]["value"] == "SIMILAR"
-        assert row.dimensions["STABILITY"]["value"] == "CLEARLY_DIFFERENT"
+        assert row.dimensions["SCREEN_AMOUNT"]["value"] == "SIMILAR"
+        assert row.dimensions["SCREEN_TIMING"]["value"] == "SIMILAR"
+        assert row.dimensions["DAY_STRUCTURE"]["value"] == "SIMILAR"
+        assert "SCREEN_PATTERN" not in row.dimensions  # 旧合并维度已移除
+        assert row.dimensions["STABILITY"]["value"] == "SLIGHTLY_DIFFERENT"
+        assert row.dimensions["STABILITY"]["diff_count"] == 2
         assert "稍晚" in row.summary
         assert "少了一些" in row.summary
         assert "比较接近" in row.summary
@@ -114,18 +123,24 @@ def test_scenario_002_all_similar():
         assert row.status == "READY"
         assert row.dimensions["STABILITY"]["value"] == "VERY_SIMILAR"
         assert "非常接近" in row.summary
-        assert "稳定" in row.highlights
+        # Phase 6.2：headline 用行为措辞「接近」（替换「稳定」，消除心理暗示歧义）
+        assert "接近" in row.highlights
 
 
 def test_scenario_003_screen_surge():
-    """屏幕暴增（300 vs 126）且晚间也高（120 vs 23）→ SCREEN_PATTERN LATER（晚屏）。"""
+    """屏幕暴增（300 vs 126）且晚间也高（120 vs 23）→ SCREEN_AMOUNT MORE + SCREEN_TIMING LATER。"""
     today = TODAY
     with SessionLocal() as db:
         _seed(db, today, dict(active_start=495, movement=1.06, screen_minutes=300.0, late_minutes=120.0))
         row = generate_portrait(db, tenant_id="t_demo", user_id="u_demo", local_date=today)
         assert row.status == "READY"
-        assert row.dimensions["SCREEN_PATTERN"]["value"] == "LATER"
+        assert row.dimensions["SCREEN_AMOUNT"]["value"] == "MORE"
+        assert row.dimensions["SCREEN_AMOUNT"]["metric"] == "screen_on_minutes"
+        assert row.dimensions["SCREEN_TIMING"]["value"] == "LATER"
+        assert row.dimensions["SCREEN_TIMING"]["metric"] == "late_screen_minutes"
+        assert "屏幕互动比平常多一些" in row.summary
         assert "晚间屏幕互动比通常集中" in row.summary
+        assert "多屏" in row.highlights
         assert "晚屏" in row.highlights
 
 
@@ -179,6 +194,26 @@ def test_scenario_007_early_baseline():
         assert "今天累计屏幕互动" in row.summary
         assert "比平常" not in row.summary
         assert row.dimensions == {}
+
+
+def test_scenario_008_rhythm_missing_omitted():
+    """今天无 active 窗口（active_start_minute=None）→ RHYTHM 维度省略（missing != irregular）。"""
+    today = TODAY
+    with SessionLocal() as db:
+        # 纯 accel 窗口（120 个，coverage≈0.417 → READY）但不满足 active 条件
+        # （无 screen on / notification / app switch）→ active_start_minute=None
+        utc_start, _ = local_day_window("Asia/Shanghai", today)
+        db.add_all(make_baseline_rows(today, days=28))
+        for i in range(120):
+            db.add(_df_row(f"accel_only_{i}", source="accel", local_minute=5 * i,
+                           utc_start=utc_start, vector={7: 0.5}, sources=["accel"]))
+        db.flush()
+        row = generate_portrait(db, tenant_id="t_demo", user_id="u_demo", local_date=today)
+        assert row.status == "READY"
+        assert "RHYTHM" not in row.dimensions  # 缺失 → 省略，不输出 IRREGULAR
+        # 其余有数据的维度正常输出；STABILITY 只统计实际输出维度的非 SIMILAR
+        assert "MOVEMENT" in row.dimensions
+        assert "STABILITY" in row.dimensions
 
 
 def test_golden_deterministic_output():

@@ -30,17 +30,18 @@ import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
+import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
-import com.yunjue.echo.mind.model.ProfileDisplay
+import com.yunjue.echo.mind.model.SensingDiagnostics
 import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.dimensionTrendSymbol
 import com.yunjue.echo.mind.model.portraitStabilitySummary
-import com.yunjue.echo.mind.sensing.PassiveSensingService
-import com.yunjue.echo.mind.sensing.SensingEventHub
+import com.yunjue.echo.mind.sensing.CapabilityState
+import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.sensing.capabilityState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -138,34 +139,61 @@ internal fun resolveTrendState(
 }
 
 /**
- * NO_DATA 原因解析纯函数（T02 七态细化；v0.6.1 全部输入可真实到达）：
- * - consent 关闭（consentEnabled=false）→ CLOSED
- * - 权限未授权（permissionGranted=false）→ PERMISSION
- * - observationDays == 0 → 新用户尚无窗口
- * - 系统限制后台（systemBackgroundRestricted）→ SYSTEM_BACKGROUND
- * - 本地持久化失败（persistenceFailedRecently）→ PERSISTENCE_FAILURE
+ * NO_DATA 原因解析纯函数（T02 七态细化；v0.6.1 全部输入可真实到达；
+ * Phase 6.5.3 输入改为 [PortraitAvailability] + [SensingDiagnostics]，语义不变）：
+ * - sensing 未激活（consent/总开关关闭）→ CLOSED
+ * - SENSOR 能力被拒 → PERMISSION
+ * - baselineDays == 0 → 新用户尚无窗口（替代 legacy observationDays）
+ * - 无近期采集（从未采集或 heartbeat 超过 3 天）→ SYSTEM_BACKGROUND（电池/后台受限的纯函数代理）
+ * - 连续持久化失败 > 0 → PERSISTENCE_FAILURE
  * - 有待上传特征（pendingUploadCount > 0）→ AWAITING_UPLOAD
  * - 部分核心 source 缺失（missingSources 非空）→ SOURCE_GAPS
  * - 其余 → UNKNOWN
  */
 internal fun resolveTrendNoDataReason(
-    observationDays: Int,
-    systemBackgroundRestricted: Boolean,
-    persistenceFailedRecently: Boolean,
-    pendingUploadCount: Int,
-    missingSources: List<String>,
-    consentEnabled: Boolean = true,
-    permissionGranted: Boolean = true
+    availability: PortraitAvailability,
+    diagnostics: SensingDiagnostics
 ): TrendNoDataReason = when {
-    !consentEnabled -> TrendNoDataReason.CLOSED
-    !permissionGranted -> TrendNoDataReason.PERMISSION
-    observationDays <= 0 -> TrendNoDataReason.NEW_USER
-    systemBackgroundRestricted -> TrendNoDataReason.SYSTEM_BACKGROUND
-    persistenceFailedRecently -> TrendNoDataReason.PERSISTENCE_FAILURE
-    pendingUploadCount > 0 -> TrendNoDataReason.AWAITING_UPLOAD
-    missingSources.isNotEmpty() -> TrendNoDataReason.SOURCE_GAPS
+    !diagnostics.sensingActive -> TrendNoDataReason.CLOSED
+    diagnostics.capabilities[SensingCapability.SENSOR] == CapabilityState.DENIED -> TrendNoDataReason.PERMISSION
+    availability.baselineDays <= 0 -> TrendNoDataReason.NEW_USER
+    !hasRecentCollection(diagnostics.lastCollectionAt) -> TrendNoDataReason.SYSTEM_BACKGROUND
+    diagnostics.consecutivePersistenceFailures > 0 -> TrendNoDataReason.PERSISTENCE_FAILURE
+    diagnostics.pendingUploadCount > 0 -> TrendNoDataReason.AWAITING_UPLOAD
+    availability.missingSources.isNotEmpty() -> TrendNoDataReason.SOURCE_GAPS
     else -> TrendNoDataReason.UNKNOWN
 }
+
+/**
+ * 最近是否仍在新采集（纯函数）：无采集记录或超过 [COLLECTOR_HEARTBEAT_STALE_MS] 未采集
+ * → 视为系统后台受限 / 采集停滞（替代旧 `isIgnoringBatteryOptimizations` + heartbeat 双判定的
+ * 可测试纯函数代理；电池豁免检查折叠为「最近采集时间是否新鲜」）。
+ */
+internal fun hasRecentCollection(lastCollectionAt: Long): Boolean =
+    lastCollectionAt > 0L && System.currentTimeMillis() - lastCollectionAt <= COLLECTOR_HEARTBEAT_STALE_MS
+
+/**
+ * source code → 对应能力（missingSources 补集推导用，Phase 6.5.3）。
+ * mic_opt 不在此表：麦克风永远可选，缺失不影响核心趋势（避免假 SOURCE_GAPS）。
+ */
+internal val SOURCE_CAPABILITY: Map<String, SensingCapability> = mapOf(
+    "accel" to SensingCapability.SENSOR,
+    "gyro" to SensingCapability.SENSOR,
+    "screen" to SensingCapability.SCREEN,
+    "notification" to SensingCapability.NOTIFICATION,
+    "app_activity" to SensingCapability.USAGE
+)
+
+/**
+ * 由本地能力状态推导缺失 source 补集（Phase 6.5.3：Trend 脱离 legacy Profile 后，
+ * 替代 profile.sources_present_union 与期望核心源的差集）。能力非 AVAILABLE（DENIED /
+ * UNAVAILABLE / DISABLED）即视为该 source 缺失。
+ */
+internal fun missingSourcesFromCapabilities(capabilities: Map<SensingCapability, CapabilityState>): List<String> =
+    EXPECTED_CORE_SOURCES.toList().filter { code ->
+        val capability = SOURCE_CAPABILITY[code] ?: return@filter false
+        (capabilities[capability] ?: CapabilityState.UNAVAILABLE) != CapabilityState.AVAILABLE
+    }
 
 /** NO_DATA 原因 → 用户可读文案（不暴露工程术语/HTTP 码）。 */
 internal fun trendNoDataReasonText(reason: TrendNoDataReason): String = when (reason) {
@@ -212,6 +240,14 @@ internal fun appSettingsIntent(context: Context): Intent =
 internal fun batteryOptimizationSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
 
+/** 使用情况访问系统设置页（PACKAGE_USAGE_STATS 授权入口，Phase 6.1 权限恢复）。 */
+internal fun usageAccessSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+
+/** 通知使用权系统设置页（NotificationListenerService 授权入口，Phase 6.1 权限恢复）。 */
+internal fun notificationListenerSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+
 internal fun formatTimestamp(epochMs: Long): String {
     if (epochMs <= 0L) return "暂无"
     return runCatching {
@@ -231,7 +267,10 @@ fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
     val context = LocalContext.current
     // 7 日 / 28 日窗口（Milestone G：Portrait Timeline）
     var windowDays by remember { mutableStateOf(7) }
-    var profile by remember { mutableStateOf<ProfileDisplay?>(null) }
+    // Phase 6.5.3：Trend 脱离 legacy Profile——画像可用性（baseline_days / missingSources）来自
+    // GET /v1/me/baseline/status + 本地能力判定，不再 fetchProfile() / ProfileDisplay
+    var availability by remember { mutableStateOf<PortraitAvailability?>(null) }
+    var diagnostics by remember { mutableStateOf<SensingDiagnostics?>(null) }
     var retryKey by remember { mutableStateOf(0) }
     val timeline by repository.observePortraits(windowDays).collectAsState()
 
@@ -240,12 +279,38 @@ fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
     val flags by repository.featureFlagsFlow.collectAsState(initial = emptyMap())
     val permissionEnabled = consent && (flags["passive_sensing_enabled"] ?: false)
 
-    LaunchedEffect(retryKey, windowDays) {
+    LaunchedEffect(retryKey, windowDays, consent) {
         repository.refreshPortraits(windowDays)
-        // profile 仅用于 NO_DATA 细分原因（observation_days / sources_present_union）
-        profile = withContext(Dispatchers.IO) {
-            runCatching { repository.fetchProfile() }.getOrNull()
+        // 快照：能力状态 + 基线状态 + 本地采集/同步时间（一次 IO 内计算）
+        val snapshot = withContext(Dispatchers.IO) {
+            val caps = SensingCapability.entries.associateWith {
+                capabilityState(context, it, consent)
+            }
+            val baseline = runCatching { repository.fetchBaselineStatus() }.getOrNull()
+            val collectedAt = repository.lastCollectionTimestamp()
+            val syncedAt = repository.lastSyncTimestamp()
+            val avail = PortraitAvailability(
+                baselineStatus = baseline?.status ?: "UNKNOWN",
+                baselineDays = baseline?.baselineDays ?: 0,
+                coverage = baseline?.todayCoverage?.toFloat() ?: 0f,
+                // missingSources = 本地能力状态补集（替代 profile.sources_present_union 差集）
+                missingSources = missingSourcesFromCapabilities(caps),
+                lastCollectedAt = collectedAt,
+                lastSyncedAt = syncedAt,
+                materializationStatus = "none",
+                capabilities = caps.values.toList()
+            )
+            val diag = SensingDiagnostics(
+                capabilities = caps,
+                sensingActive = consent,
+                lastCollectionAt = collectedAt,
+                consecutivePersistenceFailures = repository.consecutivePersistenceFailures(),
+                pendingUploadCount = repository.pendingUploadCount()
+            )
+            avail to diag
         }
+        availability = snapshot.first
+        diagnostics = snapshot.second
     }
 
     val state = resolveTrendState(
@@ -257,32 +322,12 @@ fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
         isPartial = timeline.isPartial
     )
 
-    // NO_DATA 细分原因（T02 七态细化；v0.6.1 全部输入真实接入）：
-    // - 系统后台限制：电池优化被豁免失败（isIgnoringBatteryOptimizations=false）
-    //   → 系统可限制后台；或 collector heartbeat 超过 3 天无新采集
-    // - source gaps：profile.sources_present_union 与期望核心源对比（服务端已下推）
-    val lastSyncTs = repository.lastSyncTimestamp()
-    val lastCollectionTs = repository.lastCollectionTimestamp()
-    // 电池优化被豁免失败（isIgnoringBatteryOptimizations=false）→ 系统可能限制后台活动
-    val batteryRestricted = runCatching {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-        pm?.isIgnoringBatteryOptimizations(context.packageName) == false
-    }.getOrDefault(true)
-    val heartbeatStale = lastCollectionTs > 0L &&
-        System.currentTimeMillis() - lastCollectionTs > COLLECTOR_HEARTBEAT_STALE_MS
-    val systemBackgroundRestricted = batteryRestricted || heartbeatStale
-    val missingSources = EXPECTED_CORE_SOURCES.filterNot { it in (profile?.sourcesPresentUnion.orEmpty()) }
-    val noDataReason = resolveTrendNoDataReason(
-        observationDays = profile?.observationDays ?: 0,
-        systemBackgroundRestricted = systemBackgroundRestricted,
-        persistenceFailedRecently = repository.lastPersistenceFailure()?.let {
-            System.currentTimeMillis() - it < PERSISTENCE_FAILURE_LOOKBACK_MS
-        } ?: false,
-        pendingUploadCount = repository.pendingUploadCount(),
-        missingSources = missingSources,
-        consentEnabled = consent,
-        permissionGranted = permissionEnabled
-    )
+    // NO_DATA 细分原因（Phase 6.5.3：PortraitAvailability + SensingDiagnostics，语义不变）
+    val currentAvailability = availability ?: PortraitAvailability()
+    val currentDiagnostics = diagnostics ?: SensingDiagnostics(sensingActive = consent)
+    val noDataReason = resolveTrendNoDataReason(currentAvailability, currentDiagnostics)
+    val lastCollectionTs = currentAvailability.lastCollectedAt
+    val lastSyncTs = currentAvailability.lastSyncedAt
 
     Page("趋势") {
         // 契约点 2 固定免责文案（单测锚点）
@@ -431,7 +476,7 @@ private fun SevenDayTrendMatrix(portraits: List<DailyPortraitDto>, days: Int) {
                     Text(dimensionDisplayName(dim), style = MaterialTheme.typography.bodySmall)
                 }
                 dates.forEach { day ->
-                    val value = byDate[day.toString()]?.dimensions?.get(dim)
+                    val value = byDate[day.toString()]?.dimensionValue(dim)
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         Text(dimensionTrendSymbol(value), style = MaterialTheme.typography.bodySmall)
                     }
@@ -449,7 +494,7 @@ private fun SevenDayTrendMatrix(portraits: List<DailyPortraitDto>, days: Int) {
 private fun TwentyEightDayOverview(portraits: List<DailyPortraitDto>) {
     Text("近 28 天各维度概览（仅观察，不解释）", style = MaterialTheme.typography.titleMedium)
     PORTRAIT_TREND_DIMENSIONS.forEach { dim ->
-        val values = portraits.mapNotNull { it.dimensions[dim] }
+        val values = portraits.mapNotNull { it.dimensionValue(dim) }
         if (values.isEmpty()) {
             Text("${dimensionDisplayName(dim)}：暂无数据", style = MaterialTheme.typography.bodySmall)
         } else {
@@ -493,7 +538,6 @@ fun SupportScreen(container: AppContainer) {
     // ===== 数据与感知状态 =====
     val passiveSensingEnabled by container.preferences.passiveSensingEnabledFlow().collectAsState(initial = false)
     val micEnabled by container.preferences.micEnabledFlow().collectAsState(initial = false)
-    val sensingActive by container.preferences.sensingActiveFlow.collectAsState(initial = false)
     // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 显示「等待授权同步」
     var reEnabling by remember { mutableStateOf(container.preferences.consentSyncPending) }
 
@@ -685,12 +729,50 @@ fun SupportScreen(container: AppContainer) {
                         }
                     )
                 }
-                // 2-6. 各采集状态
-                Text("传感器（加速度/陀螺仪）：${if (sensingActive) "采集中" else "已停止"}")
-                Text("屏幕事件：${if (sensingActive) "采集中" else "已停止"}")
-                Text("通知使用权：${if (PassiveSensingService.hasNotificationAccess(context)) "已授权" else "未授权"}")
-                Text("使用情况访问：${if (PassiveSensingService.hasUsageAccess(context)) "已授权" else "未授权"}")
-                Text("麦克风：${if (micEnabled) "开启（仅端侧处理）" else "关闭"}")
+                // 2-6. Phase 6.1：能力级权限状态（规格 §2.3 / §2.5 权限恢复入口）
+                // 每个能力一行：能力名 + 状态 + 降级说明 + 恢复按钮（跳对应系统设置）
+                val capabilityStates = SensingCapability.entries.associateWith {
+                    capabilityState(context, it, passiveSensingEnabled)
+                }
+                CapabilityStatusRow(
+                    state = capabilityStates[SensingCapability.SENSOR] ?: CapabilityState.UNAVAILABLE,
+                    name = "运动传感器（加速度 / 陀螺仪）",
+                    description = "运动传感器未开启。开启后 ECHO 才能开始了解你的日常节奏。",
+                    recoveryLabel = null,
+                    onRecover = null
+                )
+                CapabilityStatusRow(
+                    state = capabilityStates[SensingCapability.SCREEN] ?: CapabilityState.AVAILABLE,
+                    name = "屏幕状态",
+                    description = "",
+                    recoveryLabel = null,
+                    onRecover = null
+                )
+                CapabilityStatusRow(
+                    state = capabilityStates[SensingCapability.USAGE] ?: CapabilityState.DENIED,
+                    name = "应用使用情况",
+                    description = "未开启「应用使用情况」。ECHO 仍可工作，但行为分布会更粗略。",
+                    recoveryLabel = "开启使用情况访问",
+                    onRecover = {
+                        runCatching { context.startActivity(usageAccessSettingsIntent(context)) }
+                    }
+                )
+                CapabilityStatusRow(
+                    state = capabilityStates[SensingCapability.NOTIFICATION] ?: CapabilityState.DENIED,
+                    name = "通知使用权",
+                    description = "未开启「通知使用权」。ECHO 仍可工作，但通知使用情况不会被记录。",
+                    recoveryLabel = "开启通知使用权",
+                    onRecover = {
+                        runCatching { context.startActivity(notificationListenerSettingsIntent(context)) }
+                    }
+                )
+                CapabilityStatusRow(
+                    state = capabilityStates[SensingCapability.MIC] ?: CapabilityState.DENIED,
+                    name = "麦克风",
+                    description = "麦克风未开启（可选）。这不影响每日画像的生成。",
+                    recoveryLabel = "开启麦克风（可选）",
+                    onRecover = { showMicConfirm = true }
+                )
                 // 7-10. 采集/同步时间、离线、待同步、持久化失败观测
                 Text("最近成功采集：${formatTimestamp(lastCollectionTs)}")
                 Text("最近持久化失败：${formatTimestamp(lastPersistenceFailureTs ?: 0L)}")
@@ -784,4 +866,45 @@ private fun EscalationStatusRow(esc: EscalationEntity) {
         else -> stringResource(R.string.esc_status_unknown)
     }
     Text("• $statusText", style = MaterialTheme.typography.bodyMedium)
+}
+
+/**
+ * Phase 6.1 权限恢复入口行（规格 §2.3 / §2.5）：能力名 + 状态 + 降级说明 + 恢复按钮。
+ * - AVAILABLE：只显示「已开启」，不显示降级说明 / 恢复按钮；
+ * - UNAVAILABLE：显示「设备不支持」；
+ * - DENIED / DISABLED：显示降级说明（[description]），且提供恢复按钮（[onRecover]）。
+ */
+@Composable
+private fun CapabilityStatusRow(
+    state: CapabilityState,
+    name: String,
+    description: String,
+    recoveryLabel: String?,
+    onRecover: (() -> Unit)?
+) {
+    val statusText = when (state) {
+        CapabilityState.AVAILABLE -> "已开启"
+        CapabilityState.DENIED -> "未开启"
+        CapabilityState.UNAVAILABLE -> "设备不支持"
+        CapabilityState.DISABLED -> "未开启"
+    }
+    val degraded = state != CapabilityState.AVAILABLE
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(name, style = MaterialTheme.typography.bodyMedium)
+            if (degraded && description.isNotBlank()) {
+                Text(description, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(statusText, style = MaterialTheme.typography.labelMedium)
+            if (degraded && recoveryLabel != null && onRecover != null) {
+                TextButton(onClick = onRecover) { Text(recoveryLabel) }
+            }
+        }
+    }
 }

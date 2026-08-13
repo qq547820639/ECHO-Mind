@@ -23,7 +23,7 @@ def _feature_payload(event_id: str, source: str = "mic_opt", user_id: str = "u_d
     return {
         "event_id": event_id,
         "user_id": user_id,
-        "schema_version": "feat-v1",
+        "schema_version": "mic-feature-v1" if source == "mic_opt" else "passive-core-v1",
         "source": source,
         "window_start": start.isoformat(),
         "window_end": (start + timedelta(minutes=30)).isoformat(),

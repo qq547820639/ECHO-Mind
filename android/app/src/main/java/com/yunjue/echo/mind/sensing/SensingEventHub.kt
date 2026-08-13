@@ -3,7 +3,7 @@ package com.yunjue.echo.mind.sensing
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
- * 进程内共享事件聚合层（T02 P0）。
+ * 进程内共享事件聚合层（T02 P0 + Phase 4 Immutable Window）。
  *
  * 职责：
  * - 统一接收 NotificationCollector（系统实例化的 NotificationListenerService）与各 Collector 的事件；
@@ -14,6 +14,12 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * - 提供 `snapshotAll()`（非破坏快照）与 `clearConsumed(snapshot)`（只清本窗口已消费项），
  *   供窗口 flush「先持久化成功、后清 consumed」的 ACK 语义使用；
  * - `clearAll()` 仅用于 consent revoke / 服务停止（不用于 flush 路径）。
+ *
+ * Phase 4（Immutable Window）：
+ * - accel/gyro 样本类型从 FloatArray 升级为 [SensorSample]（带 timestampMs），
+ *   精确窗口归属（Phase 4.1）；
+ * - 快照不可变：flush 使用一次 [snapshotAll] 的结果传给 FeatureExtractor
+ *   （不再"再读 live hub"），retry 重处理同一 snapshot；成功只清同一批事件。
  *
  * 纯 Kotlin 可单测：缓冲使用 [ConcurrentLinkedDeque]，不依赖任何 Android 框架类。
  *
@@ -34,33 +40,34 @@ class SensingEventHub {
     }
 
     /**
-     * 窗口 flush 快照（非破坏）：记录某一时刻各 modality 缓冲的全部项。
+     * 窗口 flush 快照（不可变，Phase 4）：记录某一时刻各 modality 缓冲的全部项。
      *
-     * 传给 [clearConsumed] 后，只清快照内已消费项（FloatArray 按引用相等、
-     * 其余 data class 按值相等），不清快照之后新到项——「只清本窗口已消费项」语义。
+     * 传给 [clearConsumed] 后，只清快照内已消费项（data class 按值相等），
+     * 不清快照之后新到项——「只清本窗口已消费项」语义。
+     * retry 必须重处理**同一个**快照（不可变，绝不重新读 live hub）。
      */
     data class HubSnapshot(
-        val accel: List<FloatArray>,
-        val gyro: List<FloatArray>,
+        val accel: List<SensorSample>,
+        val gyro: List<SensorSample>,
         val screen: List<ScreenCollector.ScreenEvent>,
         val notifications: List<NotificationCollector.NotificationMeta>,
         val appActivities: List<AppActivityCollector.AppActivity>
     )
 
-    private val accelBuffer = ConcurrentLinkedDeque<FloatArray>()
-    private val gyroBuffer = ConcurrentLinkedDeque<FloatArray>()
+    private val accelBuffer = ConcurrentLinkedDeque<SensorSample>()
+    private val gyroBuffer = ConcurrentLinkedDeque<SensorSample>()
     private val screenBuffer = ConcurrentLinkedDeque<ScreenCollector.ScreenEvent>()
     private val notificationBuffer = ConcurrentLinkedDeque<NotificationCollector.NotificationMeta>()
     private val appActivityBuffer = ConcurrentLinkedDeque<AppActivityCollector.AppActivity>()
 
     // ===== 写入（Collector 侧） =====
 
-    fun onAccelSample(sample: FloatArray) {
+    fun onAccelSample(sample: SensorSample) {
         accelBuffer.offerLast(sample)
         trim(accelBuffer, SensorCollector.MAX_BUFFER_SIZE)
     }
 
-    fun onGyroSample(sample: FloatArray) {
+    fun onGyroSample(sample: SensorSample) {
         gyroBuffer.offerLast(sample)
         trim(gyroBuffer, SensorCollector.MAX_BUFFER_SIZE)
     }
@@ -83,8 +90,8 @@ class SensingEventHub {
 
     // ===== 快照（FeatureExtractor 侧） =====
 
-    fun snapshotAccel(): List<FloatArray> = accelBuffer.toList()
-    fun snapshotGyro(): List<FloatArray> = gyroBuffer.toList()
+    fun snapshotAccel(): List<SensorSample> = accelBuffer.toList()
+    fun snapshotGyro(): List<SensorSample> = gyroBuffer.toList()
     fun snapshotScreen(): List<ScreenCollector.ScreenEvent> = screenBuffer.toList()
     fun snapshotNotifications(): List<NotificationCollector.NotificationMeta> = notificationBuffer.toList()
     fun snapshotAppActivity(): List<AppActivityCollector.AppActivity> = appActivityBuffer.toList()
@@ -108,11 +115,8 @@ class SensingEventHub {
     )
 
     /**
-     * 只清快照内已消费项（T02 窗口 ACK 语义）：
-     *
-     * - FloatArray 按引用相等（数组不重写 equals）→ 只移除本窗口快照中同一实例；
-     * - ScreenEvent / NotificationMeta / AppActivity 为不可变 data class 按值相等；
-     * - 快照之后新到项（下一窗口）不会被清除。
+     * 只清快照内已消费项（T02 窗口 ACK 语义 + Phase 4）：
+     * data class 按值相等移除；快照之后新到项（下一窗口）不会被清除。
      */
     fun clearConsumed(snapshot: HubSnapshot) {
         snapshot.accel.forEach { accelBuffer.remove(it) }

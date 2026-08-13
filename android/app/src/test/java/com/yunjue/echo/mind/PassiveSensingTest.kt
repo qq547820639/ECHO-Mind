@@ -3,17 +3,20 @@ package com.yunjue.echo.mind
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.ConsentDao
 import com.yunjue.echo.mind.data.ConsentEntity
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.AppActivityCollector
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensorCollector
+import com.yunjue.echo.mind.sensing.SensorSample
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -117,7 +120,7 @@ class PassiveSensingTest {
         val hub = SensingEventHub()
         val collector = SensorCollector(context, hub)
         repeat(SensorCollector.MAX_BUFFER_SIZE + 50) { i ->
-            hub.onAccelSample(floatArrayOf(i.toFloat(), 0f, 0f))
+            hub.onAccelSample(SensorSample(i.toLong(), Sensor.TYPE_ACCELEROMETER, i.toFloat(), 0f, 0f))
         }
         assertEquals(SensorCollector.MAX_BUFFER_SIZE, hub.snapshotAccel().size)
         // collector.snapshotAccel 委托 hub 同一数据源
@@ -150,7 +153,7 @@ class PassiveSensingTest {
     @Test
     fun appPreferencesDelegatesPassiveSensingPrefs() = runBlocking {
         // AppPreferences 应通过 passiveSensingPrefs 代理被动采集字段
-        val appPrefs = AppPreferences(context, com.yunjue.echo.mind.security.FieldCipher())
+        val appPrefs = AppPreferences(context, JvmTestFieldCipher())
         assertFalse(appPrefs.passiveSensingEnabledFlow().first())
         appPrefs.setPassiveSensingEnabled(true)
         assertTrue(appPrefs.passiveSensingEnabledFlow().first())
@@ -308,7 +311,7 @@ class PassiveSensingTest {
     @Test
     fun serviceFlagDefaultIsFailClosed() {
         // 无 flag 缓存 → isPassiveSensingEnabled 默认 false（fail-closed，02b 共享知识 2）
-        val appPrefs = AppPreferences(context, com.yunjue.echo.mind.security.FieldCipher())
+        val appPrefs = AppPreferences(context, JvmTestFieldCipher())
         assertFalse(
             "passive_sensing_enabled 无缓存应默认 false",
             appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: true

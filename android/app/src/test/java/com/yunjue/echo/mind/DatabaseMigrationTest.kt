@@ -378,16 +378,21 @@ class DatabaseMigrationTest {
             )
         )
 
-        // queryByDateRange：ISO 日期字典序 = 时间序
-        val range = dao.queryByDateRange("2026-08-08", "2026-08-10")
+        // queryByDateRange：ISO 日期字典序 = 时间序（Phase 3.3：SQL 层按 userId 隔离）
+        val range = dao.queryByDateRange("u_test", "2026-08-08", "2026-08-10")
         assertEquals(3, range.size)
         assertEquals(listOf("2026-08-08", "2026-08-09", "2026-08-10"), range.map { it.localDate })
         assertEquals("EARLIER", JSONObject(range[1].dimensionsJson).optString("RHYTHM"))
 
-        // queryLatest：最近一天优先
-        val latest = dao.queryLatest()
+        // Phase 3.3：User B 查询不到 User A 的画像（SQL 层隔离）
+        val otherRange = dao.queryByDateRange("u_other", "2026-08-01", "2026-08-31")
+        assertEquals(0, otherRange.size)
+
+        // queryLatest：最近一天优先（按 userId）
+        val latest = dao.queryLatest("u_test")
         assertEquals("2026-08-10", latest?.localDate)
         assertEquals("PARTIAL_DATA", latest?.status)
+        assertEquals(null, dao.queryLatest("u_other"))
 
         // REPLACE：同 id（localDate+user）覆盖
         dao.insert(
@@ -397,7 +402,19 @@ class DatabaseMigrationTest {
                 dimensionsJson = "{}", factsJson = "[]", coverageJson = null, timezoneUsed = null, fetchedAt = 4L
             )
         )
-        assertEquals(3, dao.queryByDateRange("2026-08-01", "2026-08-31").size)
-        assertEquals("READY", dao.queryLatest()?.status)
+        assertEquals(3, dao.queryByDateRange("u_test", "2026-08-01", "2026-08-31").size)
+        assertEquals("READY", dao.queryLatest("u_test")?.status)
+
+        // Phase 3.3：deleteByUser 只清指定用户
+        dao.insert(
+            DailyPortraitEntity(
+                id = "2026-08-10_u_other", localDate = "2026-08-10", userId = "u_other",
+                status = "READY", confidence = "HIGH", headlineJson = "[]", summary = "other",
+                dimensionsJson = "{}", factsJson = "[]", coverageJson = null, timezoneUsed = null, fetchedAt = 5L
+            )
+        )
+        dao.deleteByUser("u_other")
+        assertEquals(3, dao.queryByDateRange("u_test", "2026-08-01", "2026-08-31").size)
+        assertEquals(0, dao.queryByDateRange("u_other", "2026-08-01", "2026-08-31").size)
     }
 }

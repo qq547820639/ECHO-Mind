@@ -1,7 +1,10 @@
-"""确定性中文叙事模板（Milestone D）。
+"""确定性中文叙事模板（Milestone D + Phase 5, C4）。
 
-- 每维度取值映射固定句子；summary 按 RHYTHM→MOVEMENT→SCREEN→DAY_STRUCTURE→STABILITY 顺序 join；
+- 每维度取值映射固定句子；summary 按 RHYTHM→MOVEMENT→SCREEN_AMOUNT→SCREEN_TIMING→
+  DAY_STRUCTURE→STABILITY 顺序 join；
 - headline 最多 3 个两字标签；
+- Phase 5（C4）：SCREEN_PATTERN 拆分为 SCREEN_AMOUNT / SCREEN_TIMING 两个独立维度；
+  RHYTHM 不再输出 IRREGULAR（missing != irregular，由维度省略表达）；
 - EARLY_BASELINE 只输出当天事实句（不输出"比平常"）；
 - LOW_CONFIDENCE/WARMING_UP 不生成 narrative（由 engine 给固定文案）。
 
@@ -13,18 +16,21 @@ RHYTHM_SENTENCES = {
     "EARLIER": "今天开始活跃的时间比你最近的习惯早",
     "LATER": "今天开始活跃的时间比你最近的习惯稍晚",
     "SIMILAR": "今天的作息时间和你最近的习惯比较接近",
-    "IRREGULAR": "今天开始活跃的节奏不太规律",
 }
 MOVEMENT_SENTENCES = {
     "LESS": "白天整体移动也少了一些",
     "MORE": "白天整体移动比平常多一些",
     "SIMILAR": "白天的移动情况和你的平常比较接近",
 }
-SCREEN_SENTENCES = {
+SCREEN_AMOUNT_SENTENCES = {
     "LESS": "屏幕互动比平常少一些",
     "MORE": "屏幕互动比平常多一些",
+    "SIMILAR": "屏幕互动时长和你的平常比较接近",
+}
+SCREEN_TIMING_SENTENCES = {
+    "EARLIER": "晚间屏幕互动比通常更早结束",
+    "SIMILAR": "晚间屏幕使用时间和你的平常比较接近",
     "LATER": "晚间屏幕互动比通常集中",
-    "SIMILAR": "屏幕互动方式和你的平常比较接近",
 }
 DAY_STRUCTURE_SENTENCES = {
     "MORE_CONCENTRATED": "今天的行为比较集中",
@@ -40,7 +46,8 @@ STABILITY_SENTENCES = {
 _SENTENCE_MAP = {
     "RHYTHM": RHYTHM_SENTENCES,
     "MOVEMENT": MOVEMENT_SENTENCES,
-    "SCREEN_PATTERN": SCREEN_SENTENCES,
+    "SCREEN_AMOUNT": SCREEN_AMOUNT_SENTENCES,
+    "SCREEN_TIMING": SCREEN_TIMING_SENTENCES,
     "DAY_STRUCTURE": DAY_STRUCTURE_SENTENCES,
     "STABILITY": STABILITY_SENTENCES,
 }
@@ -48,18 +55,27 @@ _SENTENCE_MAP = {
 HEADLINE_MAP = {
     ("RHYTHM", "LATER"): "偏晚",
     ("RHYTHM", "EARLIER"): "偏早",
-    ("MOVEMENT", "LESS"): "安静",
-    ("MOVEMENT", "MORE"): "活跃",
-    ("SCREEN_PATTERN", "MORE"): "多屏",
-    ("SCREEN_PATTERN", "LATER"): "晚屏",
-    ("SCREEN_PATTERN", "LESS"): "少屏",
-    ("STABILITY", "VERY_SIMILAR"): "稳定",
+    # Phase 6.2（Psychology Review）：第一版用户语言优先——
+    # "安静/活跃/稳定" 有心理暗示歧义（REWRITE），替换为行为观察措辞：
+    ("MOVEMENT", "LESS"): "移动较少",
+    ("MOVEMENT", "MORE"): "移动较多",
+    ("SCREEN_AMOUNT", "MORE"): "多屏",
+    ("SCREEN_AMOUNT", "LESS"): "少屏",
+    ("SCREEN_TIMING", "LATER"): "晚屏",
+    ("STABILITY", "VERY_SIMILAR"): "接近",
     ("STABILITY", "SLIGHTLY_DIFFERENT"): "小变化",
     ("STABILITY", "CLEARLY_DIFFERENT"): "变化明显",
 }
 
 #: summary 句子顺序
-DIMENSION_ORDER = ("RHYTHM", "MOVEMENT", "SCREEN_PATTERN", "DAY_STRUCTURE", "STABILITY")
+DIMENSION_ORDER = (
+    "RHYTHM",
+    "MOVEMENT",
+    "SCREEN_AMOUNT",
+    "SCREEN_TIMING",
+    "DAY_STRUCTURE",
+    "STABILITY",
+)
 
 WARMING_UP_TEXT = "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较“今天”和“平常的你”。"
 LOW_CONFIDENCE_TEXT = "今天的数据还不够完整，暂时看不出和你平时相比有什么可靠变化。"

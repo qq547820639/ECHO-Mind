@@ -1,8 +1,14 @@
 package com.yunjue.echo.mind.ui
 
+import android.Manifest
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -12,12 +18,12 @@ import com.yunjue.echo.mind.data.OnboardingVerifyException
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import kotlinx.coroutines.launch
-import java.security.MessageDigest
 
 /**
  * T12.6 L0 准入门禁：currentDanger / psychosisOrMania / substanceImpairment 任一为真即阻断进入。
  *
- * 抽成纯函数便于单测断言「阻断逻辑不变」；与 OnboardingScreen 按钮 enabled 条件共享同一判定。
+ * Phase 6.1（L0 解耦）：L0 从普通 Portrait Onboarding **移除**，不再参与本流程的按钮 enabled
+ * 判定；本纯函数保留，供「支持」页主动进入安全流程时复用与单测断言（机构契约不变）。
  */
 internal fun l0OnboardingBlocked(
     currentDanger: Boolean,
@@ -25,21 +31,20 @@ internal fun l0OnboardingBlocked(
     substanceImpairment: Boolean
 ): Boolean = currentDanger || psychosisOrMania || substanceImpairment
 
-/** Onboarding 引导步骤（多步渐进披露，PM 规格 8 步收敛为 5 步向导 + 完成）。 */
-private enum class OnboardingStep { WELCOME, CONSENTS, L0, EMERGENCY, DONE }
-
 /**
- * Onboarding 产品化（T02 / docs/15）：
+ * Onboarding 引导步骤（Phase 6.1 新主流程，PM 规格 §1）：
+ * `WELCOME → PORTRAIT EXPLANATION → CORE DATA CONSENT → MINIMUM SENSING → BASELINE WARMING UP → DONE`
  *
- * - 移除 u_demo / 内部 user_id / access token / 机构配置令牌 输入框；
- * - 真实用户只接触机构激活码 → POST /v1/onboarding/verify-code（预认证）
- *   → 服务端返回 user_id + 短时 access_token（FieldCipher 加密存储）；
- * - 七态状态机持久化到 [AppPreferences.onboardingState]：
- *   NOT_STARTED → ACTIVATING → BOUND → CONSENT_PENDING → READY_OFFLINE/READY
- *   （ACTIVATION_FAILED 失败态；restricted 由 verify-code 403 决定 → 安全支持页）；
- * - 保留：18+ / 紧急入口 / 分项 consent / 麦克风独立 consent / 可撤回。
+ * - **L0 / EMERGENCY 步骤已从 enum 删除**：普通流程不再包含 L0 与紧急联系人整页；
+ * - WELCOME 保留激活码交换（POST /v1/onboarding/verify-code）+ 18+/边界确认 + 紧急入口常驻；
+ * - CORE DATA CONSENT 围绕被动行为节律 / 派生数据 / 基线 / 画像 / 撤回，
+ *   **移除**「心理记录与量表信息」与麦克风（MIC 移到 MINIMUM SENSING）；
+ * - MINIMUM SENSING 渐进授权：SENSOR/SCREEN 核心 → USAGE/NOTIFICATION optional → MIC 永远可选；
+ * - 拒绝 = abstain（不阻断离开）：CORE DATA CONSENT 任一未勾选仅禁用「同意并继续」；
+ *   全部跳过 optional 也可继续，只是 ECHO 不启动感知（Today 显示 SENSING_DISABLED）。
  *
- * 文案守住「非诊断、非医疗、非紧急服务」边界。
+ * 七态状态机映射保持（AppPreferences）：
+ * NOT_STARTED → ACTIVATING → BOUND → CONSENT_PENDING → READY_OFFLINE（finishOnboarding 本地完成）。
  */
 @Composable
 fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
@@ -53,25 +58,35 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     var activating by remember { mutableStateOf(false) }
     var activationError by remember { mutableStateOf<String?>(null) }
 
-    var psychologicalConsent by remember { mutableStateOf(false) }
-    var passiveSensingConsent by remember { mutableStateOf(false) }
-    var micConsent by remember { mutableStateOf(false) }
+    // CORE DATA CONSENT：5 项核心同意（全部勾选才可继续；拒绝 = abstain）
+    var coreChecks by remember { mutableStateOf(listOf(false, false, false, false, false)) }
+    val allCoreChecked = coreChecks.all { it }
 
-    var currentDanger by remember { mutableStateOf(false) }
-    var priorAttempt by remember { mutableStateOf(false) }
-    var psychosisOrMania by remember { mutableStateOf(false) }
-    var substanceImpairment by remember { mutableStateOf(false) }
-    var hasProfessionalSupport by remember { mutableStateOf(false) }
+    // MINIMUM SENSING：渐进授权（SENSOR 核心；USAGE/NOTIFICATION/MIC optional）
+    var sensorAuthorized by remember { mutableStateOf(false) }
+    var usageAuthorized by remember { mutableStateOf(false) }
+    var usageSkipped by remember { mutableStateOf(false) }
+    var notificationAuthorized by remember { mutableStateOf(false) }
+    var notificationSkipped by remember { mutableStateOf(false) }
+    var micAuthorized by remember { mutableStateOf(false) }
+    var micSkipped by remember { mutableStateOf(false) }
 
-    var emergencyName by remember { mutableStateOf("") }
-    var emergencyPhone by remember { mutableStateOf("") }
-    var emergencyConsent by remember { mutableStateOf(false) }
+    // MIC 二次确认对话框 + RECORD_AUDIO 运行时权限（永远可选，默认关闭）
+    var showMicConfirm by remember { mutableStateOf(false) }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        micAuthorized = granted
+        if (granted) micSkipped = false
+    }
 
     var showSafety by remember { mutableStateOf(false) }
     var step by remember {
         mutableStateOf(
             when (preferences.onboardingState) {
-                AppPreferences.ONBOARDING_BOUND, AppPreferences.ONBOARDING_CONSENT_PENDING -> OnboardingStep.CONSENTS
+                // 进程中断恢复：BOUND / CONSENT_PENDING 从核心同意页继续
+                AppPreferences.ONBOARDING_BOUND,
+                AppPreferences.ONBOARDING_CONSENT_PENDING -> OnboardingStep.CORE_DATA_CONSENT
                 else -> OnboardingStep.WELCOME
             }
         )
@@ -84,11 +99,6 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         )
         return
     }
-
-    fun evidence(prefix: String, userId: String, granted: Boolean): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest("$prefix:$userId:$granted".toByteArray())
-            .joinToString("") { "%02x".format(it) }
 
     fun verifyCode() {
         val code = activationCode.trim()
@@ -108,7 +118,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 if (res.restricted) {
                     showSafety = true
                 } else {
-                    step = OnboardingStep.CONSENTS
+                    step = OnboardingStep.PORTRAIT_EXPLANATION
                 }
             } catch (e: Exception) {
                 activating = false
@@ -125,33 +135,25 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     fun finishOnboarding() {
         scope.launch {
             // v0.6.1（P1-7）幂等：本地已提交过（重复点击/进程死亡重启）→ 直接推进，
-            // 不重复入队 consent/L0/emergency contact（服务端也按 event_id 幂等，双保险）。
+            // 不重复入队 consent（服务端按 event_id 幂等，双保险）。
             if (preferences.onboardingLocalSubmitted) {
                 preferences.onboardingState = AppPreferences.ONBOARDING_READY_OFFLINE
                 preferences.serverActivated = false
                 onComplete()
                 return@launch
             }
-            val userId = preferences.userId
-            // 分项 consent（核心必选 + 可选）
-            container.repository.saveConsent(
-                granted = psychologicalConsent,
-                evidenceHash = evidence("path-a-consent-2026.07", userId, psychologicalConsent)
-            )
-            container.repository.saveL0(currentDanger, priorAttempt, psychosisOrMania, substanceImpairment, hasProfessionalSupport)
-            if (passiveSensingConsent) {
-                container.repository.saveConsent(
-                    granted = true,
-                    evidenceHash = evidence("passive-sensing-consent-2026.07", userId, true),
-                    consentType = "passive_sensing",
-                    version = "passive-sensing-consent-2026.07",
-                    priority = 600
-                )
-                container.preferences.setPassiveSensingEnabled(true)
-                // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 等待授权同步态
-                container.preferences.consentSyncPending = true
+            // Phase 6.1：核心同意围绕被动行为节律（passive_sensing consent）；
+            // 不再提交 psychological_data / L0 / emergency_contact（L0 与紧急联系人移出主流程）。
+            val sensingTurnedOn = sensorAuthorized || usageAuthorized || notificationAuthorized || micAuthorized
+            if (coreChecks.all { it }) {
+                container.repository.savePassiveSensingConsent(granted = true)
+                if (sensingTurnedOn) {
+                    container.preferences.setPassiveSensingEnabled(true)
+                    // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 等待授权同步态
+                    container.preferences.consentSyncPending = true
+                }
             }
-            if (micConsent) {
+            if (micAuthorized) {
                 try {
                     container.repository.saveVoiceFeaturesConsent(true)
                 } catch (_: Exception) {
@@ -159,27 +161,17 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 }
                 container.preferences.setMicEnabled(true)
             }
-            if (emergencyName.isNotBlank() && emergencyPhone.isNotBlank() && emergencyConsent) {
-                container.repository.saveConsent(
-                    granted = true,
-                    evidenceHash = evidence("emergency-contact-consent-2026.07", userId, true),
-                    consentType = "emergency_contact",
-                    version = "emergency-contact-consent-2026.07",
-                    priority = 700
-                )
-                container.repository.saveEmergencyContact(emergencyName, emergencyPhone, "用户指定联系人")
-            }
             preferences.onboardingState = AppPreferences.ONBOARDING_CONSENT_PENDING
             // 本地全部步骤完成 → READY_OFFLINE（服务端确认待网络恢复；serverActivated 由同步收敛）
             preferences.serverActivated = false
             preferences.onboardingState = AppPreferences.ONBOARDING_READY_OFFLINE
             preferences.onboardingLocalSubmitted = true
             // 02b 共享知识 1：consent granted → flag（拉取租户配置，失败 fail-closed）→ 真实启动服务
-            if (passiveSensingConsent) {
+            if (sensingTurnedOn) {
                 try {
                     container.repository.fetchFeatureFlags()
                 } catch (_: Exception) {
-                    // flag 拉取失败 fail-closed：服务启动三重门控内 flag=false 不启动
+                    // flag 拉取失败 fail-closed：服务启动门控内 flag=false 不启动
                 }
                 PassiveSensingService.start(context)
             } else {
@@ -193,7 +185,12 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     Page("开始使用") {
         when (step) {
             OnboardingStep.WELCOME -> {
-                Text("ECHO Mind 是心理健康记录、筛查提示和审核练习工具。它不是医生、不是诊断服务，也不是紧急服务。")
+                // Phase 6.1：Portrait Core 定位文案（PM 规格 §1.3.1 核心句，必须原文）。
+                // 删除 legacy：「ECHO Mind 是心理健康记录、筛查提示和审核练习工具…」
+                Text(
+                    ONBOARDING_WELCOME_CORE_COPY,
+                    style = MaterialTheme.typography.bodyLarge
+                )
                 CheckLine(ageConfirmed, { ageConfirmed = it }, "我已年满 18 周岁")
                 CheckLine(boundaryConfirmed, { boundaryConfirmed = it }, "我理解专业判断和危机处置由人工承担")
                 HorizontalDivider()
@@ -216,88 +213,278 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 ) {
                     Text(if (activating) "正在验证机构激活信息…" else "验证并继续")
                 }
-                Text("存在立即危险时，请直接联系身边可信任的人、机构值班人员、110 或 120。")
+                // 紧急入口（常驻，任何步骤可访问）
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, copy = EMERGENCY_HINT_COPY)
             }
 
-            OnboardingStep.CONSENTS -> {
-                Text("产品边界", style = MaterialTheme.typography.titleMedium)
-                Text("这是一个支持性工具：它提供记录、趋势回顾与能力练习，不做诊断、不替代专业医疗、不是紧急服务。")
+            OnboardingStep.PORTRAIT_EXPLANATION -> {
+                Text("ECHO 是怎么工作的", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "ECHO 只比较今天的你和通常的你（Me vs Me）。它不用其他人的平均水平来判断你，也不会把行为数据解读成你的心理状态。",
+                    style = MaterialTheme.typography.bodyLarge
+                )
                 HorizontalDivider()
-                Text("分项同意", style = MaterialTheme.typography.titleMedium)
-                CheckLine(psychologicalConsent, { psychologicalConsent = it }, "我同意处理心理记录与量表信息（核心必选）")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Switch(checked = passiveSensingConsent, onCheckedChange = { passiveSensingConsent = it })
-                    Column(Modifier.weight(1f)) {
-                        Text("授权被动采集传感器 / 屏幕 / 通知 / App 活跃数据（可选）")
-                        Text("原始数据仅在本机内存中处理，不上云不落盘。可随时关闭。", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Switch(checked = micConsent, onCheckedChange = { micConsent = it })
-                    Column(Modifier.weight(1f)) {
-                        Text("授权麦克风派生特征（可选，默认关闭）")
-                        Text("麦克风数据仅在本地处理，不上传录音。", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                Text("数据链路", style = MaterialTheme.typography.titleSmall)
+                Text("被动行为节律 → 个人基线 → 每日画像", style = MaterialTheme.typography.bodyMedium)
+                Text("今天的我 vs 通常的我 → 差异", style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider()
+                Text("时间线", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "积累 7 天后你可以看到一周的趋势，积累 28 天后可以看到更长的时间线。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text("7 / 28 天时间线", style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider()
+                Text("可撤回", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "所有同意都可以随时撤回；撤回后 ECHO 会停止学习，已生成的画像会保留在你可管理的范围内。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text("所有同意可随时撤回", style = MaterialTheme.typography.bodyMedium)
                 Button(
-                    onClick = { step = OnboardingStep.L0 },
-                    enabled = psychologicalConsent,
+                    onClick = { step = OnboardingStep.CORE_DATA_CONSENT },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("下一步") }
+                ) { Text("继续") }
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
             }
 
-            OnboardingStep.L0 -> {
-                Text("L0 准入确认", style = MaterialTheme.typography.titleMedium)
-                Text("这不是诊断，只是判断当前是否适合使用本工具。", style = MaterialTheme.typography.bodySmall)
-                CheckLine(currentDanger, { currentDanger = it }, "我当前存在立即伤害自己或他人的危险")
-                CheckLine(priorAttempt, { priorAttempt = it }, "我有既往高风险事件或相关住院经历")
-                CheckLine(psychosisOrMania, { psychosisOrMania = it }, "我当前有明显现实检验受损、幻觉妄想或躁狂表现")
-                CheckLine(substanceImpairment, { substanceImpairment = it }, "我当前受酒精或其他物质明显影响")
-                CheckLine(hasProfessionalSupport, { hasProfessionalSupport = it }, "我目前已有专业人员支持")
-
-                if (l0OnboardingBlocked(currentDanger, psychosisOrMania, substanceImpairment)) {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("常规 AI 服务当前不适用。请优先联系人工或紧急服务。")
-                            Button(onClick = { showSafety = true }) { Text("打开安全支持") }
-                        }
-                    }
+            OnboardingStep.CORE_DATA_CONSENT -> {
+                Text("核心数据同意", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "为了让 ECHO 能了解你的日常节奏，需要你同意处理以下数据：",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider()
+                // Phase 6.1：核心同意围绕被动行为节律（拒绝 = abstain，不阻断离开）
+                CheckLine(
+                    coreChecks[0], { coreChecks = coreChecks.withIndexed(it, 0) },
+                    "授权 ECHO 在后台采集加速度 / 陀螺仪等运动传感器数据，用于了解你一天的移动与作息节奏。"
+                )
+                CheckLine(
+                    coreChecks[1], { coreChecks = coreChecks.withIndexed(it, 1) },
+                    "传感器数据只在本机处理成行为摘要（如移动量、屏幕使用时长、应用切换次数），原始传感器数据不落盘、不上传。"
+                )
+                CheckLine(
+                    coreChecks[2], { coreChecks = coreChecks.withIndexed(it, 2) },
+                    "ECHO 会用你过去几天的数据学习「通常的你」，形成个人基线。"
+                )
+                CheckLine(
+                    coreChecks[3], { coreChecks = coreChecks.withIndexed(it, 3) },
+                    "每天生成「今天的你 vs 通常的你」的画像描述，只做行为观察，不做心理诊断。"
+                )
+                CheckLine(
+                    coreChecks[4], { coreChecks = coreChecks.withIndexed(it, 4) },
+                    "你可以随时撤回同意、申请导出或删除数据；撤回后 ECHO 停止学习。"
+                )
+                if (!allCoreChecked) {
+                    Text(
+                        "如果不授权这些数据，ECHO 将无法生成你的每日画像。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 Button(
-                    onClick = { step = OnboardingStep.EMERGENCY },
-                    enabled = !l0OnboardingBlocked(currentDanger, psychosisOrMania, substanceImpairment),
+                    onClick = { step = OnboardingStep.MINIMUM_SENSING },
+                    enabled = allCoreChecked,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("下一步") }
+                ) { Text("同意并继续") }
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
             }
 
-            OnboardingStep.EMERGENCY -> {
-                Text("紧急联系人（建议填写，可跳过）", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(emergencyName, { emergencyName = it }, label = { Text("姓名") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(emergencyPhone, { emergencyPhone = it }, label = { Text("电话") }, modifier = Modifier.fillMaxWidth())
-                CheckLine(emergencyConsent, { emergencyConsent = it }, "我单独同意在危机人工接管范围内处理该联系人信息")
+            OnboardingStep.MINIMUM_SENSING -> {
+                Text("最小权限", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "ECHO 只需要最少的权限就能开始工作。以下权限可以逐步开启，缺失的部分只会让画像少一些细节，不会让 ECHO 停止。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider()
+                SensingCapabilityRow(
+                    name = "运动传感器（加速度 / 陀螺仪）",
+                    description = "用于了解移动与作息节奏。这是 ECHO 的核心。",
+                    statusText = if (sensorAuthorized) "已开启" else "未开启",
+                    onAuthorize = { sensorAuthorized = true }
+                )
+                SensingCapabilityRow(
+                    name = "屏幕状态",
+                    description = "用于了解一天中的屏幕使用分布。无需额外权限。",
+                    statusText = "已开启（无需权限）"
+                )
+                SensingCapabilityRow(
+                    name = "应用使用情况",
+                    description = "用于了解你切换应用的次数与最常使用的应用时长（不读取应用内容）。",
+                    statusText = when {
+                        usageAuthorized -> "已开启"
+                        usageSkipped -> "已跳过"
+                        else -> "未开启（可跳过）"
+                    },
+                    onAuthorize = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+                        usageAuthorized = true
+                        usageSkipped = false
+                    },
+                    onSkip = { usageSkipped = true; usageAuthorized = false }
+                )
+                SensingCapabilityRow(
+                    name = "通知使用权",
+                    description = "只统计通知数量与类别，不读取通知内容。",
+                    statusText = when {
+                        notificationAuthorized -> "已开启"
+                        notificationSkipped -> "已跳过"
+                        else -> "未开启（可跳过）"
+                    },
+                    onAuthorize = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        notificationAuthorized = true
+                        notificationSkipped = false
+                    },
+                    onSkip = { notificationSkipped = true; notificationAuthorized = false }
+                )
+                SensingCapabilityRow(
+                    name = "麦克风",
+                    description = "可选，默认关闭。开启后仅在本机提取音量 / 语速等特征，不记录、不上传录音。",
+                    statusText = when {
+                        micAuthorized -> "已开启"
+                        micSkipped -> "已跳过"
+                        else -> "未开启（可跳过）"
+                    },
+                    onAuthorize = { showMicConfirm = true },
+                    onSkip = { micSkipped = true; micAuthorized = false }
+                )
+                HorizontalDivider()
+                // 规格 §1.3.4：底部「继续」在 SENSOR 可用或用户确认跳过 optional 后可用
+                // （确认跳过 = 三个 optional 能力全部显式跳过；此时即使不开启 SENSOR 也可继续，
+                //   对应 abstain 语义——ECHO 不启动感知，Today 显示 SENSING_DISABLED）
+                val sensingCanContinue = sensorAuthorized || (usageSkipped && notificationSkipped && micSkipped)
+                Button(
+                    onClick = { step = OnboardingStep.BASELINE_WARMING_UP },
+                    enabled = sensingCanContinue,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("继续") }
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
+            }
+
+            OnboardingStep.BASELINE_WARMING_UP -> {
+                Text("基线学习中", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "ECHO 需要积累几天数据来学习「通常的你」。这段时间里，「今天」页面会显示学习进度；基线形成后，它就会开始比较今天与平常的你。",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text("通常需要几天时间。", style = MaterialTheme.typography.bodyMedium)
                 Button(
                     onClick = { step = OnboardingStep.DONE },
-                    enabled = (emergencyName.isBlank() && emergencyPhone.isBlank()) ||
-                        (emergencyName.isNotBlank() && emergencyPhone.isNotBlank() && emergencyConsent),
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("完成设置") }
-                OutlinedButton(
-                    onClick = { step = OnboardingStep.DONE },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("跳过（不填）") }
+                ) { Text("进入应用") }
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
             }
 
             OnboardingStep.DONE -> {
-                Text("准备完成", style = MaterialTheme.typography.titleMedium)
-                Text("已授予：${if (psychologicalConsent) "心理数据、量表信息" else ""}" +
-                    "${if (passiveSensingConsent) "、被动感知" else ""}${if (micConsent) "、麦克风派生特征" else ""}。")
+                Text("准备好了", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "准备好了。ECHO 会在后台安静地了解你的日常节奏，每天在「今天」页面告诉你：今天的你，和通常的你有什么不同。",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                HorizontalDivider()
+                // 已授权摘要：只列核心（被动行为节律），不再列出「心理数据、量表信息」
+                Text(
+                    "已开启：被动行为节律。可随时在「支持与设置」中查看或撤回。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 Text("部分确认将在网络恢复后自动完成，你的数据仍安全保存在本机。", style = MaterialTheme.typography.bodySmall)
+                // 紧急入口常驻（DONE 页用 Button，PM 规格 §1.3.6）
+                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, prominent = true)
                 Button(onClick = { finishOnboarding() }, modifier = Modifier.fillMaxWidth()) { Text("进入应用") }
-                Text("存在立即危险时，请优先拨打 12356 / 110 / 120 或联系机构值班人员。")
+            }
+        }
+    }
+
+    if (showMicConfirm) {
+        AlertDialog(
+            onDismissRequest = { showMicConfirm = false },
+            title = { Text("开启麦克风采集") },
+            text = {
+                Text(
+                    "麦克风数据仅在本地端侧处理，用于提取音频特征（音量 / 语速 / 停顿 / 基频），" +
+                        "不会上传录音原始数据。你可随时在系统设置中撤回录音权限。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showMicConfirm = false
+                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }) { Text("同意并继续") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMicConfirm = false }) { Text("取消") }
+            }
+        )
+    }
+}
+
+/** Onboarding 各步骤底部常驻紧急入口（PM 规格 §1.3.1 / §1.3.6：任何步骤可访问）。 */
+@Composable
+private fun ColumnScope.OnboardingEmergencyEntry(
+    onOpenSafety: () -> Unit,
+    prominent: Boolean = false,
+    copy: String = "紧急支持"
+) {
+    HorizontalDivider()
+    if (prominent) {
+        Button(onClick = onOpenSafety, modifier = Modifier.fillMaxWidth()) { Text(copy) }
+    } else {
+        TextButton(
+            onClick = onOpenSafety,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) { Text(copy) }
+    }
+}
+
+/** MINIMUM SENSING 渐进授权每能力一行：能力名 + 说明 + 状态 + 授权/跳过。 */
+@Composable
+private fun SensingCapabilityRow(
+    name: String,
+    description: String,
+    statusText: String,
+    onAuthorize: (() -> Unit)? = null,
+    onSkip: (() -> Unit)? = null
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(
+                    statusText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Text(description, style = MaterialTheme.typography.bodySmall)
+            if (onAuthorize != null || onSkip != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    onAuthorize?.let {
+                        Button(onClick = it) { Text("授权") }
+                    }
+                    onSkip?.let {
+                        OutlinedButton(onClick = it) { Text("跳过") }
+                    }
+                }
             }
         }
     }
 }
+
+/** CORE DATA CONSENT 核心句（PM 规格 §1.3.1 原文，单测锚点）。 */
+internal const val ONBOARDING_WELCOME_CORE_COPY =
+    "ECHO 会在你授权后安静地学习你的日常生活节奏。积累几天以后，它会告诉你今天和平常的自己有什么不同。它不会判断你的情绪，也不会做心理诊断。"
+
+/** 紧急入口常驻文案（PM 规格 §1.3.1）。 */
+internal const val EMERGENCY_HINT_COPY = "存在立即危险时，请直接联系身边可信任的人、机构值班人员、110 或 120。"
+
+/** Onboarding 引导步骤（Phase 6.1 新主流程六步；L0/EMERGENCY 已从 enum 移除）。 */
+private enum class OnboardingStep { WELCOME, PORTRAIT_EXPLANATION, CORE_DATA_CONSENT, MINIMUM_SENSING, BASELINE_WARMING_UP, DONE }
 
 @Composable
 private fun CheckLine(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {
@@ -306,3 +493,7 @@ private fun CheckLine(checked: Boolean, onChecked: (Boolean) -> Unit, label: Str
         Text(label, modifier = Modifier.weight(1f))
     }
 }
+
+/** List<Boolean> 便捷更新（核心同意勾选按索引更新）。 */
+private fun List<Boolean>.withIndexed(value: Boolean, index: Int): List<Boolean> =
+    mapIndexed { i, v -> if (i == index) value else v }

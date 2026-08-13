@@ -30,9 +30,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="ECHO Mind Path A API",
+    title="ECHO Mind Portrait Core API",
     version=APP_VERSION,
-    description="心理健康记录、筛查提示、审核练习、人工接管与审计。非诊断、非紧急服务替代。",
+    description="ECHO-Mind 每日个人画像：被动行为节律 → 个人基线 → 每日画像（Me vs Me）。"
+                "行为观察，不做心理诊断；非诊断、非紧急服务替代。人工支持与画像链相互独立。",
     lifespan=lifespan,
 )
 app.add_middleware(

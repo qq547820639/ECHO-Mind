@@ -43,7 +43,7 @@ def _seed_all_user_data() -> None:
     now = datetime.now(UTC)
     with SessionLocal() as db:
         db.add(DerivedFeature(tenant_id="t_demo", user_id="u_demo", event_id="evt_df_1",
-                              schema_version="feat-v1", source="screen", window_start=now,
+                              schema_version="passive-core-v1", source="screen", window_start=now,
                               window_end=now, summary="平稳", vector=[0.1]))
         db.add(DailyNarrative(tenant_id="t_demo", user_id="u_demo", date=now.date(),
                               events=[], mood_hint="平稳", gaps=[]))

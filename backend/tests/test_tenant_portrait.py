@@ -136,7 +136,7 @@ def test_no_single_user_identifier_leaked(client, admin_headers):
         now = datetime.now(timezone.utc)
         db.add(DerivedFeature(
             tenant_id="t_demo", user_id="u_leak_0", event_id="evt_leak_df_0",
-            schema_version="feat-v1", source="screen",
+            schema_version="passive-core-v1", source="screen",
             window_start=now, window_end=now, summary="平稳",
         ))
         db.add(Escalation(
@@ -176,13 +176,13 @@ def test_active_users_escalation_skill_aggregation(client, admin_headers):
             _seed_user(db, "t_demo", f"u_act_{i}", f"act_{i}")
             db.add(DerivedFeature(
                 tenant_id="t_demo", user_id=f"u_act_{i}", event_id=f"evt_act_{i}",
-                schema_version="feat-v1", source="screen",
+                schema_version="passive-core-v1", source="screen",
                 window_start=now, window_end=now, summary="平稳",
             ))
         _seed_user(db, "t_demo", "u_act_old", "act_old")
         db.add(DerivedFeature(
             tenant_id="t_demo", user_id="u_act_old", event_id="evt_act_old",
-            schema_version="feat-v1", source="screen",
+            schema_version="passive-core-v1", source="screen",
             window_start=old, window_end=old, summary="平稳",
         ))
         # 2 条 escalation（1 open L3 + 1 closed L2）

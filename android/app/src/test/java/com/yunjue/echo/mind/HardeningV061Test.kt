@@ -11,9 +11,14 @@ import com.yunjue.echo.mind.data.EscalationStatus
 import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
 import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.model.PortraitAvailability
+import com.yunjue.echo.mind.model.SensingDiagnostics
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
+import com.yunjue.echo.mind.sensing.CapabilityState
+import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.ui.SkillSessionCoordinator
 import com.yunjue.echo.mind.ui.TrendNoDataReason
 import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
@@ -59,7 +64,7 @@ class HardeningV061Test {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        cipher = FieldCipher()
+        cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
         repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
     }
@@ -296,50 +301,65 @@ class HardeningV061Test {
         assertTrue(preferences.onboardingCompleted)
     }
 
-    // ===== P1-8：Trend 真实输入 =====
+    // ===== P1-8：Trend 真实输入（Phase 6.5.3：PortraitAvailability + SensingDiagnostics） =====
+
+    private fun availability(
+        baselineDays: Int = 5,
+        missingSources: List<String> = emptyList()
+    ): PortraitAvailability = PortraitAvailability(
+        baselineStatus = "BASELINE_READY",
+        baselineDays = baselineDays,
+        missingSources = missingSources
+    )
+
+    private fun diagnostics(
+        sensingActive: Boolean = true,
+        sensorState: CapabilityState = CapabilityState.AVAILABLE,
+        lastCollectionAt: Long = System.currentTimeMillis(),
+        consecutivePersistenceFailures: Int = 0,
+        pendingUploadCount: Int = 0
+    ): SensingDiagnostics = SensingDiagnostics(
+        capabilities = mapOf(SensingCapability.SENSOR to sensorState),
+        sensingActive = sensingActive,
+        lastCollectionAt = lastCollectionAt,
+        consecutivePersistenceFailures = consecutivePersistenceFailures,
+        pendingUploadCount = pendingUploadCount
+    )
 
     @Test
     fun trendNoDataReasonsAllReachable() {
         // consent 关闭 → CLOSED
         assertEquals(TrendNoDataReason.CLOSED, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = emptyList(), consentEnabled = false, permissionGranted = true))
+            availability = availability(),
+            diagnostics = diagnostics(sensingActive = false)))
         // 权限未授权 → PERMISSION
         assertEquals(TrendNoDataReason.PERMISSION, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = emptyList(), consentEnabled = true, permissionGranted = false))
-        // 后台限制 → SYSTEM_BACKGROUND
+            availability = availability(),
+            diagnostics = diagnostics(sensorState = CapabilityState.DENIED)))
+        // 后台限制（无近期采集）→ SYSTEM_BACKGROUND
         assertEquals(TrendNoDataReason.SYSTEM_BACKGROUND, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = true,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = emptyList()))
+            availability = availability(),
+            diagnostics = diagnostics(lastCollectionAt = 0L)))
         // source gap → SOURCE_GAPS
         assertEquals(TrendNoDataReason.SOURCE_GAPS, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = listOf("accel")))
+            availability = availability(missingSources = listOf("accel")),
+            diagnostics = diagnostics()))
         // 待上传 → AWAITING_UPLOAD
         assertEquals(TrendNoDataReason.AWAITING_UPLOAD, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 3,
-            missingSources = emptyList()))
+            availability = availability(),
+            diagnostics = diagnostics(pendingUploadCount = 3)))
         // 持久化失败 → PERSISTENCE_FAILURE
         assertEquals(TrendNoDataReason.PERSISTENCE_FAILURE, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = true, pendingUploadCount = 0,
-            missingSources = emptyList()))
+            availability = availability(),
+            diagnostics = diagnostics(consecutivePersistenceFailures = 1)))
         // 新用户 → NEW_USER
         assertEquals(TrendNoDataReason.NEW_USER, resolveTrendNoDataReason(
-            observationDays = 0, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = emptyList()))
+            availability = availability(baselineDays = 0),
+            diagnostics = diagnostics()))
         // 全部正常 → UNKNOWN（无数据但一切正常）
         assertEquals(TrendNoDataReason.UNKNOWN, resolveTrendNoDataReason(
-            observationDays = 5, systemBackgroundRestricted = false,
-            persistenceFailedRecently = false, pendingUploadCount = 0,
-            missingSources = emptyList()))
+            availability = availability(),
+            diagnostics = diagnostics()))
     }
 
     // ===== Room migration v5 → v6 =====

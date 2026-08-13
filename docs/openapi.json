@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "ECHO Mind Path A API",
-    "description": "心理健康记录、筛查提示、审核练习、人工接管与审计。非诊断、非紧急服务替代。",
-    "version": "0.6.0"
+    "title": "ECHO Mind Portrait Core API",
+    "description": "ECHO-Mind 每日个人画像：被动行为节律 → 个人基线 → 每日画像（Me vs Me）。行为观察，不做心理诊断；非诊断、非紧急服务替代。人工支持与画像链相互独立。",
+    "version": "0.7.0"
   },
   "paths": {
     "/v1/tenants": {
@@ -595,6 +595,142 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PortraitRebuildIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/me/portraits/today": {
+      "get": {
+        "summary": "Get Me Today Portrait",
+        "description": "只读：当前用户（principal.subject）今日画像。已生成返回完整；否则轻量状态视图。",
+        "operationId": "get_me_today_portrait_v1_me_portraits_today_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/me/portraits": {
+      "get": {
+        "summary": "List Me Portraits",
+        "description": "只读：当前用户（principal.subject）最近 N 天画像列表。",
+        "operationId": "list_me_portraits_v1_me_portraits_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/baseline/status": {
+      "get": {
+        "summary": "Me Baseline Status",
+        "description": "只读：当前用户（principal.subject）基线状态（绝不 rebuild / 写库）。",
+        "operationId": "me_baseline_status_v1_me_baseline_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/me/portraits/rebuild": {
+      "post": {
+        "summary": "Rebuild Me Portrait",
+        "description": "显式重建当前用户（principal.subject）当日画像；body 不接收 user_id。",
+        "operationId": "rebuild_me_portrait_v1_me_portraits_rebuild_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MePortraitRebuildIn"
               }
             }
           },
@@ -3076,8 +3212,12 @@
           },
           "schema_version": {
             "type": "string",
+            "enum": [
+              "passive-core-v1",
+              "mic-feature-v1"
+            ],
             "title": "Schema Version",
-            "default": "feat-v1"
+            "default": "passive-core-v1"
           },
           "source": {
             "type": "string",
@@ -3526,6 +3666,25 @@
         ],
         "title": "L0ScreeningCreate"
       },
+      "MePortraitRebuildIn": {
+        "properties": {
+          "local_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Date"
+          }
+        },
+        "type": "object",
+        "title": "MePortraitRebuildIn",
+        "description": "当前用户（principal.subject）显式重建画像入参。\n\n- 不接收 user_id：认证用户由 JWT principal.subject 确定（/v1/me/* 契约）；\n- local_date 可选，缺省为今天（用户本地日期）。"
+      },
       "OnboardingVerifyIn": {
         "properties": {
           "code": {
@@ -3640,6 +3799,17 @@
               }
             ],
             "title": "Baseline Version"
+          },
+          "baseline_snapshot_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Snapshot Digest"
           },
           "headline": {
             "items": {

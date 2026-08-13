@@ -33,7 +33,7 @@
 - **日界线**：以 `User.timezone` 定义"一天"（本地 00:00 → 次日 00:00 换算 UTC 查询窗口）；`DailyPortrait.timezone` 记录 timezone_used，保证可重现。
 - **DailyBehaviorAggregate**（daily_behavior_aggregates）：覆盖度/移动/屏幕/App 切换/通知计数等；禁含 mood/anxiety/stress/depression/loneliness/risk 字段。
 - **PersonalBaseline**（personal_baselines）：近 28 个有效日（不含当天），median/MAD/P10/P25/P75/P90；冷启动 WARMING_UP(0-2) / EARLY_BASELINE(3-6) / BASELINE_READY(≥7)；weekday/weekend 分桶，不足 fallback all_days；confidence HIGH/MEDIUM/LOW。
-- **DailyPortrait**（daily_portraits）：5 维度 RHYTHM / MOVEMENT / SCREEN_PATTERN / DAY_STRUCTURE / STABILITY（禁止 GOOD/BAD/HEALTHY 等评价性取值）；低置信度 abstain（LOW_CONFIDENCE，不硬生成画像）；确定性模板叙事（无 LLM），每句可追溯（Explainability facts）。
+- **DailyPortrait**（daily_portraits）：6 维度 RHYTHM / MOVEMENT / SCREEN_AMOUNT / SCREEN_TIMING / DAY_STRUCTURE / STABILITY（禁止 GOOD/BAD/HEALTHY 等评价性取值）；数据缺失维度省略（missing != irregular）；低置信度 abstain（LOW_CONFIDENCE，不硬生成画像）；确定性模板叙事（无 LLM），每句可追溯（Explainability facts）。
 - **API**：`GET /v1/portraits/today`、`GET /v1/portraits?days=7|28`、`GET /v1/baseline/status`（全程无副作用）、`POST /v1/portraits/rebuild`（显式重建写路径）。写路径仅 feature ingest / background rebuild / explicit rebuild。
 - **语言安全**：被动画像文案禁止出现：焦虑/抑郁/孤独/压力过大/心理异常/风险/精神疾病/社交退缩/不健康（CI 强制）。
 - **Android**：Today「今天」页 Portrait first（九态状态机 + 为什么这么说？ + 画像反馈）；Trend 升级为 Portrait Timeline（7/28 日）；Room 缓存 `DailyPortraitEntity`（offline-first）。

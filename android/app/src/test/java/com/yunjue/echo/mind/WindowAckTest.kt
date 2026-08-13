@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind
 
 import android.content.Context
+import android.hardware.Sensor
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.ApiClient
@@ -8,8 +9,10 @@ import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.LocalRepository
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.security.FieldCipher
+import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
+import com.yunjue.echo.mind.sensing.SensorSample
 import com.yunjue.echo.mind.sensing.WindowFlushResult
 import com.yunjue.echo.mind.ui.performPassiveSensingStop
 import kotlinx.coroutines.flow.first
@@ -51,7 +54,7 @@ class WindowAckTest {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        cipher = FieldCipher()
+        cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
         repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
     }
@@ -65,7 +68,8 @@ class WindowAckTest {
     private fun sampleInput(): DerivedFeatureInput {
         val start = Instant.parse("2026-08-01T12:00:00Z")
         return DerivedFeatureInput(
-            schemaVersion = "feat-v1",
+            // Phase 4/5：端侧默认 schema 为 schema registry 的 passive-core-v1
+            schemaVersion = "passive-core-v1",
             source = "accel",
             windowStart = start,
             windowEnd = start.plusMillis(300_000L),
@@ -156,7 +160,7 @@ class WindowAckTest {
     @Test
     fun consentRevokeDuringFailureClearsMemoryAndStops() = runBlocking {
         val hub = SensingEventHub.getInstance()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
+        hub.onAccelSample(SensorSample(System.currentTimeMillis(), Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f))
         assertFalse(hub.isEmpty())
 
         // 模拟窗口持久化失败（scheduler flush false）时用户撤回 consent
@@ -191,9 +195,10 @@ class WindowAckTest {
     @Test
     fun callbackFailureIsRetryableAndObservable() = kotlinx.coroutines.test.runTest {
         val hub = SensingEventHub.getInstance()
-        hub.onAccelSample(floatArrayOf(0f, 0f, 9.8f))
-        val scheduler = SensingWindowScheduler(hub, clock = java.time.Clock.systemUTC())
         val start = Instant.parse("2026-08-01T12:00:00Z")
+        // 样本时间戳落在 [12:00, 12:05) 窗口内（Phase 4.1 精确归属）
+        hub.onAccelSample(SensorSample(start.toEpochMilli() + 60_000L, Sensor.TYPE_ACCELEROMETER, 0f, 0f, 9.8f))
+        val scheduler = SensingWindowScheduler(hub, clock = java.time.Clock.systemUTC())
         val result = scheduler.flushWindow(start, start.plusMillis(300_000L)) { false }
         assertEquals(WindowFlushResult.FAILURE_RETRYABLE, result)
         assertTrue("失败窗口不应进 flushed 集", !scheduler.hasFlushed(start.toEpochMilli()))
