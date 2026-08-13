@@ -20,6 +20,7 @@ import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.ui.SkillSessionCoordinator
+import com.yunjue.echo.mind.ui.SkillTerminal
 import com.yunjue.echo.mind.ui.TrendNoDataReason
 import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
 import kotlinx.coroutines.flow.first
@@ -218,7 +219,7 @@ class HardeningV061Test {
         assertEquals(com.yunjue.echo.mind.ui.SkillRunStatus.PAUSED, restored.status)
 
         // finish 用原 sessionId 删除 → 会话行确实被删
-        coordinator2.finish(skillA) { "completed" }
+        coordinator2.finish(skillA, SkillTerminal.COMPLETE)
         assertNull("finish 后会话行必须删除", repository.loadActiveSession("sk_a"))
     }
 
@@ -233,7 +234,7 @@ class HardeningV061Test {
         val viewB = coordinator.getOrRestore(skillB)
         assertNotEquals("不同 Skill 不应共享会话", viewA.sessionId, viewB.sessionId)
         // Skill B 卡片 finish 只删自己的会话
-        coordinator.finish(skillB) { "stopped" }
+        coordinator.finish(skillB, SkillTerminal.STOP)
         assertNotNull("Skill B 完成不得删除 Skill A 的会话", repository.loadActiveSession("sk_a"))
     }
 

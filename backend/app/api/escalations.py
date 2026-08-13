@@ -21,11 +21,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.auth import Principal, require_roles
 from app.config import get_settings
-from app.database import get_db
 from app.models import EmergencyContact, Escalation, User
 from app.schemas import EscalationClose, EscalationCreate, EscalationReview
 from app.services.audit import append_audit

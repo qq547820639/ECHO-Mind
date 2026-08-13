@@ -13,7 +13,7 @@
 import threading
 
 from app.database import SessionLocal
-from app.models import ActivationAttempt, ActivationCode, User
+from app.models import ActivationCode, User
 from app.services.activation import generate_raw_code, hash_code, issue_code, redeem_code
 
 

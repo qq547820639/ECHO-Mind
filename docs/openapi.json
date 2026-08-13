@@ -763,6 +763,48 @@
         ]
       }
     },
+    "/v1/me/portraits/feedback": {
+      "post": {
+        "summary": "Record Me Portrait Feedback",
+        "description": "记录当前用户（principal.subject）画像反馈；body 里的 user_id 被忽略。",
+        "operationId": "record_me_portrait_feedback_v1_me_portraits_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortraitFeedbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/profile/{user_id}": {
       "get": {
         "summary": "Get Profile",
@@ -3742,6 +3784,72 @@
         ],
         "title": "OnboardingVerifyOut",
         "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。"
+      },
+      "PortraitFeedbackIn": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 8,
+            "title": "Event Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "portrait_id": {
+            "type": "string",
+            "format": "date",
+            "title": "Portrait Id"
+          },
+          "feedback": {
+            "type": "string",
+            "enum": [
+              "LIKE",
+              "NOT_LIKE"
+            ],
+            "title": "Feedback"
+          },
+          "portrait_schema_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portrait Schema Version"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "portrait_id",
+          "feedback"
+        ],
+        "title": "PortraitFeedbackIn",
+        "description": "画像反馈入参（v0.7 Phase 6.6）：「这个描述像今天的你吗？」。\n\n- event_id 必填（幂等键，服务端按 tenant_id + event_id 去重）；\n- user_id 容忍但不信任：/v1/me/* 由 principal.subject 确定用户（忽略 body 值）；\n- portrait_id 为服务器 local_date（YYYY-MM-DD），解析为 date；\n- feedback 仅 LIKE / NOT_LIKE；\n- portrait_schema_version / created_at 可选（端侧上报，服务端不强制，created_at 忽略）。"
       },
       "PortraitListOut": {
         "properties": {

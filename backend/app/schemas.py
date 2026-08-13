@@ -468,3 +468,21 @@ class MePortraitRebuildIn(BaseModel):
     """
 
     local_date: date | None = None
+
+
+class PortraitFeedbackIn(BaseModel):
+    """画像反馈入参（v0.7 Phase 6.6）：「这个描述像今天的你吗？」。
+
+    - event_id 必填（幂等键，服务端按 tenant_id + event_id 去重）；
+    - user_id 容忍但不信任：/v1/me/* 由 principal.subject 确定用户（忽略 body 值）；
+    - portrait_id 为服务器 local_date（YYYY-MM-DD），解析为 date；
+    - feedback 仅 LIKE / NOT_LIKE；
+    - portrait_schema_version / created_at 可选（端侧上报，服务端不强制，created_at 忽略）。
+    """
+
+    event_id: str = Field(min_length=8, max_length=80)
+    user_id: str | None = None
+    portrait_id: date
+    feedback: Literal["LIKE", "NOT_LIKE"]
+    portrait_schema_version: str | None = Field(default=None, max_length=40)
+    created_at: datetime | None = None

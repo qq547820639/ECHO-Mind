@@ -593,3 +593,24 @@ class DailyPortrait(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "user_id", "local_date", name="uq_dp_tenant_user_date"),
     )
+
+
+class PortraitFeedback(Base):
+    """画像反馈（v0.7 Phase 6.6）：「这个描述像今天的你吗？」LIKE/NOT_LIKE。
+
+    幂等键：tenant_id + event_id（重复上报返回成功 + idempotent_replay）。
+    仅记录用户主动反馈，不承载任何可执行内容或心理诊断结论；新增表，非 append-only。
+    """
+
+    __tablename__ = "portrait_feedback"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: new_id("pfb"))
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    event_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    local_date: Mapped[date] = mapped_column(Date, nullable=False)
+    feedback: Mapped[str] = mapped_column(String(20), nullable=False)
+    portrait_schema_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_portrait_feedback_tenant_event"),
+    )

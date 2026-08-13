@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.models import UserProfile
 from app.services.audit import append_audit
 from app.services.profile import get_profile as get_profile_cached
 from app.services.profile import rebuild_profile

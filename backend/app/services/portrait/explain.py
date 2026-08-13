@@ -83,7 +83,6 @@ def build_facts(today: dict, baseline_metrics: dict) -> list[dict]:
         # 对普通用户无意义且误导）；today_text 用行为化相对描述（coarse wording）。
         today_text: str
         if move_stats.get("median") is not None:
-            delta = _delta_text(movement, move_stats, "movement_index")
             # _delta_text 已是完整句（"和近期水平接近"/"比近期略少"…），
             # 但 facts 结构要求 today_text 短句，这里用方向性措辞
             med = move_stats.get("median") or 0.0

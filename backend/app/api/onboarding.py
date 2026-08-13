@@ -6,13 +6,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
-from app.auth import Principal
-from app.database import get_db
 from app.models import EmergencyContact, OnboardingScreening, Tenant, User
 from app.schemas import (
     EmergencyContactCreate,

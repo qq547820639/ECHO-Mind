@@ -131,15 +131,20 @@ class SkillSessionCoordinator(private val repository: LocalRepository) {
         _sessions.value = _sessions.value + (skillId to (_sessions.value[skillId]?.copy(durationSeconds = durationSeconds) ?: return))
     }
 
+    /** 实时活动时长（秒，仅展示用）；持久化时长以 terminal 结算为准。 */
+    fun liveDurationSeconds(skillId: String): Int = runtime[skillId]?.run?.elapsedSeconds() ?: 0
+
     /**
      * 完成/停止/中止（terminal）：
+     * - 在**协调器的 run 实例**上结算（freezeDuration 才会给 durationSeconds 赋值），
+     *   而非依赖调用方传入 terminal lambda 去结算 SkillCardHost 的本地影子；
      * - 用**真实 sessionId** 删除会话行（不匹配的卡片不会误删别的会话）；
      * - completion 入 Outbox（幂等 event_id）；app restart 后仍可同步；
      * - 从协调器状态中移除。
      */
-    suspend fun finish(skill: SkillDisplay, terminal: () -> String): Unit = mutex.withLock {
+    suspend fun finish(skill: SkillDisplay, terminal: SkillTerminal): Unit = mutex.withLock {
         val rt = runtime[skill.id] ?: return@withLock
-        val status = terminal()
+        val status = settleTerminal(rt.run, terminal)
         val input = SkillCompletionInput(
             skillId = skill.id,
             status = status,

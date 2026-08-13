@@ -3,6 +3,8 @@ package com.yunjue.echo.mind
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.ui.SkillRunSession
 import com.yunjue.echo.mind.ui.SkillRunStatus
+import com.yunjue.echo.mind.ui.SkillTerminal
+import com.yunjue.echo.mind.ui.settleTerminal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -154,5 +156,44 @@ class ActiveSkillSessionTest {
         assertEquals("paused", entity.status)
         assertNull("paused 时 segment 应为 null", entity.segmentStartedAtMs)
         assertFalse("paused 时 isRunning 应为 false", session.isRunning)
+    }
+
+    @Test
+    fun settleTerminalFreezesDurationOnRunInstance() {
+        // 回归 T02/缺陷：finish 必须在协调器 run 实例上结算，duration 不能恒为 0。
+        val clock = FakeClock(0L)
+        val run = SkillRunSession("sk_1", nowProvider = clock.provider())
+        run.start() // t=0
+        clock.now = 90_000L
+
+        val status = settleTerminal(run, SkillTerminal.COMPLETE)
+
+        assertEquals("completed", status)
+        assertEquals("finish 结算的 duration 应包含最后一段（90s）", 90, run.durationSeconds)
+    }
+
+    @Test
+    fun settleTerminalStopReturnsStoppedAndFreezesDuration() {
+        val clock = FakeClock(0L)
+        val run = SkillRunSession("sk_1", nowProvider = clock.provider())
+        run.start()
+        clock.now = 30_000L
+        run.pause() // 结算 30s
+        clock.now = 60_000L // 暂停 30s 不计入
+        val status = settleTerminal(run, SkillTerminal.STOP)
+
+        assertEquals("stopped", status)
+        assertEquals("暂停段不应计入 duration（30s）", 30, run.durationSeconds)
+    }
+
+    @Test
+    fun syncFromViewMirrorsCoordinatorState() {
+        val session = SkillRunSession("sk_1", nowProvider = { 0L })
+        session.syncFromView(SkillRunStatus.RUNNING, currentStep = 2, durationSeconds = 15)
+
+        assertEquals(SkillRunStatus.RUNNING, session.status)
+        assertEquals(2, session.currentStep)
+        assertEquals(15, session.durationSeconds)
+        assertTrue("同步 RUNNING 后 isRunning 应为 true", session.isRunning)
     }
 }

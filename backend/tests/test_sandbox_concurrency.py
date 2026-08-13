@@ -9,7 +9,6 @@
 - 真实并发测试：线程并发 acquire 恰好放行 max 个
 """
 import threading
-import time
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine
@@ -134,7 +133,6 @@ def test_runner_releases_slot_when_concurrency_full():
 
 def test_runner_releases_slot_on_timeout_path():
     """timeout/failed 路径也释放（通过异常注入验证 finally 语义）。"""
-    import tempfile
     from unittest.mock import patch
 
     tmp_name, factory = _file_engine()

@@ -45,6 +45,9 @@ import java.util.UUID
 /** Skill 执行状态（PRD v0.6 契约点 4：至少三态状态机）。 */
 enum class SkillRunStatus { IDLE, RUNNING, PAUSED, COMPLETED, STOPPED }
 
+/** 终态动作（完成/停止）：由协调器在 run 实例上结算，避免结算 shadow session。 */
+enum class SkillTerminal { COMPLETE, STOP }
+
 /**
  * 单次 Skill 执行会话状态机（纯 Kotlin，便于单测）。
  *
@@ -187,6 +190,13 @@ internal class SkillRunSession(
         durationSeconds = 0
     }
 
+    /** 将协调器视图同步到本地影子（仅渲染用；计时真相仍归协调器的 run）。 */
+    fun syncFromView(status: SkillRunStatus, currentStep: Int, durationSeconds: Int) {
+        this.status = status
+        this.currentStep = currentStep
+        this.durationSeconds = durationSeconds
+    }
+
     companion object {
         /** 从持久化实体构造新会话并恢复为 PAUSED（进程重建恢复入口）。 */
         fun restoreFromEntity(
@@ -200,6 +210,12 @@ internal class SkillRunSession(
             nowProvider = nowProvider
         ).also { it.restoreFrom(entity) }
     }
+}
+
+/** 在协调器的 run 实例上结算终态并返回上报 status（纯函数，便于单测）。 */
+internal fun settleTerminal(run: SkillRunSession, terminal: SkillTerminal): String = when (terminal) {
+    SkillTerminal.COMPLETE -> run.complete()
+    SkillTerminal.STOP -> run.stop()
 }
 
 /**
@@ -247,21 +263,7 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator:
     /** 协调器视图 → 本地影子（恢复后继续使用原 sessionId 语义由协调器承载）。 */
     fun applyView(view: SkillSessionCoordinator.SessionView?) {
         if (view == null) return
-        val entity = com.yunjue.echo.mind.data.ActiveSkillSessionEntity(
-            sessionId = view.sessionId,
-            skillId = view.skillId,
-            skillVersion = skill.version,
-            skillRevision = skill.revision,
-            actionType = skill.actionType,
-            status = if (view.status == SkillRunStatus.RUNNING) "running" else "paused",
-            currentStep = view.currentStep,
-            startedAt = System.currentTimeMillis(),
-            accumulatedActiveMs = 0L,
-            segmentStartedAtMs = null,
-            pausedAt = null,
-            updatedAt = System.currentTimeMillis()
-        )
-        session.restoreFrom(entity)
+        session.syncFromView(view.status, view.currentStep, view.durationSeconds)
         syncUi()
     }
 
@@ -284,15 +286,16 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator:
 
     // 执行中实时计时（仅展示；持久化时长以 terminal 结算为准）
     LaunchedEffect(uiStatus) {
-        while (session.isRunning) {
+        while (uiStatus == SkillRunStatus.RUNNING) {
             kotlinx.coroutines.delay(1000)
-            uiDuration = session.elapsedSeconds()
-            coordinator.touchDuration(skill.id, uiDuration)
+            val live = coordinator.liveDurationSeconds(skill.id)
+            uiDuration = live
+            coordinator.touchDuration(skill.id, live)
         }
     }
 
     // 完成/停止：协调器按真实 sessionId 删会话 + completion 入 outbox（幂等）
-    fun finish(terminal: () -> String) {
+    fun finish(terminal: SkillTerminal) {
         scope.launch {
             try {
                 coordinator.finish(skill, terminal)

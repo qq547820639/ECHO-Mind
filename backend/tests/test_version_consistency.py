@@ -27,7 +27,6 @@ def _collect_pytest_count() -> int:
     import tests  # noqa: F401 确保测试模块可收集
     import _pytest.config
 
-    from pathlib import Path as _P
 
     cfg = _pytest.config.get_config()
     return len(cfg.collect_initial_items) if hasattr(cfg, "collect_initial_items") else 0

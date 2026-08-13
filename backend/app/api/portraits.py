@@ -14,8 +14,15 @@ from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 from zoneinfo import ZoneInfo
 
-from app.models import DailyBehaviorAggregate, DailyPortrait, PersonalBaseline, User
-from app.schemas import BaselineStatusOut, MePortraitRebuildIn, PortraitListOut, PortraitOut, PortraitRebuildIn
+from app.models import DailyBehaviorAggregate, DailyPortrait, PersonalBaseline, PortraitFeedback, User
+from app.schemas import (
+    BaselineStatusOut,
+    MePortraitRebuildIn,
+    PortraitFeedbackIn,
+    PortraitListOut,
+    PortraitOut,
+    PortraitRebuildIn,
+)
 from app.services.audit import append_audit
 from app.services.baseline.calculator import baseline_state
 from app.services.baseline.confidence import confidence_for
@@ -178,6 +185,37 @@ def _baseline_status(db, principal, user_id: str) -> BaselineStatusOut:
     )
 
 
+def _record_portrait_feedback(db, principal, payload: PortraitFeedbackIn) -> dict:
+    """写路径：记录当前用户画像反馈（幂等 tenant+event_id，重复返回 idempotent_replay）。
+
+    - user 由 principal.subject 确定（body 里的 user_id 被忽略，绝不信任）；
+    - feedback 为新增数据，非 append-only，无需 immutability 防护；
+    - 重复 event_id 直接返回已有记录 + idempotent_replay（与 features.py ingest 一致）。
+    """
+    ensure_user(db, principal, principal.subject)
+    existing = db.scalar(select(PortraitFeedback).where(
+        PortraitFeedback.tenant_id == principal.tenant_id,
+        PortraitFeedback.event_id == payload.event_id,
+    ))
+    if existing is not None:
+        return {"id": existing.id, "idempotent_replay": True}
+    row = PortraitFeedback(
+        tenant_id=principal.tenant_id,
+        user_id=principal.subject,
+        event_id=payload.event_id,
+        local_date=payload.portrait_id,
+        feedback=payload.feedback,
+        portrait_schema_version=payload.portrait_schema_version,
+    )
+    db.add(row)
+    db.flush()
+    append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
+                 action="portrait.feedback", object_type="portrait_feedback", object_id=row.id,
+                 metadata={"local_date": str(payload.portrait_id), "feedback": payload.feedback})
+    db.commit()
+    return {"id": row.id, "idempotent_replay": False}
+
+
 def _rebuild_portrait(db, principal, user_id: str, local_date: date_cls | None = None) -> PortraitOut:
     """显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。"""
     user = _resolve_user(db, principal, user_id)
@@ -250,4 +288,10 @@ def me_baseline_status(db: DB, principal: PRINCIPAL) -> BaselineStatusOut:
 def rebuild_me_portrait(payload: MePortraitRebuildIn, db: DB, principal: PRINCIPAL):
     """显式重建当前用户（principal.subject）当日画像；body 不接收 user_id。"""
     return _rebuild_portrait(db, principal, principal.subject, payload.local_date)
+
+
+@router.post("/me/portraits/feedback")
+def record_me_portrait_feedback(payload: PortraitFeedbackIn, db: DB, principal: PRINCIPAL):
+    """记录当前用户（principal.subject）画像反馈；body 里的 user_id 被忽略。"""
+    return _record_portrait_feedback(db, principal, payload)
 

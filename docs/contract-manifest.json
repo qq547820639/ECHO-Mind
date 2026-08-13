@@ -76,6 +76,11 @@
         "note": "显式重建画像（body {} 或 {local_date}；principal.subject 确定用户）"
       },
       {
+        "method": "POST",
+        "path": "/v1/me/portraits/feedback",
+        "note": "画像反馈（body event_id/portrait_id/feedback；幂等 tenant+event_id；principal.subject 确定用户）"
+      },
+      {
         "method": "GET",
         "path": "/v1/portraits/today",
         "note": "旧路径保留兼容（user_id query param）"

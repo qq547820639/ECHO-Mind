@@ -177,7 +177,6 @@ def redeem_code(
     并发：UPDATE ... WHERE used_at IS NULL AND revoked_at IS NULL → 行级原子，
     只有一个并发事务能把 used_at 从 NULL 变为非 NULL。
     """
-    settings = get_settings()
     now = datetime.now(UTC)
     code_hash = hash_code(code)
 

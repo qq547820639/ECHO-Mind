@@ -48,7 +48,7 @@ ECHO Mind 是一款帮助你了解状态并获得支持的小工具。它就像�
 
 **安全、质量与交付：**
 - **tested**：650 条合成红队语料；当前规则包在该合成集上 650/650，**不代表临床效度**
-- **tested**：后端自动测试 **1047 项全绿**（见 `RELEASE_NOTES_v0.7.0.md`）
+- **tested**：后端自动测试 **1056 项全绿**（见 `RELEASE_NOTES_v0.7.0.md`）
 - **tested**：内容包校验、宣称扫描、动态代码检查、安全集回归
 - **implemented**：后端、Android、安全三条 CI 工作流
 - **implemented**：试点责任矩阵、单独同意、PIPIA、Alpha、危机演练、事件响应和 Go/No-Go 模板

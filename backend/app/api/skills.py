@@ -16,7 +16,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import Principal, require_roles
-from app.database import get_db
 from app.models import Skill, SkillCompletion, UserProfile
 from app.schemas import (
     ACTION_TYPE_WHITELIST,

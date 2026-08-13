@@ -40,7 +40,7 @@ internal fun ActionRenderer(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     when (skill.actionType) {
         "guided_steps" -> GuidedStepsContent(skill, session, uiStatus, uiStep, uiDuration, onStatusChanged, onStart, onNext, onPause, onResume, onFinish)
@@ -77,7 +77,7 @@ private fun GuidedStepsContent(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     if (skill.steps.isNotEmpty()) {
         HorizontalDivider()
@@ -109,7 +109,7 @@ private fun BreathingContent(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     HorizontalDivider()
     Text("呼吸练习", style = MaterialTheme.typography.titleSmall)
@@ -140,7 +140,7 @@ private fun ChecklistContent(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     HorizontalDivider()
     Text("清单", style = MaterialTheme.typography.titleSmall)
@@ -170,7 +170,7 @@ private fun JournalingContent(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     HorizontalDivider()
     Text("反思记录", style = MaterialTheme.typography.titleSmall)
@@ -198,7 +198,7 @@ private fun ReflectionContent(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     HorizontalDivider()
     Text("反思引导", style = MaterialTheme.typography.titleSmall)
@@ -252,7 +252,7 @@ private fun ExecutionControls(
     onNext: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onFinish: (() -> String) -> Unit
+    onFinish: (SkillTerminal) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         when (uiStatus) {
@@ -273,10 +273,10 @@ private fun ExecutionControls(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { onFinish { session.complete() } }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { onFinish(SkillTerminal.COMPLETE) }, modifier = Modifier.weight(1f)) {
                         Text("完成")
                     }
-                    OutlinedButton(onClick = { onFinish { session.stop() } }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { onFinish(SkillTerminal.STOP) }, modifier = Modifier.weight(1f)) {
                         Text("停止")
                     }
                 }
@@ -286,10 +286,10 @@ private fun ExecutionControls(
                 Button(onClick = { onResume(); onStatusChanged() }, modifier = Modifier.weight(1f)) {
                     Text("继续")
                 }
-                Button(onClick = { onFinish { session.complete() } }, modifier = Modifier.weight(1f)) {
+                Button(onClick = { onFinish(SkillTerminal.COMPLETE) }, modifier = Modifier.weight(1f)) {
                     Text("完成")
                 }
-                OutlinedButton(onClick = { onFinish { session.stop() } }, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = { onFinish(SkillTerminal.STOP) }, modifier = Modifier.weight(1f)) {
                     Text("停止")
                 }
             }
