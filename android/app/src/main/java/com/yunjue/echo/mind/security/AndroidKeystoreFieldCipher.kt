@@ -29,7 +29,10 @@ import javax.crypto.spec.GCMParameterSpec
  * （Keystore 密钥 + 固定盐 + 固定 IV + SHA-256），现有用户数据库口令不变。
  */
 class AndroidKeystoreFieldCipher : FieldCipher {
-    private val alias = "echo_mind_sensitive_fields_v1"
+    // v2：修复真机启动闪退——v1 密钥默认 randomizedEncryptionRequired=true，
+    // 而 deriveDatabasePassphrase 用固定 IV 加密，会在真机抛 InvalidAlgorithmParameterException。
+    // 升 alias 强制重建密钥，避免已崩溃设备上残留参数错误的 v1 密钥。
+    private val alias = "echo_mind_sensitive_fields_v2"
 
     private val keyStore: KeyStore = runCatching {
         KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -54,6 +57,9 @@ class AndroidKeystoreFieldCipher : FieldCipher {
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
+                // 允许调用方传入固定 IV：deriveDatabasePassphrase 用固定 IV 加密固定盐
+                // 派生稳定口令。默认 true 时传固定 IV 会抛 InvalidAlgorithmParameterException（真机闪退根因）。
+                .setRandomizedEncryptionRequired(false)
                 .build()
         )
         return generator.generateKey()
