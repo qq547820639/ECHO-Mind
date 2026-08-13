@@ -7,6 +7,11 @@ from datetime import datetime, timezone
 ROOT = Path(__file__).resolve().parents[1]
 packages = []
 
+# v0.7.1 修复：SBOM 名称/命名空间从版本事实源读取（原硬编码 v0.2.0 长期过期）。
+VERSION = json.loads((ROOT / "scripts/version_source.json").read_text(encoding="utf-8"))[
+    "release_version"
+]
+
 pyproject = (ROOT / "backend/pyproject.toml").read_text(encoding="utf-8")
 for match in re.finditer(r'^\s*"([A-Za-z0-9_.-]+)([^\"]*)",?$', pyproject, re.MULTILINE):
     name, constraint = match.groups()
@@ -42,8 +47,8 @@ spdx = {
     "spdxVersion": "SPDX-2.3",
     "dataLicense": "CC0-1.0",
     "SPDXID": "SPDXRef-DOCUMENT",
-    "name": "ECHO-Mind-Path-A-v0.2.0-source-SBOM",
-    "documentNamespace": "https://example.invalid/echo-mind/path-a/v0.2.0/sbom",
+    "name": f"ECHO-Mind-PortraitCore-v{VERSION}-source-SBOM",
+    "documentNamespace": f"https://example.invalid/echo-mind/portrait-core/v{VERSION}/sbom",
     "creationInfo": {
         "created": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "creators": ["Tool: scripts/generate_sbom.py"],

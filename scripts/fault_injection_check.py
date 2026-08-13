@@ -114,9 +114,11 @@ def main() -> int:
         "5xx → RETRY；超限 dead-letter；测试覆盖",
     ))
     # 11 malformed 响应 → loadFailed（不伪装 no_data）
+    # v0.7.1 修复：LocalRepository 已按 bounded context 拆分（提交 59331b0），
+    # 时间线 loadFailed 语义现位于 PortraitRepository（refreshPortraits 网络失败分支）。
     results.append(_check(
         "11 malformed response",
-        "loadFailed = true" in _read("android/app/src/main/java/com/yunjue/echo/mind/data/LocalRepository.kt")
+        "loadFailed = true" in _read("android/app/src/main/java/com/yunjue/echo/mind/data/PortraitRepository.kt")
         and "errorStateIsDistinctFromNoData" in _read("android/app/src/test/java/com/yunjue/echo/mind/TrendDataSourceTest.kt"),
         "解析失败 loadFailed=true 与 NO_DATA 区分；趋势测试覆盖",
     ))

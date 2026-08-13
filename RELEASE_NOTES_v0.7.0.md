@@ -38,17 +38,21 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 
 ## 验证（本环境实际执行）
 
+> 下表为 2026-08-14 在 HEAD `9e23c32`（v0.7 封板后 7 个提交）开发机实测回写：
+> macOS + Corretto 17 + Android SDK（/tmp/echo-build）+ backend/.venv。
+
 | 项 | 结果 |
 |---|---|
-| 后端 pytest（全量） | 1046 passed / 1 skipped |
-| ruff check app tests | 16 errors（基线 18，净 -2；历史 F401 为主） |
-| mypy app | 40 errors（基线 50，净 -10） |
-| Alembic upgrade→downgrade→upgrade | roundtrip PASS（head 20260812_0002） |
-| fault_injection_check.py | 18/18 PASS |
-| contract_drift_check.py | CONTRACT OK（57 路径，manifest v0.7.0） |
-| OpenAPI 导出 | PASS（title：ECHO Mind Portrait Core API） |
+| 后端 pytest（全量） | 1055 passed / 1 skipped |
+| ruff check app tests | 0 errors（历史 F401 债务已清零） |
+| mypy app | 0 errors（历史类型债务已清零） |
+| Alembic upgrade→downgrade→upgrade | roundtrip PASS（head 20260813_0001 portrait_feedback） |
+| fault_injection_check.py | 18/18 PASS（checker 已修复 LocalRepository 拆分后的路径引用） |
+| contract_drift_check.py | CONTRACT OK（58 路径，manifest v0.7.0） |
+| OpenAPI 导出 | PASS（58 路径，title：ECHO Mind Portrait Core API） |
 | safety_eval / claim_scan / dynamic_code / content packs | PASS |
-| Android gradle / instrumentation | NOT RUN — ENVIRONMENT BLOCKED（无 JDK/SDK/emulator） |
+| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 297 tests 0 失败 / APK 构建成功 / lint 0 error（70 warnings）/ detekt 0 findings |
+| Android instrumentation（connectedDebugAndroidTest） | NOT RUN — 无 androidTest 用例且无模拟器（CI 空通过，见 android-ci.yml） |
 | PostgreSQL integration | NOT RUN — ENVIRONMENT BLOCKED（无 Docker/psql） |
 
 ## 外部发布门（未完成，依赖真实环境）

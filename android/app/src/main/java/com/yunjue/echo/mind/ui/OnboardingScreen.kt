@@ -2,6 +2,8 @@ package com.yunjue.echo.mind.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.OnboardingVerifyException
@@ -79,6 +82,21 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         micAuthorized = granted
         if (granted) micSkipped = false
     }
+
+    // Android 13+ 持续通知权限（POST_NOTIFICATIONS）：被动采集前台服务的常驻通知
+    // 依赖该权限才可见；拒绝仅让通知不可见（采集继续），属可选降级。
+    // 初始状态按当前实际授权情况回填（避免已授权用户被显示为"未开启"）。
+    var notifPermAuthorized by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> notifPermAuthorized = granted }
 
     var showSafety by remember { mutableStateOf(false) }
     var step by remember {
@@ -349,6 +367,19 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                     },
                     onAuthorize = { showMicConfirm = true },
                     onSkip = { micSkipped = true; micAuthorized = false }
+                )
+                SensingCapabilityRow(
+                    name = "持续运行通知",
+                    description = "后台采集期间显示常驻通知，让你随时看到 ECHO 正在工作（Android 13+ 需授权）。拒绝后采集仍会继续，但通知不可见。",
+                    statusText = if (notifPermAuthorized) "已开启" else "未开启（可跳过）",
+                    onAuthorize = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            notifPermAuthorized = true
+                        }
+                    },
+                    onSkip = { notifPermAuthorized = false }
                 )
                 HorizontalDivider()
                 // 规格 §1.3.4：底部「继续」在 SENSOR 可用或用户确认跳过 optional 后可用

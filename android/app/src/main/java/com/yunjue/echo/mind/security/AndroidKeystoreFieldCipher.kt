@@ -25,8 +25,16 @@ import javax.crypto.spec.GCMParameterSpec
  * - 旧：AndroidKeyStore 不可用 → 自动降级内存 JCEKS + 随机密钥（静默，进程内有效）。
  * - 新：AndroidKeyStore 不可用 → 抛异常（生产 fail closed）；测试用显式 JVM 实现。
  *
- * 数据库派生口令兼容性：`deriveDatabasePassphrase` 算法与旧版完全一致
- * （Keystore 密钥 + 固定盐 + 固定 IV + SHA-256），现有用户数据库口令不变。
+ * 数据库派生口令兼容性（务必与试点升级策略对齐）：
+ * - 派生**算法**（Keystore 密钥 + 固定盐 + 固定 IV + SHA-256）与旧版一致，
+ *   但 alias 已 v1→v2（见下）：新设备生成 v2 密钥后派生口令随之改变。
+ * - **已知影响**：任何在 v1 alias 下建库的既有安装（v0.7 早期真机包），升级到
+ *   当前版本后无法再用 v1 密钥派生的口令解密旧库（SQLCipher 打开失败）。
+ *   试点若存在此类存量设备，必须先行数据迁移（读旧库→明文导出→新库导入）或
+ *   实现双 alias 尝试解锁后再重加密的兼容路径；当前版本未实现该迁移。
+ * - TODO(KDF)：固定 IV GCM + SHA-256 属非标准 KDF。建议改为 Keystore 密钥作
+ *   HKDF/HMAC-SHA256 的 IKM 派生 SQLCipher 口令，并为「字段加密」「口令派生」
+ *   分设独立 alias（key rotation 时互不影响）。
  */
 class AndroidKeystoreFieldCipher : FieldCipher {
     // v2：修复真机启动闪退——v1 密钥默认 randomizedEncryptionRequired=true，

@@ -9,9 +9,9 @@
 | 产品最高契约 | `PORTRAIT_CONTRACT.md`（仓库根） | 冻结（v1.0） |
 | 产品 README | `README.md` | v0.7.0 pilot-candidate |
 | 发布说明 | `RELEASE_NOTES_v0.7.0.md` | 本版本 |
-| OpenAPI 契约 | `docs/openapi.json` | 57 路径（实时导出） |
+| OpenAPI 契约 | `docs/openapi.json` | 58 路径（实时导出） |
 | 跨端契约清单 | `docs/contract-manifest.json` | v0.7.0（18 required endpoints） |
-| Alembic head | `20260812_0002`（portrait phase5） | roundtrip PASS |
+| Alembic head | `20260813_0001`（portrait_feedback） | roundtrip PASS |
 | Delivery Manifest | `DELIVERY_MANIFEST.json` | v0.7.0（真实测试计数） |
 | Phase 0 事实基线 | `docs/current/00_Phase0_Fresh_Truth_Audit.md` | 本封板轮 |
 | Phase 6 UX 规格 | `docs/current/20_Phase6_Onboarding_UX_Spec.md` | 产品经理冻结 |
