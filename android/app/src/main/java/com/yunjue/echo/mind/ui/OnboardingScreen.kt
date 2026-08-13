@@ -118,8 +118,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     fun finishOnboarding() {
         scope.launch {
             // v0.7 本地优先架构：默认本地模式（无账号门槛）。未绑定时生成本地用户标识，
-            // 特征/画像按该标识隔离存储；绑定机构后（支持页）服务端返回新 userId，
-            // 本地数据留在本机、不再上传（本地同意与机构同意各自独立）。
+            // 特征/画像按该标识隔离存储；开通订阅后（支持页）服务端返回新 userId，
+            // 本地数据留在本机、不再上传（本地同意与订阅后的云端同意各自独立）。
             if (preferences.userId.isBlank()) {
                 preferences.userId = "local_${UUID.randomUUID().toString().replace("-", "").take(12)}"
             }
@@ -184,10 +184,10 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 CheckLine(boundaryConfirmed, { boundaryConfirmed = it }, "我理解专业判断和危机处置由人工承担")
                 HorizontalDivider()
                 // v0.7 本地优先架构：无账号/激活码门槛，本地模式默认开启。
-                // 机构绑定为可选（支持页）；数据默认只保存在本机。
+                // 订阅为可选（支持页）；数据默认只保存在本机。
                 Text("本机使用", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需机构人工支持，可稍后在「支持」页绑定机构（可选）。",
+                    "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需云端同步与专业支持，可稍后在「支持」页订阅（可选）。",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Button(
@@ -383,8 +383,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 HorizontalDivider()
                 // 已授权摘要：只列核心（被动行为节律），不再列出「心理数据、量表信息」
                 Text("已开启：被动行为节律。可随时在「支持与设置」中查看或撤回。", style = MaterialTheme.typography.bodyMedium)
-                // v0.7 本地优先：默认数据只保存在本机；绑定机构（可选，支持页）后画像与云端同步
-                Text("你的数据默认只保存在本机。如需机构人工支持，可稍后在「支持」页绑定机构。", style = MaterialTheme.typography.bodySmall)
+                // v0.7 本地优先：默认数据只保存在本机；订阅（可选，支持页）后画像与云端同步
+                Text("你的数据默认只保存在本机。如需云端同步与专业支持，可稍后在「支持」页订阅。", style = MaterialTheme.typography.bodySmall)
                 // 紧急入口常驻（DONE 页用 Button，PM 规格 §1.3.6）
                 OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, prominent = true)
                 Button(onClick = { finishOnboarding() }, modifier = Modifier.fillMaxWidth()) { Text("进入应用") }
@@ -476,7 +476,7 @@ internal const val ONBOARDING_WELCOME_CORE_COPY =
     "ECHO 会在你授权后安静地学习你的日常生活节奏。积累几天以后，它会告诉你今天和平常的自己有什么不同。它不会判断你的情绪，也不会做心理诊断。"
 
 /** 紧急入口常驻文案（PM 规格 §1.3.1）。 */
-internal const val EMERGENCY_HINT_COPY = "存在立即危险时，请直接联系身边可信任的人、机构值班人员、110 或 120。"
+internal const val EMERGENCY_HINT_COPY = "存在立即危险时，请直接联系身边可信任的人、110 或 120。"
 
 /** Onboarding 引导步骤（Phase 6.1 新主流程六步；L0/EMERGENCY 已从 enum 移除）。 */
 private enum class OnboardingStep { WELCOME, PORTRAIT_EXPLANATION, CORE_DATA_CONSENT, MINIMUM_SENSING, BASELINE_WARMING_UP, DONE }

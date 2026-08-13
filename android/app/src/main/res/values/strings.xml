@@ -22,12 +22,12 @@
     <string name="crisis_call_110_desc">拨打报警电话 110</string>
     <string name="crisis_call_120_desc">拨打急救电话 120</string>
 
-    <!-- 机构人工支持（P0-2 客户端闭环） -->
-    <string name="support_request_title">机构人工支持</string>
-    <string name="support_request_hint">需要与机构人员沟通时，可提交支持请求；请求离线也会排队，恢复网络后自动送达。</string>
-    <string name="support_request_button">请求机构支持</string>
-    <string name="support_request_confirm_title">请求机构人工支持</string>
-    <string name="support_request_confirm_body">你的请求会被发送给合作机构的值班人员，人工确认/接管前应用不会显示「人工已连接」。如处于立即危险中，请优先拨打 12356 / 110 / 120。</string>
+    <!-- 专业支持（订阅功能，P0-2 客户端闭环） -->
+    <string name="support_request_title">专业支持</string>
+    <string name="support_request_hint">订阅用户可与专业人员沟通；请求离线也会排队，恢复网络后自动送达。</string>
+    <string name="support_request_button">请求专业支持</string>
+    <string name="support_request_confirm_title">请求专业支持</string>
+    <string name="support_request_confirm_body">你的请求会被发送给专业支持团队，人工确认/接管前应用不会显示「人工已连接」。如处于立即危险中，请优先拨打 12356 / 110 / 120。</string>
     <string name="support_request_confirm_ok">确认请求支持</string>
     <string name="support_request_confirm_cancel">取消</string>
     <string name="support_request_saved">支持请求已保存，网络恢复后自动送达。</string>
@@ -40,7 +40,7 @@
     <string name="esc_status_acknowledged">人工已确认</string>
     <string name="esc_status_taken_over">正在接管</string>
     <string name="esc_status_closed">已完成</string>
-    <string name="esc_status_failed">未能送达，请重新联系机构</string>
+    <string name="esc_status_failed">未能送达，请重新提交或联系客服</string>
     <string name="esc_status_unknown">处理中</string>
 
     <!-- 数据权利（P0-3 统一撤回） -->

@@ -27,7 +27,7 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - **Narrative 词汇**（Psychology Review）："移动较少/移动较多/接近" 替换 "安静/活跃/稳定"
 
 ### Android
-- **本地优先架构 + 端侧画像引擎（demo 增强）**：无账号/激活码门槛——Onboarding 删除激活码验证，默认本地模式（画像由端侧引擎生成、数据只保存在本机、outbox/SyncWorker 静默）；机构绑定改为「支持」页可选入口（绑定后开启云端同步与人工支持）。端侧引擎镜像后端画像流水线（日聚合 → 28 天基线 → 5 维度画像 → 确定性中文叙事，`localportrait/` 纯 Kotlin 模块，与服务端同输入同输出、有 golden 场景一致性单测）；数据源为本地 `feature_vectors`（Room v8 加 sourcesPresentJson 列，迁移 7→8 纯加列）。已绑定机构时服务端失败/无网络自动回退本地画像（Today/Trend/Baseline 三处），Today 页显示「画像由本机数据生成」横幅。
+- **本地优先架构 + 端侧画像引擎（订阅制改造）**：无账号/激活码门槛——Onboarding 删除激活码验证，默认本地模式（画像由端侧引擎生成、数据只保存在本机、outbox/SyncWorker 静默）；订阅改为「支持」页可选入口（免费本地版 + 可选付费订阅：订阅激活码复用 verify-code 机制，开通后开启云端同步与专业支持）。端侧引擎镜像后端画像流水线（日聚合 → 28 天基线 → 5 维度画像 → 确定性中文叙事，`localportrait/` 纯 Kotlin 模块，与服务端同输入同输出、有 golden 场景一致性单测）；数据源为本地 `feature_vectors`（Room v8 加 sourcesPresentJson 列，迁移 7→8 纯加列）。已订阅时服务端失败/无网络自动回退本地画像（Today/Trend/Baseline 三处），Today 页显示「画像由本机数据生成」横幅。
 - **强类型 Portrait DTO**：`PortraitDimensionDto(value, metric, z)` 嵌套解析（弃用 Map<String,String>/optString）；BaselineStatusDto 类型对齐（bucket_usage String / todayCoverage Double）
 - **Privacy Fail-Closed**：SQLCipher 加载失败 fail closed（不回退明文 Room）；FieldCipher 接口化 + AndroidKeystoreFieldCipher（Keystore 不可用即抛异常）+ JvmTestFieldCipher（显式测试实现）
 - **Portrait Cache 用户隔离**：PortraitDao 全部查询 SQL 层带 userId；激活码重新登录清理旧用户缓存
@@ -62,7 +62,7 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - PostgreSQL production integration、KMS/HSM、备份恢复
 - 独立渗透测试、外部红队、危机演练
 - 心理学 / 隐私文案最终 Review、法务/临床/伦理审批
-- **`PORTRAIT_CONTRACT.md` v1.0 修订（本地优先模式 + 机构绑定可选化）机构/法务审批**
+- **`PORTRAIT_CONTRACT.md` v1.0 修订（本地优先 + 订阅制产品模式）合规/法务审批**；支付集成（Apple/Google 计费或自建支付）与订阅激活码发放链路
 - 真实用户试点与机构 Pilot
 
 ## 历史
