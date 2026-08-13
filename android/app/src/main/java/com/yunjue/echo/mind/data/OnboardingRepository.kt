@@ -26,6 +26,15 @@ data class OnboardingVerifyResult(
 class OnboardingVerifyException(val reason: String) : Exception(reason)
 
 /**
+ * 激活码验证成功后的 Onboarding 状态解析（v0.7 本地优先，纯函数可单测）：
+ * - 用户已完成本地引导（本地已提交）→ 保持 READY_OFFLINE，订阅开通不得回退
+ *   Onboarding 状态（BOUND 会让 onboardingCompleted=false，下次启动重新出现引导页）；
+ * - 否则（正常引导内验证）→ BOUND。
+ */
+internal fun resolvedOnboardingStateAfterBinding(localSubmitted: Boolean): String =
+    if (localSubmitted) AppPreferences.ONBOARDING_READY_OFFLINE else AppPreferences.ONBOARDING_BOUND
+
+/**
  * Onboarding 激活码交换 + READY 收敛仓库。
  *
  * [verifyOnboardingCode] 是唯一跨 bounded-context 点：账户切换时需清理上一账户的
@@ -98,7 +107,8 @@ class OnboardingRepository(
                         runCatching { portraitDao.deleteByUser(previousUserId) }
                     }
                     preferences.clearAuthBlocked()
-                    preferences.onboardingState = AppPreferences.ONBOARDING_BOUND
+                    preferences.onboardingState =
+                        resolvedOnboardingStateAfterBinding(preferences.onboardingLocalSubmitted)
                     result
                 }
             }

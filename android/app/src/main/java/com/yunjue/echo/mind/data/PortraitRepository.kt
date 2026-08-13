@@ -26,8 +26,8 @@ import java.util.UUID
  * - 缓存优先 + 后台刷新 + 平滑替换（九态见 [PortraitUiState]）；
  * - 缓存 identity 使用**服务器返回的 local_date**（Phase 6.4，不覆盖为端侧日期）；
  * - 反馈（recordPortraitFeedback）同时本地记录 + 入 Outbox 可靠同步。
- * - 离线画像引擎（v0.7 演示增强）：演示模式直接走 [LocalPortraitDataSource]；
- *   非演示模式服务端失败/无网络时回退端侧本地重算（数据源为本地 feature_vectors，
+ * - 端侧画像引擎（v0.7 本地优先）：本地模式（未订阅）直接走 [LocalPortraitDataSource]；
+ *   已订阅时服务端失败/无网络回退端侧本地重算（数据源为本地 feature_vectors，
  *   与服务端同算法镜像），本地画像不写入 Room 缓存（缓存保持"服务端来源"语义）。
  */
 class PortraitRepository(
@@ -47,7 +47,7 @@ class PortraitRepository(
 
     fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
 
-    /** 端侧本地重算 Today 画像（演示模式 / 离线回退共用）。 */
+    /** 端侧本地重算 Today 画像（本地模式 / 离线回退共用）。 */
     private suspend fun emitLocalTodayPortrait() {
         val userId = preferences.userId
         if (userId.isBlank()) {

@@ -10,6 +10,7 @@ import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.LegacyInputRepository
+import com.yunjue.echo.mind.data.LocalDataRights
 import com.yunjue.echo.mind.data.LocalPortraitDataSource
 import com.yunjue.echo.mind.data.NarrativeProfileRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
@@ -242,8 +243,8 @@ class AppContainer(context: Context) {
     val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
 
     // 跨域共享 outbox 原语（bounded-context 拆分，Step 1）。
-    // v0.7 本地优先架构：本地模式（未绑定机构）数据仅保存在本机，outbox 不写入
-    // （SyncWorker 亦静默，双保险）；绑定机构后自动恢复正常上行。
+    // v0.7 本地优先架构：本地模式（未订阅）数据仅保存在本机，outbox 不写入
+    // （SyncWorker 亦静默，双保险）；订阅后自动恢复正常上行。
     val outbox = Outbox(database, cipher, localModeProvider = { preferences.localMode })
 
     // bounded-context 仓库（Step 1–3）。
@@ -255,9 +256,11 @@ class AppContainer(context: Context) {
     val skillRepository = SkillRepository(database, outbox, preferences, apiClient)
     val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
     val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
-    // v0.7 演示增强：端侧画像引擎数据源（演示模式 + 离线回退共用）
+    // v0.7 本地优先：端侧画像引擎数据源（本地模式 + 离线回退共用）
     val localPortraitDataSource = LocalPortraitDataSource(database)
     val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox, localPortraitDataSource)
+    // v0.7 本地优先：本地数据权利（本地模式导出/删除，数据不出设备）
+    val localDataRights = LocalDataRights(database, cipher)
     val narrativeProfileRepository = NarrativeProfileRepository(preferences, apiClient)
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */

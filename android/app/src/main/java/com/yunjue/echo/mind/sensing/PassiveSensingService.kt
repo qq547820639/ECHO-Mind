@@ -143,7 +143,7 @@ class PassiveSensingService : Service() {
      *
      * 无缓存/缺 key 时默认 false（fail-closed，02b 共享知识 2）：
      * 隐私敏感 flag 在异常场景下停用而非启用。
-     * v0.7 本地优先架构：本地模式（未绑定机构）放行本地采集（数据不离开设备）。
+     * v0.7 本地优先架构：本地模式（未订阅）放行本地采集（数据不离开设备）。
      */
     private fun isPassiveSensingEnabled(): Boolean {
         // 复用 Application 容器的 preferences（避免每次门控都新建 Keystore 字段加密器；

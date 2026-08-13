@@ -141,6 +141,9 @@ interface EchoDao {
     /** 离线画像引擎：某用户全部 passive-core-v1 窗口（按窗口起点升序）。 */
     @Query("SELECT * FROM feature_vectors WHERE userId = :userId AND schemaVersion = 'passive-core-v1' ORDER BY windowStart ASC")
     suspend fun allPassiveCoreRows(userId: String): List<FeatureVectorEntity>
+    /** 本地数据权利：按用户删除全部派生特征窗口（本地模式删除用）。 */
+    @Query("DELETE FROM feature_vectors WHERE userId = :userId")
+    suspend fun deleteFeatureVectorsByUser(userId: String)
 
     // ===== v5 ActiveSkillSession DAO（T02） =====
     // v0.6.1（P0-4）：领域规则 = 产品同时只允许一个 Skill 执行（single-active-session）。
@@ -186,6 +189,14 @@ interface ConsentDao {
 
     @Query("SELECT COUNT(*) FROM consents WHERE consentType = :type AND granted = 1")
     suspend fun grantedCount(type: String): Int
+
+    /** 本地数据权利：某用户全部同意记录（导出用，按时间升序）。 */
+    @Query("SELECT * FROM consents WHERE userId = :userId ORDER BY grantedAt ASC")
+    suspend fun allByUser(userId: String): List<ConsentEntity>
+
+    /** 本地数据权利：按用户删除全部同意记录（本地模式删除用）。 */
+    @Query("DELETE FROM consents WHERE userId = :userId")
+    suspend fun deleteConsentsByUser(userId: String)
 }
 
 /**

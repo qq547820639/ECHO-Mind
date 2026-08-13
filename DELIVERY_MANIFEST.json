@@ -2,7 +2,7 @@
   "project": "ECHO Mind Portrait Core",
   "version": "0.7.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-08-13T22:15:47Z",
+  "generated_at": "2026-08-13T22:32:03Z",
   "branch": "main",
   "git_ref": "portrait-core-v0.7.0",
   "scope": [
@@ -37,6 +37,6 @@
     "real user pilot with approved recruitment and governance",
     "psychology/privacy copy final review"
   ],
-  "source_file_count_excluding_git_and_build_outputs": 381,
+  "source_file_count_excluding_git_and_build_outputs": 382,
   "test_count_source": "pytest junit XML (scripts/update_release_metadata.py auto-parse)"
 }

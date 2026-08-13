@@ -314,10 +314,10 @@ class AppPreferences(
         set(value) = prefs.edit().putBoolean("service_revocation_submitted", value).apply()
 
     // ===== 本地模式（v0.7 本地优先架构） =====
-    // 产品模式：默认本地使用（无账号/激活码门槛）；用户可选在「支持」页绑定机构。
-    // 本地模式判定 = 尚未绑定机构（无 access token）：此时画像由端侧引擎生成、
+    // 产品模式：默认本地使用（无账号/激活码门槛）；用户可选在「支持」页订阅。
+    // 本地模式判定 = 尚未订阅（无 access token）：此时画像由端侧引擎生成、
     // 数据仅保存在本机、同步队列与 outbox 静默（不产生任何上行）。
-    // 绑定机构后本值自动变为 false（进入云端同步模式，本地引擎转为离线回退）。
+    // 订阅后本值自动变为 false（进入云端同步模式，本地引擎转为离线回退）。
 
     val localMode: Boolean
         get() = accessToken.isNullOrBlank()

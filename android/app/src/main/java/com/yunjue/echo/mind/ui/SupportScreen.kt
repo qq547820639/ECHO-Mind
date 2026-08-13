@@ -423,12 +423,59 @@ fun SupportScreen(container: AppContainer) {
         HorizontalDivider()
 
         Text("数据权利", style = MaterialTheme.typography.titleMedium)
+        // v0.7 本地优先：本地模式（未订阅）导出/删除直接在本机完成——数据不出设备、
+        // 无云端副本（旧路径走 Outbox 在本地模式会静默假成功，故分流）。
         OutlinedButton(onClick = {
-            scope.launch { container.consentRepository.requestDataAction("export"); SyncWorker.enqueue(context); message = "已创建数据导出请求。" }
-        }, modifier = Modifier.fillMaxWidth()) { Text("申请导出数据") }
+            scope.launch {
+                if (container.preferences.localMode) {
+                    val json = runCatching { container.localDataRights.exportLocalData(container.preferences.userId) }
+                        .getOrElse { """{"error":"export failed"}""" }
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, json)
+                    }
+                    runCatching { context.startActivity(Intent.createChooser(share, "导出本地数据")) }
+                    message = "已生成本地数据导出（仅本机处理，无上传）。"
+                } else {
+                    container.consentRepository.requestDataAction("export")
+                    SyncWorker.enqueue(context)
+                    message = "已创建数据导出请求。"
+                }
+            }
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (container.preferences.localMode) "导出本地数据" else "申请导出数据")
+        }
+        var showLocalDeleteConfirm by remember { mutableStateOf(false) }
         OutlinedButton(onClick = {
-            scope.launch { container.consentRepository.requestDataAction("delete"); SyncWorker.enqueue(context); message = "已创建删除请求；依法需保留的数据可能不立即删除。" }
+            if (container.preferences.localMode) {
+                showLocalDeleteConfirm = true
+            } else {
+                scope.launch {
+                    container.consentRepository.requestDataAction("delete")
+                    SyncWorker.enqueue(context)
+                    message = "已创建删除请求；依法需保留的数据可能不立即删除。"
+                }
+            }
         }, modifier = Modifier.fillMaxWidth()) { Text("申请删除数据") }
+        if (showLocalDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLocalDeleteConfirm = false },
+                title = { Text("删除本地数据") },
+                text = { Text("将删除本机保存的全部派生特征、画像缓存与同意记录，且不可恢复（本地模式无云端副本）。是否继续？") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showLocalDeleteConfirm = false
+                        scope.launch {
+                            runCatching { container.localDataRights.deleteLocalData(container.preferences.userId) }
+                            message = "本地数据已删除。"
+                        }
+                    }) { Text("删除") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLocalDeleteConfirm = false }) { Text("取消") }
+                }
+            )
+        }
         OutlinedButton(onClick = {
             scope.launch {
                 // v0.6.1（P0-3）：撤回同意并停止服务 → 唯一领域操作（原子协调全部撤回）

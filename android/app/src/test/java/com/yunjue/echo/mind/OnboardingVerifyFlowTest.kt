@@ -92,4 +92,21 @@ class OnboardingVerifyFlowTest {
         assertTrue("短码应被拒绝（<8）", "short".length < 8)
         assertTrue("合法码应通过（>=8）", "ACTIV-CODE-01".length >= 8)
     }
+
+    @Test
+    fun subscriptionAfterLocalOnboardingKeepsReadyState() {
+        // v0.7 本地优先：本地引导已完成（本地已提交）的用户订阅后，
+        // 状态必须保持 READY_OFFLINE（BOUND 会让 onboardingCompleted=false，
+        // 下次启动重新出现引导页——回归修复锚点）。
+        assertEquals(
+            "本地已提交 → 订阅后保持 READY_OFFLINE",
+            AppPreferences.ONBOARDING_READY_OFFLINE,
+            com.yunjue.echo.mind.data.resolvedOnboardingStateAfterBinding(localSubmitted = true)
+        )
+        assertEquals(
+            "引导内验证（未本地提交）→ BOUND",
+            AppPreferences.ONBOARDING_BOUND,
+            com.yunjue.echo.mind.data.resolvedOnboardingStateAfterBinding(localSubmitted = false)
+        )
+    }
 }
