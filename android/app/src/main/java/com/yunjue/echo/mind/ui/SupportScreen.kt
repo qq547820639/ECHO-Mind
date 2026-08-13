@@ -88,6 +88,11 @@ fun SupportScreen(container: AppContainer) {
     var showSupportConfirm by remember { mutableStateOf(false) }
 
     fun requestSupport() {
+        // v0.7 本地优先架构：未绑定机构（本地模式）时请求无法送达，明示不可用（不排队假送达）
+        if (container.preferences.localMode) {
+            message = "尚未绑定机构，无法发送支持请求（数据仅保存在本机）。请先在上方绑定机构。"
+            return
+        }
         scope.launch {
             try {
                 val eventId = container.escalationRepository.requestHumanSupport()
@@ -197,6 +202,68 @@ fun SupportScreen(container: AppContainer) {
                         contentDescription = crisis120Desc
                     }
                 ) { Text(stringResource(R.string.crisis_call_120)) }
+            }
+        }
+
+        // ===== 机构绑定（v0.7 本地优先：可选，非门槛） =====
+        var bindCode by remember { mutableStateOf("") }
+        var binding by remember { mutableStateOf(false) }
+        var bindMessage by remember { mutableStateOf<String?>(null) }
+        fun bindInstitution() {
+            val code = bindCode.trim()
+            if (code.length < 8) {
+                bindMessage = "激活码格式不正确，请检查后重试。"
+                return
+            }
+            binding = true
+            bindMessage = null
+            scope.launch {
+                try {
+                    val res = container.onboardingRepository.verifyOnboardingCode(code)
+                    binding = false
+                    if (res.restricted) {
+                        bindMessage = "该激活码已受限，请联系机构。"
+                    } else {
+                        bindMessage = "已绑定机构。画像与云端同步已开启，人工支持现在可用。"
+                        bindCode = ""
+                        // 绑定后：拉取租户 flag（fail-closed）并触发一次同步
+                        runCatching { container.featureFlagRepository.fetchFeatureFlags() }
+                        SyncWorker.enqueue(context)
+                    }
+                } catch (e: Exception) {
+                    binding = false
+                    bindMessage = when ((e as? com.yunjue.echo.mind.data.OnboardingVerifyException)?.reason) {
+                        "invalid_code" -> "激活码无效，请联系机构获取正确的激活码。"
+                        "restricted" -> "该激活码已受限，请联系机构。"
+                        else -> "暂时无法验证激活信息，请检查网络后重试。"
+                    }
+                }
+            }
+        }
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("绑定机构（可选）", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "默认本地使用，数据只保存在本机。需要机构人工支持、查看机构下发的练习时，输入机构提供的激活码完成绑定。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedTextField(
+                    bindCode,
+                    { bindCode = it },
+                    label = { Text("激活码") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                bindMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = { bindInstitution() },
+                    enabled = bindCode.isNotBlank() && !binding,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (binding) "正在验证…" else "绑定机构")
+                }
             }
         }
 

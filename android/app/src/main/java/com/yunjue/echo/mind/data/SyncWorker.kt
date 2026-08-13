@@ -44,6 +44,9 @@ internal enum class SyncAction {
 class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val container = (applicationContext as EchoMindApplication).container
+        // v0.7 本地优先架构：本地模式（未绑定机构）数据仅保存在本机；
+        // 同步队列静默（不再高频重试），用户绑定机构后自动恢复同步。
+        if (container.preferences.localMode) return Result.success()
         val dao = container.database.dao()
         val client = ApiClient(tokenProvider = { container.preferences.accessToken })
         val context = applicationContext

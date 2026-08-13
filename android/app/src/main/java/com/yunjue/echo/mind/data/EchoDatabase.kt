@@ -70,6 +70,10 @@ data class OutboxEventEntity(
 /**
  * 派生特征本地缓存（summary 字段加密）。
  * vector 存储为 JSON 数组字符串。synced 标记是否已成功上传。
+ *
+ * v8（离线画像引擎）：新增 sourcesPresentJson（窗口实际信号源 JSON 数组）。
+ * 端侧本地画像聚合需要该字段还原 missing_sources 与 confidence；
+ * 迁移 7→8 为纯加列（可空），旧行回退按 source 单元素集合解释。
  */
 @Entity(tableName = "feature_vectors")
 data class FeatureVectorEntity(
@@ -82,7 +86,8 @@ data class FeatureVectorEntity(
     val summaryCiphertext: String,
     val vector: String,
     val synced: Boolean = false,
-    val createdAt: Long
+    val createdAt: Long,
+    val sourcesPresentJson: String? = null
 )
 
 /**
@@ -133,6 +138,9 @@ interface EchoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertFeatureVectors(values: List<FeatureVectorEntity>)
     @Query("SELECT * FROM feature_vectors WHERE synced = 0 ORDER BY windowStart ASC") suspend fun pendingFeatureVectors(): List<FeatureVectorEntity>
     @Query("UPDATE feature_vectors SET synced = 1 WHERE id = :id") suspend fun markFeatureVectorSynced(id: String)
+    /** 离线画像引擎：某用户全部 passive-core-v1 窗口（按窗口起点升序）。 */
+    @Query("SELECT * FROM feature_vectors WHERE userId = :userId AND schemaVersion = 'passive-core-v1' ORDER BY windowStart ASC")
+    suspend fun allPassiveCoreRows(userId: String): List<FeatureVectorEntity>
 
     // ===== v5 ActiveSkillSession DAO（T02） =====
     // v0.6.1（P0-4）：领域规则 = 产品同时只允许一个 Skill 执行（single-active-session）。
@@ -296,7 +304,7 @@ interface PortraitDao {
         EscalationEntity::class,
         DailyPortraitEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {

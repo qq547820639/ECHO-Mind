@@ -73,7 +73,10 @@ class SensingRepository(
                 summaryCiphertext = cipher.encrypt(input.summary),
                 vector = JSONArray(input.vector).toString(),
                 synced = false,
-                createdAt = now.toEpochMilli()
+                createdAt = now.toEpochMilli(),
+                // v8 离线画像引擎：窗口实际信号源随行持久化（本地聚合 missing_sources 还原用）
+                sourcesPresentJson = if (input.sourcesPresent.isEmpty()) null
+                else JSONArray(input.sourcesPresent).toString()
             )
         )
         val payload = outbox.basePayload(eventId, now, preferences.userId).apply {

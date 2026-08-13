@@ -10,6 +10,7 @@ import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.LegacyInputRepository
+import com.yunjue.echo.mind.data.LocalPortraitDataSource
 import com.yunjue.echo.mind.data.NarrativeProfileRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
 import com.yunjue.echo.mind.data.PortraitRepository
@@ -185,6 +186,25 @@ internal val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+/**
+ * v7 → v8 迁移（离线画像引擎）：feature_vectors 加 sourcesPresentJson 可空列。
+ * 纯加列（ALTER TABLE ADD COLUMN，可空），旧行值为 NULL（端侧回退按 source 单元素集合解释）；
+ * 无数据改写，幂等（列已存在时跳过）。
+ */
+internal val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val columns = db.query("PRAGMA table_info(feature_vectors)").use { cursor ->
+            val names = mutableSetOf<String>()
+            val idx = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) names.add(cursor.getString(idx))
+            names
+        }
+        if ("sourcesPresentJson" !in columns) {
+            db.execSQL("ALTER TABLE feature_vectors ADD COLUMN sourcesPresentJson TEXT")
+        }
+    }
+}
+
 class AppContainer(context: Context) {
     /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。 */
     val cipher: FieldCipher = AndroidKeystoreFieldCipher()
@@ -205,7 +225,8 @@ class AppContainer(context: Context) {
         .map {
             Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
                 .addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                    MIGRATION_7_8
                 )
                 // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
                 .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
@@ -221,7 +242,9 @@ class AppContainer(context: Context) {
     val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
 
     // 跨域共享 outbox 原语（bounded-context 拆分，Step 1）。
-    val outbox = Outbox(database, cipher)
+    // v0.7 本地优先架构：本地模式（未绑定机构）数据仅保存在本机，outbox 不写入
+    // （SyncWorker 亦静默，双保险）；绑定机构后自动恢复正常上行。
+    val outbox = Outbox(database, cipher, localModeProvider = { preferences.localMode })
 
     // bounded-context 仓库（Step 1–3）。
     val featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
@@ -232,7 +255,9 @@ class AppContainer(context: Context) {
     val skillRepository = SkillRepository(database, outbox, preferences, apiClient)
     val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
     val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
-    val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox)
+    // v0.7 演示增强：端侧画像引擎数据源（演示模式 + 离线回退共用）
+    val localPortraitDataSource = LocalPortraitDataSource(database)
+    val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox, localPortraitDataSource)
     val narrativeProfileRepository = NarrativeProfileRepository(preferences, apiClient)
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */

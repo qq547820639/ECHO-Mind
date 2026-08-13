@@ -7,6 +7,7 @@ import com.yunjue.echo.mind.model.PortraitStateInputs
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.model.PortraitUiState
+import com.yunjue.echo.mind.model.mapServerStatus
 import com.yunjue.echo.mind.model.resolveTodayPortraitState
 import com.yunjue.echo.mind.model.todayLocalDateString
 import kotlinx.coroutines.Dispatchers
@@ -25,12 +26,16 @@ import java.util.UUID
  * - 缓存优先 + 后台刷新 + 平滑替换（九态见 [PortraitUiState]）；
  * - 缓存 identity 使用**服务器返回的 local_date**（Phase 6.4，不覆盖为端侧日期）；
  * - 反馈（recordPortraitFeedback）同时本地记录 + 入 Outbox 可靠同步。
+ * - 离线画像引擎（v0.7 演示增强）：演示模式直接走 [LocalPortraitDataSource]；
+ *   非演示模式服务端失败/无网络时回退端侧本地重算（数据源为本地 feature_vectors，
+ *   与服务端同算法镜像），本地画像不写入 Room 缓存（缓存保持"服务端来源"语义）。
  */
 class PortraitRepository(
     private val db: EchoDatabase,
     private val preferences: AppPreferences,
     private val apiClient: ApiClient,
     private val outbox: Outbox,
+    private val localDataSource: LocalPortraitDataSource
 ) {
     private val _todayPortraitState = MutableStateFlow(
         PortraitUiState(status = PortraitStatus.LOADING, portrait = null, offline = false)
@@ -41,6 +46,29 @@ class PortraitRepository(
     private val _timelineState = MutableStateFlow(PortraitTimelineUiState(days = 7))
 
     fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
+
+    /** 端侧本地重算 Today 画像（演示模式 / 离线回退共用）。 */
+    private suspend fun emitLocalTodayPortrait() {
+        val userId = preferences.userId
+        if (userId.isBlank()) {
+            _todayPortraitState.value = PortraitUiState(status = PortraitStatus.ERROR)
+            return
+        }
+        val zone = ZoneId.systemDefault()
+        val today = Instant.now().atZone(zone).toLocalDate()
+        val dto = runCatching { localDataSource.computeToday(userId, today, zone) }.getOrNull()
+        if (dto == null) {
+            _todayPortraitState.value = PortraitUiState(status = PortraitStatus.ERROR)
+            return
+        }
+        val status = mapServerStatus(dto.status) ?: PortraitStatus.ERROR
+        _todayPortraitState.value = PortraitUiState(
+            status = status,
+            portrait = dto,
+            offline = false,
+            localComputed = true
+        )
+    }
 
     suspend fun refreshTodayPortrait(networkAvailable: Boolean = true) {
         val sensingEnabled = runCatching {
@@ -56,6 +84,12 @@ class PortraitRepository(
             return
         }
 
+        // 本地模式（未绑定机构）：跳过服务端，直接用端侧引擎（数据只在本机）
+        if (preferences.localMode) {
+            emitLocalTodayPortrait()
+            return
+        }
+
         if (cached != null) {
             _todayPortraitState.value =
                 PortraitUiState(PortraitStatus.OFFLINE_CACHED, cached.toDto(), offline = false)
@@ -65,6 +99,17 @@ class PortraitRepository(
 
         withContext(Dispatchers.IO) {
             if (!networkAvailable) {
+                // 无网络：先尝试端侧本地重算（比陈旧服务端缓存更新鲜）；无本地数据再走缓存/错误
+                runCatching { localDataSource.computeToday(userId, localTodayDate(), ZoneId.systemDefault()) }
+                    .getOrNull()?.let { localDto ->
+                        _todayPortraitState.value = PortraitUiState(
+                            status = mapServerStatus(localDto.status) ?: PortraitStatus.ERROR,
+                            portrait = localDto,
+                            offline = false,
+                            localComputed = true
+                        )
+                        return@withContext
+                    }
                 _todayPortraitState.value = PortraitUiState(
                     status = resolveTodayPortraitState(
                         PortraitStateInputs(
@@ -101,6 +146,17 @@ class PortraitRepository(
                     return@withContext
                 }
             }
+            // 服务端失败：端侧本地重算优先于陈旧缓存
+            runCatching { localDataSource.computeToday(userId, localTodayDate(), ZoneId.systemDefault()) }
+                .getOrNull()?.let { localDto ->
+                    _todayPortraitState.value = PortraitUiState(
+                        status = mapServerStatus(localDto.status) ?: PortraitStatus.ERROR,
+                        portrait = localDto,
+                        offline = false,
+                        localComputed = true
+                    )
+                    return@withContext
+                }
             _todayPortraitState.value = PortraitUiState(
                 status = resolveTodayPortraitState(
                     PortraitStateInputs(
@@ -112,6 +168,30 @@ class PortraitRepository(
                 offline = true
             )
         }
+    }
+
+    /** 端侧本地时间线（演示模式 / 离线回退共用）。 */
+    private suspend fun localTimelineState(days: Int): PortraitTimelineUiState {
+        val zone = ZoneId.systemDefault()
+        val today = Instant.now().atZone(zone).toLocalDate()
+        val list = runCatching {
+            localDataSource.computeTimeline(preferences.userId, days, today, zone)
+        }.getOrDefault(emptyList())
+        if (list.isEmpty()) {
+            return PortraitTimelineUiState(days = days, loading = false, loadFailed = true)
+        }
+        val expected = (0 until days).map { today.minusDays((days - 1 - it).toLong()).toString() }
+        val present = list.map { it.date }.toSet()
+        val missing = expected.filter { it !in present }
+        return PortraitTimelineUiState(
+            days = days,
+            portraits = list,
+            loading = false,
+            loadFailed = false,
+            fromCache = false,
+            isPartial = missing.isNotEmpty(),
+            missingDates = missing
+        )
     }
 
     suspend fun refreshPortraits(days: Int) {
@@ -126,6 +206,11 @@ class PortraitRepository(
 
         if (!sensingEnabled) {
             _timelineState.value = PortraitTimelineUiState(days = days, loading = false, portraits = emptyList())
+            return
+        }
+        // 本地模式：本地时间线
+        if (preferences.localMode) {
+            _timelineState.value = localTimelineState(days)
             return
         }
         _timelineState.value = PortraitTimelineUiState(days = days, loading = true)
@@ -156,6 +241,25 @@ class PortraitRepository(
                     missingDates = missing
                 )
             } else {
+                // 服务端失败：端侧本地时间线优先；无本地数据再走 Room 缓存
+                val localAttempt = runCatching {
+                    localDataSource.computeTimeline(preferences.userId, days, todayDate, zone)
+                }.getOrDefault(emptyList())
+                if (localAttempt.isNotEmpty()) {
+                    val expected = (0 until days).map { todayDate.minusDays((days - 1 - it).toLong()).toString() }
+                    val present = localAttempt.map { it.date }.toSet()
+                    val missing = expected.filter { it !in present }
+                    _timelineState.value = PortraitTimelineUiState(
+                        days = days,
+                        portraits = localAttempt,
+                        loading = false,
+                        loadFailed = false,
+                        fromCache = false,
+                        isPartial = missing.isNotEmpty(),
+                        missingDates = missing
+                    )
+                    return@withContext
+                }
                 val cached = runCatching {
                     db.portraitDao().queryByDateRange(preferences.userId, from, today).map { it.toDto() }
                 }.getOrDefault(emptyList())
@@ -181,17 +285,32 @@ class PortraitRepository(
         }
     }
 
-    suspend fun fetchBaselineStatus(): BaselineStatusDto? = withContext(Dispatchers.IO) {
-        val fetch = try {
-            apiClient.getBaselineStatus()
-        } catch (e: Exception) {
-            return@withContext null
+    suspend fun fetchBaselineStatus(): BaselineStatusDto? {
+        if (preferences.localMode) {
+            val zone = ZoneId.systemDefault()
+            val today = Instant.now().atZone(zone).toLocalDate()
+            return runCatching { localDataSource.baselineStatus(preferences.userId, today, zone) }.getOrNull()
         }
-        if (fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
-            PortraitParsers.parseBaselineStatus(fetch.second!!)
-        } else {
-            null
+        return withContext(Dispatchers.IO) {
+            val fetch = try {
+                apiClient.getBaselineStatus()
+            } catch (e: Exception) {
+                null
+            }
+            if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+                PortraitParsers.parseBaselineStatus(fetch.second!!)
+            } else {
+                // 离线回退：端侧本地基线状态
+                val zone = ZoneId.systemDefault()
+                val today = Instant.now().atZone(zone).toLocalDate()
+                runCatching { localDataSource.baselineStatus(preferences.userId, today, zone) }.getOrNull()
+            }
         }
+    }
+
+    private fun localTodayDate(): java.time.LocalDate {
+        val zone = ZoneId.systemDefault()
+        return Instant.now().atZone(zone).toLocalDate()
     }
 
     /** 记录画像反馈（本地即时记录 + 入 Outbox 可靠同步）。 */

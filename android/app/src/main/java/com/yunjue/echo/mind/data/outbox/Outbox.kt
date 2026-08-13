@@ -14,10 +14,14 @@ import java.time.Instant
  *
  * - [basePayload]：构造统一的 event_id / user_id / client_time 基础载荷（userId 由调用方显式传入）。
  * - [enqueue]：加密 payload 后写入 outbox（eventType + priority）。
+ * - 本地优先架构：本地模式（未绑定机构）数据只保存在本机——[localModeProvider] 为 true 时
+ *   enqueue 直接跳过（不写入、不加密），与 SyncWorker 的静默短路构成双保险，
+ *   避免 outbox 无界累积。
  */
 class Outbox(
     private val db: EchoDatabase,
     private val cipher: FieldCipher,
+    private val localModeProvider: () -> Boolean = { false },
 ) {
     fun basePayload(eventId: String, clientTime: Instant, userId: String): JSONObject = JSONObject().apply {
         put("event_id", eventId)
@@ -26,6 +30,8 @@ class Outbox(
     }
 
     suspend fun enqueue(eventId: String, eventType: String, payload: JSONObject, priority: Int) {
+        // 演示模式：数据仅保存在本机，不产生任何上行（不写 outbox）
+        if (localModeProvider()) return
         db.dao().insertOutbox(
             OutboxEventEntity(
                 eventId = eventId,

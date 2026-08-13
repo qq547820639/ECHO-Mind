@@ -108,6 +108,8 @@ internal const val PORTRAIT_COPY_WARMING_UP =
 internal const val PORTRAIT_COPY_PARTIAL_BANNER =
     "今天的数据还不完整，以下画像仅反映已经采集到的部分。缺失来源不会影响已有部分的有效性。"
 internal const val PORTRAIT_COPY_OFFLINE_BANNER = "当前离线，显示最近一次生成的画像。"
+// 离线画像引擎（端侧本地重算）：与服务端同算法，由本机数据确定性生成。
+internal const val PORTRAIT_COPY_LOCAL_BANNER = "当前离线，画像由本机数据生成。"
 internal const val PORTRAIT_COPY_SENSING_DISABLED =
     "被动感知已关闭，ECHO 暂时无法生成画像。重新开启后，它会继续学习你的日常节奏。"
 internal const val PORTRAIT_COPY_LOAD_FAILED = "加载失败"
@@ -243,7 +245,9 @@ fun todayLocalDateString(instant: Instant, zoneId: ZoneId): String =
 data class PortraitUiState(
     val status: PortraitStatus,
     val portrait: DailyPortraitDto? = null,
-    val offline: Boolean = false
+    val offline: Boolean = false,
+    /** true = 画像由端侧引擎本地重算（演示模式/离线回退），UI 显示本地生成横幅。 */
+    val localComputed: Boolean = false
 )
 
 /**

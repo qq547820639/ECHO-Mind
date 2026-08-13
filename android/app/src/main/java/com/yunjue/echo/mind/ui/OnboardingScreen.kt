@@ -17,10 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.data.OnboardingVerifyException
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * T12.6 L0 准入门禁：currentDanger / psychosisOrMania / substanceImpairment 任一为真即阻断进入。
@@ -57,9 +57,6 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
 
     var ageConfirmed by remember { mutableStateOf(false) }
     var boundaryConfirmed by remember { mutableStateOf(false) }
-    var activationCode by remember { mutableStateOf("") }
-    var activating by remember { mutableStateOf(false) }
-    var activationError by remember { mutableStateOf<String?>(null) }
 
     // CORE DATA CONSENT：5 项核心同意（全部勾选才可继续；拒绝 = abstain）
     var coreChecks by remember { mutableStateOf(listOf(false, false, false, false, false)) }
@@ -118,40 +115,14 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         return
     }
 
-    fun verifyCode() {
-        val code = activationCode.trim()
-        if (code.length < 8) {
-            activationError = "激活码格式不正确，请检查后重试。"
-            return
-        }
-        activating = true
-        activationError = null
-        preferences.onboardingState = AppPreferences.ONBOARDING_ACTIVATING
-        scope.launch {
-            try {
-                val res = container.onboardingRepository.verifyOnboardingCode(code)
-                activating = false
-                activationError = null
-                // verify-code 已把 userId + 加密 access_token 安全存储，并推进 BOUND
-                if (res.restricted) {
-                    showSafety = true
-                } else {
-                    step = OnboardingStep.PORTRAIT_EXPLANATION
-                }
-            } catch (e: Exception) {
-                activating = false
-                preferences.onboardingState = AppPreferences.ONBOARDING_ACTIVATION_FAILED
-                activationError = when ((e as? OnboardingVerifyException)?.reason) {
-                    "invalid_code" -> "激活码无效，请联系机构获取正确的激活码。"
-                    "restricted" -> "该激活码已受限，请联系机构。"
-                    else -> "暂时无法验证激活信息，请检查网络后重试。"
-                }
-            }
-        }
-    }
-
     fun finishOnboarding() {
         scope.launch {
+            // v0.7 本地优先架构：默认本地模式（无账号门槛）。未绑定时生成本地用户标识，
+            // 特征/画像按该标识隔离存储；绑定机构后（支持页）服务端返回新 userId，
+            // 本地数据留在本机、不再上传（本地同意与机构同意各自独立）。
+            if (preferences.userId.isBlank()) {
+                preferences.userId = "local_${UUID.randomUUID().toString().replace("-", "").take(12)}"
+            }
             // v0.6.1（P1-7）幂等：本地已提交过（重复点击/进程死亡重启）→ 直接推进，
             // 不重复入队 consent（服务端按 event_id 幂等，双保险）。
             if (preferences.onboardingLocalSubmitted) {
@@ -212,24 +183,19 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 CheckLine(ageConfirmed, { ageConfirmed = it }, "我已年满 18 周岁")
                 CheckLine(boundaryConfirmed, { boundaryConfirmed = it }, "我理解专业判断和危机处置由人工承担")
                 HorizontalDivider()
-                Text("机构绑定", style = MaterialTheme.typography.titleMedium)
-                Text("请输入机构提供的激活码（由你的机构发放）。", style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    activationCode,
-                    { activationCode = it },
-                    label = { Text("激活码") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                // v0.7 本地优先架构：无账号/激活码门槛，本地模式默认开启。
+                // 机构绑定为可选（支持页）；数据默认只保存在本机。
+                Text("本机使用", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需机构人工支持，可稍后在「支持」页绑定机构（可选）。",
+                    style = MaterialTheme.typography.bodySmall
                 )
-                activationError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                }
                 Button(
-                    onClick = { verifyCode() },
-                    enabled = ageConfirmed && boundaryConfirmed && activationCode.isNotBlank() && !activating,
+                    onClick = { step = OnboardingStep.PORTRAIT_EXPLANATION },
+                    enabled = ageConfirmed && boundaryConfirmed,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (activating) "正在验证机构激活信息…" else "验证并继续")
+                    Text("开始")
                 }
                 // 紧急入口（常驻，任何步骤可访问）
                 OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, copy = EMERGENCY_HINT_COPY)
@@ -416,11 +382,9 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 )
                 HorizontalDivider()
                 // 已授权摘要：只列核心（被动行为节律），不再列出「心理数据、量表信息」
-                Text(
-                    "已开启：被动行为节律。可随时在「支持与设置」中查看或撤回。",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text("部分确认将在网络恢复后自动完成，你的数据仍安全保存在本机。", style = MaterialTheme.typography.bodySmall)
+                Text("已开启：被动行为节律。可随时在「支持与设置」中查看或撤回。", style = MaterialTheme.typography.bodyMedium)
+                // v0.7 本地优先：默认数据只保存在本机；绑定机构（可选，支持页）后画像与云端同步
+                Text("你的数据默认只保存在本机。如需机构人工支持，可稍后在「支持」页绑定机构。", style = MaterialTheme.typography.bodySmall)
                 // 紧急入口常驻（DONE 页用 Button，PM 规格 §1.3.6）
                 OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, prominent = true)
                 Button(onClick = { finishOnboarding() }, modifier = Modifier.fillMaxWidth()) { Text("进入应用") }

@@ -51,6 +51,7 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_SAVED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_SKILLS
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_TREND
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOAD_FAILED
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOCAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_REENABLE
@@ -131,6 +132,11 @@ fun TodayScreen(
             if (pending > 0 || syncState != SyncState.SYNCED) {
                 AssistChip(onClick = { SyncWorker.enqueue(context) }, label = { Text(syncLabel) })
             }
+        }
+
+        // 端侧本地生成横幅（演示模式/离线回退：画像由本机数据计算，非服务端缓存）
+        if (state.localComputed) {
+            item { Text(PORTRAIT_COPY_LOCAL_BANNER, Modifier.padding(top = 8.dp)) }
         }
 
         // ===== 九态渲染（spec：禁止统一显示「暂无数据」） =====

@@ -316,6 +316,8 @@ class DatabaseMigrationTest {
             assertTrue("vector 列应存在", columns.contains("vector"))
             assertTrue("synced 列应存在", columns.contains("synced"))
             assertTrue("createdAt 列应存在", columns.contains("createdAt"))
+            // v8 离线画像引擎：sourcesPresentJson 可空列
+            assertTrue("sourcesPresentJson 列应存在", columns.contains("sourcesPresentJson"))
         }
     }
 
@@ -341,6 +343,55 @@ class DatabaseMigrationTest {
             // 幂等：重复执行不报错
             MIGRATION_6_7.migrate(rawDb)
             assertTrue("重复迁移应幂等", hasTable(rawDb, "portrait_daily"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    // ===== 离线画像引擎：v7 → v8（feature_vectors.sourcesPresentJson） =====
+
+    @Test
+    fun migration78AddsSourcesPresentJsonColumn() {
+        // 用 v7 库（feature_vectors 无 sourcesPresentJson）执行 MIGRATION_7_8，验证加列成功且幂等
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-78-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(7) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) {
+                        sqLiteDatabase.execSQL(
+                            """CREATE TABLE feature_vectors (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                userId TEXT NOT NULL,
+                                schemaVersion TEXT NOT NULL,
+                                source TEXT NOT NULL,
+                                windowStart INTEGER NOT NULL,
+                                windowEnd INTEGER NOT NULL,
+                                summaryCiphertext TEXT NOT NULL,
+                                vector TEXT NOT NULL,
+                                synced INTEGER NOT NULL DEFAULT 0,
+                                createdAt INTEGER NOT NULL
+                            )"""
+                        )
+                    }
+
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            rawDb.execSQL(
+                "INSERT INTO feature_vectors (id, userId, schemaVersion, source, windowStart, windowEnd, summaryCiphertext, vector, synced, createdAt) " +
+                    "VALUES ('fv_legacy', 'u', 'passive-core-v1', 'screen', 0, 300000, 'enc', '[]', 0, 0)"
+            )
+            MIGRATION_7_8.migrate(rawDb)
+            // 加列后旧行可读、新列为 NULL
+            rawDb.query("SELECT sourcesPresentJson FROM feature_vectors WHERE id='fv_legacy'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertTrue(cursor.isNull(0))
+            }
+            // 幂等：重复执行不报错
+            MIGRATION_7_8.migrate(rawDb)
         } finally {
             rawDb.close()
         }
