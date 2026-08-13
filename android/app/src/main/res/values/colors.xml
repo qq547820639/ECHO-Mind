@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用图标背景：安静的深绿（心理舒缓色系，非医疗暗示） -->
+    <color name="ic_launcher_background">#2E5C4F</color>
+</resources>

@@ -331,6 +331,38 @@ class PortraitRepository(
     /** 某日画像反馈（true=挺像 / false=不太像 / null=未反馈）。 */
     fun portraitFeedback(date: String): Boolean? = preferences.portraitFeedback(date)
 
+    /**
+     * 重新生成今日画像（v0.7 反馈闭环）：
+     * - 订阅模式：POST /v1/me/portraits/rebuild（服务端重算），失败回退本地重算；
+     * - 本地模式：端侧引擎直接重算（晚到窗口会进入聚合，结果随之更新）。
+     */
+    suspend fun rebuildTodayPortrait() {
+        if (preferences.localMode) {
+            emitLocalTodayPortrait()
+            return
+        }
+        val fetch = try {
+            apiClient.rebuildPortrait()
+        } catch (e: Exception) {
+            null
+        }
+        if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+            val dto = PortraitParsers.parseDailyPortrait(fetch.second!!)
+            if (dto != null) {
+                runCatching {
+                    db.portraitDao().insert(dto.toEntity(preferences.userId, dto.date, System.currentTimeMillis()))
+                }
+                _todayPortraitState.value = PortraitUiState(
+                    status = mapServerStatus(dto.status) ?: PortraitStatus.ERROR,
+                    portrait = dto
+                )
+                return
+            }
+        }
+        // 服务端重建失败 → 本地重算回退
+        emitLocalTodayPortrait()
+    }
+
     companion object {
         /** 画像 schema 版本（对齐后端 portrait-v1；feedback 上报口径）。 */
         private const val PORTRAIT_SCHEMA_VERSION_LOCAL = "portrait-v1"

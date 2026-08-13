@@ -65,16 +65,15 @@ def acquire_tenant_slot(db: Session, tenant_id: str) -> bool:
     )
     if result.scalar_one_or_none() is not None:
         return True
-    # 3. 行不存在：INSERT 首槽
+    # 3. 行不存在：INSERT 首槽（SAVEPOINT 隔离——冲突只回滚本段，不影响外层事务其它写入）
     row = db.scalar(select(TenantSandboxSlot).where(TenantSandboxSlot.tenant_id == tenant_id))
     if row is not None:
         return False  # 行存在但已达上限
     try:
-        db.add(TenantSandboxSlot(tenant_id=tenant_id, running_count=1, heartbeat_at=now))
-        db.flush()
+        with db.begin_nested():
+            db.add(TenantSandboxSlot(tenant_id=tenant_id, running_count=1, heartbeat_at=now))
         return True
     except IntegrityError:
-        db.rollback()
         # 并发 INSERT 竞争：回退为原子 UPDATE 再试一次
         retry = db.execute(
             update(TenantSandboxSlot)

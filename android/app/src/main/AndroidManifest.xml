@@ -23,6 +23,8 @@
         android:name=".EchoMindApplication"
         android:allowBackup="false"
         android:label="ECHO Mind"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.EchoMind">

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 图标前景：三圈回声弧线 + 中心点（108dp viewport 安全区 66dp 内） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 外层弧（右开口） -->
+    <path
+        android:pathData="M54,54 m-26,0 a26,26 0 1,1 52,0"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="#00000000" />
+    <!-- 中层弧（左开口） -->
+    <path
+        android:pathData="M54,54 m-17,0 a17,17 0 1,0 34,0"
+        android:strokeColor="#B9D8C9"
+        android:strokeWidth="4"
+        android:fillColor="#00000000" />
+    <!-- 内层弧（右开口） -->
+    <path
+        android:pathData="M54,54 m-8,0 a8,8 0 1,1 16,0"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000" />
+    <!-- 中心点：今天的自己 -->
+    <path
+        android:pathData="M54,54 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0"
+        android:fillColor="#F2C94C" />
+</vector>

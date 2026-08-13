@@ -189,7 +189,10 @@ def redeem_code(
 
     row = db.scalar(select(ActivationCode).where(ActivationCode.code_hash == code_hash))
     if row is None:
-        # 未知码：不写 attempt（避免为任意猜测码创建索引热点），只写审计失败行
+        # 未知码：仍写一条失败尝试行（失败审计 + IP/device 维度 rate limit 的数据来源；
+        # 不递增任何 ActivationCode.attempt_count——避免为任意猜测码创建/加热索引热点）。
+        # 写入放大由 MAX_FAILURES_PER_IP/DEVICE（15 分钟窗口）限制；无 IP 客户端
+        # 的防护依赖生产网关（部署要求）。
         _record_attempt(db, tenant_id=None, code_hash=code_hash, actor_ip=actor_ip,
                         device_id=device_id, result="failure")
         return None, "not_found"

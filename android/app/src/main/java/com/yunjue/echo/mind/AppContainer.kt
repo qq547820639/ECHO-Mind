@@ -9,11 +9,9 @@ import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.FeatureFlagRepository
-import com.yunjue.echo.mind.data.LegacyInputRepository
 import com.yunjue.echo.mind.data.LocalDataRights
 import com.yunjue.echo.mind.data.LocalPortraitDataSource
 import com.yunjue.echo.mind.data.MessageRepository
-import com.yunjue.echo.mind.data.NarrativeProfileRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
 import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.SensingRepository
@@ -30,7 +28,7 @@ import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import com.yunjue.echo.mind.security.FieldCipher
 import net.sqlcipher.database.SupportFactory
 
-private val MIGRATION_1_2 = object : Migration(1, 2) {
+internal val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("""CREATE TABLE IF NOT EXISTS journal_entries (
             eventId TEXT NOT NULL PRIMARY KEY,
@@ -65,7 +63,7 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
  * v2 → v3 迁移：新增 consents / sensor_samples / feature_vectors 三张表。
  * ConsentEntity 由 T02 定义但未注册，此处统一建表。
  */
-private val MIGRATION_2_3 = object : Migration(2, 3) {
+internal val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // 同意记录表
         db.execSQL("""CREATE TABLE IF NOT EXISTS consents (
@@ -208,8 +206,9 @@ internal val MIGRATION_7_8 = object : Migration(7, 8) {
 }
 
 class AppContainer(context: Context) {
-    /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。 */
-    val cipher: FieldCipher = AndroidKeystoreFieldCipher()
+    /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
+     *  具体类型以支持 v1→v2 口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
+    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher()
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
 
@@ -225,14 +224,7 @@ class AppContainer(context: Context) {
      */
     val database: EchoDatabase = runCatching { net.sqlcipher.database.SQLiteDatabase.loadLibs(context) }
         .map {
-            Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
-                .addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                    MIGRATION_7_8
-                )
-                // SQLCipher 全库加密：口令由 Android Keystore 派生，不硬编码
-                .openHelperFactory(SupportFactory(cipher.deriveDatabasePassphrase()))
-                .build()
+            openDatabase(context, cipher)
         }
         .getOrElse {
             // Phase 3.1：SQLCipher 不可用 → fail closed，绝不静默回退明文 Room。
@@ -251,7 +243,6 @@ class AppContainer(context: Context) {
     // bounded-context 仓库（Step 1–3）。
     val featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
     val syncStateRepository = SyncStateRepository(database, preferences)
-    val legacyInputRepository = LegacyInputRepository(database, cipher)
     val consentRepository = ConsentRepository(outbox, preferences)
     val sensingRepository = SensingRepository(database, cipher, outbox, preferences)
     val skillRepository = SkillRepository(database, outbox, preferences, apiClient)
@@ -264,7 +255,6 @@ class AppContainer(context: Context) {
     val localDataRights = LocalDataRights(database, cipher)
     // v0.7 分析消息（拉取式推送过渡）：订阅拉服务端小结 / 本地模式端侧算小结
     val messageRepository = MessageRepository(preferences, apiClient, localPortraitDataSource)
-    val narrativeProfileRepository = NarrativeProfileRepository(preferences, apiClient)
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
     val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(skillRepository)
@@ -286,4 +276,41 @@ class AppContainer(context: Context) {
     /** 5 分钟窗口调度器工厂（可选注入麦克风采集器）。 */
     fun newSensingWindowScheduler(micCollector: MicCollector? = null): SensingWindowScheduler =
         SensingWindowScheduler(newSensingEventHub(), micCollector = micCollector)
+}
+
+/**
+ * SQLCipher 加密库打开（v0.7.2 双 alias 兼容）：
+ * 1. 用 v2 派生口令打开（正常路径）；
+ * 2. v2 打开失败（SQLiteException，如旧库口令不匹配）→ 若 v1 密钥可派生旧口令，
+ *    以 v1 口令解锁并把库 rekey 到 v2（PRAGMA rekey），下次启动走正常路径；
+ * 3. 两者皆不可用 → 抛原异常（fail-closed，绝不回退明文）。
+ *
+ * 说明：v0.7 预修复版在真机首启即崩、从未建成加密库，现实设备基本不存在 v1 库；
+ * 该回退为防御性兜底（v1 密钥存在但 randomizedEncryptionRequired=true 时派生会失败，
+ * 此时同样 fail-closed 抛原异常）。
+ */
+private fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
+    fun build(passphrase: ByteArray): EchoDatabase =
+        Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
+            .addMigrations(
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                MIGRATION_7_8
+            )
+            .openHelperFactory(SupportFactory(passphrase))
+            .build()
+
+    return try {
+        build(cipher.deriveDatabasePassphrase())
+    } catch (primary: android.database.sqlite.SQLiteException) {
+        val legacy = cipher.deriveLegacyDatabasePassphrase() ?: throw primary
+        try {
+            build(legacy).also { db ->
+                db.openHelper.writableDatabase.execSQL(
+                    AndroidKeystoreFieldCipher.rekeyPragma(cipher.deriveDatabasePassphrase())
+                )
+            }
+        } catch (legacyFailure: Exception) {
+            throw primary
+        }
+    }
 }

@@ -90,6 +90,16 @@ fun SupportScreen(container: AppContainer) {
     val escalations by container.escalationRepository.observeEscalations().collectAsState(initial = emptyList())
     var showSupportConfirm by remember { mutableStateOf(false) }
 
+    // v0.7 闭环：订阅模式打开支持页时向服务端刷新请求真实状态（送达确认/人工确认），
+    // 让「人工已确认」不再永远停留在本地乐观值（键为数量，避免自触发循环）。
+    LaunchedEffect(escalations.size) {
+        if (!container.preferences.localMode) {
+            escalations.filter { !it.serverEscalationId.isNullOrBlank() }.forEach { esc ->
+                runCatching { container.escalationRepository.refreshEscalationStatus(esc.serverEscalationId!!) }
+            }
+        }
+    }
+
     fun requestSupport() {
         // v0.7 本地优先架构：未开通订阅（本地模式）时请求无法送达，明示不可用（不排队假送达）
         if (container.preferences.localMode) {
@@ -261,10 +271,19 @@ fun SupportScreen(container: AppContainer) {
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("开通订阅（可选）", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "默认本地使用，数据只保存在本机。订阅后可获得云端同步备份、长周期分析与专业支持，输入订阅激活码完成开通。",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                // v0.7 订阅状态展示：已订阅（有 token）→ 状态行；未订阅 → 权益说明
+                if (!container.preferences.localMode) {
+                    Text(
+                        "当前已订阅：云端同步与专业支持已开启。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        "默认本地使用，数据只保存在本机。订阅后可获得云端同步备份、长周期分析与专业支持，输入订阅激活码完成开通。",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 OutlinedTextField(
                     bindCode,
                     { bindCode = it },

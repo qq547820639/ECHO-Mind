@@ -2,17 +2,19 @@
 
 ## 目标
 
-为 18 岁以上机构用户提供低负担的被动感知日常状态理解、自进化能力卡片下发、个人叙事趋势和确定性人工支持入口。
+为 18 岁以上用户提供低负担的被动感知日常状态理解、自进化能力卡片下发、个人叙事趋势和确定性人工支持入口。
 
 > v0.2 范式迁移：从主动输入（签到/日记/量表）转为被动感知 + 自进化沙箱范式。主动录入入口已停用（返回 410 Gone），改由端侧被动采集派生特征驱动叙事与能力下发。
 
 > **Portrait Core（v0.7）产品收敛**：产品核心合同固定为「每日个人画像」——ECHO-Mind 在用户主动授权后学习**用户自己的日常基线**，每天回答："今天的我，和通常的我有什么不同？"。Skill、人工支持、Safety、Workbench、Sandbox 全部保留但降级为**外围能力**，不占据产品主叙事。详见仓库根目录 `PORTRAIT_CONTRACT.md`。
 
+> **v0.7 本地优先 + 订阅制（产品模式修订）**：默认本地使用（无账号/激活码门槛，画像由端侧引擎生成、数据只保存在本机）；可选订阅开通云端同步、长周期分析消息与专业支持。订阅激活码复用 verify-code 机制；支付集成与契约修订（PORTRAIT_CONTRACT v1.0）属外部发布门。
+
 ## 成功指标
 
 - 首次流程中位时长 ≤5 分钟
 - 被动感知范式下用户零主动输入负担（无签到/日记/量表录入）
-- 明确高危信号（被动 RED）一轮内冻结普通生成并创建 L3 事件
+- 被动行为特征**绝不**推断危机/自杀意图（PRD v0.6 契约点 1：ingest 不触发任何被动危机链；危机信号仅来自用户主动求助、L0 准入与专业人员事件）
 - 拒绝可选权限（如麦克风）不影响核心功能
 - 人工工作台能展示证据、等待时间和责任人，而非单一 AI 分数
 - 沙箱每日自进化回路能从感知缺口归纳新 Skill 并下发
@@ -46,7 +48,7 @@
 - **隐私强约束**：端侧提取后原始传感数据即丢弃，不上云；后端 `DerivedFeatureIn` schema 拒绝任何额外字段（`extra="forbid"`），防止误传原始 payload。
 - **分项同意**：`passive_sensing` 同意独立于其他同意类型；撤回后 ingest 返回 412 Precondition Failed。
 - **麦克风授权证据闭环**：麦克风开关切换时写入 `voice_features` 类型 consent（含 SHA-256 证据哈希），端侧 `OnPermissionsChangeListener` 监听系统权限撤回并写 revoked consent；后端对 `source=mic_opt` 特征校验 `voice_features` consent 有效，撤销返回 412。
-- **安全门禁**：被动 RED 信号（命中 `PASSIVE_RED_TERMS`）触发冻结 + escalation（trigger=passive_red_signal）。
+- **安全门禁**：被动派生特征（accel/screen/notification/app/mic 摘要）不得用于推断自杀/自伤意图，ingest 永不创建 RiskSignal/Escalation（`escalation_id` 恒为 None，fault_injection 矩阵断言）；危机信号唯一来源为主动文本命中、用户主动求助、L0 准入与专业人员事件。
 
 ## 沙箱算力预算
 

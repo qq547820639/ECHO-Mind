@@ -119,6 +119,7 @@ internal const val PORTRAIT_COPY_FEEDBACK_QUESTION = "这个描述像今天的�
 internal const val PORTRAIT_COPY_FEEDBACK_LIKE = "挺像"
 internal const val PORTRAIT_COPY_FEEDBACK_NOT_LIKE = "不太像"
 internal const val PORTRAIT_COPY_FEEDBACK_SAVED = "已记录，感谢反馈。"
+internal const val PORTRAIT_COPY_REGENERATE = "重新生成"
 internal const val PORTRAIT_COPY_GO_TREND = "过去 7 天 →"
 internal const val PORTRAIT_COPY_SECTION_WHY = "为什么这么说？"
 internal const val PORTRAIT_COPY_SECTION_ACTION = "想做点什么？"

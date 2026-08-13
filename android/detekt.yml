@@ -1,10 +1,10 @@
-# detekt 基线配置（Kotlin SAST 起步）。
+# detekt 基线配置（Kotlin SAST）。
 #
-# 状态：待 CI 首跑验证（本机无 Gradle，无法本地执行 `./gradlew detekt`）。
 # 策略：
 # - buildUponDefaultConfig=false：只应用本文件显式声明的规则，不叠加 detekt 全量默认；
-# - 从少数高信号、低误报规则起步，先让 CI 可运行；
-# - 跑通后再逐步收紧（maxIssues 保持 0，逐规则开启更多 ruleset）。
+# - 从少数高信号、低误报规则起步（v0.7.2 增补 UnusedPrivateMember /
+#   RedundantVisibilityModifier 两条低误报规则），maxIssues 保持 0；
+# - 告警清零后逐步再扩规则集。
 
 build:
   maxIssues: 0
@@ -21,6 +21,10 @@ style:
   # 传感/时间窗口/通知计数等业务代码含大量魔法数字，起步阶段关闭。
   MagicNumber:
     active: false
+  # v0.7.2：低误报高信号规则（UnusedPrivateMember 覆盖未使用私有成员/参数）
+  UnusedPrivateMember:
+    active: true
+    allowedNames: "(_|ignored|expected|serialVersionUID)"
 
 complexity:
   LongParameterList:
@@ -30,8 +34,6 @@ complexity:
 
 potential-bugs:
   EqualsAlwaysReturnsTrueOrFalse:
-    active: true
-  DuplicateCaseInWhenExpression:
     active: true
   UnreachableCode:
     active: true

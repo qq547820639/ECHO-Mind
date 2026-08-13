@@ -57,6 +57,7 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOCAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_REENABLE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_REGENERATE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_ACTION
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_WHY
@@ -413,6 +414,16 @@ private fun PortraitFeedbackRow(portraitRepository: PortraitRepository, state: P
             }
         } else {
             Text(PORTRAIT_COPY_FEEDBACK_SAVED, style = MaterialTheme.typography.bodySmall)
+            // v0.7 反馈闭环：用户点了「不太像」→ 提供「重新生成」入口
+            // （订阅走 /me/portraits/rebuild；本地模式端侧重算）
+            if (feedback == false) {
+                TextButton(
+                    onClick = { scope.launch { portraitRepository.rebuildTodayPortrait() } },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(PORTRAIT_COPY_REGENERATE)
+                }
+            }
         }
     }
 }

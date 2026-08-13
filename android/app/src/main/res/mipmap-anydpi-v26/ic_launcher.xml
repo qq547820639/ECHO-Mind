@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ECHO Mind 应用图标：自适应图标（minSdk 26，纯 XML 实现）。
+     视觉语义：同心圆 = 「回声/回响」，中心点 = 「今天的自己」，无文字依赖。 -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

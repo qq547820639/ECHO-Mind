@@ -2,7 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${1:-/mnt/data}"
-VERSION="0.7.0"
+# v0.7.2 修复：版本从单一事实源读取（此前硬编码 "0.7.0" 曾绕过 version_source.json）
+VERSION="$(python3 -c "import json;print(json.load(open('$ROOT/scripts/version_source.json', encoding='utf-8'))['release_version'])")"
 BASE="ECHO_Mind_PortraitCore_v${VERSION}"
 # 源码已位于仓库根，打包时固定顶层目录名以保证产物可复现
 PKG_NAME="echo-mind-portrait-core"

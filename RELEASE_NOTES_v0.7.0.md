@@ -27,6 +27,7 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - **Narrative 词汇**（Psychology Review）："移动较少/移动较多/接近" 替换 "安静/活跃/稳定"
 
 ### Android
+- **v0.7.2 硬化轮**：① Keystore v1→v2 双 alias 回退（v2 打开失败 → v1 口令解锁 + PRAGMA rekey 迁回 v2，旧库不再数据丢失；rekeyPragma 形状可测）；② androidTest 源集从无到有（迁移链 2→8 / Keystore 真机固定 IV 派生路径 / 引擎 golden 设备烟测），关闭 CI connected-test 空通过门；③ 画像反馈闭环：NOT_LIKE 后提供「重新生成」（订阅走 /me/portraits/rebuild，本地模式端侧重算）；④ 支持请求真实状态：订阅用户打开支持页时 refreshEscalationStatus 向服务端查询送达/人工确认（不再永远停留本地乐观值）；⑤ 死代码删除：SafetyEngine（+2 测试文件）、NarrativeProfileRepository、LegacyInputRepository、passiveSafety；⑥ 应用图标（自适应图标 XML，消除 lint MissingApplicationIcon）；⑦ detekt 启用 UnusedPrivateMember 规则并清零；⑧ 订阅卡片显示「当前已订阅」状态。
 - **分析消息闭环（拉取式推送过渡）**：后端新增 `GET /v1/me/messages`（近 7 天画像确定性生成「本周节律小结」，幂等 message.id，<3 天 abstain，词表安全 fail-closed）；Android `MessageRepository` 订阅模式拉取（SyncWorker 批末、新小结发本地通知 + 新渠道），本地模式用 `LocalPortraitDigest`（与后端逐语义镜像）端侧生成同款小结；Today 页顶部小结卡片。真实推送（FCM）配好后替换拉取式实现。
 - **基线进度可视化**：WARMING_UP / EARLY_BASELINE 显示「已积累 X/7 天」+ 进度条（服务端与本地画像共用 baseline_days）。
 - **本地模式「能力」页订阅空态**：未订阅时显示订阅提示 + 开通入口（替代「加载失败/重试」）。
@@ -56,8 +57,8 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 | contract_drift_check.py | CONTRACT OK（59 路径，manifest v0.7.0） |
 | OpenAPI 导出 | PASS（59 路径，title：ECHO Mind Portrait Core API） |
 | safety_eval / claim_scan / dynamic_code / content packs | PASS |
-| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 343 tests 0 失败 / APK 构建成功 / lint 0 error / detekt 0 findings |
-| Android instrumentation（connectedDebugAndroidTest） | NOT RUN — 无 androidTest 用例且无模拟器（CI 空通过，见 android-ci.yml） |
+| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 334 tests 0 失败 / APK 构建成功 / lint 0 error（含图标补齐）/ detekt 0 findings（UnusedPrivateMember 规则启用） |
+| Android instrumentation（connectedDebugAndroidTest） | 用例已就绪（3 组：迁移链 2→8/Keystore 真机路径/引擎设备烟测），本机编译通过；执行待 CI 模拟器（API 34/36） |
 | PostgreSQL integration | NOT RUN — ENVIRONMENT BLOCKED（无 Docker/psql） |
 
 ## 外部发布门（未完成，依赖真实环境）

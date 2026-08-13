@@ -2,14 +2,11 @@
 #
 # 说明：
 # - unit-lint job 为当前主验证（testDebugUnitTest + assembleDebug + lintDebug）；
-# - connected-test job 需要真机/模拟器（外部验证事项）：当前 androidTest 源集尚未包含
-#   instrumentation 测试类，任务会以「无测试」通过；接入时需补齐：
-#     RoomMigrationInstrumentedTest（v3→v4→v5 迁移）
-#     ProcessRecreationTest（ActiveSkillSession 进程重建恢复）
-#     WorkManagerSyncTest（enqueue + run + 410/429 语义）
-#     OnboardingFlowInstrumentedTest（七态 + verify-code）
-#     PassiveSensingPermissionPathsTest（权限路径 + consent revoke）
-#     SkillExecutionRecoveryTest（Skill 执行/恢复）
+# - connected-test job 在 API 34/36 模拟器执行 androidTest（v0.7.2 已补首批用例）：
+#     EchoDatabaseMigrationInstrumentedTest（2→8 全链 + 7→8 单步，MigrationTestHelper 校验）
+#     EchoKeystoreInstrumentedTest（真机 Keystore 固定 IV 派生路径——曾致首启闪退的盲区）
+#     LocalPortraitEngineInstrumentedTest（golden 场景设备烟测）
+#   后续可补：ProcessRecreation / WorkManagerSync / OnboardingFlow / PermissionPaths / SkillRecovery。
 # - actions 暂 pin 到 major tag；上线前替换为 commit SHA（见 .github/dependabot.yml）。
 name: android-ci
 on:

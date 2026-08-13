@@ -59,6 +59,10 @@ android {
             isReturnDefaultValues = true
         }
     }
+    // v0.7.2：Room MigrationTestHelper 需要 schemas 目录作为 androidTest assets
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {
@@ -107,4 +111,10 @@ dependencies {
     // 是 android.jar 中 org.json 的官方镜像实现，API 兼容；Robolectric 测试类加载时
     // 若命中本依赖的 org.json，行为与 android-all 一致。
     testImplementation("org.json:json:20240303")
+
+    // v0.7.2：Instrumented 测试源集（androidTest）——关闭 CI connected-test 空通过门。
+    // MigrationTestHelper 需要 schemas 目录作为 androidTest assets。
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.room.testing)
 }

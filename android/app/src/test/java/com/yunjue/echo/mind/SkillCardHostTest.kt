@@ -34,16 +34,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SkillCardHostTest {
 
-    private fun sampleSkill() = SkillDisplay(
-        id = "sk_1",
-        name = "情绪降速",
-        version = 2,
-        triggerConditions = listOf("narrative.mood_hint eq 偏低"),
-        guardrails = listOf("不输出诊断结论", "命中红色信号立即冻结"),
-        steps = listOf("扫描当日特征", "输出报告"),
-        status = "reviewed"
-    )
-
     // ---------- T05 执行生命周期：开始按钮真实行为 ----------
 
     @Test
