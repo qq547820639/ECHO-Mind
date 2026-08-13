@@ -79,7 +79,7 @@ class OnboardingRepository(
     suspend fun verifyOnboardingCode(code: String): OnboardingVerifyResult {
         return withContext(Dispatchers.IO) {
             val requestBody = JSONObject().apply { put("code", code) }.toString()
-            val (httpCode, responseBody) = apiClient.postWithBody("/v1/onboarding/verify-code", requestBody)
+            val (httpCode, responseBody, _) = apiClient.post("/v1/onboarding/verify-code", requestBody)
             when {
                 httpCode == 404 -> throw OnboardingVerifyException("invalid_code")
                 httpCode == 403 -> throw OnboardingVerifyException("restricted")

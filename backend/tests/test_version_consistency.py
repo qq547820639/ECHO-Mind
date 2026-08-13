@@ -21,6 +21,8 @@ DOCS = REPO_ROOT / "docs"
 
 from app.config import APP_VERSION  # noqa: E402
 
+pytestmark = pytest.mark.sqlite_only  # 仓库元数据一致性检查仅在全量套件成立，-m "not sqlite_only" 子集跳过
+
 
 def _collect_pytest_count() -> int:
     """收集 tests/ 下全部用例数（含本文件）。"""

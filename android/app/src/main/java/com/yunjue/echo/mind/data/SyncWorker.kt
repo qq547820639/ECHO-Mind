@@ -97,7 +97,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                     anyFailure = true
                     continue
                 }
-            val response = runCatching { client.postFull(path, payload) }.getOrElse {
+            val response = runCatching { client.post(path, payload) }.getOrElse {
                 dao.incrementAttempts(event.eventId)
                 retryableCount++
                 anyRetry = true

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.model
 
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -230,7 +229,7 @@ fun portraitStabilitySummary(portraits: List<DailyPortraitDto>): String {
  * 旧缓存（旧时区的昨天/今天）不会与新「今天」匹配，从而触发重新拉取而非误用旧画像。
  */
 fun todayLocalDateString(instant: Instant, zoneId: ZoneId): String =
-    LocalDate.ofInstant(instant, zoneId).toString()
+    instant.atZone(zoneId).toLocalDate().toString()
 
 // ===== UI 状态容器（PortraitRepository 发出，UI 消费；纯数据无 Android 依赖） =====
 

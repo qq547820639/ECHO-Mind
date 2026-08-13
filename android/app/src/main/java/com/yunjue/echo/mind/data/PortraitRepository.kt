@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 
@@ -121,7 +120,7 @@ class PortraitRepository(
         }.getOrDefault(false)
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        val todayDate = LocalDate.ofInstant(now, zone)
+        val todayDate = now.atZone(zone).toLocalDate()
         val today = todayDate.toString()
         val from = todayDate.minusDays((days - 1).toLong()).toString()
 

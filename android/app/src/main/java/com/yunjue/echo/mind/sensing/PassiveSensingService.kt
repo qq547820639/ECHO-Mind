@@ -60,13 +60,15 @@ class PassiveSensingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val prefs = PassiveSensingPrefs(this)
+        val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
+        // 复用 AppContainer 的 passiveSensingPrefs（与 AppPreferences 共享同一 DataStore 实例，
+        // 避免重复新建）；容器不可用（如 Robolectric 单测）时回退新建，保持 fail-closed 不破坏既有行为。
+        val prefs = container?.passiveSensingPrefs ?: PassiveSensingPrefs(this)
         sensorCollector = SensorCollector(this, hub)
         screenCollector = ScreenCollector(this, hub)
         appActivityCollector = AppActivityCollector(this, hub)
         // 麦克风采集器：注入权限撤回回调，撤回时写 voice_features consent（granted=false）
         // 并触发 SyncWorker 上传，闭环 P1.2 + P1.3
-        val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
         micCollector = MicCollector(this, prefs) {
             container?.let { c ->
                 revokeScope.launch {
