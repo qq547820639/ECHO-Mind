@@ -48,6 +48,9 @@ class ImmutableRecordError(RuntimeError):
 
 def _changed_columns(obj: object) -> set[str]:
     state = inspect(obj)
+    if state is None:
+        # 非 ORM 实例传入时无法判定变更字段，按 fail-closed 拒绝。
+        raise ImmutableRecordError(f"{type(obj).__name__} is not a mapped ORM instance")
     return {
         attr.key
         for attr in state.mapper.column_attrs

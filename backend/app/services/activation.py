@@ -46,6 +46,13 @@ def _aware(value: datetime | None) -> datetime | None:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
+def _is_expired(expires_at: datetime | None, now: datetime | None = None) -> bool:
+    """码是否已过期（naive datetime 统一按 UTC 解释；未设置过期时间视为不过期）。"""
+    reference = now if now is not None else datetime.now(UTC)
+    aware = _aware(expires_at)
+    return aware is not None and aware <= reference
+
+
 def hash_code(code: str) -> str:
     """SHA-256(code)（加固定 pepper 防彩虹表；pepper 来自部署配置，非明文码本身）。"""
     settings = get_settings()
@@ -202,7 +209,7 @@ def redeem_code(
         _reject(db, code_hash=code_hash, actor_ip=actor_ip, device_id=device_id,
                 tenant_id=row.tenant_id, reason="revoked")
         return None, "revoked"
-    if _aware(row.expires_at) is not None and _aware(row.expires_at) <= now:
+    if _is_expired(row.expires_at, now):
         _reject(db, code_hash=code_hash, actor_ip=actor_ip, device_id=device_id,
                 tenant_id=row.tenant_id, reason="expired")
         return None, "expired"

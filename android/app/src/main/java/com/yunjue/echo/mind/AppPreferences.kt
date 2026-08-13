@@ -18,7 +18,7 @@ class AppPreferences(
         set(value) = prefs.edit().putString("institution_code", value).apply()
 
     var userId: String
-        get() = prefs.getString("user_id", "u_demo") ?: "u_demo"
+        get() = prefs.getString("user_id", "") ?: ""
         set(value) = prefs.edit().putString("user_id", value).apply()
 
     var accessToken: String?

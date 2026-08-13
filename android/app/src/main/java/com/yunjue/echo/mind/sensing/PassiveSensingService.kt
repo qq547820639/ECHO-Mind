@@ -11,7 +11,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.Process
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -26,7 +28,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * 被动采集前台服务：
@@ -92,12 +93,21 @@ class PassiveSensingService : Service() {
             else -> {
                 // 已运行时不重复启动（幂等）
                 if (started) return START_STICKY
-                // 三重门控：consent + 租户 flag + 必要权限；任一不满足不启动
-                if (!canStartSensing()) {
-                    stopSelf()
-                    return START_NOT_STICKY
+                // 三重门控含 DataStore 异步读（consent）：不能在主线程 runBlocking（ANR/死锁风险）。
+                // 用 goAsync() 把门控移到后台协程；门控不通过则 stopSelf（fail-closed），
+                // startSensing 仍回主线程执行（startForeground/传感器注册）。
+                val pending = goAsync()
+                val mainHandler = Handler(Looper.getMainLooper())
+                sensingScope.launch {
+                    val allowed = runCatching { canStartSensing() }.getOrDefault(false)
+                    mainHandler.post {
+                        try {
+                            if (allowed) startSensing() else stopSelf()
+                        } finally {
+                            pending.finish()
+                        }
+                    }
                 }
-                startSensing()
             }
         }
         return START_STICKY
@@ -115,7 +125,7 @@ class PassiveSensingService : Service() {
      * Usage Access / Mic（拒绝任一只是 missing source + coverage 下降 + confidence 降低，
      * 不得整个 sensing 停止）。
      */
-    internal fun canStartSensing(): Boolean {
+    internal suspend fun canStartSensing(): Boolean {
         val flagEnabled = isPassiveSensingEnabled()
         val consentGranted = isUserConsentGranted()
         return coreSensingGatePasses(
@@ -143,11 +153,10 @@ class PassiveSensingService : Service() {
         return appPrefs.getFeatureFlagsSnapshot()["passive_sensing_enabled"] ?: false
     }
 
-    /** 用户 consent：读取 PassiveSensingPrefs（DataStore）同步当前值。 */
-    private fun isUserConsentGranted(): Boolean = runBlocking {
+    /** 用户 consent：异步读取 PassiveSensingPrefs（DataStore）当前值（fail-closed，失败默认 false）。 */
+    private suspend fun isUserConsentGranted(): Boolean =
         runCatching { PassiveSensingPrefs(this@PassiveSensingService).passiveSensingEnabled.first() }
             .getOrDefault(false)
-    }
 
     internal fun startSensing() {
         if (started) return
@@ -160,9 +169,9 @@ class PassiveSensingService : Service() {
         sensorCollector?.start()
         screenCollector?.start()
         appActivityCollector?.start()
-        // 麦克风为可选模块：start() 内部检查 micEnabled + RECORD_AUDIO 权限，
-        // 不满足时直接返回，不影响其他采集器
-        micCollector?.start()
+        // 麦克风为可选模块：start() 内部检查 micEnabled + RECORD_AUDIO 权限（DataStore 异步读），
+        // 不满足时直接返回，不影响其他采集器；移入协程避免主线程阻塞。
+        micCollector?.let { mic -> sensingScope.launch { mic.start() } }
 
         // 5 分钟窗口调度：snapshot → transactional 落库+outbox → 成功才 clear consumed + enqueue sync
         val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
@@ -231,29 +240,14 @@ class PassiveSensingService : Service() {
         /**
          * 核心门控纯函数（Phase 6.1 Permission Degraded）：flag + consent + 核心传感器可用。
          *
-         * 旧三重门控（passiveSensingGatePasses，要求 POST_NOTIFICATIONS + 通知使用权 +
-         * 使用情况访问全具备）已废弃：拒绝 optional 权限不应停止核心 sensing。
-         * 保留旧函数仅为测试兼容（deprecated）。
+         * 拒绝 optional 权限（通知使用权 / 使用情况访问 / 麦克风）不应停止核心 sensing，
+         * 只会 missing source + coverage 下降 + confidence 降低。
          */
         internal fun coreSensingGatePasses(
             flagEnabled: Boolean,
             consentGranted: Boolean,
             sensorAvailable: Boolean
         ): Boolean = flagEnabled && consentGranted && sensorAvailable
-
-        /**
-         * @deprecated Phase 6.1：改用 [coreSensingGatePasses]（optional 权限不阻断核心 sensing）。
-         * 保留仅为历史测试兼容。
-         */
-        @Deprecated("Phase 6.1：使用 coreSensingGatePasses（仅 flag+consent+核心传感器）")
-        internal fun passiveSensingGatePasses(
-            flagEnabled: Boolean,
-            consentGranted: Boolean,
-            postNotificationsGranted: Boolean,
-            notificationAccessGranted: Boolean,
-            usageAccessGranted: Boolean
-        ): Boolean = flagEnabled && consentGranted && postNotificationsGranted &&
-            notificationAccessGranted && usageAccessGranted
 
         /** 通知使用权是否已授权（系统设置）。 */
         internal fun hasNotificationAccess(context: Context): Boolean = runCatching {

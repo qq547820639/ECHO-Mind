@@ -27,7 +27,7 @@ import java.time.Instant
  * Batch A v0.6.2（A1 单一数据源收敛）：collector → hub → window → extractor 全链路消费测试。
  *
  * 每个 modality 验证：事件从采集入口写入 [SensingEventHub] 后，经 5 分钟窗口
- * （extractFromHub）产出 [com.yunjue.echo.mind.model.DerivedFeatureInput]。
+ * （extractFromSnapshot）产出 [com.yunjue.echo.mind.model.DerivedFeatureInput]。
  * 覆盖 accel / gyro / screen / notification / app_activity（mic 为 MicCollector canonical 源，
  * 不经 hub，见 MicCollectorTest）。
  *
@@ -53,7 +53,7 @@ class CollectorConsumptionTest {
         SensingEventHub.resetForTest()
     }
 
-    // ===== accel：SensorCollector → hub → extractFromHub =====
+    // ===== accel：SensorCollector → hub → extractFromSnapshot =====
 
     @Test
     fun accelSamplesFlowToHubAndProduceWindowFeature() {
@@ -70,13 +70,13 @@ class CollectorConsumptionTest {
         // 单一数据源：collector.snapshotAccel 委托 hub
         assertEquals(hub.snapshotAccel().size, collector.snapshotAccel().size)
 
-        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
+        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
         assertEquals("accel 样本应产出窗口特征", 1, features.size)
         assertEquals("accel", features.first().source)
         assertTrue("sourcesPresent 应含 accel", "accel" in features.first().sourcesPresent)
     }
 
-    // ===== gyro：SensorCollector → hub → extractFromHub =====
+    // ===== gyro：SensorCollector → hub → extractFromSnapshot =====
 
     @Test
     fun gyroSamplesFlowToHubAndProduceWindowFeature() {
@@ -90,12 +90,12 @@ class CollectorConsumptionTest {
         }
 
         assertEquals("gyro 样本应写入 hub", 3, hub.snapshotGyro().size)
-        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
+        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
         assertEquals("gyro 样本应产出窗口特征", 1, features.size)
         assertEquals("gyro", features.first().source)
     }
 
-    // ===== screen：ScreenCollector 广播 → hub → extractFromHub =====
+    // ===== screen：ScreenCollector 广播 → hub → extractFromSnapshot =====
 
     @Test
     fun screenEventsFlowToHubAndProduceWindowFeature() {
@@ -118,12 +118,12 @@ class CollectorConsumptionTest {
         assertEquals(hub.snapshotScreen().size, collector.snapshot().size)
 
         // 屏幕事件时间戳为 System.currentTimeMillis()（采集时刻），提取窗口需覆盖此刻
-        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
+        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
         assertEquals(1, features.size)
         assertEquals("screen", features.first().source)
     }
 
-    // ===== notification：NotificationCollector → hub → extractFromHub =====
+    // ===== notification：NotificationCollector → hub → extractFromSnapshot =====
 
     @Test
     fun notificationsFlowToHubAndProduceWindowFeature() {
@@ -136,7 +136,7 @@ class CollectorConsumptionTest {
             .setContentTitle("secret-title") // 仅测试构造用；hub 不保存 title
             .setContentText("secret-body")
             .build()
-        // postTime 需落在 [windowStart, windowEnd) 窗口内（extractFromHub 按窗口过滤）
+        // postTime 需落在 [windowStart, windowEnd) 窗口内（extractFromSnapshot 按窗口过滤）
         val sbn = statusBarNotification(notification, postTime = windowEnd.toEpochMilli() - 60_000L)
         collector.onNotificationPosted(sbn)
 
@@ -147,18 +147,18 @@ class CollectorConsumptionTest {
         assertTrue("hub 只保存最小化 metadata（无 title）", hub.snapshotAll().notifications.none { it.toString().contains("secret-title") })
 
         // 通知 metadata 时间戳为 System.currentTimeMillis()（采集时刻），提取窗口需覆盖此刻
-        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
+        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
         assertEquals(1, features.size)
         assertEquals("notification", features.first().source)
     }
 
-    // ===== app_activity：hub → extractFromHub（pollOnce 依赖 UsageStatsManager，端侧轮询路径） =====
+    // ===== app_activity：hub → extractFromSnapshot（pollOnce 依赖 UsageStatsManager，端侧轮询路径） =====
 
     @Test
     fun appActivityFlowToHubAndProduceWindowFeature() {
         val hub = SensingEventHub()
         // AppActivityCollector 通过 UsageStatsManager 轮询；无法可靠构造系统 stats，
-        // 这里验证其数据源收敛：事件经 hub 写入后 extractFromHub 消费 app_activity
+        // 这里验证其数据源收敛：事件经 hub 写入后 extractFromSnapshot 消费 app_activity
         val collector = AppActivityCollector(context, hub)
         val now = System.currentTimeMillis()
         hub.onAppActivity(AppActivityCollector.AppActivity(now - 1000, "com.test"))
@@ -166,7 +166,7 @@ class CollectorConsumptionTest {
         // 单一数据源：collector.snapshot 委托 hub
         assertEquals(hub.snapshotAppActivity().size, collector.snapshot().size)
 
-        val features = extractor.extractFromHub(windowStart, Instant.now().plusSeconds(10), hub)
+        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
         assertEquals(1, features.size)
         assertEquals("app_activity", features.first().source)
     }

@@ -51,12 +51,10 @@ def scan_sla_breaches(
     if tenant_id is not None:
         query = query.where(Escalation.tenant_id == tenant_id)
     rows = db.scalars(query).all()
-    summary: dict[str, object] = {
-        "scanned": len(rows),
-        "notified_second_duty": [],
-        "notified_org_lead": [],
-        "chain_broken": [],
-    }
+    scanned = len(rows)
+    notified_second_duty: list[str] = []
+    notified_org_lead: list[str] = []
+    chain_broken: list[str] = []
 
     def record(action: str, row: Escalation, metadata: dict) -> None:
         append_audit(
@@ -80,14 +78,19 @@ def scan_sla_breaches(
             row.escalation_level = 1
             row.notified_l1_at = now
             record("notify.second_duty", row, {"escalation_level": 1, "age_seconds": int(age)})
-            summary["notified_second_duty"].append(row.id)
+            notified_second_duty.append(row.id)
         if age > settings.takeover_sla_seconds and row.notified_l2_at is None:
             row.escalation_level = 2
             row.notified_l2_at = now
             record("notify.org_lead", row, {"escalation_level": 2, "age_seconds": int(age)})
-            summary["notified_org_lead"].append(row.id)
+            notified_org_lead.append(row.id)
         if age > settings.org_lead_sla_seconds and row.chain_broken_at is None:
             row.chain_broken_at = now
             record("escalation.chain_broken", row, {"age_seconds": int(age)})
-            summary["chain_broken"].append(row.id)
-    return summary
+            chain_broken.append(row.id)
+    return {
+        "scanned": scanned,
+        "notified_second_duty": notified_second_duty,
+        "notified_org_lead": notified_org_lead,
+        "chain_broken": chain_broken,
+    }

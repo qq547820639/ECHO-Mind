@@ -42,22 +42,19 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
 
-# mypy 配置（T03 CI）：从宽松起步——只检查显式标注的函数，忽略缺失 stub 的第三方库。
-# 后续可逐步收紧：check_untyped_defs=true → disallow_untyped_defs=true → strict。
-# 注：现有代码为 SQLAlchemy/JSON 字段类型较宽松，strict 全开会报大量 "type-arg" 类错误，
-# 故先保持下列宽松项；CI job 跑 `mypy app`（不跑 tests，避免测试桩干扰）。
+# mypy 配置（T03 CI）：check_untyped_defs 已收紧为 true，并移除 disable_error_code
+# （原 "type-arg"/"assignment" 放宽项已不需要，`mypy app` 全量 0 error）。
+# 下一步可评估 disallow_untyped_defs=true 与 ignore_missing_imports 的逐步收窄。
+# CI job 跑 `mypy app`（不跑 tests，避免测试桩干扰）。
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
-check_untyped_defs = false
+check_untyped_defs = true
 disallow_untyped_defs = false
 no_implicit_optional = true
 warn_redundant_casts = false
 warn_unused_ignores = false
 warn_unused_configs = false
-# SQLAlchemy 2.0 Mapped 泛型在 pydantic/JSON 字段上需要大量类型参数标注，
-# 先放宽泛型参数检查，避免既有代码批量报错（收紧时逐项补类型参数）。
-disable_error_code = ["type-arg", "assignment"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

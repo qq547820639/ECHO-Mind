@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -45,7 +45,9 @@ router = APIRouter(prefix="/v1")
 
 
 #: DSR delete 矩阵：删除的派生/主动内容表（按 category -> model 映射）。
-DSR_DELETE_MODELS: dict[str, object] = {
+#: 值为异构的 SQLAlchemy 模型类（均含 tenant_id/user_id 列，但无公共声明基类），
+#: 故值类型用 Any 表达——运行时由 Session.query 按各模型真实映射解析。
+DSR_DELETE_MODELS: dict[str, Any] = {
     "derived_features": DerivedFeature,
     "daily_narratives": DailyNarrative,
     "user_profiles": UserProfile,

@@ -28,6 +28,10 @@ jobs:
       - uses: android-actions/setup-android@v3 # TODO(T03): pin to commit SHA
       - run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: cd android && chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug lintDebug --stacktrace
+      # Kotlin SAST（detekt）：基线配置起步（android/detekt.yml）。
+      # 待 CI 首跑验证：本机无 Gradle，未能本地验证 detekt 规则集与仓库现状兼容；
+      # 首次跑通后再按 detekt.yml 内的策略逐步收紧规则集。
+      - run: cd android && ./gradlew detekt --stacktrace
       - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
         with:
           name: echo-mind-debug-apk

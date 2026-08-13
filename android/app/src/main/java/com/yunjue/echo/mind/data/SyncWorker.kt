@@ -69,6 +69,8 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         var permanentCount = 0
         var unknownTypeCount = 0
         var decryptCount = 0
+        // B1：批内可重试事件的 429 Retry-After 聚合值（取最小值）；无则 null。
+        var batchRetryAfterSeconds: Int? = null
 
         for (event in dao.pendingOutbox()) {
             val path = resolvePath(event.eventType)
@@ -129,7 +131,10 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                 }
                 SyncAction.RETRY -> {
                     dao.incrementAttempts(event.eventId)
-                    response.third?.let { container.preferences.recordRetryAfter(event.eventType, it) }
+                    response.third?.let {
+                        container.preferences.recordRetryAfter(event.eventType, it)
+                        batchRetryAfterSeconds = minRetryAfter(batchRetryAfterSeconds, it)
+                    }
                     retryableCount++
                     anyRetry = true
                     anyFailure = true
@@ -182,6 +187,9 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         if (remaining == 0 && !anyFailure && container.preferences.onboardingState == AppPreferences.ONBOARDING_READY_OFFLINE) {
             runCatching { container.repository.confirmServerActivation() }
         }
+        // B1：批内 429 的 Retry-After 聚合后持久化，供下一次 enqueue 的退避基准使用。
+        // 无 429 时（null）清除历史值，恢复默认 30s 指数退避。
+        persistRetryAfter(context, batchRetryAfterSeconds)
         return when {
             // v0.6.2（Batch A）：auth 是暂停不是放弃——不再因 auth 返回 Result.retry()，
             // 避免 WorkManager 高频重试；仅网络类/可重试失败与 consent 阻塞保留重试
@@ -193,6 +201,12 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     companion object {
         /** 单事件最大尝试次数（毒丸保护：超限移到 dead-letter，不再重试）。 */
         const val MAX_ATTEMPTS = 10
+
+        /** 无 Retry-After 时的默认指数退避基准（秒）。 */
+        const val DEFAULT_BACKOFF_SECONDS = 30
+
+        /** 服务端 Retry-After 允许参与退避的上限（秒），超过则 clamp，避免异常大值造成长时间静默。 */
+        const val MAX_RETRY_AFTER_SECONDS = 3600
 
         /**
          * 批次结果 → 错误类别（分类而非原始 exception；UI 据此显示可读文案）。
@@ -213,6 +227,40 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         private const val KEY_DF_COUNT = "df_count"
         private const val DF_WINDOW_MS = 60_000L
         private const val DF_MAX_PER_WINDOW = 20
+        private const val KEY_RETRY_AFTER_SECONDS = "retry_after_seconds"
+
+        /**
+         * 批内可重试事件的 Retry-After 聚合：取最小值（最保守——按服务端要求的最快退避）。
+         * 无 Retry-After（incoming/current 均为 null）返回 null。
+         */
+        internal fun minRetryAfter(current: Int?, incoming: Int?): Int? = when {
+            incoming == null -> current
+            current == null -> incoming
+            else -> minOf(current, incoming)
+        }
+
+        /**
+         * 由批内 429 的 Retry-After 计算下一次 enqueue 的退避基准（秒）。
+         * - null（本批无 429/无 Retry-After）→ [DEFAULT_BACKOFF_SECONDS]（保持现有 30s 指数退避）；
+         * - 有效值 clamp 到 [1, MAX_RETRY_AFTER_SECONDS]（0/负数或超大值不参与退避）。
+         */
+        internal fun backoffDelaySeconds(retryAfterSeconds: Int?): Int =
+            retryAfterSeconds?.coerceIn(1, MAX_RETRY_AFTER_SECONDS) ?: DEFAULT_BACKOFF_SECONDS
+
+        /** 持久化最近一批 429 的 Retry-After 聚合值（无则清除）。 */
+        internal fun persistRetryAfter(context: Context, retryAfterSeconds: Int?) {
+            val prefs = context.getSharedPreferences(RATE_LIMIT_PREFS, Context.MODE_PRIVATE)
+            val edit = prefs.edit()
+            if (retryAfterSeconds == null) edit.remove(KEY_RETRY_AFTER_SECONDS)
+            else edit.putInt(KEY_RETRY_AFTER_SECONDS, retryAfterSeconds)
+            edit.apply()
+        }
+
+        /** 读取最近一批 429 的 Retry-After 聚合值（无则 null）。 */
+        internal fun pendingRetryAfterSeconds(context: Context): Int? {
+            val prefs = context.getSharedPreferences(RATE_LIMIT_PREFS, Context.MODE_PRIVATE)
+            return if (prefs.contains(KEY_RETRY_AFTER_SECONDS)) prefs.getInt(KEY_RETRY_AFTER_SECONDS, 0) else null
+        }
 
         /** 事件类型 → 后端路径（含 T05 skill_completion）。未知类型返回 null（调用方删除）。 */
         internal fun resolvePath(eventType: String): String? = when {
@@ -292,9 +340,12 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         }
 
         fun enqueue(context: Context) {
+            // B1：429 Retry-After 真正参与退避——下一次 enqueue 用批内聚合的最小 Retry-After
+            // 作为指数退避基准；无 Retry-After 时保持 30s 默认。
+            val backoffSeconds = backoffDelaySeconds(pendingRetryAfterSeconds(context)).toLong()
             val request = OneTimeWorkRequestBuilder<SyncWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, backoffSeconds, TimeUnit.SECONDS)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork("echo-mind-outbox", ExistingWorkPolicy.KEEP, request)
         }

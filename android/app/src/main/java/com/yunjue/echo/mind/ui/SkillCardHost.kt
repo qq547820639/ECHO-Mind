@@ -262,7 +262,13 @@ fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator:
 
     /** 协调器视图 → 本地影子（恢复后继续使用原 sessionId 语义由协调器承载）。 */
     fun applyView(view: SkillSessionCoordinator.SessionView?) {
-        if (view == null) return
+        if (view == null) {
+            // 会话已被协调器移除（finish / single-active 切换）：本地影子同步到 IDLE，
+            // 停止计时 ticker（uiStatus 不再停留 RUNNING，liveDurationSeconds 归零）。
+            session.syncFromView(SkillRunStatus.IDLE, 0, 0)
+            syncUi()
+            return
+        }
         session.syncFromView(view.status, view.currentStep, view.durationSeconds)
         syncUi()
     }

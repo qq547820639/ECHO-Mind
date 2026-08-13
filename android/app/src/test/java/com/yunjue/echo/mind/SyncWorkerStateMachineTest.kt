@@ -130,6 +130,30 @@ class SyncWorkerStateMachineTest {
         assertNull(parseRetryAfterSeconds("-5"))
     }
 
+    // ===== B1：429 Retry-After 聚合 + 退避基准（纯 JVM） =====
+
+    @Test
+    fun retryAfterAggregationTakesMinimum() {
+        assertNull(SyncWorker.minRetryAfter(null, null))
+        assertEquals(120, SyncWorker.minRetryAfter(null, 120))
+        assertEquals(60, SyncWorker.minRetryAfter(60, null))
+        assertEquals(30, SyncWorker.minRetryAfter(60, 30))
+        assertEquals(30, SyncWorker.minRetryAfter(30, 120))
+    }
+
+    @Test
+    fun backoffDelayConsumesRetryAfterAndFallsBackToDefault() {
+        // 无 Retry-After → 默认 30s 指数退避（不改变既有行为）
+        assertEquals(30, SyncWorker.backoffDelaySeconds(null))
+        // Retry-After 被消费为退避基准
+        assertEquals(120, SyncWorker.backoffDelaySeconds(120))
+        // 0/负数 clamp 到 1（不产生 0 秒退避）
+        assertEquals(1, SyncWorker.backoffDelaySeconds(0))
+        assertEquals(1, SyncWorker.backoffDelaySeconds(-5))
+        // 超大值 clamp 到上限，避免长时间静默
+        assertEquals(SyncWorker.MAX_RETRY_AFTER_SECONDS, SyncWorker.backoffDelaySeconds(999999))
+    }
+
     // ===== SyncResult → SyncState 映射（PRD 契约点 9；v0.6.2 批次级分类） =====
 
     @Test

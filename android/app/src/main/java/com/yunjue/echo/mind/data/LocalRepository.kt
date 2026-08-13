@@ -116,9 +116,9 @@ class LocalRepository(
     /** 连续窗口持久化失败计数（成功后清零）。 */
     fun consecutivePersistenceFailures(): Int = preferences.consecutivePersistenceFailures
 
-    /** 待上传事件数（outbox pending；趋势页"等待上传"原因用）。 */
-    fun pendingUploadCount(): Int = runCatching {
-        kotlinx.coroutines.runBlocking { db.dao().pendingOutbox().size }
+    /** 待上传事件数（outbox pending；趋势页"等待上传"原因用）。异步查询，调用方在协程中调用。 */
+    suspend fun pendingUploadCount(): Int = runCatching {
+        db.dao().pendingOutbox().size
     }.getOrDefault(0)
 
     private fun basePayload(eventId: String, clientTime: Instant): JSONObject = JSONObject().apply {
@@ -508,9 +508,7 @@ class LocalRepository(
                     // Phase 6（Portrait Core）：服务端 ack 依据为 passive_sensing（核心同意，
                     // 随带被动行为节律/派生数据/基线/画像/保留撤回语义）；
                     // psychological_data 为 legacy 外围（新 Onboarding 不再提交），不再作为 READY 前提。
-                    val localPassive = kotlinx.coroutines.runBlocking {
-                        preferences.passiveSensingPrefs.passiveSensingEnabled.first()
-                    }
+                    val localPassive = preferences.passiveSensingPrefs.passiveSensingEnabled.first()
                     val serverPassive = o.optJSONObject("passive_sensing")
                     val passiveOk = if (localPassive) {
                         serverPassive?.optBoolean("granted") == true && (serverPassive.isNull("revoked_at") || !serverPassive.optBoolean("revoked_at"))

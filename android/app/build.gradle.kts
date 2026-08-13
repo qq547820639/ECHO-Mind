@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Kotlin SAST（detekt）：见下方 detekt 块；待 CI 首跑验证。
+    alias(libs.plugins.detekt)
 }
 
 val apiBaseUrl = providers.gradleProperty("ECHO_API_BASE_URL")
@@ -61,6 +63,17 @@ android {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Kotlin SAST（detekt）：从少数高信号规则起步的基线配置（android/detekt.yml）。
+// 待 CI 首跑验证：本机无 Gradle，无法本地执行 `./gradlew detekt` 确认规则集
+// 与仓库现状兼容；首次 CI 跑通后可逐步收紧 maxIssues 与规则集。
+detekt {
+    // 只应用 detekt.yml 中显式声明的规则（不叠加 detekt 全量默认规则集），
+    // 从「少数高信号规则」起步，避免一次性引入大量告警。
+    buildUponDefaultConfig = false
+    config.setFrom(rootProject.file("detekt.yml"))
+    parallel = true
 }
 
 dependencies {

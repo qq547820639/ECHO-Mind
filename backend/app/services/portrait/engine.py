@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -197,7 +198,9 @@ def generate_portrait(
 
     snapshot = build_baseline(db, tenant_id=tenant_id, user_id=user_id, today_local=local_date)
     state = baseline_state(snapshot.valid_days)
-    common = dict(
+    # 异构公共参数（str/date/int/dict 混合），显式 Any 以便 **common 展开时
+    # 各关键字参数与 _upsert_portrait 签名逐项匹配（各具体字段类型见函数签名）。
+    common: dict[str, Any] = dict(
         tenant_id=tenant_id,
         user_id=user_id,
         local_date=local_date,

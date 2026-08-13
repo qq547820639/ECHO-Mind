@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from statistics import median
+from typing import cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models import Checkin
@@ -29,7 +30,7 @@ def build_trend(db: Session, tenant_id: str, user_id: str, days: int) -> dict:
     grouped: dict[str, list[Checkin]] = defaultdict(list)
     for row in rows:
         grouped[row.client_time.date().isoformat()].append(row)
-    points = []
+    points: list[dict[str, str | float]] = []
     for date, items in sorted(grouped.items()):
         count = len(items)
         points.append({
@@ -41,7 +42,8 @@ def build_trend(db: Session, tenant_id: str, user_id: str, days: int) -> dict:
         })
     baselines = {}
     for key in ("mood", "stress", "energy", "sleep_recovery"):
-        values = [float(p[key]) for p in points]
+        # 这四个键在 points 构造处由 round(..., 2) 保证为 float；date 为 str。
+        values = [cast(float, p[key]) for p in points]
         baselines[key] = {"median": median(values) if values else None, "mad": _mad(values) if values else None}
     return {
         "user_id": user_id,

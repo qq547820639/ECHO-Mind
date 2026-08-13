@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -53,7 +54,7 @@ def baseline_state(valid_days: int) -> str:
     return "BASELINE_READY"
 
 
-def _stats_for(aggs: list[DailyBehaviorAggregate]) -> dict:
+def _stats_for(aggs: Sequence[DailyBehaviorAggregate]) -> dict:
     metrics: dict = {}
     for name in BASELINE_METRICS:
         values = [float(getattr(a, name)) for a in aggs if getattr(a, name) is not None]
@@ -61,7 +62,7 @@ def _stats_for(aggs: list[DailyBehaviorAggregate]) -> dict:
     return metrics
 
 
-def _unique_days(aggs: list[DailyBehaviorAggregate]) -> int:
+def _unique_days(aggs: Sequence[DailyBehaviorAggregate]) -> int:
     return len({a.local_date for a in aggs})
 
 
@@ -95,6 +96,9 @@ def build_baseline(
     all_days = _unique_days(aggs)
 
     today_bucket = bucket_for_date(today_local)
+    bucket: str
+    chosen: Sequence[DailyBehaviorAggregate]
+    valid_days: int
     if today_bucket == "weekday":
         if weekday_days >= MIN_BUCKET_DAYS:
             bucket, chosen, valid_days = "weekday", weekday_aggs, weekday_days

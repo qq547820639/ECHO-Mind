@@ -7,6 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
+/** 全国心理援助热线（危机拨打入口；号码保持不变，仅消除魔法值）。 */
+private const val CRISIS_HOTLINE_12356 = "12356"
+
 @Composable
 fun SafetyScreen(deliveryState: String, onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
@@ -20,7 +23,7 @@ fun SafetyScreen(deliveryState: String, onBack: (() -> Unit)? = null) {
         }
         Button(onClick = { context.startActivity(dialIntent("110")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 110") }
         Button(onClick = { context.startActivity(dialIntent("120")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 120") }
-        OutlinedButton(onClick = { context.startActivity(dialIntent("12356")) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 12356") }
+        OutlinedButton(onClick = { context.startActivity(dialIntent(CRISIS_HOTLINE_12356)) }, modifier = Modifier.fillMaxWidth()) { Text("拨打 12356") }
         Text("迫近危险时优先联系紧急服务和身边可信任的人。12356 不应被理解为所有地区 7×24 的唯一兜底。")
         onBack?.let { TextButton(onClick = it) { Text("返回") } }
     }

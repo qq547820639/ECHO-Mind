@@ -1,0 +1,121 @@
+classDiagram
+    class Outbox {
+        -db: EchoDatabase
+        -cipher: FieldCipher
+        +basePayload(eventId, clientTime, userId) JSONObject
+        +enqueue(eventId, eventType, payload, priority)
+    }
+    class ConsentRepository {
+        -outbox: Outbox
+        -preferences: AppPreferences
+        +saveConsent(granted, evidenceHash, consentType, version, priority)
+        +savePassiveSensingConsent(granted, priority)
+        +saveVoiceFeaturesConsent(granted)
+        +saveL0(...)
+        +saveEmergencyContact(name, phone, relationship)
+        +requestDataAction(type)
+    }
+    class SensingRepository {
+        -db: EchoDatabase
+        -cipher: FieldCipher
+        -outbox: Outbox
+        -preferences: AppPreferences
+        +passiveSafety: StateFlow~SafetyDecision?~
+        +saveDerivedFeatures(inputs) Boolean
+        +saveDerivedFeature(input) SafetyDecision
+        -persistDerivedFeature(input)
+    }
+    class SkillRepository {
+        -db: EchoDatabase
+        -cipher: FieldCipher
+        -outbox: Outbox
+        -preferences: AppPreferences
+        +recordSkillCompletion(input, sessionId)
+        +saveActiveSession(session)
+        +loadActiveSession(skillId)
+        +hasAnyActiveSession()
+        +clearActiveSessions()
+        +deleteActiveSession(sessionId)
+        +fetchSkills() SkillFetchResult
+    }
+    class EscalationRepository {
+        -db: EchoDatabase
+        -cipher: FieldCipher
+        -outbox: Outbox
+        -preferences: AppPreferences
+        -apiClient: ApiClient
+        +observeEscalations() Flow
+        +latestEscalation()
+        +requestHumanSupport(...) String
+        +markEscalationDelivered(eventId, serverId)
+        +updateEscalationServerStatus(eventId, json)
+        +markEscalationFailed(eventId)
+        +refreshEscalationStatus(escalationId)
+    }
+    class OnboardingRepository {
+        -portraitDao: PortraitDao
+        -preferences: AppPreferences
+        -apiClient: ApiClient
+        +verifyOnboardingCode(code) OnboardingVerifyResult
+        +confirmServerActivation() Boolean
+    }
+    class PortraitRepository {
+        -db: EchoDatabase
+        -preferences: AppPreferences
+        -apiClient: ApiClient
+        +observeTodayPortrait() StateFlow
+        +observePortraits(days) StateFlow
+        +refreshTodayPortrait(networkAvailable)
+        +refreshPortraits(days)
+        +fetchBaselineStatus()
+        +recordPortraitFeedback(date, helpful)
+        +portraitFeedback(date)
+    }
+    class NarrativeProfileRepository {
+        -preferences: AppPreferences
+        -apiClient: ApiClient
+        +fetchNarratives(days) NarrativeFetchResult
+        +fetchProfile() ProfileDisplay
+    }
+    class FeatureFlagRepository {
+        -preferences: AppPreferences
+        -apiClient: ApiClient
+        +featureFlagsFlow: Flow
+        +fetchFeatureFlags() Map
+    }
+    class SyncStateRepository {
+        -db: EchoDatabase
+        -preferences: AppPreferences
+        +observePendingCount() Flow
+        +pendingUploadCount() Int
+        +lastSyncTimestamp() Long
+        +lastCollectionTimestamp() Long
+        +isAuthBlocked() Boolean
+        +lastSyncErrorClass() String?
+    }
+    class LegacyInputRepository {
+        -db: EchoDatabase
+        -cipher: FieldCipher
+        +observeJournals() Flow
+        +decryptJournal(value) String
+    }
+    class LocalRepository {
+        <<facade, Step 1-4>>
+        +delegate all methods to above repositories
+    }
+
+    ConsentRepository --> Outbox
+    SensingRepository --> Outbox
+    SkillRepository --> Outbox
+    EscalationRepository --> Outbox
+    LocalRepository --> ConsentRepository
+    LocalRepository --> SensingRepository
+    LocalRepository --> SkillRepository
+    LocalRepository --> EscalationRepository
+    LocalRepository --> OnboardingRepository
+    LocalRepository --> PortraitRepository
+    LocalRepository --> NarrativeProfileRepository
+    LocalRepository --> FeatureFlagRepository
+    LocalRepository --> SyncStateRepository
+    LocalRepository --> LegacyInputRepository
+    OnboardingRepository --> PortraitDao

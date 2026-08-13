@@ -60,7 +60,7 @@ def resolve_rule_ids(rule_ids: list[str]) -> list[dict]:
     in which rule pack fired, instead of an opaque id. Synthetic ids that do not
     map to a pack pattern (e.g. "YELLOW-NEGATED-RISK") resolve to pattern=None.
     """
-    resolved = []
+    resolved: list[dict[str, str | None]] = []
     for rule_id in rule_ids:
         prefix, _, suffix = rule_id.rpartition("-")
         patterns = _RULE_PACKS.get(prefix)

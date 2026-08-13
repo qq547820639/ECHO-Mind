@@ -158,7 +158,7 @@ def list_activation_codes(
 ):
     """admin 查看本租户激活码（不含明文；已消费码默认隐藏）。"""
     from app.models import ActivationCode as ActivationCodeModel
-    from app.services.activation import _aware
+    from app.services.activation import _is_expired
 
     query = select(ActivationCodeModel).where(
         ActivationCodeModel.tenant_id == principal.tenant_id,
@@ -179,7 +179,7 @@ def list_activation_codes(
             max_attempts=r.max_attempts,
             revoked=r.revoked_at is not None,
             used=r.used_at is not None,
-            expired=_aware(r.expires_at) is not None and _aware(r.expires_at) <= datetime.now(UTC),
+            expired=_is_expired(r.expires_at),
         )
         for r in rows
     ]

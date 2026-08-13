@@ -239,18 +239,16 @@ class PassiveSensingTest {
         )
     }
 
-    // ===== T02 三重门控（consent + flag + 权限，fail-closed） =====
+    // ===== Phase 6.1 核心门控（flag + consent + 核心传感器，fail-closed） =====
 
     @Test
     fun gateFailsWhenFlagDisabled() {
         assertFalse(
             "flag=false 时不应启动（fail-closed）",
-            PassiveSensingService.passiveSensingGatePasses(
+            PassiveSensingService.coreSensingGatePasses(
                 flagEnabled = false,
                 consentGranted = true,
-                postNotificationsGranted = true,
-                notificationAccessGranted = true,
-                usageAccessGranted = true
+                sensorAvailable = true
             )
         )
     }
@@ -259,51 +257,34 @@ class PassiveSensingTest {
     fun gateFailsWhenConsentNotGranted() {
         assertFalse(
             "无用户 consent 时不应启动",
-            PassiveSensingService.passiveSensingGatePasses(
+            PassiveSensingService.coreSensingGatePasses(
                 flagEnabled = true,
                 consentGranted = false,
-                postNotificationsGranted = true,
-                notificationAccessGranted = true,
-                usageAccessGranted = true
+                sensorAvailable = true
             )
         )
     }
 
     @Test
-    fun gateFailsWhenAnyPermissionMissing() {
-        val base = mapOf(
-            "flagEnabled" to true,
-            "consentGranted" to true,
-            "postNotificationsGranted" to true,
-            "notificationAccessGranted" to true,
-            "usageAccessGranted" to true
-        )
-        // 逐一移除任一权限/授权 → 门控失败（fail-closed）
-        for (key in listOf("postNotificationsGranted", "notificationAccessGranted", "usageAccessGranted")) {
-            val args = base + (key to false)
-            assertFalse(
-                "$key=false 时不应启动",
-                PassiveSensingService.passiveSensingGatePasses(
-                    flagEnabled = args.getValue("flagEnabled") as Boolean,
-                    consentGranted = args.getValue("consentGranted") as Boolean,
-                    postNotificationsGranted = args.getValue("postNotificationsGranted") as Boolean,
-                    notificationAccessGranted = args.getValue("notificationAccessGranted") as Boolean,
-                    usageAccessGranted = args.getValue("usageAccessGranted") as Boolean
-                )
+    fun gateFailsWhenNoCoreSensor() {
+        assertFalse(
+            "无核心传感器（加速度计/陀螺仪）时不应启动",
+            PassiveSensingService.coreSensingGatePasses(
+                flagEnabled = true,
+                consentGranted = true,
+                sensorAvailable = false
             )
-        }
+        )
     }
 
     @Test
     fun gatePassesWhenAllPreconditionsMet() {
         assertTrue(
             "全部前置满足时应可通过门控",
-            PassiveSensingService.passiveSensingGatePasses(
+            PassiveSensingService.coreSensingGatePasses(
                 flagEnabled = true,
                 consentGranted = true,
-                postNotificationsGranted = true,
-                notificationAccessGranted = true,
-                usageAccessGranted = true
+                sensorAvailable = true
             )
         )
     }
@@ -320,16 +301,11 @@ class PassiveSensingTest {
 
     @Test
     fun serviceDoesNotStartWithoutConsent() {
-        // consent=false（默认）→ onStartCommand 应停止服务（stopSelf），不启动采集
+        // consent=false（默认）→ 核心门控不通过（fail-closed），服务不启动
         val controller = Robolectric.buildService(PassiveSensingService::class.java)
         val service = controller.create().get()
-        val result = service.onStartCommand(
-            Intent(context, PassiveSensingService::class.java)
-                .setAction(PassiveSensingService.ACTION_START),
-            0, 1
-        )
-        assertFalse("无 consent 时不应启动采集", service.isSensingRunning())
-        assertTrue("无 consent 时应返回 START_NOT_STICKY", result == android.app.Service.START_NOT_STICKY)
+        val allowed = runBlocking { service.canStartSensing() }
+        assertFalse("无 consent 时门控不应通过", allowed)
         controller.destroy()
     }
 

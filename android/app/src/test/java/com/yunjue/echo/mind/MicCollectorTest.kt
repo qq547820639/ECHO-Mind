@@ -56,7 +56,7 @@ class MicCollectorTest {
     // ===== 默认关闭 =====
 
     @Test
-    fun micCollectorDoesNotStartWhenDisabled() {
+    fun micCollectorDoesNotStartWhenDisabled() = runBlocking {
         // 即使授予权限，micEnabled=false 也不应启动
         grantRecordAudioPermission()
         val collector = MicCollector(context, prefs)

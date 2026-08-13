@@ -16,6 +16,7 @@ v0.6.2：metrics 延迟改为真实 P50/P95（Python 线性插值，兼容 perce
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -142,7 +143,7 @@ def list_escalations(
     ) or 0
     # 分页元数据经响应头透出（保持 body 数组契约不变）
     resp = response
-    resp.headers["X-Next-Cursor"] = f"{last.opened_at}_{last.id}" if has_more else ""
+    resp.headers["X-Next-Cursor"] = f"{last.opened_at}_{last.id}" if (has_more and last is not None) else ""
     resp.headers["X-Total-Filtered"] = str(total_filtered)
     return [{
         "id": x.id,
@@ -192,11 +193,13 @@ def escalation_metrics(
     settings = get_settings()
     total = db.scalar(select(func.count()).select_from(Escalation)
                       .where(Escalation.tenant_id == principal.tenant_id)) or 0
-    by_status = dict(db.execute(
+    by_status: dict[str, int] = {}
+    for status, count in db.execute(
         select(Escalation.status, func.count()).where(
             Escalation.tenant_id == principal.tenant_id,
         ).group_by(Escalation.status)
-    ).all())
+    ).all():
+        by_status[status] = count
 
     # 真实百分位延迟（v0.6.2 修复）：原实现以 AVG 近似 P50，精度不可靠。
     # 现在按 ACK / 接管 latency 秒列表在 Python 计算真实 P50/P95（线性插值，
@@ -211,7 +214,7 @@ def escalation_metrics(
         Escalation.takeover_at.is_not(None),
     )).all()
 
-    def _latencies(rows: list[Escalation], end_attr: str) -> list[float]:
+    def _latencies(rows: Sequence[Escalation], end_attr: str) -> list[float]:
         out: list[float] = []
         for row in rows:
             opened = row.opened_at

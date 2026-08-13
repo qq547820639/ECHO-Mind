@@ -15,6 +15,7 @@ from __future__ import annotations
 import concurrent.futures
 import multiprocessing
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -33,13 +34,18 @@ def _db_url_is_in_memory(db: Session) -> bool:
     return url in {"sqlite:///:memory:", "sqlite+pysqlite:///:memory:"}
 
 
-def _process_context() -> multiprocessing.context.BaseContext:
+def _process_context() -> multiprocessing.context.DefaultContext:
     """返回子进程上下文：POSIX 用 fork（避免 spawn 重导入 __main__ 的
-    freeze_support 问题），Windows 回退 spawn。"""
+    freeze_support 问题），Windows 回退 spawn。
+
+    typeshed 将 ForkContext/SpawnContext 建模为 BaseContext 而非 DefaultContext
+    （CPython 实际均继承 DefaultContext），且 BaseContext 未声明 Process 类属性；
+    故返回类型声明为 DefaultContext 并 cast 桥接，使 ``context.Process`` 可被类型检查。
+    """
     try:
-        return multiprocessing.get_context("fork")
+        return cast(multiprocessing.context.DefaultContext, multiprocessing.get_context("fork"))
     except ValueError:
-        return multiprocessing.get_context("spawn")
+        return cast(multiprocessing.context.DefaultContext, multiprocessing.get_context("spawn"))
 
 
 class SandboxRunner:

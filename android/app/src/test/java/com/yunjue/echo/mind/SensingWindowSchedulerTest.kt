@@ -144,7 +144,7 @@ class SensingWindowSchedulerTest {
         assertTrue(flushed.all { it.source == "mic_opt" })
         assertTrue(flushed.all { it.sourcesPresent == listOf("mic_opt") })
         // 成功消费后麦克风缓冲清空
-        assertTrue(mic.snapshotAndClear().isEmpty())
+        assertTrue(mic.snapshot().isEmpty())
     }
 
     // ===== 窗口 ACK：持久化失败保留缓冲 + bounded retry =====
@@ -311,11 +311,6 @@ class SensingWindowSchedulerTest {
         override fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature> = buffer.toList()
         override fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>) {
             consumed.forEach { buffer.remove(it) }
-        }
-        override fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
-            val snap = buffer.toList()
-            buffer.clear()
-            return snap
         }
     }
 }

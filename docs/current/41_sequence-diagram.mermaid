@@ -1,0 +1,57 @@
+sequenceDiagram
+    participant UI as TodayScreen
+    participant PR as PortraitRepository
+    participant Prefs as AppPreferences
+    participant DB as PortraitDao
+    participant API as ApiClient
+
+    UI->>PR: refreshTodayPortrait(networkAvailable)
+    PR->>Prefs: passiveSensingEnabled.first()
+    alt sensing 关闭
+        PR-->>UI: SENSING_DISABLED（直接返回）
+    end
+    PR->>DB: queryLatest(userId)
+    alt 命中缓存(localDate==今天)
+        PR-->>UI: OFFLINE_CACHED(offline=false)
+    else 无缓存
+        PR-->>UI: LOADING
+    end
+    alt 无网络
+        PR-->>UI: 按 resolveTodayPortraitState 判定(缓存→OFFLINE_CACHED/无→ERROR)
+    else 有网络
+        PR->>API: getTodayPortrait()
+        alt 2xx 且解析成功
+            PR->>DB: insert(dto.toEntity(userId, dto.date, now))
+            PR-->>UI: resolveTodayPortraitState(真实状态, offline=false)
+        else 失败
+            PR-->>UI: 有缓存→OFFLINE_CACHED(offline=true) / 无→ERROR
+        end
+    end
+
+    participant C as SkillSessionCoordinator
+    participant SR as SkillRepository
+    participant O as Outbox
+    participant DB2 as EchoDatabase
+
+    C->>SR: recordSkillCompletion(input, sessionId)
+    SR->>DB2: withTransaction
+    alt sessionId != null
+        SR->>DB2: deleteActiveSkillSession(sessionId)
+    end
+    SR->>O: enqueue(eventId, "skill_completion", payload, 30)
+    O->>DB2: insertOutbox(cipher.encrypt(payload))
+    DB2-->>SR: 事务提交
+    SR-->>C: 完成
+
+    participant UI2 as SupportScreen
+    participant ER as EscalationRepository
+    participant DB3 as EchoDatabase
+
+    UI2->>ER: requestHumanSupport(trigger, evidenceSummary)
+    ER->>ER: eventId = "esc_evt_"+UUID
+    ER->>DB3: withTransaction
+    ER->>DB3: escalationDao.upsert(status=QUEUED)
+    ER->>O: enqueue(eventId, "escalation", payload, 2000)
+    O->>DB3: insertOutbox
+    DB3-->>ER: 事务提交
+    ER-->>UI2: 返回 eventId（幂等键）

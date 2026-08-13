@@ -67,21 +67,6 @@ data class OutboxEventEntity(
 )
 
 /**
- * 原始信号样本缓冲历史类定义（Room v3 遗留，仅作历史，**不再注册**到 @Database）。
- *
- * v4 迁移（MIGRATION_3_4）已 DROP sensor_samples 表，落实"原始数据不落盘"承诺。
- */
-@Entity(tableName = "sensor_samples")
-data class SensorSampleEntity(
-    @PrimaryKey val id: String,
-    val userId: String,
-    val source: String,
-    val timestamp: Long,
-    val value: String,
-    val createdAt: Long
-)
-
-/**
  * 派生特征本地缓存（summary 字段加密）。
  * vector 存储为 JSON 数组字符串。synced 标记是否已成功上传。
  */

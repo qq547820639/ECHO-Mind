@@ -53,6 +53,8 @@ class ConsentLifecycleTest {
             .build()
         cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
+        // 显式设定 userId：不再依赖 AppPreferences 默认值（默认已改为空串未初始化哨兵）
+        preferences.userId = "u_demo"
         repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
         runBlocking {
             preferences.setPassiveSensingEnabled(true)

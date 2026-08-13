@@ -44,22 +44,6 @@ class FeatureExtractor {
     )
 
     /**
-     * 从 [SensingEventHub] 快照提取（兼容入口：内部转发 [extractFromSnapshot]）。
-     * @deprecated Phase 4：请使用 [extractFromSnapshot]（不再从 live hub 读取）。
-     */
-    @Deprecated("Phase 4：使用 extractFromSnapshot(snapshot) 消费不可变快照")
-    fun extractFromHub(
-        windowStart: Instant,
-        windowEnd: Instant,
-        hub: SensingEventHub
-    ): List<DerivedFeatureInput> = extractFromSnapshot(
-        windowStart, windowEnd,
-        hub.snapshotAll(),
-        screenCarryState = ScreenCollector.carryState(),
-        appForeground = AppActivityCollector.foregroundState()
-    )
-
-    /**
      * 核心聚合逻辑（纯函数，便于单测）。
      *
      * 返回空列表表示窗口内无任何信号数据。
@@ -187,7 +171,7 @@ class FeatureExtractor {
 
         // ===== 通知（3 维）=====
         val notifTotal = notifications.size
-        val notifSocial = notifications.count { it.category == "social" }
+        val notifSocial = notifications.count { it.category == NOTIFICATION_CATEGORY_SOCIAL }
         val notifOther = notifTotal - notifSocial
         vec += notifTotal.toFloat()
         vec += notifSocial.toFloat()
@@ -370,5 +354,8 @@ class FeatureExtractor {
 
         /** 聚合窗口时长（5 分钟）。 */
         const val WINDOW_DURATION_MS = 5 * 60 * 1000L
+
+        /** 通知 category 归类为「社交」的字符串（与 NotificationCollector 透传的 category 对齐）。 */
+        const val NOTIFICATION_CATEGORY_SOCIAL = "social"
     }
 }

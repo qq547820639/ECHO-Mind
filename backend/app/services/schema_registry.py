@@ -16,9 +16,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Final
 
-PASSIVE_CORE_V1 = "passive-core-v1"
-MIC_FEATURE_V1 = "mic-feature-v1"
+#: 显式 Final：让常量携带 Literal 类型，供 schemas.DerivedFeatureIn.schema_version
+#: 的 Literal 默认值直接引用（避免 str 常量被赋给 Literal 字段时报 assignment 错误）。
+PASSIVE_CORE_V1: Final = "passive-core-v1"
+MIC_FEATURE_V1: Final = "mic-feature-v1"
 
 #: passive-core-v1 22 维布局：index → (name, unit)（0-21 与 calculator.py 头注释一致）
 PASSIVE_FIELD_INDICES: dict[int, tuple[str, str]] = {

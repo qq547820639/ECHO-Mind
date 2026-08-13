@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
@@ -22,7 +21,6 @@ import java.util.concurrent.ConcurrentLinkedDeque
  *
  * SensingWindowScheduler 使用非破坏 [snapshot] + 成功持久化后 [clearConsumed]，
  * 与 Hub 的 ACK 语义一致（先持久化、后清 consumed，失败不丢）。
- * 旧 [snapshotAndClear] 保留为默认实现（deprecated），生产路径不再调用。
  */
 interface MicDerivedFeatureSource {
     /** 非破坏快照当前全部派生特征。 */
@@ -30,14 +28,6 @@ interface MicDerivedFeatureSource {
 
     /** 只清快照内已消费项（引用相等；快照后新到项保留）。 */
     fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>)
-
-    /** @deprecated 使用 [snapshot] + [clearConsumed]（破坏性消费语义不再用于 flush 路径）。 */
-    @Deprecated("Use snapshot() + clearConsumed()")
-    fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
-        val snap = snapshot()
-        clearConsumed(snap)
-        return snap
-    }
 }
 
 /**
@@ -85,12 +75,12 @@ class MicCollector(
      * 启动前置检查：满足以下全部条件才可启动：
      * 1. 当前未运行
      * 2. RECORD_AUDIO 权限已授予
-     * 3. micEnabled 开关为 true（同步读取 DataStore 当前值）
+     * 3. micEnabled 开关为 true（异步读取 DataStore 当前值，fail-closed）
      */
-    fun canStart(): Boolean {
+    suspend fun canStart(): Boolean {
         if (running) return false
         if (!hasPermission()) return false
-        if (!isMicEnabledBlocking()) return false
+        if (!prefs.micEnabled.first()) return false
         return true
     }
 
@@ -102,7 +92,7 @@ class MicCollector(
      * - 循环内周期性检查 RECORD_AUDIO 权限（见 [PERMISSION_CHECK_INTERVAL_MS]），
      *   被系统设置撤回时停止并触发 [onPermissionRevoked]
      */
-    fun start() {
+    suspend fun start() {
         if (running) return
         if (!canStart()) return
 
@@ -198,31 +188,12 @@ class MicCollector(
         ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
 
-    /**
-     * 同步读取 micEnabled（仅 [canStart] 时调用一次）。
-     * 使用 runBlocking 读取 DataStore 当前值，在 Service 主线程上耗时极短。
-     */
-    private fun isMicEnabledBlocking(): Boolean = runBlocking {
-        prefs.micEnabled.first()
-    }
-
     /** 派生特征快照（仅端侧，不落盘不上云）。 */
     override fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature> = derivedBuffer.toList()
 
     /** 只清快照内已消费项（引用相等）；保留快照后新到项（T02 ACK 语义）。 */
     override fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>) {
         consumed.forEach { derivedBuffer.remove(it) }
-    }
-
-    /**
-     * @deprecated 使用 [snapshot] + [clearConsumed]；保留兼容旧测试替身。
-     * 生产 flush 路径已改为非破坏消费。
-     */
-    @Deprecated("Use snapshot() + clearConsumed()")
-    override fun snapshotAndClear(): List<MicFeatureExtractor.MicDerivedFeature> {
-        val snapshot = derivedBuffer.toList()
-        derivedBuffer.clear()
-        return snapshot
     }
 
     /** 清空派生缓冲（测试或回收）。 */
