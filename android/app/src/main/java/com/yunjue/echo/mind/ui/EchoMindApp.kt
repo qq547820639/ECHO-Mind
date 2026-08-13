@@ -86,7 +86,9 @@ fun EchoMindApp(container: AppContainer) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
                 Tab.TODAY -> TodayScreen(
-                    repository = container.repository,
+                    portraitRepository = container.portraitRepository,
+                    syncStateRepository = container.syncStateRepository,
+                    skillRepository = container.skillRepository,
                     coordinator = container.skillSessionCoordinator,
                     onGoToSkills = { tabName = Tab.SKILLS.name },
                     onGoToTrend = { tabName = Tab.TREND.name },
@@ -96,13 +98,13 @@ fun EchoMindApp(container: AppContainer) {
                         // （先产生 granted 证据再启动服务；证据优先级高于新特征）
                         scope.launch {
                             ServiceRevocationCoordinator.reEnablePassiveSensing(
-                                context, container.preferences, container.repository
+                                context, container.preferences, container.consentRepository, container.featureFlagRepository
                             )
                         }
                     }
                 )
-                Tab.SKILLS -> SkillListScreen(container.repository, container.skillSessionCoordinator)
-                Tab.TREND -> TrendScreen(container.repository, onGoToSupport = { tabName = Tab.SUPPORT.name })
+                Tab.SKILLS -> SkillListScreen(container.skillRepository, container.featureFlagRepository, container.skillSessionCoordinator)
+                Tab.TREND -> TrendScreen(container.portraitRepository, container.syncStateRepository, container.featureFlagRepository, onGoToSupport = { tabName = Tab.SUPPORT.name })
                 Tab.SUPPORT -> SupportScreen(container)
             }
         }

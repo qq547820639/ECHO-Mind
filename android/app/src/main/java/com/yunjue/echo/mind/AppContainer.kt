@@ -5,8 +5,18 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.yunjue.echo.mind.data.ApiClient
+import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.EscalationRepository
+import com.yunjue.echo.mind.data.FeatureFlagRepository
+import com.yunjue.echo.mind.data.LegacyInputRepository
+import com.yunjue.echo.mind.data.NarrativeProfileRepository
+import com.yunjue.echo.mind.data.OnboardingRepository
+import com.yunjue.echo.mind.data.PortraitRepository
+import com.yunjue.echo.mind.data.SensingRepository
+import com.yunjue.echo.mind.data.SkillRepository
+import com.yunjue.echo.mind.data.SyncStateRepository
+import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.sensing.AppActivityCollector
 import com.yunjue.echo.mind.sensing.MicCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
@@ -208,10 +218,25 @@ class AppContainer(context: Context) {
                 it,
             )
         }
-    val repository = LocalRepository(database, cipher, preferences, ApiClient(tokenProvider = { preferences.accessToken }))
+    val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
+
+    // 跨域共享 outbox 原语（bounded-context 拆分，Step 1）。
+    val outbox = Outbox(database, cipher)
+
+    // bounded-context 仓库（Step 1–3）。
+    val featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
+    val syncStateRepository = SyncStateRepository(database, preferences)
+    val legacyInputRepository = LegacyInputRepository(database, cipher)
+    val consentRepository = ConsentRepository(outbox, preferences)
+    val sensingRepository = SensingRepository(database, cipher, outbox, preferences)
+    val skillRepository = SkillRepository(database, outbox, preferences, apiClient)
+    val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
+    val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
+    val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox)
+    val narrativeProfileRepository = NarrativeProfileRepository(preferences, apiClient)
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
-    val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(repository)
+    val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(skillRepository)
 
     /** 各 Collector 工厂：使用 applicationContext 避免泄漏 Activity。 */
     fun newSensorCollector(context: Context): SensorCollector =

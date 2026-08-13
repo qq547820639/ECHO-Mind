@@ -3,9 +3,10 @@ package com.yunjue.echo.mind
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.yunjue.echo.mind.data.ApiClient
+import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.SensingRepository
+import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.Severity
 import com.yunjue.echo.mind.security.FieldCipher
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
@@ -42,7 +43,8 @@ class ConsentLifecycleTest {
     private lateinit var db: EchoDatabase
     private lateinit var cipher: FieldCipher
     private lateinit var preferences: AppPreferences
-    private lateinit var repository: LocalRepository
+    private lateinit var sensingRepository: SensingRepository
+    private lateinit var consentRepository: ConsentRepository
 
     @Before
     fun setUp() {
@@ -55,7 +57,8 @@ class ConsentLifecycleTest {
         preferences = AppPreferences(context, cipher)
         // 显式设定 userId：不再依赖 AppPreferences 默认值（默认已改为空串未初始化哨兵）
         preferences.userId = "u_demo"
-        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
+        sensingRepository = SensingRepository(db, cipher, Outbox(db, cipher), preferences)
+        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
         runBlocking {
             preferences.setPassiveSensingEnabled(true)
             preferences.setMicEnabled(true)
@@ -78,7 +81,7 @@ class ConsentLifecycleTest {
         )
         assertFalse("关闭前 hub 不应为空", hub.isEmpty())
 
-        performPassiveSensingStop(context, preferences, repository)
+        performPassiveSensingStop(context, preferences, consentRepository)
 
         // 1. consent=false 已持久化
         assertFalse("consent 应持久化为 false", preferences.passiveSensingEnabledFlow().first())
@@ -98,7 +101,7 @@ class ConsentLifecycleTest {
 
     @Test
     fun atomicStopWritesRevocableEvidenceHash() = runBlocking {
-        performPassiveSensingStop(context, preferences, repository)
+        performPassiveSensingStop(context, preferences, consentRepository)
         val revoke = db.dao().pendingOutbox().first { it.eventType == "consent" }
         val payload = cipher.decrypt(revoke.payloadCiphertext)
         // 证据哈希可重算（固定盐 + userId + granted=false）
@@ -111,7 +114,7 @@ class ConsentLifecycleTest {
     @Test
     fun atomicStopDoesNotRequireNetwork() = runBlocking {
         // 流程全部本地完成：无网络依赖（SyncWorker.enqueue 仅入队，网络恢复后上传）
-        performPassiveSensingStop(context, preferences, repository)
+        performPassiveSensingStop(context, preferences, consentRepository)
         assertFalse(preferences.passiveSensingEnabledFlow().first())
         assertTrue("撤回事件应入 outbox（本地），等待网络恢复后上传", db.dao().pendingOutbox().isNotEmpty())
     }
@@ -147,7 +150,7 @@ class ConsentLifecycleTest {
             vector = listOf(0f, 1f, 2f),
             sourcesPresent = listOf("screen")
         )
-        val decision = repository.saveDerivedFeature(input)
+        val decision = sensingRepository.saveDerivedFeature(input)
 
         assertEquals("被动摘要不得返回 RED", Severity.NONE, decision.severity)
         assertFalse("被动摘要不得冻结生成", decision.freezeGeneration)

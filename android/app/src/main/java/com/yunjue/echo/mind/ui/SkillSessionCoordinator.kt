@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.ui
 
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +25,7 @@ import java.util.UUID
  *    （恢复按 skillId 精确查询，删除按 sessionId 精确删除）；
  * 4. 所有状态变更经 Mutex 串行化（多卡同时点击安全）。
  */
-class SkillSessionCoordinator(private val repository: LocalRepository) {
+class SkillSessionCoordinator(private val repository: SkillRepository) {
 
     /** UI 可见的会话视图。 */
     data class SessionView(

@@ -48,7 +48,7 @@ class E2EFlowTest {
     )
 
     /**
-     * DerivedFeatureInput 序列化时应暴露的字段集合（与 LocalRepository.saveDerivedFeature
+     * DerivedFeatureInput 序列化时应暴露的字段集合（与 SensingRepository.saveDerivedFeature
      * 构建的 payload 字段对齐，包含 basePayload 注入的 event_id/user_id/client_time +
      * T02 新增 sources_present）。
      */
@@ -199,7 +199,7 @@ class E2EFlowTest {
     @Test
     fun ingestPayloadFieldsAlignWithBackendContract() {
         // 验证 DerivedFeatureInput → ingest payload 的字段映射与后端 DerivedFeatureIn 契约对齐
-        // LocalRepository.saveDerivedFeature 构建的 payload 字段：
+        // SensingRepository.saveDerivedFeature 构建的 payload 字段：
         //   event_id / user_id / client_time（basePayload 注入）
         //   schema_version / source / window_start / window_end / summary / vector（DerivedFeatureInput）
         //   sources_present（T02 新增）

@@ -19,8 +19,18 @@ LOCAL_TODAY = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai")).d
 
 def _feature_payload(event_id: str, *, user_id: str = "u_demo", source: str = "screen",
                      window_start: datetime | None = None) -> dict:
-    # 默认固定在当天 UTC 正午，避免跨日边界导致 local_date 漂移
-    start = window_start or datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+    # 默认 window_start 固定为「LOCAL_TODAY 正午（Asia/Shanghai）」并转 UTC，
+    # 确保 local_date 恒等于 LOCAL_TODAY。原「UTC 正午」在 UTC 16:00 之后会落入
+    # 上海「昨天」，与 materializer 的 today 判定漂移，导致 same_day/debounce 用例
+    # 在 UTC 傍晚时段不稳定失败。
+    if window_start is None:
+        shanghai_noon = datetime(
+            LOCAL_TODAY.year, LOCAL_TODAY.month, LOCAL_TODAY.day, 12, 0, 0,
+            tzinfo=ZoneInfo("Asia/Shanghai"),
+        )
+        start = shanghai_noon.astimezone(timezone.utc)
+    else:
+        start = window_start
     return {
         "event_id": event_id,
         "user_id": user_id,

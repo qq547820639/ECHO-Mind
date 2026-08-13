@@ -241,7 +241,7 @@ interface EscalationDao {
  *
  * - id = "${localDate}_${userId}"（localDate 为**端侧本地时区**日期；时区修改后
  *   新"今天"不与该键冲突，重新拉取而非误用旧画像）
- * - headline / dimensions / facts / coverage 以 JSON 字符串存储（解析由 LocalRepository 承担）
+ * - headline / dimensions / facts / coverage 以 JSON 字符串存储（解析由 PortraitRepository 承担）
  * - queryByDateRange 用 ISO 日期字符串比较（yyyy-MM-dd 字典序 = 时间序）
  * - queryLatest 供 Today 页缓存优先展示
  */

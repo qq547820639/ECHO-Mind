@@ -4,9 +4,10 @@ import android.content.Context
 import android.hardware.Sensor
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.yunjue.echo.mind.data.ApiClient
+import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.SensingRepository
+import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.security.FieldCipher
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
@@ -45,7 +46,8 @@ class WindowAckTest {
     private lateinit var db: EchoDatabase
     private lateinit var cipher: FieldCipher
     private lateinit var preferences: AppPreferences
-    private lateinit var repository: LocalRepository
+    private lateinit var sensingRepository: SensingRepository
+    private lateinit var consentRepository: ConsentRepository
 
     @Before
     fun setUp() {
@@ -56,7 +58,8 @@ class WindowAckTest {
             .build()
         cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
-        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
+        sensingRepository = SensingRepository(db, cipher, Outbox(db, cipher), preferences)
+        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
     }
 
     @After
@@ -108,7 +111,7 @@ class WindowAckTest {
     fun roomFailureReturnsFalseAndRecordsPersistenceFailure() = runBlocking {
         val failingDb = failingDatabase()
         try {
-            val failingRepo = LocalRepository(failingDb, cipher, preferences, ApiClient(tokenProvider = { null }))
+            val failingRepo = SensingRepository(failingDb, cipher, Outbox(failingDb, cipher), preferences)
             val ok = failingRepo.saveDerivedFeatures(listOf(sampleInput()))
             assertFalse("Room 写入失败应返回 false（触发重试）", ok)
             assertTrue("连续失败计数应递增", preferences.consecutivePersistenceFailures >= 1)
@@ -125,7 +128,7 @@ class WindowAckTest {
         // 先制造一次失败（注入失败 factory），再成功 → 计数清零
         val failingDb = failingDatabase()
         try {
-            LocalRepository(failingDb, cipher, preferences, ApiClient(tokenProvider = { null }))
+            SensingRepository(failingDb, cipher, Outbox(failingDb, cipher), preferences)
                 .saveDerivedFeatures(listOf(sampleInput()))
         } finally {
             failingDb.close()
@@ -135,9 +138,9 @@ class WindowAckTest {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
+        sensingRepository = SensingRepository(db, cipher, Outbox(db, cipher), preferences)
 
-        val ok = repository.saveDerivedFeatures(listOf(sampleInput()))
+        val ok = sensingRepository.saveDerivedFeatures(listOf(sampleInput()))
         assertTrue(ok)
         assertEquals("成功后连续失败计数应清零", 0, preferences.consecutivePersistenceFailures)
         assertEquals("feature_vectors 应有 1 条", 1, db.dao().pendingFeatureVectors().size)
@@ -149,7 +152,7 @@ class WindowAckTest {
 
     @Test
     fun emptyInputsReturnTrueWithoutSideEffects() = runBlocking {
-        val ok = repository.saveDerivedFeatures(emptyList())
+        val ok = sensingRepository.saveDerivedFeatures(emptyList())
         assertTrue(ok)
         assertEquals(0, db.dao().pendingFeatureVectors().size)
         assertEquals(0, preferences.consecutivePersistenceFailures)
@@ -165,7 +168,7 @@ class WindowAckTest {
 
         // 模拟窗口持久化失败（scheduler flush false）时用户撤回 consent
         preferences.setPassiveSensingEnabled(true)
-        performPassiveSensingStop(context, preferences, repository)
+        performPassiveSensingStop(context, preferences, consentRepository)
 
         // 撤回后：consent=false 持久化、hub 清空（后续零新特征）
         assertFalse("撤回后 consent 应为 false", preferences.passiveSensingEnabledFlow().first())

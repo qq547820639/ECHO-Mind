@@ -32,8 +32,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.SkillFetchResult
+import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
@@ -230,7 +231,7 @@ internal fun settleTerminal(run: SkillRunSession, terminal: SkillTerminal): Stri
  *   - 本 Composable 不再自行 remember/读写全局会话（消除跨卡误删）。
  */
 @Composable
-fun SkillCardHost(skill: SkillDisplay, repository: LocalRepository, coordinator: SkillSessionCoordinator) {
+fun SkillCardHost(skill: SkillDisplay, coordinator: SkillSessionCoordinator) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -386,19 +387,19 @@ internal fun coldStartHint(stage: String, days: Int): Int = when (stage) {
  * 拉取已下发 Skill 列表（IO 线程）；返回三态 [SkillFetchResult] + 重试回调。
  *
  * - 首次组合：skills=null + loadFailed=false → 加载中
- * - 拉取完成：由 [LocalRepository.fetchSkills] 决定成功/失败/空态
+ * - 拉取完成：由 [SkillRepository.fetchSkills] 决定成功/失败/空态
  * - 重试：调用方调返回的 lambda 触发重新拉取（retryKey 自增驱动 [LaunchedEffect]）
  *
  * 复用于 [TodayScreen] 与 [SkillListScreen]，避免两处重复拉取逻辑。
  */
 @Composable
-internal fun rememberSkillList(repository: LocalRepository): Pair<SkillFetchResult, () -> Unit> {
+internal fun rememberSkillList(skillRepository: SkillRepository): Pair<SkillFetchResult, () -> Unit> {
     var result by remember {
         mutableStateOf(SkillFetchResult(skills = null, coldStartHint = null, loadFailed = false))
     }
     var retryKey by remember { mutableStateOf(0) }
     LaunchedEffect(retryKey) {
-        result = withContext(Dispatchers.IO) { repository.fetchSkills() }
+        result = withContext(Dispatchers.IO) { skillRepository.fetchSkills() }
     }
     return result to { retryKey++ }
 }
@@ -414,15 +415,19 @@ internal fun rememberSkillList(repository: LocalRepository): Pair<SkillFetchResu
  * 危机入口由全局紧急 FAB 常驻，此页不重复放置。
  */
 @Composable
-fun SkillListScreen(repository: LocalRepository, coordinator: SkillSessionCoordinator) {
-    val (skillState, retry) = rememberSkillList(repository)
+fun SkillListScreen(
+    skillRepository: SkillRepository,
+    featureFlagRepository: FeatureFlagRepository,
+    coordinator: SkillSessionCoordinator
+) {
+    val (skillState, retry) = rememberSkillList(skillRepository)
 
     // P5 灰度回滚：拉取 feature flags 缓存 + 观察 skills_delivery_enabled。
     // flag 关闭时隐藏 Skill 卡片区，显示「能力下发已暂停」。
     LaunchedEffect(Unit) {
-        runCatching { repository.fetchFeatureFlags() }
+        runCatching { featureFlagRepository.fetchFeatureFlags() }
     }
-    val featureFlags by repository.featureFlagsFlow.collectAsState(
+    val featureFlags by featureFlagRepository.featureFlagsFlow.collectAsState(
         initial = mapOf("skills_delivery_enabled" to true)
     )
     val skillsDeliveryEnabled = featureFlags["skills_delivery_enabled"] ?: true
@@ -464,7 +469,7 @@ fun SkillListScreen(repository: LocalRepository, coordinator: SkillSessionCoordi
                     Modifier.padding(top = 40.dp)
                 )
             }
-            else -> items(skillState.skills) { skill -> SkillCardHost(skill, repository, coordinator) }
+            else -> items(skillState.skills) { skill -> SkillCardHost(skill, coordinator) }
         }
         item { Spacer(Modifier.height(96.dp)) }
     }

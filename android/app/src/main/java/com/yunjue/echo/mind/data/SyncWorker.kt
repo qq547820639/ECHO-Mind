@@ -50,7 +50,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         if (container.preferences.accessToken.isNullOrBlank()) return Result.success()
 
         // v0.6.2（Batch A）：认证暂停态（401/403）→ 直接 success 返回，暂停后台重试；
-        // 直到用户重新认证成功清除 lastAuthBlockedAt（见 LocalRepository.verifyOnboardingCode）
+        // 直到用户重新认证成功清除 lastAuthBlockedAt（见 OnboardingRepository.verifyOnboardingCode）
         if (container.preferences.authRequired) return Result.success()
 
         // v0.6.1（P1-6）：批开始记录"尝试同步"时间（不再复用成功时间戳）
@@ -114,7 +114,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                         val serverId = runCatching {
                             org.json.JSONObject(response.second ?: "").optString("id").takeIf { it.isNotBlank() }
                         }.getOrNull()
-                        container.repository.markEscalationDelivered(event.eventId, serverId)
+                        container.escalationRepository.markEscalationDelivered(event.eventId, serverId)
                     }
                     // v0.6.1（P0-3 B）：consent 成功 → 服务端已接受 → 清除"等待授权同步"标记
                     if (event.eventType == "consent") {
@@ -146,7 +146,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                     anyFailure = true
                     // v0.6.1（P0-2）：escalation dead-letter → 用户可见 FAILED（需联系机构）
                     if (event.eventType == "escalation") {
-                        container.repository.markEscalationFailed(event.eventId)
+                        container.escalationRepository.markEscalationFailed(event.eventId)
                     }
                 }
                 SyncAction.KEEP_PENDING -> {
@@ -185,7 +185,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         // v0.6.1（P1-7）：Onboarding READY 收敛——服务端 ack 依据
         // READY_OFFLINE 且本批全部清空 → 服务端核对同意链后置 READY
         if (remaining == 0 && !anyFailure && container.preferences.onboardingState == AppPreferences.ONBOARDING_READY_OFFLINE) {
-            runCatching { container.repository.confirmServerActivation() }
+            runCatching { container.onboardingRepository.confirmServerActivation() }
         }
         // B1：批内 429 的 Retry-After 聚合后持久化，供下一次 enqueue 的退避基准使用。
         // 无 429 时（null）清除历史值，恢复默认 30s 指数退避。

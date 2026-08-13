@@ -35,7 +35,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.PortraitRepository
+import com.yunjue.echo.mind.data.SkillRepository
+import com.yunjue.echo.mind.data.SyncStateRepository
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
@@ -83,7 +85,9 @@ import java.time.format.DateTimeFormatter
  */
 @Composable
 fun TodayScreen(
-    repository: LocalRepository,
+    portraitRepository: PortraitRepository,
+    syncStateRepository: SyncStateRepository,
+    skillRepository: SkillRepository,
     coordinator: SkillSessionCoordinator,
     onGoToSkills: () -> Unit,
     onGoToTrend: () -> Unit,
@@ -91,23 +95,23 @@ fun TodayScreen(
     onReEnableSensing: () -> Unit
 ) {
     val context = LocalContext.current
-    val state by repository.observeTodayPortrait().collectAsState()
+    val state by portraitRepository.observeTodayPortrait().collectAsState()
     var retryKey by remember { mutableStateOf(0) }
 
     // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次
     LaunchedEffect(retryKey) {
-        repository.refreshTodayPortrait(networkAvailable = isNetworkAvailable(context))
+        portraitRepository.refreshTodayPortrait(networkAvailable = isNetworkAvailable(context))
     }
 
     // 同步状态 chip（沿用既有行为，PRD 契约点 9）
-    val pending by repository.observePendingCount().collectAsState(initial = 0)
+    val pending by syncStateRepository.observePendingCount().collectAsState(initial = 0)
     val syncState = mapSyncState(
         pendingCount = pending,
         networkAvailable = isNetworkAvailable(context),
-        deadLetterCount = repository.deadLetterCount(),
-        authBlocked = repository.isAuthBlocked(),
-        consentBlocked = repository.lastSyncErrorClass() == "consent",
-        retrying = repository.lastSyncErrorClass() == "retryable"
+        deadLetterCount = syncStateRepository.deadLetterCount(),
+        authBlocked = syncStateRepository.isAuthBlocked(),
+        consentBlocked = syncStateRepository.lastSyncErrorClass() == "consent",
+        retrying = syncStateRepository.lastSyncErrorClass() == "retryable"
     )
     val syncLabel = syncStateText(syncState, pending)
 
@@ -216,7 +220,7 @@ fun TodayScreen(
         }
         if (actionExpanded) {
             item {
-                SkillListSection(repository, coordinator)
+                SkillListSection(skillRepository, coordinator)
             }
         }
 
@@ -227,7 +231,7 @@ fun TodayScreen(
 
         // 用户反馈（仅 READY / PARTIAL_DATA 显示底部）：本地记录，后续版本上报
         if (state.status == PortraitStatus.READY || state.status == PortraitStatus.PARTIAL_DATA) {
-            item { PortraitFeedbackRow(repository, state) }
+            item { PortraitFeedbackRow(portraitRepository, state) }
         }
 
         item { Spacer(Modifier.height(96.dp)) }
@@ -348,11 +352,11 @@ private fun FactsSection(portrait: DailyPortraitDto) {
  * 后续版本按 date 上报 /v1/portraits/{date}/feedback（后端当前无此端点）。
  */
 @Composable
-private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiState) {
+private fun PortraitFeedbackRow(portraitRepository: PortraitRepository, state: PortraitUiState) {
     val portrait = state.portrait ?: return
     val date = portrait.date
     val scope = rememberCoroutineScope()
-    var feedback by remember(date) { mutableStateOf(repository.portraitFeedback(date)) }
+    var feedback by remember(date) { mutableStateOf(portraitRepository.portraitFeedback(date)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
         Text(PORTRAIT_COPY_FEEDBACK_QUESTION, style = MaterialTheme.typography.bodyMedium)
@@ -360,11 +364,11 @@ private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiSt
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = {
                     // Phase 6.6：反馈本地记录 + 入 Outbox（可靠同步），UI 即时反馈
-                    scope.launch { repository.recordPortraitFeedback(date, helpful = true) }
+                    scope.launch { portraitRepository.recordPortraitFeedback(date, helpful = true) }
                     feedback = true
                 }) { Text(PORTRAIT_COPY_FEEDBACK_LIKE) }
                 OutlinedButton(onClick = {
-                    scope.launch { repository.recordPortraitFeedback(date, helpful = false) }
+                    scope.launch { portraitRepository.recordPortraitFeedback(date, helpful = false) }
                     feedback = false
                 }) { Text(PORTRAIT_COPY_FEEDBACK_NOT_LIKE) }
             }
@@ -380,8 +384,8 @@ private fun PortraitFeedbackRow(repository: LocalRepository, state: PortraitUiSt
  * 每个「开始」按钮走 [SkillCardHost] 真实执行行为。
  */
 @Composable
-private fun SkillListSection(repository: LocalRepository, coordinator: SkillSessionCoordinator) {
-    val (skillState, retry) = rememberSkillList(repository)
+private fun SkillListSection(skillRepository: SkillRepository, coordinator: SkillSessionCoordinator) {
+    val (skillState, retry) = rememberSkillList(skillRepository)
     when {
         skillState.loadFailed -> Column(
             Modifier.fillMaxWidth(),
@@ -407,7 +411,7 @@ private fun SkillListSection(repository: LocalRepository, coordinator: SkillSess
         }
         else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             skillState.skills.forEach { skill ->
-                SkillCardHost(skill, repository, coordinator)
+                SkillCardHost(skill, coordinator)
             }
         }
     }

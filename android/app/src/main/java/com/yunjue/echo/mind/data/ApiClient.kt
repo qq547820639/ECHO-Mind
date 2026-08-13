@@ -124,7 +124,7 @@ class ApiClient(
     // 由认证 Principal 确定 user（不再需要显式 user_id query param——
     // 旧 /v1/portraits/*?user_id= 路径要求必填 user_id，Android 不发送会 422）。
     // 阻塞式 HttpURLConnection，与既有 get/postWithBody 模式一致；
-    // suspend 签名让调用方（LocalRepository）可统一在 IO 协程内调度。
+    // suspend 签名让调用方（PortraitRepository 等仓库）可统一在 IO 协程内调度。
 
     /** GET /v1/me/portraits/today：今日画像（含 date/status/summary/dimensions/facts 等）。 */
     suspend fun getTodayPortrait(): Pair<Int, String?> = get("/v1/me/portraits/today")

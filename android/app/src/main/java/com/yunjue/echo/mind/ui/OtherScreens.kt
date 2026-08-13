@@ -21,9 +21,13 @@ import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.R
+import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EscalationEntity
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.FeatureFlagRepository
+import com.yunjue.echo.mind.data.LegacyInputRepository
+import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.data.SyncStateRepository
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
@@ -54,9 +58,9 @@ internal const val JOURNAL_DEPRECATION_NOTICE = "日记录入已停用，历史�
 internal const val QUESTIONNAIRE_DEPRECATION_NOTICE = "量表录入已停用，筛查提示改由能力卡片驱动。"
 
 @Composable
-fun RecordScreen(repository: LocalRepository) {
+fun RecordScreen(legacyInputRepository: LegacyInputRepository) {
     // T12.3：移除日记输入区（OutlinedTextField + saveJournal + 同步按钮），保留历史日记只读列表。
-    val journals by repository.observeJournals().collectAsState(initial = emptyList())
+    val journals by legacyInputRepository.observeJournals().collectAsState(initial = emptyList())
     Page("记录") {
         Text(JOURNAL_DEPRECATION_NOTICE)
         HorizontalDivider()
@@ -67,7 +71,7 @@ fun RecordScreen(repository: LocalRepository) {
         journals.take(20).forEach { row ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp)) {
-                    Text(repository.decryptJournal(row))
+                    Text(legacyInputRepository.decryptJournal(row))
                     Text("本地修订 ${row.revision}", style = MaterialTheme.typography.labelSmall)
                 }
             }
@@ -79,7 +83,7 @@ fun RecordScreen(repository: LocalRepository) {
 internal const val PRACTICE_DEPRECATION_NOTICE = "练习打卡已停用，练习改由「能力」标签下发的 Skill 卡片驱动。"
 
 @Composable
-fun PracticeScreen(repository: LocalRepository) {
+fun PracticeScreen() {
     // T12.3：移除硬编码练习列表与打卡逻辑（PracticeRunner + recordPractice 调用）。
     // 练习改由 T11 下发的 Skill 卡片驱动，此处仅保留骨架提示，不再提供主动打卡入口。
     Page("练习") {
@@ -263,7 +267,12 @@ internal const val PERSISTENCE_FAILURE_LOOKBACK_MS = 24 * 60 * 60 * 1000L
 internal const val COLLECTOR_HEARTBEAT_STALE_MS = 3 * 24 * 60 * 60 * 1000L
 
 @Composable
-fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
+fun TrendScreen(
+    portraitRepository: PortraitRepository,
+    syncStateRepository: SyncStateRepository,
+    featureFlagRepository: FeatureFlagRepository,
+    onGoToSupport: () -> Unit = {}
+) {
     val context = LocalContext.current
     // 7 日 / 28 日窗口（Milestone G：Portrait Timeline）
     var windowDays by remember { mutableStateOf(7) }
@@ -272,23 +281,23 @@ fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
     var availability by remember { mutableStateOf<PortraitAvailability?>(null) }
     var diagnostics by remember { mutableStateOf<SensingDiagnostics?>(null) }
     var retryKey by remember { mutableStateOf(0) }
-    val timeline by repository.observePortraits(windowDays).collectAsState()
+    val timeline by portraitRepository.observePortraits(windowDays).collectAsState()
 
     // 被动感知 consent + 租户 flag：任一关闭 → permission_disabled 态
-    val consent by repository.passiveSensingConsentFlow().collectAsState(initial = false)
-    val flags by repository.featureFlagsFlow.collectAsState(initial = emptyMap())
+    val consent by syncStateRepository.passiveSensingConsentFlow().collectAsState(initial = false)
+    val flags by featureFlagRepository.featureFlagsFlow.collectAsState(initial = emptyMap())
     val permissionEnabled = consent && (flags["passive_sensing_enabled"] ?: false)
 
     LaunchedEffect(retryKey, windowDays, consent) {
-        repository.refreshPortraits(windowDays)
+        portraitRepository.refreshPortraits(windowDays)
         // 快照：能力状态 + 基线状态 + 本地采集/同步时间（一次 IO 内计算）
         val snapshot = withContext(Dispatchers.IO) {
             val caps = SensingCapability.entries.associateWith {
                 capabilityState(context, it, consent)
             }
-            val baseline = runCatching { repository.fetchBaselineStatus() }.getOrNull()
-            val collectedAt = repository.lastCollectionTimestamp()
-            val syncedAt = repository.lastSyncTimestamp()
+            val baseline = runCatching { portraitRepository.fetchBaselineStatus() }.getOrNull()
+            val collectedAt = syncStateRepository.lastCollectionTimestamp()
+            val syncedAt = syncStateRepository.lastSyncTimestamp()
             val avail = PortraitAvailability(
                 baselineStatus = baseline?.status ?: "UNKNOWN",
                 baselineDays = baseline?.baselineDays ?: 0,
@@ -304,8 +313,8 @@ fun TrendScreen(repository: LocalRepository, onGoToSupport: () -> Unit = {}) {
                 capabilities = caps,
                 sensingActive = consent,
                 lastCollectionAt = collectedAt,
-                consecutivePersistenceFailures = repository.consecutivePersistenceFailures(),
-                pendingUploadCount = repository.pendingUploadCount()
+                consecutivePersistenceFailures = syncStateRepository.consecutivePersistenceFailures(),
+                pendingUploadCount = syncStateRepository.pendingUploadCount()
             )
             avail to diag
         }
@@ -522,17 +531,16 @@ private fun TwentyEightDayOverview(portraits: List<DailyPortraitDto>) {
 internal suspend fun performPassiveSensingStop(
     context: Context,
     preferences: AppPreferences,
-    repository: LocalRepository
+    consentRepository: ConsentRepository
 ) {
-    ServiceRevocationCoordinator.disablePassiveSensingOnly(context, preferences, repository)
+    ServiceRevocationCoordinator.disablePassiveSensingOnly(context, preferences, consentRepository)
 }
 
 @Composable
 fun SupportScreen(container: AppContainer) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val repository = container.repository
-    val pending by repository.observePendingCount().collectAsState(initial = 0)
+    val pending by container.syncStateRepository.observePendingCount().collectAsState(initial = 0)
     var message by remember { mutableStateOf<String?>(null) }
 
     // ===== 数据与感知状态 =====
@@ -558,13 +566,13 @@ fun SupportScreen(container: AppContainer) {
     val syncLabel = syncStateText(syncState, pending)
 
     // ===== 人工支持（v0.6.1，P0-2 客户端闭环） =====
-    val escalations by repository.observeEscalations().collectAsState(initial = emptyList())
+    val escalations by container.escalationRepository.observeEscalations().collectAsState(initial = emptyList())
     var showSupportConfirm by remember { mutableStateOf(false) }
 
     fun requestSupport() {
         scope.launch {
             try {
-                val eventId = repository.requestHumanSupport()
+                val eventId = container.escalationRepository.requestHumanSupport()
                 message = "支持请求已保存，网络恢复后自动送达。"
             } catch (_: Exception) {
                 message = "请求暂时未能保存，请稍后重试。"
@@ -584,7 +592,7 @@ fun SupportScreen(container: AppContainer) {
                 // P1.4：granted=true 后写 voice_features consent（含证据哈希）到 outbox
                 // 走 SyncWorker 上传到后端，闭环麦克风授权证据链
                 try {
-                    container.repository.saveVoiceFeaturesConsent(true)
+                    container.consentRepository.saveVoiceFeaturesConsent(true)
                 } catch (_: Exception) {
                     // consent 证据落库失败不阻断 UI（outbox 尽力；后续可重试）
                 }
@@ -594,7 +602,7 @@ fun SupportScreen(container: AppContainer) {
                 // 权限拒绝：micEnabled 仍为 false，Switch 自动回弹
                 // P1.4：权限拒绝时写 voice_features consent（granted=false）作为撤销证据
                 try {
-                    container.repository.saveVoiceFeaturesConsent(false)
+                    container.consentRepository.saveVoiceFeaturesConsent(false)
                 } catch (_: Exception) {
                     // 同上
                 }
@@ -716,12 +724,12 @@ fun SupportScreen(container: AppContainer) {
                                     // v0.6.1（P0-3 B）：OFF→ON 统一走协调器
                                     // （先产生 granted 证据，再启动服务；同步顺序先于新特征）
                                     ServiceRevocationCoordinator.reEnablePassiveSensing(
-                                        context, container.preferences, container.repository
+                                        context, container.preferences, container.consentRepository, container.featureFlagRepository
                                     )
                                     reEnabling = container.preferences.consentSyncPending
                                     message = "被动感知已开启，等待授权同步…"
                                 } else {
-                                    performPassiveSensingStop(context, container.preferences, container.repository)
+                                    performPassiveSensingStop(context, container.preferences, container.consentRepository)
                                     reEnabling = false
                                     message = "已停止"
                                 }
@@ -816,7 +824,7 @@ fun SupportScreen(container: AppContainer) {
                             // P1.4：用户主动关闭开关 → 写 voice_features consent（granted=false）
                             // 作为撤销证据，与系统权限撤回路径一致
                             try {
-                                container.repository.saveVoiceFeaturesConsent(false)
+                                container.consentRepository.saveVoiceFeaturesConsent(false)
                             } catch (_: Exception) {
                                 // consent 证据落库失败不阻断 UI
                             }
@@ -831,15 +839,15 @@ fun SupportScreen(container: AppContainer) {
 
         Text("数据权利", style = MaterialTheme.typography.titleMedium)
         OutlinedButton(onClick = {
-            scope.launch { container.repository.requestDataAction("export"); SyncWorker.enqueue(context); message = "已创建数据导出请求。" }
+            scope.launch { container.consentRepository.requestDataAction("export"); SyncWorker.enqueue(context); message = "已创建数据导出请求。" }
         }, modifier = Modifier.fillMaxWidth()) { Text("申请导出数据") }
         OutlinedButton(onClick = {
-            scope.launch { container.repository.requestDataAction("delete"); SyncWorker.enqueue(context); message = "已创建删除请求；依法需保留的数据可能不立即删除。" }
+            scope.launch { container.consentRepository.requestDataAction("delete"); SyncWorker.enqueue(context); message = "已创建删除请求；依法需保留的数据可能不立即删除。" }
         }, modifier = Modifier.fillMaxWidth()) { Text("申请删除数据") }
         OutlinedButton(onClick = {
             scope.launch {
                 // v0.6.1（P0-3）：撤回同意并停止服务 → 唯一领域操作（原子协调全部撤回）
-                ServiceRevocationCoordinator.revokeService(context, container.preferences, container.repository)
+                ServiceRevocationCoordinator.revokeService(context, container.preferences, container.consentRepository)
                 message = "已停止服务并提交撤回请求。"
             }
         }, modifier = Modifier.fillMaxWidth()) { Text("撤回同意并停止服务") }

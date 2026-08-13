@@ -111,7 +111,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         preferences.onboardingState = AppPreferences.ONBOARDING_ACTIVATING
         scope.launch {
             try {
-                val res = container.repository.verifyOnboardingCode(code)
+                val res = container.onboardingRepository.verifyOnboardingCode(code)
                 activating = false
                 activationError = null
                 // verify-code 已把 userId + 加密 access_token 安全存储，并推进 BOUND
@@ -146,7 +146,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             // 不再提交 psychological_data / L0 / emergency_contact（L0 与紧急联系人移出主流程）。
             val sensingTurnedOn = sensorAuthorized || usageAuthorized || notificationAuthorized || micAuthorized
             if (coreChecks.all { it }) {
-                container.repository.savePassiveSensingConsent(granted = true)
+                container.consentRepository.savePassiveSensingConsent(granted = true)
                 if (sensingTurnedOn) {
                     container.preferences.setPassiveSensingEnabled(true)
                     // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 等待授权同步态
@@ -155,7 +155,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             }
             if (micAuthorized) {
                 try {
-                    container.repository.saveVoiceFeaturesConsent(true)
+                    container.consentRepository.saveVoiceFeaturesConsent(true)
                 } catch (_: Exception) {
                     // voice_features consent 上传失败不阻断 Onboarding（outbox 已尽力；可后续重试）
                 }
@@ -169,7 +169,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             // 02b 共享知识 1：consent granted → flag（拉取租户配置，失败 fail-closed）→ 真实启动服务
             if (sensingTurnedOn) {
                 try {
-                    container.repository.fetchFeatureFlags()
+                    container.featureFlagRepository.fetchFeatureFlags()
                 } catch (_: Exception) {
                     // flag 拉取失败 fail-closed：服务启动门控内 flag=false 不启动
                 }

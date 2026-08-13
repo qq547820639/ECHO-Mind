@@ -27,7 +27,7 @@ from app.services.audit import append_audit
 from app.services.baseline.calculator import baseline_state
 from app.services.baseline.confidence import confidence_for
 from app.services.baseline.day_type import bucket_for_date
-from app.services.portrait.engine import generate_portrait
+from app.services.portrait.engine import baseline_digest, generate_portrait
 
 from app.api.deps import DB, PRINCIPAL, ensure_user
 
@@ -84,7 +84,7 @@ def _lightweight_status(db, *, tenant_id: str, user_id: str, tz_name: str, today
         window_start = baseline_row.window_start
         window_end = baseline_row.window_end
         bucket_usage = baseline_row.bucket
-        baseline_snapshot_digest = baseline_row.baseline_snapshot_digest
+        baseline_snapshot_digest = baseline_digest(baseline_row.metrics)
     else:
         start = today - timedelta(days=28)
         end = today - timedelta(days=1)

@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind
 
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.PortraitParsers
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -13,8 +13,8 @@ import org.junit.Test
  *
  * 读取 canonical JSON fixtures（与 backend/tests/fixtures/portrait_contract 同源，
  * 变更需两端同步——Phase 1.2 主理人将建立单一事实源机制），使用生产解析逻辑
- * （[LocalRepository.parseDailyPortrait] / [LocalRepository.parsePortraitList] /
- * [LocalRepository.parseBaselineStatus]，companion internal 钩子）断言 DTO 精确匹配：
+ * （[PortraitParsers.parseDailyPortrait] / [PortraitParsers.parsePortraitList] /
+ * [PortraitParsers.parseBaselineStatus]，顶层 internal 钩子）断言 DTO 精确匹配：
  * - dimensions 嵌套对象 {value, metric, z}（Phase 5 键：RHYTHM/MOVEMENT/
  *   SCREEN_AMOUNT/SCREEN_TIMING/DAY_STRUCTURE/STABILITY，SCREEN_PATTERN 已拆分）；
  * - facts 四要素（label/today_text/baseline_text/delta_text）；
@@ -41,7 +41,7 @@ class PortraitContractParseTest {
     }
 
     private fun parsePortrait(name: String): DailyPortraitDto {
-        val dto = LocalRepository.parseDailyPortrait(fixture(name))
+        val dto = PortraitParsers.parseDailyPortrait(fixture(name))
         assertNotNull("fixture $name 应可解析", dto)
         return dto!!
     }
@@ -54,9 +54,9 @@ class PortraitContractParseTest {
             "no_portrait", "dimensions_nested", "facts_explain", "timezone"
         )
         for (name in names) {
-            assertNotNull("fixture $name 应可解析", LocalRepository.parseDailyPortrait(fixture(name)))
+            assertNotNull("fixture $name 应可解析", PortraitParsers.parseDailyPortrait(fixture(name)))
         }
-        assertNotNull("baseline_status 应可解析", LocalRepository.parseBaselineStatus(fixture("baseline_status")))
+        assertNotNull("baseline_status 应可解析", PortraitParsers.parseBaselineStatus(fixture("baseline_status")))
     }
 
     // ===== ready_full：完整画像 =====
@@ -153,7 +153,7 @@ class PortraitContractParseTest {
 
     @Test
     fun baselineStatusParsesTypedFields() {
-        val dto = LocalRepository.parseBaselineStatus(fixture("baseline_status"))
+        val dto = PortraitParsers.parseBaselineStatus(fixture("baseline_status"))
         assertNotNull(dto)
         assertEquals("BASELINE_READY", dto!!.status)
         assertEquals(21, dto.baselineDays)
@@ -223,7 +223,7 @@ class PortraitContractParseTest {
               ]
             }
         """.trimIndent()
-        val list = LocalRepository.parsePortraitList(body)
+        val list = PortraitParsers.parsePortraitList(body)
         assertEquals(listOf("2026-08-09", "2026-08-10"), list.map { it.date })
         assertEquals("PARTIAL_DATA", list[0].status)
     }

@@ -232,7 +232,7 @@ fun portraitStabilitySummary(portraits: List<DailyPortraitDto>): String {
 fun todayLocalDateString(instant: Instant, zoneId: ZoneId): String =
     LocalDate.ofInstant(instant, zoneId).toString()
 
-// ===== UI 状态容器（LocalRepository 发出，UI 消费；纯数据无 Android 依赖） =====
+// ===== UI 状态容器（PortraitRepository 发出，UI 消费；纯数据无 Android 依赖） =====
 
 /**
  * Today 页 UI 状态（九态 + 当前画像 + 离线横幅标志）。

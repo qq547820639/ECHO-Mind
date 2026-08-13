@@ -30,7 +30,7 @@ class AppPreferences(
 
     // ===== Skill 卡片下发缓存（T11.4） =====
     // 用 SharedPreferences 缓存 GET /v1/skills 的原始 JSON + 时间戳，避免 Room 迁移。
-    // Skill 为只读下发数据，不加密存储；过期由 [LocalRepository.fetchSkills] 判定刷新。
+    // Skill 为只读下发数据，不加密存储；过期由 [SkillRepository.fetchSkills] 判定刷新。
 
     fun getSkillCacheJson(): String? = prefs.getString("skill_cache_json", null)
     fun getSkillCacheTimestamp(): Long = prefs.getLong("skill_cache_ts", 0L)
@@ -197,7 +197,7 @@ class AppPreferences(
     val authRequired: Boolean
         get() = lastAuthBlockedAt > 0L
 
-    /** 清除认证暂停态（重新认证成功时调用，见 LocalRepository.verifyOnboardingCode）。 */
+    /** 清除认证暂停态（重新认证成功时调用，见 OnboardingRepository.verifyOnboardingCode）。 */
     fun clearAuthBlocked() {
         prefs.edit().remove("last_auth_blocked_at").apply()
     }

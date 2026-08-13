@@ -71,7 +71,7 @@ class PassiveSensingService : Service() {
             container?.let { c ->
                 revokeScope.launch {
                     try {
-                        c.repository.saveVoiceFeaturesConsent(false)
+                        c.consentRepository.saveVoiceFeaturesConsent(false)
                     } catch (_: Exception) {
                         // voice_features 撤回证据落库失败不阻塞（outbox 尽力；后续可重试）
                     }
@@ -177,7 +177,7 @@ class PassiveSensingService : Service() {
             // ACK 语义：持久化成功（true）才返回；失败保留快照/缓冲，由调度器 bounded retry。
             // 失败必须可观测（AppPreferences.consecutivePersistenceFailures / lastPersistenceFailure 由 repository 记录）。
             val c = container ?: return@start false
-            val ok = c.repository.saveDerivedFeatures(inputs)
+            val ok = c.sensingRepository.saveDerivedFeatures(inputs)
             if (ok) {
                 runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
             }

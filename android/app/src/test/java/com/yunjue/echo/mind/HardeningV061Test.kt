@@ -5,12 +5,17 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.ApiClient
+import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.EscalationEntity
+import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.EscalationStatus
-import com.yunjue.echo.mind.data.LocalRepository
+import com.yunjue.echo.mind.data.FeatureFlagRepository
+import com.yunjue.echo.mind.data.OnboardingRepository
 import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.SensingDiagnostics
 import com.yunjue.echo.mind.model.SkillCompletionInput
@@ -57,7 +62,11 @@ class HardeningV061Test {
     private lateinit var db: EchoDatabase
     private lateinit var cipher: FieldCipher
     private lateinit var preferences: AppPreferences
-    private lateinit var repository: LocalRepository
+    private lateinit var escalationRepository: EscalationRepository
+    private lateinit var skillRepository: SkillRepository
+    private lateinit var onboardingRepository: OnboardingRepository
+    private lateinit var consentRepository: ConsentRepository
+    private lateinit var featureFlagRepository: FeatureFlagRepository
 
     @Before
     fun setUp() {
@@ -67,7 +76,12 @@ class HardeningV061Test {
             .build()
         cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
-        repository = LocalRepository(db, cipher, preferences, ApiClient(tokenProvider = { null }))
+        val apiClient = ApiClient(tokenProvider = { null })
+        escalationRepository = EscalationRepository(db, cipher, Outbox(db, cipher), preferences, apiClient)
+        skillRepository = SkillRepository(db, Outbox(db, cipher), preferences, apiClient)
+        onboardingRepository = OnboardingRepository(db.portraitDao(), preferences, apiClient)
+        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
+        featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
     }
 
     @After
@@ -94,7 +108,7 @@ class HardeningV061Test {
         preferences.setPassiveSensingEnabled(true)
         preferences.setMicEnabled(true)
 
-        ServiceRevocationCoordinator.revokeService(context, preferences, repository)
+        ServiceRevocationCoordinator.revokeService(context, preferences, consentRepository)
 
         // 1. 本地状态立即 OFF
         assertFalse(preferences.passiveSensingPrefs.passiveSensingEnabled.first())
@@ -113,10 +127,10 @@ class HardeningV061Test {
     @Test
     fun revokeServiceIsIdempotentOnRepeat() = runBlocking {
         preferences.setPassiveSensingEnabled(true)
-        ServiceRevocationCoordinator.revokeService(context, preferences, repository)
+        ServiceRevocationCoordinator.revokeService(context, preferences, consentRepository)
         val firstCount = db.dao().pendingOutbox().size
         // 再次调用：本地已 OFF，不应重复追加 revoke 证据（幂等）
-        ServiceRevocationCoordinator.revokeService(context, preferences, repository)
+        ServiceRevocationCoordinator.revokeService(context, preferences, consentRepository)
         val secondCount = db.dao().pendingOutbox().size
         assertEquals("重复撤回不应重复入队证据", firstCount, secondCount)
     }
@@ -124,7 +138,7 @@ class HardeningV061Test {
     @Test
     fun reEnableGeneratesGrantEvidenceBeforeNewFeatures() = runBlocking {
         preferences.setPassiveSensingEnabled(false)
-        ServiceRevocationCoordinator.reEnablePassiveSensing(context, preferences, repository)
+        ServiceRevocationCoordinator.reEnablePassiveSensing(context, preferences, consentRepository, featureFlagRepository)
 
         // 1. 本地 ON + 等待授权同步标记
         assertTrue(preferences.passiveSensingPrefs.passiveSensingEnabled.first())
@@ -144,13 +158,13 @@ class HardeningV061Test {
     fun consentSyncPendingClearedAfterServerAcceptance() = runBlocking {
         // 重新启用后标记等待授权同步
         preferences.setPassiveSensingEnabled(false)
-        ServiceRevocationCoordinator.reEnablePassiveSensing(context, preferences, repository)
+        ServiceRevocationCoordinator.reEnablePassiveSensing(context, preferences, consentRepository, featureFlagRepository)
         assertTrue(preferences.consentSyncPending)
         // 服务端接受（SyncWorker DELETE 分支清除标记）→ 本地验证清除语义
         preferences.consentSyncPending = false
         assertFalse(preferences.consentSyncPending)
         // 撤回服务 → 标记保持 false（不再显示"等待授权"）
-        ServiceRevocationCoordinator.revokeService(context, preferences, repository)
+        ServiceRevocationCoordinator.revokeService(context, preferences, consentRepository)
         assertFalse(preferences.consentSyncPending)
     }
 
@@ -159,7 +173,7 @@ class HardeningV061Test {
     @Test
     fun offlineEscalationQueuesToOutboxWithQueuedStatus() = runBlocking {
         // 离线（无网络）也应能创建：请求本地持久化 + 入 outbox（等待送达）
-        val eventId = repository.requestHumanSupport()
+        val eventId = escalationRepository.requestHumanSupport()
 
         val esc = db.escalationDao().byEventId(eventId)
         assertNotNull(esc)
@@ -175,15 +189,15 @@ class HardeningV061Test {
 
     @Test
     fun escalationAckLifecycleReflectsServerStatusOnly() = runBlocking {
-        val eventId = repository.requestHumanSupport()
+        val eventId = escalationRepository.requestHumanSupport()
         // 服务端接收（SyncWorker 成功后回写）
-        repository.markEscalationDelivered(eventId, "esc_server_1")
+        escalationRepository.markEscalationDelivered(eventId, "esc_server_1")
         var esc = db.escalationDao().byEventId(eventId)!!
         assertEquals(EscalationStatus.DELIVERED.name, esc.status)
         assertEquals("esc_server_1", esc.serverEscalationId)
 
         // 服务端 user-status：仅 delivery_confirmed（未 ACK）→ 保持已送达，绝不显示人工已收到
-        repository.updateEscalationServerStatus(
+        escalationRepository.updateEscalationServerStatus(
             eventId,
             """{"escalation_id":"esc_server_1","delivery_confirmed":true,"human_acknowledged":false}"""
         )
@@ -191,7 +205,7 @@ class HardeningV061Test {
         assertNotEquals("未 ACK 不得进入接管状态", EscalationStatus.TAKEN_OVER.name, esc.status)
 
         // 服务端 ack/takeover → 正在接管
-        repository.updateEscalationServerStatus(
+        escalationRepository.updateEscalationServerStatus(
             eventId,
             """{"escalation_id":"esc_server_1","delivery_confirmed":true,"human_acknowledged":true}"""
         )
@@ -203,7 +217,7 @@ class HardeningV061Test {
 
     @Test
     fun processDeathRestoreKeepsOriginalSessionId() = runBlocking {
-        val coordinator = SkillSessionCoordinator(repository)
+        val coordinator = SkillSessionCoordinator(skillRepository)
         val skillA = skill("sk_a", "能力A")
 
         // 开始执行并持久化（模拟进程死亡前最后状态）
@@ -212,7 +226,7 @@ class HardeningV061Test {
         coordinator.persistCurrent("sk_a")
 
         // 进程死亡：重建协调器（新实例，从 Room 恢复）
-        val coordinator2 = SkillSessionCoordinator(repository)
+        val coordinator2 = SkillSessionCoordinator(skillRepository)
         val restored = coordinator2.getOrRestore(skillA)
 
         assertEquals("进程死亡恢复必须继续使用原 sessionId", originalSessionId, restored.sessionId)
@@ -220,12 +234,12 @@ class HardeningV061Test {
 
         // finish 用原 sessionId 删除 → 会话行确实被删
         coordinator2.finish(skillA, SkillTerminal.COMPLETE)
-        assertNull("finish 后会话行必须删除", repository.loadActiveSession("sk_a"))
+        assertNull("finish 后会话行必须删除", skillRepository.loadActiveSession("sk_a"))
     }
 
     @Test
     fun multiCardDoesNotDeleteOtherSkillsSession() = runBlocking {
-        val coordinator = SkillSessionCoordinator(repository)
+        val coordinator = SkillSessionCoordinator(skillRepository)
         val skillA = skill("sk_a", "能力A")
         val skillB = skill("sk_b", "能力B")
 
@@ -235,30 +249,30 @@ class HardeningV061Test {
         assertNotEquals("不同 Skill 不应共享会话", viewA.sessionId, viewB.sessionId)
         // Skill B 卡片 finish 只删自己的会话
         coordinator.finish(skillB, SkillTerminal.STOP)
-        assertNotNull("Skill B 完成不得删除 Skill A 的会话", repository.loadActiveSession("sk_a"))
+        assertNotNull("Skill B 完成不得删除 Skill A 的会话", skillRepository.loadActiveSession("sk_a"))
     }
 
     @Test
     fun singleActiveSessionEnforcedOnStart() = runBlocking {
-        val coordinator = SkillSessionCoordinator(repository)
+        val coordinator = SkillSessionCoordinator(skillRepository)
         coordinator.start(skill("sk_a", "能力A"))
         coordinator.start(skill("sk_b", "能力B"))
         // single-active-session：A 的会话被收口，只保留 B
-        assertNull(repository.loadActiveSession("sk_a"))
-        assertNotNull(repository.loadActiveSession("sk_b"))
+        assertNull(skillRepository.loadActiveSession("sk_a"))
+        assertNotNull(skillRepository.loadActiveSession("sk_b"))
     }
 
     @Test
     fun repeatFinishIsIdempotentViaCompletionEventId() = runBlocking {
-        val coordinator = SkillSessionCoordinator(repository)
+        val coordinator = SkillSessionCoordinator(skillRepository)
         val skillA = skill("sk_a", "能力A")
         coordinator.start(skillA)
         // 第一次完成
         val input = SkillCompletionInput(skillId = "sk_a", status = "completed", durationSeconds = 10)
-        repository.recordSkillCompletion(input, sessionId = null)
+        skillRepository.recordSkillCompletion(input, sessionId = null)
         // 同一 event_id 重复上报（服务端幂等）；本地 outbox 中 event_id 唯一
         val same = input.copy()
-        repository.recordSkillCompletion(same, sessionId = null)
+        skillRepository.recordSkillCompletion(same, sessionId = null)
         val completions = db.dao().pendingOutbox().filter { it.eventType == "skill_completion" }
         assertEquals("同一 event_id 只入队一次", 1, completions.size)
     }
@@ -291,7 +305,7 @@ class HardeningV061Test {
         preferences.userId = "u_demo"
 
         // 无网络/无服务端：保持 READY_OFFLINE（不假装 READY）
-        val ok = repository.confirmServerActivation()
+        val ok = onboardingRepository.confirmServerActivation()
         assertFalse(ok)
         assertEquals(AppPreferences.ONBOARDING_READY_OFFLINE, preferences.onboardingState)
 

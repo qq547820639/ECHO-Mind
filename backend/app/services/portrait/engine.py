@@ -44,7 +44,7 @@ PORTRAIT_SCHEMA_VERSION = "portrait-v1"
 PARTIAL_COVERAGE_THRESHOLD = 0.4
 
 
-def _baseline_digest(metrics: dict) -> str:
+def baseline_digest(metrics: dict) -> str:
     """基线 metrics 的规范化序列化 SHA-256 摘要（确定性可复现）。"""
     canonical = json.dumps(
         metrics,
@@ -210,7 +210,7 @@ def generate_portrait(
         baseline_end=snapshot.window_end,
         baseline_valid_days=snapshot.valid_days,
         baseline_version=snapshot.version,
-        baseline_snapshot_digest=_baseline_digest(snapshot.metrics),
+        baseline_snapshot_digest=baseline_digest(snapshot.metrics),
     )
 
     # 产品指标（数据质量/可靠性）：画像生成分类计数（不记录任何特征内容）
