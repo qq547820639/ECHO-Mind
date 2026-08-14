@@ -7,6 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.yunjue.echo.mind.data.EveningReminderWorker
 import com.yunjue.echo.mind.data.MessageCheckWorker
 import java.util.concurrent.TimeUnit
 
@@ -45,5 +46,8 @@ class EchoMindApplication : Application(), Configuration.Provider {
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
+
+        // v0.7.4 UX：每晚小结提醒（21:00 自续期一次性任务；开关见支持页）
+        EveningReminderWorker.scheduleNext(this)
     }
 }

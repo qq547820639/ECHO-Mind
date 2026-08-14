@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,6 +47,7 @@ import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_DIMENSIONS_TITLE
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_BASELINE_UNLOCKED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
@@ -68,6 +70,7 @@ import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.SyncState
 import com.yunjue.echo.mind.model.baselineProgressText
 import com.yunjue.echo.mind.model.dimensionDisplayName
+import com.yunjue.echo.mind.model.todayCoveragePercent
 import com.yunjue.echo.mind.model.dimensionValueText
 import com.yunjue.echo.mind.model.todayPortraitStateText
 import kotlinx.coroutines.launch
@@ -169,15 +172,25 @@ fun TodayScreen(
             PortraitStatus.WARMING_UP -> item {
                 Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
                 BaselineProgress(state.portrait?.baselineDays ?: 0)
+                // v0.7.4 UX：第 1 天的事实句来自本地画像 summary（端侧引擎已拼入）
+                val factsOnly = state.portrait?.summary
+                    ?.substringAfter("\n\n", missingDelimiterValue = "")
+                    ?.takeIf { it.isNotBlank() }
+                if (factsOnly != null) {
+                    Text(factsOnly, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+                }
+                CoverageRow(state.portrait?.coverage)
             }
 
             // EARLY_BASELINE / LOW_CONFIDENCE：显示当天事实（服务端 summary 即「数据不够完整」文案）
             PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE -> item {
                 PortraitSummaryOnly(state)
                 BaselineProgress(state.portrait?.baselineDays ?: 0)
+                CoverageRow(state.portrait?.coverage)
             }
 
             PortraitStatus.READY -> item {
+                UnlockBanner(portraitRepository, state)
                 PortraitFullBody(state)
             }
 
@@ -286,6 +299,48 @@ private fun BaselineProgress(baselineDays: Int) {
     }
 }
 
+/** 今日数据覆盖率（v0.7.4 UX：让"被动感知"可感知；无数据/非法 → 不渲染）。 */
+@Composable
+private fun CoverageRow(coverage: Map<String, Any>?) {
+    val pct = todayCoveragePercent(coverage) ?: return
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("今日已学习", style = MaterialTheme.typography.bodySmall)
+        LinearProgressIndicator(
+            progress = { pct / 100f },
+            modifier = Modifier.weight(1f)
+        )
+        Text("$pct%", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** 基线解锁仪式（v0.7.4：首次 READY 只出现一次）。 */
+@Composable
+private fun UnlockBanner(portraitRepository: PortraitRepository, state: PortraitUiState) {
+    if ((state.portrait?.baselineDays ?: 0) < 7) return
+    var show by remember { mutableStateOf(false) }
+    LaunchedEffect(state.status) {
+        if (state.status == PortraitStatus.READY && portraitRepository.consumeBaselineUnlocked()) {
+            show = true
+        }
+    }
+    if (show) {
+        Card(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        ) {
+            Text(
+                PORTRAIT_COPY_BASELINE_UNLOCKED,
+                modifier = Modifier.padding(12.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
 /**
  * 完整画像主体：
  * 「今天的你」headline chips → summary →「和你的平常相比」dimensions 对照表 →
@@ -295,26 +350,14 @@ private fun BaselineProgress(baselineDays: Int) {
 private fun PortraitFullBody(state: PortraitUiState) {
     val portrait = state.portrait ?: return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // 1. headline 标签（Phase 6.5：非交互 semantic 组件——不用 AssistChip(onClick={}) 假交互；
-        //    无 onClick/focusable，不进入焦点顺序；contentDescription 即标签文本供 TalkBack 朗读）
+        // 1. headline（v0.7.4 UX：大字一句话——产品定义就是"每天用一句话"，
+        //    视觉上像一句话而非小标签；纯 Text，非交互，TalkBack 可读）
         if (portrait.headline.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                portrait.headline.forEach { headline ->
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.semantics {
-                            contentDescription = headline
-                        }
-                    ) {
-                        Text(
-                            headline,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
+            Text(
+                portrait.headline.joinToString(" · "),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
         // 2. summary 段落
         if (portrait.summary.isNotBlank()) {

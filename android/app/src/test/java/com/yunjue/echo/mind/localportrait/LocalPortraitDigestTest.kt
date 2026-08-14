@@ -120,3 +120,30 @@ class LocalPortraitDigestTest {
         )
     }
 }
+
+/** v0.7.4 UX 辅助函数测试（今日覆盖率 / 每晚提醒时刻计算）。 */
+class UxHelpersTest {
+
+    @Test
+    fun todayCoveragePercentParsesAndClamps() {
+        assertEquals(68, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 0.68)))
+        assertEquals(100, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 1.5)))
+        assertEquals(0, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 0.0)))
+        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(null))
+        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("x" to 1)))
+        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to "0.5")))
+    }
+
+    @Test
+    fun delayToNextEveningMs() {
+        val now = java.time.LocalDateTime.of(2026, 8, 14, 18, 0)
+        // 18:00 → 当晚 21:00 = 3 小时
+        assertEquals(3 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(now))
+        // 21:00 整 → 次日 21:00 = 24 小时
+        val atEvening = java.time.LocalDateTime.of(2026, 8, 14, 21, 0)
+        assertEquals(24 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(atEvening))
+        // 22:00 → 次日 21:00 = 23 小时
+        val after = java.time.LocalDateTime.of(2026, 8, 14, 22, 0)
+        assertEquals(23 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(after))
+    }
+}

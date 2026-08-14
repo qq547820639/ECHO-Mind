@@ -153,13 +153,18 @@ internal object LocalPortraitEngine {
 
         // 基线未成型 / 早期：固定文案或事实句（镜像 engine 状态机）
         if (state == "WARMING_UP") {
+            // v0.7.4 UX（冷启动获得感）：第 1 天就给出当天事实句——
+            // 让用户立刻确认「它在记录、它看得见我的节奏」，而非只有一句等待文案。
+            // 仅本地模式（端侧引擎）生效；服务端 WARMING_UP 文案保持镜像稳定。
+            val facts = factSentences(today)
+            val warmingSummary = if (facts.isNotBlank()) "$WARMING_UP_TEXT\n\n$facts" else WARMING_UP_TEXT
             return DailyPortraitDto(
                 date = localDate.toString(),
                 status = "WARMING_UP",
                 confidence = "LOW",
                 baselineDays = snapshot.validDays,
                 baselineVersion = snapshot.version,
-                summary = WARMING_UP_TEXT,
+                summary = warmingSummary,
                 coverage = coverage,
                 timezoneUsed = tzName
             )

@@ -332,6 +332,16 @@ class PortraitRepository(
     fun portraitFeedback(date: String): Boolean? = preferences.portraitFeedback(date)
 
     /**
+     * 基线解锁仪式（v0.7.4）：首次进入 READY（baselineDays>=7）返回 true 并置位，
+     * 之后恒返回 false（只显示一次）。
+     */
+    fun consumeBaselineUnlocked(): Boolean {
+        if (preferences.baselineUnlockedShown) return false
+        preferences.baselineUnlockedShown = true
+        return true
+    }
+
+    /**
      * 重新生成今日画像（v0.7 反馈闭环）：
      * - 订阅模式：POST /v1/me/portraits/rebuild（服务端重算），失败回退本地重算；
      * - 本地模式：端侧引擎直接重算（晚到窗口会进入聚合，结果随之更新）。

@@ -357,6 +357,17 @@ class AppPreferences(
     val subscriptionExpired: Boolean
         get() = subscriptionExpiresAt?.let { it <= System.currentTimeMillis() } ?: false
 
+    // ===== v0.7.4 UX =====
+    // 基线解锁仪式（一次性显示）与每晚小结提醒开关。
+
+    var baselineUnlockedShown: Boolean
+        get() = prefs.getBoolean("baseline_unlocked_shown", false)
+        set(value) = prefs.edit().putBoolean("baseline_unlocked_shown", value).apply()
+
+    var eveningReminderEnabled: Boolean
+        get() = prefs.getBoolean("evening_reminder_enabled", true)
+        set(value) = prefs.edit().putBoolean("evening_reminder_enabled", value).apply()
+
     companion object {
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
 

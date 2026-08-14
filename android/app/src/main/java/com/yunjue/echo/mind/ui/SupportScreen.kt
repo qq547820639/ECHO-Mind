@@ -34,7 +34,9 @@ import com.yunjue.echo.mind.model.subscriptionStatusText
 import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 使用情况访问系统设置页（PACKAGE_USAGE_STATS 授权入口，Phase 6.1 权限恢复）。 */
 internal fun usageAccessSettingsIntent(context: Context): Intent =
@@ -338,6 +340,28 @@ fun SupportScreen(container: AppContainer) {
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("数据与感知", style = MaterialTheme.typography.titleMedium)
+                // v0.7.4 UX：每晚小结提醒开关（默认开；关闭即取消已排任务）
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("每晚小结提醒")
+                        Text("每天 21:00 提醒一次：今天的数据已记录完毕。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = container.preferences.eveningReminderEnabled,
+                        onCheckedChange = { enabled ->
+                            container.preferences.eveningReminderEnabled = enabled
+                            if (enabled) {
+                                com.yunjue.echo.mind.data.EveningReminderWorker.scheduleNext(context)
+                            } else {
+                                com.yunjue.echo.mind.data.EveningReminderWorker.cancel(context)
+                            }
+                        }
+                    )
+                }
                 // 1. 被动感知总开关（flag 不覆盖用户 consent）
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -472,6 +496,34 @@ fun SupportScreen(container: AppContainer) {
             )
         }
         HorizontalDivider()
+
+        // v0.7.4 UX：本机数据面板——把"数据只在本机"从文案变成可视事实
+        var localWindows by remember { mutableStateOf(0) }
+        var localPortraits by remember { mutableStateOf(0) }
+        LaunchedEffect(Unit) {
+            val userId = container.preferences.userId
+            withContext(Dispatchers.IO) {
+                if (userId.isNotBlank()) {
+                    localWindows = runCatching {
+                        container.database.dao().countFeatureVectorsByUser(userId)
+                    }.getOrDefault(0)
+                    localPortraits = runCatching {
+                        container.database.portraitDao().countPortraitsByUser(userId)
+                    }.getOrDefault(0)
+                }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("本机保存", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "$localWindows 个学习窗口 · $localPortraits 张画像 · " +
+                        if (container.preferences.localMode) "0 次上传（本地模式，数据不出手机）"
+                        else "云端同步已开启",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
         Text("数据权利", style = MaterialTheme.typography.titleMedium)
         // v0.7 本地优先：本地模式（未订阅）导出/删除直接在本机完成——数据不出设备、

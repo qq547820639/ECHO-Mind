@@ -144,6 +144,9 @@ interface EchoDao {
     /** 本地数据权利：按用户删除全部派生特征窗口（本地模式删除用）。 */
     @Query("DELETE FROM feature_vectors WHERE userId = :userId")
     suspend fun deleteFeatureVectorsByUser(userId: String)
+    /** v0.7.4 本机数据面板：某用户的派生特征窗口数。 */
+    @Query("SELECT COUNT(*) FROM feature_vectors WHERE userId = :userId")
+    suspend fun countFeatureVectorsByUser(userId: String): Int
 
     // ===== v5 ActiveSkillSession DAO（T02） =====
     // v0.6.1（P0-4）：领域规则 = 产品同时只允许一个 Skill 执行（single-active-session）。
@@ -300,6 +303,10 @@ interface PortraitDao {
 
     @Query("DELETE FROM portrait_daily WHERE userId = :userId")
     suspend fun deleteByUser(userId: String)
+
+    /** v0.7.4 本机数据面板：某用户的画像缓存数。 */
+    @Query("SELECT COUNT(*) FROM portrait_daily WHERE userId = :userId")
+    suspend fun countPortraitsByUser(userId: String): Int
 }
 
 @Database(

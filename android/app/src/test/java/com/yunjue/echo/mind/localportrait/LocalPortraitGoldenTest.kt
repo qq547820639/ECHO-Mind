@@ -357,4 +357,13 @@ class LocalPortraitGoldenTest {
         val movement = dto.facts.first { it.label == "日间移动" }
         assertTrue(movement.deltaText.contains("比近期") || movement.deltaText.contains("和近期"))
     }
+
+    @Test
+    fun warmingUpDayOneShowsFactsForImmediateFeedback() {
+        // v0.7.4 UX：第 1 天（WARMING_UP）即给出当天事实句，让「它在记录」立刻可感
+        val dto = generate(makeToday(activeStart = 495, movement = 1.06, pad = 20), emptyList())
+        assertEquals("WARMING_UP", dto.status)
+        assertTrue("等待文案仍在", dto.summary.contains("正在慢慢了解"))
+        assertTrue("第 1 天应包含当天事实", dto.summary.contains("今天累计屏幕互动"))
+    }
 }

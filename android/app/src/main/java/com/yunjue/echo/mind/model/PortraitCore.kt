@@ -148,6 +148,21 @@ fun todayPortraitStateText(status: PortraitStatus): String = when (status) {
 fun baselineProgressText(days: Int): String =
     "已积累 ${days.coerceIn(0, 7)}/7 天，基线即将成型"
 
+/**
+ * 今日数据覆盖率（v0.7.4 UX：让"被动感知"可感知）。
+ * coverage["coverage_score"]（0..1）→ 整数百分比 0..100；缺失/非法 → null（不显示）。
+ */
+fun todayCoveragePercent(coverage: Map<String, Any>?): Int? {
+    val raw = coverage?.get("coverage_score") ?: return null
+    return when (raw) {
+        is Number -> (raw.toDouble() * 100).toInt().coerceIn(0, 100)
+        else -> null
+    }
+}
+
+/** 基线解锁文案（v0.7.4 UX：第 7 天一次性仪式感，只出现一次）。 */
+const val PORTRAIT_COPY_BASELINE_UNLOCKED = "你的基线已经成型——从今天起，ECHO 开始比较今天的你和平常的你。"
+
 // ===== 维度展示（Milestone F/G） =====
 
 /**
