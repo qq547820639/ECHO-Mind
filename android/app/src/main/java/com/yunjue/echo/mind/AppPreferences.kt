@@ -21,6 +21,21 @@ class AppPreferences(
         get() = prefs.getString("user_id", "") ?: ""
         set(value) = prefs.edit().putString("user_id", value).apply()
 
+    /**
+     * ERA 14 §54 — installation random seed（Identity Genome 唯一随机来源）。
+     *
+     * 一次性生成并持久化；禁止使用 IMEI / Android ID / 手机号 / 用户名 hash。
+     */
+    val identitySeed: Long
+        get() {
+            var v = prefs.getLong("identity_seed", 0L)
+            if (v == 0L) {
+                v = java.security.SecureRandom().nextLong().let { if (it == 0L) 1L else it }
+                prefs.edit().putLong("identity_seed", v).apply()
+            }
+            return v
+        }
+
     var accessToken: String?
         get() = prefs.getString("access_token_ciphertext", null)?.let { runCatching { cipher.decrypt(it) }.getOrNull() }
         set(value) = prefs.edit().apply {

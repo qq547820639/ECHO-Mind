@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 完成 ✅（9/9 模块）→ ERA 14（ECHO Long-term Identity）开始**
+**ERA 14 — ECHO LONG-TERM IDENTITY 第一轮完成 ✅（四层真实数据流 + mapper 冻结）→ 下一轮 §65 Wallpaper 不可见零渲染基准 + §66 Motion Language**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**488 unit tests 全绿**；lintDebug / detekt / assembleRelease PASS（多模块聚合：app + 八模块；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**497 unit tests 全绿**（ERA 14 +7 identity）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -49,11 +49,12 @@
 - **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）
 - **ERA 13.5 第四批模块**：:feature:observation（16 文件）；平台组件留 :app；MicDerivedFeatureSource 契约下沉；Ground Truth API 公开化；Manifest 组件检查多根化
 - **ERA 13.5 第五批模块**（依赖序一次拆解 ×3）：:feature:presence（5 文件 + compose；EchoStateStore 抽出留 :app）+ :core:ports（契约层）+ :feature:intelligence（13 文件，无 ui/data 依赖）
-- **ERA 13.5 收官**：:feature:journey（6 域文件；JourneyRepository 留 :app 应用层）——**9/9 模块全部完成**（:app + :core:model/:core:security/:core:ports + :feature:actions/:feature:observation/:feature:presence/:feature:intelligence/:feature:memory/:feature:journey）；§51 五条边界全部编译器物理强制；488 tests 全绿（app + 九模块聚合构建）
+- **ERA 13.5 收官**：:feature:journey——**9/9 模块全部完成**；§51 五条边界全部编译器物理强制
+- **ERA 14 第一轮**：IdentityGenome 七维 + identitySeed（§54 合规）；LifeSeason 真实计算（§57 中性词表）；DailyComposition/MomentState 填充；smoothPresenceState 平滑；rhythmDelta placeholder 移除；EchoVisualMapper 冻结（§62）；EchoIdentityTest 7 用例；497 tests 全绿（app + 九模块）
 
 ## In Progress
 
-- ERA 14 ECHO Long-term Identity（§52-§61）：IdentityGenome/LifeSeason/DailyComposition/MomentState 真实数据流（§52 先审计：字段存在 ≠ 实现完成）+ placeholder 清除 + EchoVisualMapper 冻结（本轮后立即执行）
+- ERA 14 续：§65 Wallpaper benchmark（不可见时 continuous rendering = 0 断言）+ §66 Motion Language 冻结（ambient/transition/unlock/touch/scroll/Why/Conversation/Action/Dream/ReducedMotion/LowPower 语义表）
 
 ## Blocked
 
@@ -80,6 +81,7 @@
 ## Performance Debt
 
 - Journey 365d 全量 Compose 渲染风险（当前按 30 天聚合；未做 lazy 优化）→ ERA 16 处理
+- Wallpaper 不可见时零渲染基准（§65）+ Motion Language 冻结（§66）——ERA 14 第二轮
 - EchoLifeField 帧渲染依赖 draw-phase 状态读取（当前可用；未做 profile）
 
 ## Release Integrity

@@ -6,6 +6,12 @@ import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.presence.AmbientEngine
 import com.yunjue.echo.mind.presence.BehaviorState
 import com.yunjue.echo.mind.presence.EchoIdentityGenome
+import com.yunjue.echo.mind.presence.PresenceMotionLevel
+import com.yunjue.echo.mind.presence.buildDailyComposition
+import com.yunjue.echo.mind.presence.buildMomentState
+import com.yunjue.echo.mind.presence.computeLifeSeason
+import com.yunjue.echo.mind.presence.deriveIdentityGenome
+import com.yunjue.echo.mind.presence.smoothPresenceState
 import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoStateStore
 import com.yunjue.echo.mind.presence.RhythmState
@@ -85,16 +91,39 @@ class PresenceRepository(
             )
         )
 
-        // 4. Identity Genome：稳定种子（userId 派生，长期一致；不随状态变化）
-        val seed = preferences.userId.fold(0L) { acc, c -> acc * 31L + c.code }
+        // 4. ERA 14 §53-§61：Long-term Identity 真实数据流
+        // Identity Genome（installation random seed + 长期基线 + 视觉偏好；§54 禁身份设备指纹）
+        val identity = deriveIdentityGenome(
+            seed = preferences.identitySeed,
+            baselineStability = ambient.vector.regularity,
+            motionPreference = when (preferences.presenceMotionLevel) {
+                "QUIET" -> PresenceMotionLevel.QUIET
+                "LIVELY" -> PresenceMotionLevel.LIVELY
+                else -> PresenceMotionLevel.DEFAULT
+            },
+        )
+        // Life Season（§56/§57：近 60 天画像时间线；中性词表）
+        val portraits = runCatching {
+            dataSource.computeTimeline(
+                userId = preferences.userId,
+                days = 60,
+                endDate = today,
+                zoneId = zone,
+            )
+        }.getOrDefault(emptyList())
+        val season = computeLifeSeason(portraits)
+        // Daily Composition（§58：日级稳定）+ Moment Modulation（§59：分钟级）
+        val hourOfDay = now.atZone(zone).hour + now.atZone(zone).minute / 60f
+        val daily = buildDailyComposition(identity, ambient.vector)
+        val moment = buildMomentState(ambient.vector, hourOfDay)
 
-        return EchoPresenceState(
+        val assembled = EchoPresenceState(
             updatedAt = now,
             sensingStatus = runtime,
             maturity = echoMaturity(baselineDays),
             rhythmState = RhythmState(
                 activityLevel = ambient.vector.activation,
-                rhythmDelta = 0f, // ERA 4：跨日节奏漂移
+                rhythmDelta = season.drift, // §61：真实跨日节律漂移（ERA 14 起非 0）
                 regularity = ambient.vector.regularity,
                 coverage = ambient.coverage,
             ),
@@ -104,7 +133,13 @@ class PresenceRepository(
             ),
             affectiveState = null, // AFFECTIVE_CONTRACT 未建立前恒 null
             confidence = ambient.vector.confidence,
-            identityGenome = EchoIdentityGenome(seed = seed, accentHue = (seed and 0xFFFF).toFloat() / 65535f),
+            identityGenome = identity,
+            lifeSeason = season,
+            dailyComposition = daily,
+            momentState = moment,
         )
+
+        // §60：视觉层平滑（interpolation；不瞬切）
+        return smoothPresenceState(_state.value, assembled, alpha = 0.35f)
     }
 }

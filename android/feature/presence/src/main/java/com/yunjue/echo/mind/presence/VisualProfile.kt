@@ -100,24 +100,60 @@ fun computeVisualParameters(
         PresenceMotionLevel.LIVELY -> 1.3f
     }
 
-    val flow = (v.activityLevel * 0.6f + b.density * 0.4f) * surfaceFlow * motionFactor * nightFactor
-    val coherence = state.confidence.coerceIn(0f, 1f)
+    // ERA 14 §62：Identity/Season/Daily/Moment 四层进入映射（渲染器不自行推导身份）。
+    // Daily Composition 未填充（旧快照/Journey 状态）→ 回退旧推导（向后兼容）。
+    val daily = state.dailyComposition
+    val hasDaily = daily.flowSpeed > 0f || daily.coherence > 0f
+    val identityMotion = state.identityGenome.motionPersonality
+    val identitySymmetry = state.identityGenome.symmetryTendency
+
+    val baseFlow = if (hasDaily) daily.flowSpeed else (v.activityLevel * 0.6f + b.density * 0.4f)
+    val flow = baseFlow * surfaceFlow * motionFactor * nightFactor *
+        (0.85f + 0.3f * identityMotion) // 运动人格长效调制（§53）
+    val baseCoherence = if (hasDaily) daily.coherence else state.confidence.coerceIn(0f, 1f)
+    val coherence = (baseCoherence * (0.6f + 0.4f * identitySymmetry)).coerceIn(0f, 1f)
+    // 人生阶段漂移 → 慢湍流下限（§56：节律漂移进入视觉，但不突变）
+    val baseTurbulence = if (hasDaily) daily.turbulence else b.deviation
+    val turbulence = (baseTurbulence + state.lifeSeason.drift * 0.25f).coerceIn(0f, 1f)
+    val baseDensity = if (hasDaily) daily.particleDensity else (b.density * 0.9f + 0.1f)
+    val textureFactor = 0.9f + state.identityGenome.textureFamily * 0.05f
     val brightness = (dayFactor * (0.55f + v.activityLevel * 0.45f) * nightFactor).coerceIn(0.15f, 1f)
 
     return EchoVisualParameters(
         flowSpeed = flow.coerceIn(0f, 1f),
         coherence = coherence,
-        turbulence = b.deviation.coerceIn(0f, 1f),
-        particleDensity = (b.density * 0.9f + 0.1f).coerceIn(0f, 1f),
-        coreOpenness = maturityOpenness(maturity),
+        turbulence = turbulence,
+        particleDensity = (baseDensity * textureFactor).coerceIn(0f, 1f),
+        coreOpenness = if (hasDaily) daily.coreOpenness else maturityOpenness(maturity),
         dispersion = ((1f - coherence) * 0.5f + 0.2f).coerceIn(0.15f, 0.8f),
-        pulsePeriodSeconds = 5.6f - v.activityLevel * 1.8f, // 3.8s（活跃）~ 5.6s（平静）
-        depth = (0.3f + v.regularity * 0.7f).coerceIn(0.3f, 1f),
+        // 分钟级调制：呼吸周期优先（§59）；日级 pulse 次之；旧推导兜底
+        pulsePeriodSeconds = state.momentState.breathingPeriod.takeIf { it > 0f }
+            ?: daily.pulsePeriod.takeIf { it > 0f }
+            ?: (5.6f - v.activityLevel * 1.8f),
+        depth = if (hasDaily) daily.depth else (0.3f + v.regularity * 0.7f).coerceIn(0.3f, 1f),
         brightness = brightness,
-        contrast = (0.4f + b.deviation * 0.6f).coerceIn(0f, 1f),
-        accentIntensity = (0.3f + coherence * 0.7f).coerceIn(0f, 1f),
-        structureComplexity = maturityOpenness(maturity),
+        contrast = if (hasDaily) daily.contrast else (0.4f + b.deviation * 0.6f).coerceIn(0f, 1f),
+        accentIntensity = if (hasDaily) daily.accentIntensity else (0.3f + coherence * 0.7f).coerceIn(0f, 1f),
+        structureComplexity = if (hasDaily) daily.structureComplexity else maturityOpenness(maturity),
     )
+}
+
+/**
+ * ERA 14 §62 — EchoVisualMapper（正式冻结的映射链唯一入口）：
+ *
+ *   EchoPresenceState → EchoVisualMapper.map → EchoVisualParameters → EchoSceneRenderer
+ *
+ * 所有 Surface（APP/HOME_WALLPAPER/LOCK_SAFE/DREAM/LOW_POWER/REDUCED_MOTION）必须经此映射；
+ * 渲染器不得自行推导身份/季节/构图/调制参数。
+ */
+object EchoVisualMapper {
+    fun map(
+        state: EchoPresenceState,
+        hourOfDay: Float,
+        surface: SurfaceMode,
+        motionLevel: PresenceMotionLevel = PresenceMotionLevel.DEFAULT,
+        nightMode: Boolean = false,
+    ): EchoVisualParameters = computeVisualParameters(state, hourOfDay, surface, motionLevel, nightMode)
 }
 
 // ===== EchoSceneModel：共享帧模型（确定性；Compose / Wallpaper / Dream 三个渲染器共用） =====

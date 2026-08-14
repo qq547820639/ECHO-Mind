@@ -300,3 +300,16 @@
   3. **ERA 13.5 完成**：9 模块（:app + :core:model/:core:security/:core:ports + :feature:actions/:feature:observation/:feature:presence/:feature:intelligence/:feature:memory/:feature:journey）；§51 五条边界全部由编译器物理强制（observation 模块无 intelligence；presence 渲染无 Room；memory 无 Provider；intelligence 无 ui/data；feature 模块无 app 反向依赖）。
 - **理由**：§49 推荐目标（:app + 3 core + 6 feature）全部落地；不机械执行——EchoStateStore/Wallpaper/Dream/Collector 平台组件按语义留 :app。
 - **后果**：模块化 Era 完成 → ERA 14（ECHO Long-term Identity：IdentityGenome/LifeSeason/DailyComposition/MomentState 真实数据流）开始。
+
+## ADR-036：ERA 14 ECHO Long-term Identity（§52-§62 第一轮：四层真实数据流）
+
+- **决策**：
+  1. **§52 审计结论**：EchoIdentityGenome 此前只有 seed+accentHue（其余维度缺失）；LifeSeason/DailyComposition/MomentState 从未填充；rhythmDelta=0f 为 placeholder——按 §52 判定为未实现，本轮实现。
+  2. **IdentityGenome 七维（§53）**：seed/accentHue/colorFamily/textureFamily/coreTopology/symmetryTendency/orbitGeometry/motionPersonality；`deriveIdentityGenome`（installation random seed + 长期基线稳定性 + 视觉偏好混合 50/35/15）；**AppPreferences.identitySeed**（SecureRandom 一次性生成持久化，§54 禁 IMEI/Android ID/手机号/用户名 hash）。
+  3. **LifeSeason（§56/§57）**：`computeLifeSeason` 由近 60 天画像时间线计算（phaseIndex/真实 drift + 五类中性描述：later-earlier/more_fragmented-concentrated/more_variable-regular/more_mobile-less_mobile/more_regular-less_regular）；词表硬禁医学/心理结论（测试断言）。
+  4. **DailyComposition（§58）**：Identity + Ambient 向量确定性合成 12 维（一天内稳定）；**MomentState（§59）**：Ambient 向量 + 昼夜曲线（呼吸周期/噪声调制）。
+  5. **平滑（§60）**：`smoothPresenceState`（四视觉层 + confidence 按 alpha=0.35 插值；运行时字段直取新值）；**rhythmDelta = lifeSeason.drift**（§61 placeholder 移除）。
+  6. **EchoVisualMapper（§62）**：object 冻结映射链（EchoPresenceState → map → EchoVisualParameters → EchoSceneRenderer）；computeVisualParameters 消费四层（Identity 长效调制/Season 慢湍流/Daily 基座/Moment 呼吸周期），未填充层回退旧推导（Journey/旧快照兼容）。
+  7. **测试（§106）**：EchoIdentityTest 7 用例（determinism/偏好塑形不重置/季节中性词表禁词/phase 桶/日构图范围/时刻调制/平滑无瞬切/多 Surface 一致性 + lock-safe 无 narrative）。
+- **理由**：ECHO 已拥有 Presence，但尚无长期人格；§110 禁止「字段存在=实现完成」。
+- **后果**：Day 1/30/180 同一 ECHO（identity 确定性）；渲染器不再自行推导身份；下一轮 ERA 14 续：Wallpaper 不可见连续渲染=0 基准（§65）+ Motion Language 冻结（§66）。

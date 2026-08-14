@@ -73,16 +73,52 @@ data class AffectiveState(
     val certainty: AffectiveSignal,
 )
 
-/** 视觉身份基因组（数月/长期稳定；ERA 2 用 installationSeed + baseline digest 填充）。 */
+/**
+ * ERA 14 §53 — 视觉身份基因组（Day 1 / Day 30 / Day 180 同一个 ECHO）。
+ *
+ * 由 [deriveIdentityGenome] 从 installation random seed + 长期基线 + 视觉偏好确定性派生；
+ * 来源禁止 IMEI / Android ID / 手机号 / 用户名 hash（§54）。
+ */
 data class EchoIdentityGenome(
+    /** 视觉种子（installation random seed）。 */
     val seed: Long = 0L,
+    /** 主色相 0..1。 */
     val accentHue: Float = 0f,
+    /** 颜色族 0..4。 */
+    val colorFamily: Int = 0,
+    /** 纹理族 0..3。 */
+    val textureFamily: Int = 0,
+    /** 核心拓扑 0..1（1 = 高度对称）。 */
+    val coreTopology: Float = 0f,
+    /** 对称倾向 0..1。 */
+    val symmetryTendency: Float = 0f,
+    /** 轨道几何 0..1（0 = 环状，1 = 弥散）。 */
+    val orbitGeometry: Float = 0f,
+    /** 运动人格 0..1（0 = 安静，1 = 活跃）。 */
+    val motionPersonality: Float = 0f,
 )
 
-/** 人生阶段视觉层（数周/数月；ERA 2+ 填充）。 */
+/**
+ * ERA 14 §56/§57 — 人生阶段视觉层（数周/数月变化）。
+ *
+ * 只允许中性描述（later rhythm / more fragmented / more variable / less mobile / more regular）；
+ * 禁止自动推断医学/心理结论（depressed/anxious/burned out 永不出现在字段与文案）。
+ */
 data class EchoLifeSeason(
+    /** 阶段桶：0 = <7 天基线；1 = 7-30；2 = 30-90；3 = 90+。 */
     val phaseIndex: Int = 0,
+    /** 跨日节律漂移幅度 0..1（真实计算，ERA 14 起非 0）。 */
     val drift: Float = 0f,
+    /** 节律漂移方向：later / earlier / stable。 */
+    val rhythmShift: String = "stable",
+    /** 屏幕碎片化：more_fragmented / stable / more_concentrated。 */
+    val screenFragmentation: String = "stable",
+    /** 活动变异性：more_variable / stable / more_regular。 */
+    val activityVariability: String = "stable",
+    /** 移动趋势：more_mobile / stable / less_mobile。 */
+    val mobilityTrend: String = "stable",
+    /** 规律性：more_regular / stable / less_regular。 */
+    val regularityTrend: String = "stable",
 )
 
 /** 每日构图视觉层（一天级）。 */

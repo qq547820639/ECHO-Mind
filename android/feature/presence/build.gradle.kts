@@ -32,6 +32,7 @@ detekt {
 
 dependencies {
     implementation(project(":feature:observation"))
+    implementation(project(":core:model"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.compose.runtime)
