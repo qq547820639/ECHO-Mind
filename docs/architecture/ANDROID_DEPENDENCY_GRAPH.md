@@ -7,17 +7,17 @@
 ## 1. 领域包图（com.yunjue.echo.mind.*，顶层领域聚合）
 
 ```text
-data ──► AppPreferences, BuildConfig, EchoMindApplication, PassiveSensingPrefs, memory, observation, presence, security
-di ──► AppPreferences, PassiveSensingPrefs, data, intelligence, presence, security
+data ──► memory, observation, presence, root, security
+di ──► data, intelligence, presence, root, security
 intelligence ──► memory, observation, ports, security
-journey ──► AppPreferences, data, intelligence, observation, presence
+journey ──► data, intelligence, observation, presence, root
 me ──► data, memory, observation
 memory ──► ports
-observation ──► AppPreferences, EchoMindApplication, PassiveSensingPrefs, enqueueSync
+observation ──► root
 ports ──► memory, observation, presence
-presence ──► AppPreferences, observation
-runtime ──► AppPreferences, PassiveSensingPrefs, data, intelligence, observation, presence
-ui ──► AppContainer, AppPreferences, R, actions, data, intelligence, journey, me, memory, observation, presence
+presence ──► observation, root
+runtime ──► data, intelligence, observation, presence, root
+ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root
 ```
 
 ## 2. 领域文件数（实测）
@@ -40,51 +40,40 @@ ui ──► AppContainer, AppPreferences, R, actions, data, intelligence, journ
 
 ## 3. 跨领域边清单
 
-- data → AppPreferences
-- data → BuildConfig
-- data → EchoMindApplication
-- data → PassiveSensingPrefs
 - data → memory
 - data → observation
 - data → presence
+- data → root
 - data → security
-- di → AppPreferences
-- di → PassiveSensingPrefs
 - di → data
 - di → intelligence
 - di → presence
+- di → root
 - di → security
 - intelligence → memory
 - intelligence → observation
 - intelligence → ports
 - intelligence → security
-- journey → AppPreferences
 - journey → data
 - journey → intelligence
 - journey → observation
 - journey → presence
+- journey → root
 - me → data
 - me → memory
 - me → observation
 - memory → ports
-- observation → AppPreferences
-- observation → EchoMindApplication
-- observation → PassiveSensingPrefs
-- observation → enqueueSync
+- observation → root
 - ports → memory
 - ports → observation
 - ports → presence
-- presence → AppPreferences
 - presence → observation
-- runtime → AppPreferences
-- runtime → PassiveSensingPrefs
+- presence → root
 - runtime → data
 - runtime → intelligence
 - runtime → observation
 - runtime → presence
-- ui → AppContainer
-- ui → AppPreferences
-- ui → R
+- runtime → root
 - ui → actions
 - ui → data
 - ui → intelligence
@@ -93,6 +82,7 @@ ui ──► AppContainer, AppPreferences, R, actions, data, intelligence, journ
 - ui → memory
 - ui → observation
 - ui → presence
+- ui → root
 
 ## 4. 循环
 

@@ -32,7 +32,11 @@ def domain_of(pkg: str) -> str:
         key = ".".join(parts[:i])
         if key in DOMAIN_OF:
             return DOMAIN_OF[key]
-    return "ui" if parts[0] == "ui" else parts[0] if parts else "root"
+    if not parts:
+        return "root"
+    if len(parts) == 1:
+        return "root"  # 根级顶层函数/类（AppPreferences/openDatabase 等）
+    return "ui" if parts[0] == "ui" else parts[0]
 
 
 def main() -> int:
