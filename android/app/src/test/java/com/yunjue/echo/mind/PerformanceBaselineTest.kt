@@ -1,5 +1,9 @@
 package com.yunjue.echo.mind
 
+import com.yunjue.echo.mind.intelligence.DataSourceCategory
+import com.yunjue.echo.mind.intelligence.EchoContextCompiler
+import com.yunjue.echo.mind.intelligence.EvidenceItem
+import com.yunjue.echo.mind.intelligence.ReasoningTaskId
 import com.yunjue.echo.mind.journey.JourneyDay
 import com.yunjue.echo.mind.journey.buildYearView
 import com.yunjue.echo.mind.journey.journeyDayParams
@@ -9,7 +13,15 @@ import com.yunjue.echo.mind.memory.RetentionClass
 import com.yunjue.echo.mind.memory.rankMemories
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
+import com.yunjue.echo.mind.presence.AmbientVector
+import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.presence.PresenceMotionLevel
+import com.yunjue.echo.mind.presence.buildDailyComposition
+import com.yunjue.echo.mind.presence.buildMomentState
 import com.yunjue.echo.mind.presence.computeLifeSeason
+import com.yunjue.echo.mind.presence.deriveIdentityGenome
+import com.yunjue.echo.mind.presence.echoMaturity
+import com.yunjue.echo.mind.presence.smoothPresenceState
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -114,5 +126,69 @@ class PerformanceBaselineTest {
             buildYearView(emptyList(), emptyList(), emptyMap())
         }
         assertTrue("空输入组合耗时 ${"%.1f".format(ms)}ms 超出预算 200ms", ms < 200.0)
+    }
+
+    /** PART PERFORMANCE：Presence assembly（Identity + LifeSeason + Daily + Moment + 平滑）全链纯函数。 */
+    @Test
+    fun presenceAssemblyStaysUnderBudget() {
+        val start = LocalDate.of(2026, 1, 1)
+        val portraits = (0 until 60).map { i ->
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = (i % 30) + 3)
+        }
+        val vector = AmbientVector(
+            activation = 0.5f, regularity = 0.6f, density = 0.4f, deviation = 0.3f, confidence = 0.7f,
+        )
+        var previous: EchoPresenceState? = null
+        val ms = measureMs(3) {
+            repeat(200) {
+                val identity = deriveIdentityGenome(seed = 42L, baselineStability = vector.regularity, motionPreference = PresenceMotionLevel.DEFAULT)
+                val season = computeLifeSeason(portraits)
+                val daily = buildDailyComposition(identity, vector)
+                val moment = buildMomentState(vector, hourOfDay = 14f)
+                val assembled = EchoPresenceState(
+                    updatedAt = java.time.Instant.EPOCH,
+                    maturity = echoMaturity(30),
+                    identityGenome = identity,
+                    lifeSeason = season,
+                    dailyComposition = daily,
+                    momentState = moment,
+                )
+                previous = smoothPresenceState(previous, assembled, alpha = 0.35f)
+            }
+        }
+        assertTrue("Presence 装配 200 次耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
+    }
+
+    /** PART PERFORMANCE：Context retrieval（§69 排序 + 预算 + token 截断，500 条证据编译）。 */
+    @Test
+    fun contextCompilationStaysUnderBudget() {
+        val evidence = (0 until 500).map { i ->
+            val category = when (i % 6) {
+                0 -> DataSourceCategory.PORTRAIT_HISTORY
+                1 -> DataSourceCategory.BASELINE
+                2 -> DataSourceCategory.TODAY_AGGREGATE
+                3 -> DataSourceCategory.USER_CORRECTIONS
+                4 -> DataSourceCategory.CONTEXT_EXCEPTIONS
+                else -> DataSourceCategory.RAW_NOTIFICATIONS // 禁止数据：编译必须剔除（最小权限路径开销）
+            }
+            EvidenceItem(
+                category = category,
+                label = "证据 $i",
+                text = "这是第 $i 条个人节律证据，内容用于上下文编译预算测试。",
+                id = "e$i",
+                type = if (i % 5 == 0) "memory" else "observation",
+                confidence = (i % 100) / 100f,
+            )
+        }
+        val ms = measureMs(3) {
+            repeat(20) {
+                EchoContextCompiler.compile(
+                    task = ReasoningTaskId.FIND_LONGITUDINAL_PATTERN,
+                    evidence = evidence,
+                    question = "最近一个月我的节律有什么变化？",
+                )
+            }
+        }
+        assertTrue("上下文编译 20 次耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
     }
 }

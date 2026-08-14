@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**收尾轮完成 ✅（e2e 测试时长 2:52→1:52 + osv-scanner 本地化尝试）→ 下一轮：osv 全仓本地首跑（网络恢复后）或剩余冻结项复核**
+**性能基线补齐轮完成 ✅（Presence 装配 + Context 编译入 JVM 防退化门禁；osv-scanner 本地安装确认被网络阻断）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -62,6 +62,7 @@
 - **§96 收尾轮**：backend 依赖锁定（backend/uv.lock：51 包精确版本 + 完整闭包；`uv lock --check` 接入 backend-ci + release_preflight 漂移门禁；venv 已 uv sync --extra dev 对齐——backend 实测 1070 passed + 1 skipped / ruff 0 / mypy 0）；SBOM 升级（backend 段读 uv.lock 精确版本；时间戳锚定 version_source.json sbom_created_utc——版本冻结、commit 无关；clean-room 门禁验证字节级确定性，含 chore 提交后重生成）
 - **依赖审计本地化轮**：scripts/audit_dependencies.py（uv.lock → uv export → pip-audit OSV + osv-scanner 本地可选/CI 强制；入 release_preflight + security-ci 同构）；首跑命中并修复 cryptography 漏洞链（46.0.7 → 48.0.1 → 49.0.0 三级串联 → pin `>=50,<51`，uv.lock 重解析 + venv 重同步 + 全量测试复核）；backend 6 用例日期边界 flaky 修复（weekend 桶播种不足 + test_messages 固定日期过期——e2e `_seed_history` 双桶各 ≥7 日 + messages 实时今天；与 cryptography 升级无关已交叉验证）
 - **收尾轮**：backend 测试时长优化（`_seed_history` 每日窗口 120→80，覆盖 0.28 安全边际；全量 2:52 → **1:52**，e2e+messages 17 用例 2:18 → 1:36，断言语义不变）；osv-scanner 本地化尝试（GitHub release-assets 网络超时——本地如实 NOT RUN 豁免，security-ci 强制执行不变）
+- **性能基线补齐轮**：PerformanceBaselineTest 增 Presence 装配全链（200 次 <2s）与 Context 编译（500 证据 ×20 次 <2s，含禁止数据剔除路径）——PART PERFORMANCE 的 JVM 可代表项全部有防退化预算；PERFORMANCE_BASELINES.md 六行预算表
 
 ## In Progress
 
@@ -106,4 +107,4 @@
 
 ## Next Highest-value Task
 
-osv-scanner 全仓本地首跑（本地网络对 GitHub release-assets 超时——网络恢复后安装记录）；Affective 激活等待 §8/§9/§10 评审。
+剩余冻结项复核（Affective §8/§9/§10 评审等待中，评估框架与冻结测试已就绪）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

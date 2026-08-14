@@ -13,6 +13,8 @@
 | Life Season 计算 | 365 画像窗口 | < 1000 ms | §56 数周/月窗口 |
 | Memory 排序（JVM 重排） | 1000 条 | < 1000 ms | §109：SQL 侧已 LIMIT + 复合索引（v11），JVM 只重排候选 |
 | 空/单条边界组合 | empty | < 200 ms | 边界不退化 |
+| Presence 装配全链（Identity + LifeSeason + Daily + Moment + 平滑） | 200 次（60 天窗口） | < 2000 ms | PART PERFORMANCE「Presence assembly」 |
+| Context 编译（§68 排序 + §69 三重预算 + token 截断；含禁止数据剔除路径） | 500 条证据 × 20 次 | < 2000 ms | PART PERFORMANCE「Context retrieval」纯函数段 |
 
 ## 长历史策略（§108/§109 已落地）
 
