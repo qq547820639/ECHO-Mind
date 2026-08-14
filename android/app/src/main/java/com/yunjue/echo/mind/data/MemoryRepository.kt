@@ -6,6 +6,8 @@ import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.memory.RetentionClass
 import com.yunjue.echo.mind.memory.defaultRetentionFor
 import com.yunjue.echo.mind.memory.DerivedPattern
+import com.yunjue.echo.mind.memory.contextExceptionContent
+import com.yunjue.echo.mind.memory.contextExceptionInfo
 import com.yunjue.echo.mind.memory.derivePatterns
 import com.yunjue.echo.mind.memory.memoryDecayScore
 import com.yunjue.echo.mind.memory.rankMemories
@@ -140,13 +142,12 @@ class MemoryRepository(
         return created
     }
 
-    /** ERA 15.5 §78/§79：用户解释优先（Context Exception 用户入口统一写点）。 */
-    suspend fun recordContextException(kind: String, note: String) {
-        val content = buildString {
-            append("特殊时期：")
-            append(kind.ifBlank { "其他" })
-            if (note.isNotBlank()) append("（$note）")
-        }
+    /**
+     * ERA 15.5 §78/§79：用户解释优先（Context Exception 用户入口统一写点）。
+     * ERA 16 §86：可选 [date] 使特殊时期可定位到时间线（Journey 年视图/河流 SPECIAL 段）。
+     */
+    suspend fun recordContextException(kind: String, note: String, date: String? = null) {
+        val content = contextExceptionContent(kind, note, date)
         record(
             type = MemoryType.CONTEXT,
             content = content,
@@ -156,6 +157,15 @@ class MemoryRepository(
             importance = 70,
         )
     }
+
+    /** 带日期的上下文例外（date → kind；Journey 时间线用；无日期信息的不进入）。 */
+    suspend fun contextExceptions(): Map<String, String> =
+        byType(MemoryType.CONTEXT)
+            .mapNotNull { memory ->
+                val info = contextExceptionInfo(memory.content) ?: return@mapNotNull null
+                info.date?.let { date -> date to info.kind }
+            }
+            .toMap()
 
     /** 自动过期清理（软删）；返回清理条数。 */
     suspend fun purgeExpired(now: Long = System.currentTimeMillis()): Int {

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.journey.JourneyEvent
+import com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs
 import com.yunjue.echo.mind.journey.JourneyNarrative
 import com.yunjue.echo.mind.journey.JourneyPort
 import com.yunjue.echo.mind.journey.JourneyScale
@@ -29,7 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * ERA 13 §23 — JourneyViewModel：Journey 唯一业务逻辑持有者。
+ * ERA 13 §23 + ERA 16 §83/§84 — JourneyViewModel：Journey 唯一业务逻辑持有者。
  *
  * 分层：JourneyScreen → JourneyViewModel → JourneyRepository（应用服务）→ 数据实现。
  * Screen 不再直接持有任何 Repository / AiNarrativeService / ContextRetriever / AppPreferences；
@@ -44,10 +45,15 @@ class JourneyViewModel(
     private val _showEvidence = MutableStateFlow(false)
     private val _narrative = MutableStateFlow<JourneyNarrative?>(null)
     private val _runtime = MutableStateFlow<JourneyRuntimeSnapshot?>(null)
+    /** ERA 16 §78/§86：用户自述特殊日期（date → kind）。 */
+    private val _contextExceptions = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** ERA 16 §84：历史重建选中日期（null = 未选择）。 */
+    private val _selectedDayDate = MutableStateFlow<String?>(null)
 
     private val consent = repository.consentFlow
     private val permissionEnabled = repository.permissionEnabledFlow
     private val journeySeed = repository.journeySeed()
+    private val canonicalDays = repository.canonicalDays
 
     /** 画像时间线（随尺度切换窗口）。 */
     private val timeline: kotlinx.coroutines.flow.Flow<PortraitTimelineUiState> = _scale
@@ -55,13 +61,14 @@ class JourneyViewModel(
         .distinctUntilChanged()
         .flatMapLatest { days -> repository.timeline(days) }
 
-    /** combine 中间态（5 流 + 1 流，因 combine 最多 5 个参数）。 */
+    /** combine 中间态（5 流 + 4 流，因 combine 最多 5 个参数）。 */
     private data class CombineCore(
         val scale: JourneyScale,
         val timeline: PortraitTimelineUiState,
         val permissionEnabled: Boolean,
         val narrative: JourneyNarrative?,
         val runtime: JourneyRuntimeSnapshot?,
+        val memory: JourneyMemoryAssemblyInputs,
     )
 
     /** 单一 UI 状态（纯函数装配；Screen 只消费）。 */
@@ -72,7 +79,20 @@ class JourneyViewModel(
         _narrative,
         _runtime,
     ) { scale, tl, perm, narrative, runtime ->
-        CombineCore(scale = scale, timeline = tl, permissionEnabled = perm, narrative = narrative, runtime = runtime)
+        CombineCore(
+            scale = scale,
+            timeline = tl,
+            permissionEnabled = perm,
+            narrative = narrative,
+            runtime = runtime,
+            memory = JourneyMemoryAssemblyInputs(),
+        )
+    }.combine(canonicalDays) { core, canonical ->
+        core.copy(memory = core.memory.copy(canonicalDays = canonical))
+    }.combine(_contextExceptions) { core, exceptions ->
+        core.copy(memory = core.memory.copy(contextExceptions = exceptions))
+    }.combine(_selectedDayDate) { core, selectedDate ->
+        core.copy(memory = core.memory.copy(selectedDayDate = selectedDate))
     }.combine(_showEvidence) { core, showEvidence ->
         val snapshot = core.runtime
         val sync = JourneySyncStatus(
@@ -94,6 +114,7 @@ class JourneyViewModel(
             intelligenceAvailable = repository.intelligenceAvailable(),
             syncStatus = sync,
             journeySeed = journeySeed,
+            memory = core.memory,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -126,13 +147,18 @@ class JourneyViewModel(
         }
     }
 
-    /** Screen 唯一交互入口（§25）。 */
+    /** Screen 唯一交互入口（§25 + §84）。 */
     fun onEvent(event: JourneyEvent) {
         when (event) {
-            is JourneyEvent.SelectScale -> _scale.value = event.scale
+            is JourneyEvent.SelectScale -> {
+                _scale.value = event.scale
+                _selectedDayDate.value = null
+            }
             JourneyEvent.Refresh -> refresh()
             JourneyEvent.ToggleEvidence -> _showEvidence.value = !_showEvidence.value
             JourneyEvent.AskAboutPeriod, JourneyEvent.RetryNarrative -> regenerateNarrative()
+            is JourneyEvent.SelectDay ->
+                _selectedDayDate.value = if (_selectedDayDate.value == event.date) null else event.date
         }
     }
 
@@ -143,6 +169,10 @@ class JourneyViewModel(
         viewModelScope.launch {
             repository.refresh(journeyWindowDays(_scale.value))
             _runtime.value = repository.runtimeSnapshot(consent.first())
+            // ERA 16 §83：进入 Journey 即快照今天的 Canonical Daily State（幂等覆盖）
+            runCatching { repository.snapshotToday() }
+            // ERA 16 §86：用户自述特殊日期进入时间线
+            _contextExceptions.value = runCatching { repository.contextExceptions() }.getOrDefault(emptyMap())
         }
     }
 

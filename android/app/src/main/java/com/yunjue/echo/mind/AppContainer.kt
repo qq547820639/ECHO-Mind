@@ -231,6 +231,27 @@ internal val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+/**
+ * v9 → v10 迁移（ERA 16 Journey 长期记忆）：新增 journey_canonical_days 表
+ * （Canonical Daily State 最小事实快照，payload 为编解码字符串，无 bitmap）。
+ * 纯增量 CREATE TABLE IF NOT EXISTS（幂等），无数据改写；旧表不动。
+ */
+internal val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS journey_canonical_days (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                localDate TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                createdAtEpochMs INTEGER NOT NULL
+            )"""
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_journey_canonical_days_localDate ON journey_canonical_days (localDate)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_journey_canonical_days_userId ON journey_canonical_days (userId)")
+    }
+}
+
 class AppContainer(context: Context) {
     /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
     val applicationContext: Context = context.applicationContext
@@ -243,6 +264,8 @@ class AppContainer(context: Context) {
     val memory = com.yunjue.echo.mind.di.MemoryContainer(core)
     val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(core, observation, memory)
     val actions = com.yunjue.echo.mind.di.ActionContainer(core)
+    /** ERA 13/16：Journey 应用层容器（跨 observation/presence/intelligence/memory/core）。 */
+    val journey = com.yunjue.echo.mind.di.JourneyContainer(core, observation, presence, memory, intelligence)
 
     // ===== 跨域编排（composition root 职责） =====
     /** v2 §13：Echo Runtime 协调器（六态/Presence/Provider 统一广播）。 */
@@ -253,17 +276,10 @@ class AppContainer(context: Context) {
         presenceRepository = presence.presenceRepository,
         aiProviderManager = intelligence.aiProviderManager,
     )
-    /** ERA 13 §26：Journey Application Layer（跨 observation/intelligence/memory/core）。 */
-    val journeyRepository = com.yunjue.echo.mind.journey.JourneyRepository(
-        portraitRepository = observation.portraitRepository,
-        syncStateRepository = core.syncStateRepository,
-        featureFlagRepository = core.featureFlagRepository,
-        aiNarrativeService = intelligence.aiNarrativeService,
-        contextRetriever = intelligence.contextRetriever,
-        preferences = core.preferences,
-        appContext = core.applicationContext,
-        hasIntelligence = { intelligence.aiProviderManager.hasProvider() },
-    )
+    /** ERA 13 §26：Journey Application Layer（由 JourneyContainer 持有构造职责）。 */
+    val journeyRepository = journey.journeyRepository
+    /** ERA 16 §83：Journey Canonical Daily State 存储（JourneyContainer 持有）。 */
+    val journeyMemoryRepository = journey.journeyMemoryRepository
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
     val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(actions.skillRepository)
 
@@ -329,7 +345,7 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                MIGRATION_7_8, MIGRATION_8_9
+                MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
             )
             .openHelperFactory(SupportFactory(passphrase))
             .build()

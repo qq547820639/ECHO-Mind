@@ -78,6 +78,8 @@ class LocalDataRights(
             db.dao().deleteFeatureVectorsByUser(userId)
             db.portraitDao().deleteByUser(userId)
             db.consentDao().deleteConsentsByUser(userId)
+            db.memoryDao().deleteByUser(userId)
+            db.journeyCanonicalDao().deleteByUser(userId)
         }
     }
 }

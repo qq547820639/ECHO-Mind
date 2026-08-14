@@ -468,4 +468,103 @@ class DatabaseMigrationTest {
         assertEquals(3, dao.queryByDateRange("u_test", "2026-08-01", "2026-08-31").size)
         assertEquals(0, dao.queryByDateRange("u_other", "2026-08-01", "2026-08-31").size)
     }
+
+    // ===== ERA 16：v9 → v10（journey_canonical_days） =====
+
+    @Test
+    fun v10DatabaseHasJourneyCanonicalDaysTable() {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        assertTrue("journey_canonical_days 应存在于 v10 schema", tableNames().contains("journey_canonical_days"))
+    }
+
+    @Test
+    fun migration910CreatesJourneyCanonicalDaysTable() {
+        // 用 v9 库（无 journey_canonical_days）执行 MIGRATION_9_10，验证建表成功且幂等
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-910-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(9) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) = Unit
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            assertFalse("迁移前无 journey_canonical_days 表", hasTable(rawDb, "journey_canonical_days"))
+            MIGRATION_9_10.migrate(rawDb)
+            assertTrue("MIGRATION_9_10 应创建 journey_canonical_days", hasTable(rawDb, "journey_canonical_days"))
+            // 幂等：重复执行不报错
+            MIGRATION_9_10.migrate(rawDb)
+            assertTrue("重复迁移应幂等", hasTable(rawDb, "journey_canonical_days"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    @Test
+    fun journeyCanonicalDaoUpsertQueryRangeAndUserIsolation() = runBlocking {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val dao = db!!.journeyCanonicalDao()
+
+        dao.upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "u_test_2026-08-08",
+                userId = "u_test",
+                localDate = "2026-08-08",
+                payload = "v1|2026-08-08|1|KNOWN|a|b|c|d|e|f|g|h|i|j|k|l|1|0.5|2|1|0.6|0.7|0.4|0.5|portrait:2026-08-08|1",
+                createdAtEpochMs = 1L,
+            )
+        )
+        dao.upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "u_test_2026-08-09",
+                userId = "u_test",
+                localDate = "2026-08-09",
+                payload = "v1|2026-08-09|1|KNOWN|a|b|c|d|e|f|g|h|i|j|k|l|1|0.5|2|1|0.6|0.7|0.4|0.5|portrait:2026-08-09|2",
+                createdAtEpochMs = 2L,
+            )
+        )
+
+        // 区间查询（SQL 层按 userId 隔离）
+        val range = dao.range("u_test", "2026-08-01", "2026-08-31")
+        assertEquals(2, range.size)
+        assertEquals(listOf("2026-08-08", "2026-08-09"), range.map { it.localDate })
+        assertEquals(0, dao.range("u_other", "2026-08-01", "2026-08-31").size)
+        assertEquals(2, dao.countByUser("u_test"))
+
+        // REPLACE：同 id 覆盖（同日快照幂等）
+        dao.upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "u_test_2026-08-09",
+                userId = "u_test",
+                localDate = "2026-08-09",
+                payload = "v1|2026-08-09|2|KNOWN|a|b|c|d|e|f|g|h|i|j|k|l|1|0.5|2|1|0.6|0.7|0.4|0.5|portrait:2026-08-09|3",
+                createdAtEpochMs = 3L,
+            )
+        )
+        assertEquals(2, dao.countByUser("u_test"))
+        assertTrue(
+            "REPLACE 应覆盖同日快照",
+            dao.byId("u_test_2026-08-09")?.payload?.startsWith("v1|2026-08-09|2|KNOWN") == true
+        )
+
+        // 数据权利：deleteByUser 只清指定用户
+        dao.upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "u_other_2026-08-08",
+                userId = "u_other",
+                localDate = "2026-08-08",
+                payload = "v1|2026-08-08|1|KNOWN|a|b|c|d|e|f|g|h|i|j|k|l|1|0.5|2|1|0.6|0.7|0.4|0.5|portrait:2026-08-08|1",
+                createdAtEpochMs = 1L,
+            )
+        )
+        dao.deleteByUser("u_other")
+        assertEquals(2, dao.countByUser("u_test"))
+        assertEquals(0, dao.countByUser("u_other"))
+    }
 }

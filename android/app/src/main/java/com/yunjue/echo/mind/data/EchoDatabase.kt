@@ -371,6 +371,51 @@ interface MemoryDao {
     suspend fun deleteByUser(userId: String)
 }
 
+/**
+ * ERA 16 §83 — Journey Canonical Daily State 持久化（Room v10）。
+ *
+ * 每天一行「当天 ECHO 长什么样」的最小事实（payload = [JourneyCanonicalCodec] v1 编码，
+ * 只存视觉参数/身份参考/成熟度/证据 id——绝不保存 bitmap）。
+ * - id = "${userId}_${localDate}"（同日覆盖 = 幂等快照）
+ * - 所有查询 SQL 层按 userId 隔离（同 portrait_daily 语义）
+ */
+@Entity(
+    tableName = "journey_canonical_days",
+    indices = [Index(value = ["localDate"]), Index(value = ["userId"])]
+)
+data class JourneyCanonicalDayEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val localDate: String,
+    val payload: String,
+    val createdAtEpochMs: Long
+)
+
+@Dao
+interface JourneyCanonicalDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(value: JourneyCanonicalDayEntity)
+
+    @Query("SELECT * FROM journey_canonical_days WHERE userId = :userId ORDER BY localDate ASC")
+    fun observeByUser(userId: String): Flow<List<JourneyCanonicalDayEntity>>
+
+    @Query("SELECT * FROM journey_canonical_days WHERE id = :id")
+    suspend fun byId(id: String): JourneyCanonicalDayEntity?
+
+    @Query(
+        "SELECT * FROM journey_canonical_days WHERE userId = :userId " +
+            "AND localDate >= :from AND localDate <= :to ORDER BY localDate ASC"
+    )
+    suspend fun range(userId: String, from: String, to: String): List<JourneyCanonicalDayEntity>
+
+    @Query("SELECT COUNT(*) FROM journey_canonical_days WHERE userId = :userId")
+    suspend fun countByUser(userId: String): Int
+
+    /** 本地数据权利：物理删除某用户全部 Canonical 快照。 */
+    @Query("DELETE FROM journey_canonical_days WHERE userId = :userId")
+    suspend fun deleteByUser(userId: String)
+}
+
 @Database(
     entities = [
         CheckinEntity::class,
@@ -383,9 +428,10 @@ interface MemoryDao {
         ActiveSkillSessionEntity::class,
         EscalationEntity::class,
         DailyPortraitEntity::class,
-        EchoMemoryEntity::class
+        EchoMemoryEntity::class,
+        JourneyCanonicalDayEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {
@@ -394,4 +440,5 @@ abstract class EchoDatabase : RoomDatabase() {
     abstract fun escalationDao(): EscalationDao
     abstract fun portraitDao(): PortraitDao
     abstract fun memoryDao(): MemoryDao
+    abstract fun journeyCanonicalDao(): JourneyCanonicalDao
 }

@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.ui.journey
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -126,6 +127,7 @@ private fun JourneyContent(state: JourneyUiState, viewModel: JourneyViewModel) {
         periods = state.visualPeriods,
         seed = state.journeySeed,
         feedback = viewModel::feedback,
+        onSelectDay = { date -> viewModel.onEvent(JourneyEvent.SelectDay(date)) },
     )
 
     // 2. 长期叙事（变化发生在叙事里，图表只是依据）
@@ -152,7 +154,18 @@ private fun JourneyContent(state: JourneyUiState, viewModel: JourneyViewModel) {
         }
     }
 
-    // 3. Evidence Layer：查看依据（定量证据，非第一视觉）
+    // 3. ERA 16 §84-§87 — Journey 长期记忆（河流 / 年视图 / 阶段解释 / 历史重建）
+    VisualMemoryRiverRow(segments = state.riverSegments, seed = state.journeySeed)
+    SeasonExplanationSection(lines = state.seasonExplanation)
+    YearViewSection(state = state, seed = state.journeySeed)
+    HistoricalReconstructionSection(
+        day = state.selectedDay,
+        canonical = state.selectedCanonical,
+        fallbackSeed = state.journeySeed,
+        explanation = state.selectedDayExplanation,
+    )
+
+    // 4. Evidence Layer：查看依据（定量证据，非第一视觉）
     HorizontalDivider()
     TextButton(onClick = { viewModel.onEvent(JourneyEvent.ToggleEvidence) }) {
         Text(if (state.showEvidence) "收起依据" else "查看依据")
@@ -192,6 +205,7 @@ private fun VisualMemoryRiver(
     periods: List<JourneyPeriod>,
     seed: Long,
     feedback: (String) -> Boolean?,
+    onSelectDay: (String) -> Unit,
 ) {
     when (scale) {
         JourneyScale.DAY -> {
@@ -207,10 +221,11 @@ private fun VisualMemoryRiver(
                         seed = seed,
                         label = "${day.monthValue}/${day.dayOfMonth}",
                         mark = feedback(day.toString())?.let { if (it) "✓" else "✗" } ?: " ",
+                        onClick = { onSelectDay(day.toString()) },
                     )
                 }
             }
-            Text("✓ 你觉得像 · ✗ 你觉得不太像", style = MaterialTheme.typography.labelSmall)
+            Text("✓ 你觉得像 · ✗ 你觉得不太像 · 点按任意一天 = 那一天的回声", style = MaterialTheme.typography.labelSmall)
         }
         else -> {
             Row(
@@ -242,9 +257,13 @@ private fun JourneyThumbCell(
     seed: Long,
     label: String,
     mark: String,
+    onClick: () -> Unit,
 ) {
     val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick),
+    ) {
         Canvas(Modifier.size(52.dp)) {
             val frame = journeyDay?.visualParams?.let {
                 computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)

@@ -151,6 +151,92 @@ class JourneyUiStateAssemblyTest {
         assertEquals(day.journeySeed, year.journeySeed)
     }
 
+    // ===== ERA 16 §81-§87 =====
+
+    @Test
+    fun dayScaleBuildsRiverSegments() {
+        val state = assemble(scale = JourneyScale.DAY, timeline = freshTimeline(7))
+        assertTrue(state.riverSegments.isNotEmpty())
+        assertTrue(state.yearView == null) // 年视图仅 YEAR 尺度
+        assertTrue(state.seasonExplanation.isEmpty()) // 阶段解释仅 SEASON/YEAR
+    }
+
+    @Test
+    fun yearScaleBuildsYearViewAndSeasonExplanation() {
+        val state = assemble(scale = JourneyScale.YEAR, timeline = freshTimeline(365))
+        assertNotNull(state.yearView)
+        assertTrue(state.yearView!!.seasons.isNotEmpty())
+        assertTrue(state.riverSegments.isNotEmpty())
+    }
+
+    @Test
+    fun contextExceptionsMarkSpecialRiverSegments() {
+        val state = assembleJourneyUiState(
+            scale = JourneyScale.DAY,
+            timeline = freshTimeline(7),
+            permissionEnabled = true,
+            narrative = null,
+            runtimeAvailability = null,
+            runtimeDiagnostics = null,
+            showEvidence = false,
+            intelligenceAvailable = true,
+            syncStatus = JourneySyncStatus(permissionEnabled = true),
+            journeySeed = 42L,
+            memory = JourneyMemoryAssemblyInputs(
+                contextExceptions = mapOf("2026-08-12" to "travel"),
+            ),
+        )
+        assertTrue(
+            "特殊日期应产生 SPECIAL 河段",
+            state.riverSegments.any { it.kind == RiverSegmentKind.SPECIAL }
+        )
+    }
+
+    @Test
+    fun selectedDaySurfacesReconstructionInputs() {
+        val state = assembleJourneyUiState(
+            scale = JourneyScale.DAY,
+            timeline = freshTimeline(7),
+            permissionEnabled = true,
+            narrative = null,
+            runtimeAvailability = null,
+            runtimeDiagnostics = null,
+            showEvidence = false,
+            intelligenceAvailable = true,
+            syncStatus = JourneySyncStatus(permissionEnabled = true),
+            journeySeed = 42L,
+            memory = JourneyMemoryAssemblyInputs(
+                selectedDayDate = "2026-08-12",
+                canonicalDays = emptyList(),
+            ),
+        )
+        assertEquals("2026-08-12", state.selectedDay?.date)
+        assertNull(state.selectedCanonical) // 无 Canonical 快照 → 不编造
+    }
+
+    @Test
+    fun canonicalDaysArePassedThroughForHistoricalReconstruction() {
+        val canonical = canonicalDay("2026-08-12", seed = 42L)
+        val state = assembleJourneyUiState(
+            scale = JourneyScale.DAY,
+            timeline = freshTimeline(7),
+            permissionEnabled = true,
+            narrative = null,
+            runtimeAvailability = null,
+            runtimeDiagnostics = null,
+            showEvidence = false,
+            intelligenceAvailable = true,
+            syncStatus = JourneySyncStatus(permissionEnabled = true),
+            journeySeed = 42L,
+            memory = JourneyMemoryAssemblyInputs(
+                selectedDayDate = "2026-08-12",
+                canonicalDays = listOf(canonical),
+            ),
+        )
+        assertEquals(canonical, state.selectedCanonical)
+        assertEquals(listOf(canonical), state.canonicalDays)
+    }
+
     private fun freshTimeline(days: Int): PortraitTimelineUiState {
         val start = java.time.LocalDate.of(2026, 8, 14).minusDays((days - 1).toLong())
         val portraits = (0 until days).map { i ->

@@ -22,6 +22,8 @@ class PresenceRefreshWorker(
             ?: return Result.success()
         if (!container.preferences.onboardingCompleted) return Result.success()
         runCatching { container.presenceRepository.refresh() }
+        // ERA 16 §83：Presence 组装后落盘今日 Canonical Daily State（Journey 长期记忆）
+        runCatching { container.journeyRepository.snapshotToday() }
         runCatching { container.memoryRepository.purgeExpired() }
         // ERA 15.5 §76/§77：生命周期维护（decay/expiry + 派生模式记忆）真正运行
         runCatching { container.memoryRepository.derivePatterns() }

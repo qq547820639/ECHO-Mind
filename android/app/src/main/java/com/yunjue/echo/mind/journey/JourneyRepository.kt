@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
@@ -40,6 +41,9 @@ open class JourneyRepository(
     private val preferences: AppPreferences,
     private val appContext: Context,
     private val hasIntelligence: () -> Boolean = { false },
+    private val presenceStateSource: com.yunjue.echo.mind.ports.PresenceStateSource,
+    private val journeyMemory: JourneyMemoryPort,
+    private val memoryRepository: com.yunjue.echo.mind.data.MemoryRepository,
 ) : JourneyPort {
 
     /** Provider 是否配置（§24 intelligenceAvailability 注入 UI state）。 */
@@ -113,4 +117,29 @@ open class JourneyRepository(
 
     /** Journey 视觉种子：userId 稳定派生（与 Identity Genome 同源，跨天视觉血缘）。 */
     override fun journeySeed(): Long = preferences.userId.fold(0L) { acc, c -> acc * 31L + c.code }
+
+    // ===== ERA 16 §83 — Journey 长期记忆（Canonical Daily State） =====
+
+    /** 已落盘的 Canonical Daily State（按日期升序）。 */
+    override val canonicalDays: Flow<List<JourneyCanonicalDay>> = journeyMemory.canonicalDays
+
+    /**
+     * §83 — 把今天的 ECHO 视觉事实落盘为 Canonical Daily State。
+     * 无当前 Presence 状态 → no-op（不编造）；同日重复调用 = 幂等覆盖。
+     */
+    override suspend fun snapshotToday() {
+        val state = presenceStateSource.state.first() ?: return
+        val today = java.time.LocalDate.now().toString()
+        journeyMemory.snapshot(
+            buildCanonicalDay(
+                date = today,
+                state = state,
+                keyEvidenceIds = listOf("portrait:$today"),
+                createdAtEpochMs = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    /** 用户自述特殊日期（date → kind，§78；无日期信息的不进入时间线）。 */
+    override suspend fun contextExceptions(): Map<String, String> = memoryRepository.contextExceptions()
 }

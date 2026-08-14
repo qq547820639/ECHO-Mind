@@ -22,4 +22,15 @@ interface JourneyPort {
     fun feedback(date: String): Boolean?
     fun journeySeed(): Long
     fun intelligenceAvailable(): Boolean
+
+    // ===== ERA 16 §83 — Journey 长期记忆 =====
+
+    /** 已落盘的 Canonical Daily State（按日期升序）。 */
+    val canonicalDays: Flow<List<JourneyCanonicalDay>>
+
+    /** 把今天的 ECHO 视觉事实落盘为 Canonical Daily State（§83；无状态 → no-op）。 */
+    suspend fun snapshotToday()
+
+    /** 用户自述特殊日期（date → kind，§78 上下文例外；无日期信息的不进入）。 */
+    suspend fun contextExceptions(): Map<String, String>
 }

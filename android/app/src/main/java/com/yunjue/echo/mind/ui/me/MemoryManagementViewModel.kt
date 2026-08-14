@@ -53,7 +53,11 @@ class MemoryManagementViewModel(
                 viewModelScope.launch { container.memoryRepository.forget(event.id) }
             is MemoryManagementEvent.AddContextException ->
                 viewModelScope.launch {
-                    container.memoryRepository.recordContextException(event.kind, event.note)
+                    container.memoryRepository.recordContextException(
+                        kind = event.kind,
+                        note = event.note,
+                        date = java.time.LocalDate.now().toString(),
+                    )
                 }
         }
     }

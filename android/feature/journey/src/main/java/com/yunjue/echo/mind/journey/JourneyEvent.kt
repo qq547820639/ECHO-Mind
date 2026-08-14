@@ -9,7 +9,7 @@ sealed interface JourneyEvent {
     /** 切换时间尺度（Day/Week/Month/Season/Year）。 */
     data class SelectScale(val scale: JourneyScale) : JourneyEvent
 
-    /** 全量刷新（画像窗口 + 运行时快照 + 叙事）。 */
+    /** 全量刷新（画像窗口 + 运行时快照 + 叙事 + Canonical 快照）。 */
     data object Refresh : JourneyEvent
 
     /** 展开/收起「查看依据」Evidence Layer。 */
@@ -20,4 +20,7 @@ sealed interface JourneyEvent {
 
     /** AI 叙事失败后重试。 */
     data object RetryNarrative : JourneyEvent
+
+    /** ERA 16 §84 — 选择历史某一天（历史重建：渲染那天的 ECHO）。 */
+    data class SelectDay(val date: String) : JourneyEvent
 }

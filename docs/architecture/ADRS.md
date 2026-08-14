@@ -345,3 +345,16 @@
   5. **§80 七分类展示**：Observed / User-confirmed / Context / Correction / Preference / Derived Pattern / Temporary Interpretation 全部有独立标签分组（低置信临时解释标注「还不确定」）。
 - **理由**：Memory 是长期 Personal Intelligence 的核心资产；§110 禁止字段存在=实现完成。
 - **后果**：MemoryMaturityTest 8 用例；下一轮 ERA 16 Journey Long-term Memory（§81-§87：Canonical Daily State/历史重建/Year View/Life Season × Journey）。
+
+## ADR-040：ERA 16 Journey Long-term Memory 第一轮（Canonical Daily State/历史重建/视觉记忆河流/年视图/Life Season × Journey）
+
+- **决策**：
+  1. **§83 Canonical Daily State**：`JourneyCanonicalDay`（date/visualSeed/visualParams/identityReference/maturity/keyEvidenceIds/createdAt——只存参数，**绝不存 bitmap**）+ `JourneyCanonicalCodec`（v1 '|' 分隔，fail-closed 解析失败 → null 弥散占位）；`buildCanonicalDay` 经冻结的 EchoVisualMapper（§62）以正午 12:00 基准时刻映射。持久化：Room v9→v10 新增 `journey_canonical_days`（id=userId_date 幂等 upsert；SQL 层 userId 隔离；LocalDataRights 数据权利删除覆盖）。写入口：PresenceRefreshWorker 15 分钟周期 + Journey 打开时（幂等覆盖）。**快照 = 预聚合（§108）**：年视图只读 ≤365 行参数行，不做全量实时计算。
+  2. **§84 历史重建**：`reconstructJourneyFrame(canonical, fallbackPortrait, seed, w, h)`——Canonical 优先（确定性，一年后同一帧）→ 画像派生参数 fallback → 双无则 null（不编造）；JourneyScreen DAY 尺度点按任意一天 = 「那一天的回声」（JourneyEvent.SelectDay）。
+  3. **§85 Visual Memory River**：`buildVisualMemoryRiver`（7/30 天分段 → 逐段聚合 → 分类 SPECIAL > TRANSITION > DRIFT > DENSE > STABLE → 相邻同类合并，TRANSITION 不合并）；`visualDistance` 12 维归一化欧氏距离；阈值 TRANSITION=0.30 / DRIFT 步=0.05 / DENSE 活动=0.55；中性标签（平稳时期/密集时期/节律漂移/特殊阶段/长期转变）。
+  4. **§86 Year View**：`buildYearView` = 四季聚合（Spring/Summer/Autumn/Winter 视觉+转变+上下文时期+身份快照）+ majorShifts（月聚合距离 ≥ 阈值）+ contextPeriods（同 kind 相邻日期合并）+ identityEvolution（每月最近 Canonical 身份快照，无快照不编造）——不是 365 个点。
+  5. **§87 Life Season × Journey**：`explainLifeSeasonVisual`（later rhythm/more fragmented/less mobile… → 「为什么 ECHO 的视觉在这个阶段慢慢变化」中性解释）+ `changedVisualAspects`/`explainPeriodChange`（12 维前后对比 ≥0.12 阈值）；测试强制 §57 禁词表（depressed/anxious/burned out/抑郁/焦虑/燃尽…绝不出现）。
+  6. **§81/§82 五尺度六层**：`assembleJourneyLayer`（Day/Week/Month/Season/Year × Visual/Facts/Patterns/Exceptions/Narrative/Evidence）；patterns = 窗口维度众数（≥2 天）；evidenceIds = portrait:yyyy-MM-dd（只有真实视觉参数的日期才产生证据）。
+  7. **§78 上下文例外时间定位**：CONTEXT 记忆内容携带可选日期（`特殊时期：kind（note）@yyyy-MM-dd`，`contextExceptionContent/Info` 纯函数 + fail-closed 解析）；Me 页新增特殊时期默认带今天日期；Journey 河流 SPECIAL 段/年视图 contextPeriods 由带日期例外驱动；无日期的旧记忆仍可检索但不进入时间线。
+- **理由**：Journey 最终不是 Trend，而是 Personal Visual Memory System（§81-§87）；§110 禁止字段存在=实现完成——每一条 § 都有真实数据流（写/存/读/渲染/解释）。
+- **后果**：JourneyCanonicalTest/RiverTest/YearViewTest/SeasonNarrativeTest/LayerTest/ContextExceptionsTest + DatabaseMigrationTest v10 + JourneyUiStateAssemblyTest/ViewModelTest 增补；下一轮 ERA 17 Security Hardening（§88-§92 KDF 迁移/密钥分离/迁移测试）。

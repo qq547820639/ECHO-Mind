@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 15.5 — MEMORY MATURITY 第一轮完成 ✅ → 下一轮 ERA 16 Journey Long-term Memory（§81-§87）**
+**ERA 16 — JOURNEY LONG-TERM MEMORY 第一轮完成 ✅ → 下一轮 ERA 17 Security Hardening（§88-§92）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**518 unit tests 全绿**（ERA 15.5 第一轮 +8 memory maturity）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**575 unit tests 全绿**（ERA 16 第一轮 +57 journey long-term memory）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -54,10 +54,11 @@
 - **ERA 14 第二轮**：WallpaperRenderController 纯状态机（§65 不可见零渲染硬指标）+ PRESENCE_BENCHMARKS.md 测量契约 + ECHO_MOTION_LANGUAGE.md 冻结（§66）
 - **ERA 15 第一轮**：QuestionClassifier 六分类；ContextRanker 排序；Context Budget 三重上限；EchoEvidence schema；GroundingValidator + EchoAnswer
 - **ERA 15.5 第一轮**：rankMemories 检索排序（§75）；生命周期确认 + derivePatterns 入 Worker（§76）；Derived Pattern Memory（§77，幂等 upsert）；特殊时期用户入口（§78/§79）；What ECHO Knows 七分类展示（§80）；MemoryMaturityTest 8 用例
+- **ERA 16 第一轮**：Canonical Daily State（§83，Room v10 `journey_canonical_days`，只存参数不存 bitmap，Worker+Journey 双写点幂等）；历史重建（§84，Canonical 优先 → 画像 fallback → 不编造，SelectDay 交互）；Visual Memory River（§85，平稳/密集/漂移/特殊/转变分类+合并）；Year View（§86，四季聚合+转变+上下文时期+身份演化）；Life Season × Journey 解释（§87，禁词测试强制）；五尺度六层装配（§81/§82）；上下文例外时间定位（§78 带日期）；新增 57 用例
 
 ## In Progress
 
-- ERA 16 Journey Long-term Memory：Canonical Daily State（§83）+ 历史重建（§84）+ Visual Memory River 语义（§85）+ Year View season 聚合（§86）+ Life Season × Journey 解释（§87）
+- ERA 17 Security Hardening（§88-§92）：SQLCipher KDF 审计/标准 KDF 迁移（HKDF/HMAC）、密钥分离、旧库迁移链（derive old → open → rekey → verify → retire）、crypto 迁移测试
 
 ## Blocked
 
@@ -83,7 +84,7 @@
 
 ## Performance Debt
 
-- Journey 365d 全量 Compose 渲染风险（当前按 30 天聚合；未做 lazy 优化）→ ERA 16 处理
+- ~~Journey 365d 全量 Compose 渲染风险（当前按 30 天聚合；未做 lazy 优化）~~ → ERA 16 解决：Canonical Daily State 预聚合快照（§108），年视图只读 ≤365 行参数行 + 河段/月度聚合，无全量实时计算
 - Wallpaper 设备实测数字（CPU/frame/memory/wakeups/battery）由 CI connected-test/真机矩阵执行（基准已冻结）
 - EchoLifeField 帧渲染依赖 draw-phase 状态读取（当前可用；未做 profile）
 
@@ -96,4 +97,4 @@
 
 ## Next Highest-value Task
 
-ERA 12.9（文档/状态真值）→ ERA 13 应用层收口批次 1：JourneyViewModel + JourneyUiState + Journey 领域访问层（JourneyScreen 去编排）→ 批次 2：MeViewModel + DataAndSensingViewModel。
+ERA 17 Security Hardening（§88-§92）：KDF 审计 → 标准 KDF 迁移（HKDF-SHA256/HMAC domain separation）→ 密钥分离 → 旧库迁移链 → crypto 测试（fresh install / old DB / migration / failure recovery / backup restore）。

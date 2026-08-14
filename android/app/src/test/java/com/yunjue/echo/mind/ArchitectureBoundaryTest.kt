@@ -143,6 +143,7 @@ class ArchitectureBoundaryTest {
             "= SyncStateRepository(", "= FeatureFlagRepository(", "= ConsentRepository(",
             "= SensingRepository(", "= SkillRepository(", "= EscalationRepository(",
             "= OnboardingRepository(", "= LocalDataRights(", "= MessageRepository(",
+            "= JourneyRepository(", "= JourneyMemoryRepository(",
         )
         assertTrue(
             "AppContainer 不得直接构造领域对象（构造职责归子容器）：\n" +

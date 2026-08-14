@@ -23,6 +23,8 @@ import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.AiProviderManager
 import com.yunjue.echo.mind.intelligence.EchoContextRetriever
 import com.yunjue.echo.mind.intelligence.ProviderCredentialStore
+import com.yunjue.echo.mind.journey.JourneyMemoryRepository
+import com.yunjue.echo.mind.journey.JourneyRepository
 import com.yunjue.echo.mind.openDatabase
 import com.yunjue.echo.mind.presence.EchoStateStore
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
@@ -114,4 +116,36 @@ class IntelligenceContainer(
 /** Actions：行动内容源（SkillRepository 为 Adapter；§41 未来 ActionContentSource 端口在此落地）。 */
 class ActionContainer(core: CoreContainer) {
     val skillRepository = SkillRepository(core.database, core.outbox, core.preferences, core.apiClient)
+}
+
+/**
+ * Journey：Personal Visual Memory System 应用层（ERA 13 §26 + ERA 16 §83）。
+ *
+ * - [journeyRepository]：跨域应用服务（画像时间线 / 叙事 / 运行时快照 / Canonical 快照写入）；
+ * - [journeyMemoryRepository]：Canonical Daily State 的 Room Adapter（实现 JourneyMemoryPort）。
+ */
+class JourneyContainer(
+    core: CoreContainer,
+    observation: ObservationContainer,
+    presence: PresenceContainer,
+    memory: MemoryContainer,
+    intelligence: IntelligenceContainer,
+) {
+    val journeyMemoryRepository = JourneyMemoryRepository(
+        db = core.database,
+        userId = { core.preferences.userId },
+    )
+    val journeyRepository = JourneyRepository(
+        portraitRepository = observation.portraitRepository,
+        syncStateRepository = core.syncStateRepository,
+        featureFlagRepository = core.featureFlagRepository,
+        aiNarrativeService = intelligence.aiNarrativeService,
+        contextRetriever = intelligence.contextRetriever,
+        preferences = core.preferences,
+        appContext = core.applicationContext,
+        hasIntelligence = { intelligence.aiProviderManager.hasProvider() },
+        presenceStateSource = presence.presenceRepository,
+        journeyMemory = journeyMemoryRepository,
+        memoryRepository = memory.memoryRepository,
+    )
 }

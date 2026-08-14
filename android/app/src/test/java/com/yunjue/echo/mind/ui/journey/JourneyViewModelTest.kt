@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -50,8 +51,11 @@ class JourneyViewModelTest {
     private open class FakeJourneyPort : JourneyPort {
         val refreshCalls = mutableListOf<Int>()
         val snapshotCalls = mutableListOf<Boolean>()
+        val todaySnapshotCalls = mutableListOf<Unit>()
         var narrativeCalls = 0
         val timelineFlow = MutableStateFlow(PortraitTimelineUiState(loading = false))
+        val canonicalFlow = MutableStateFlow<List<com.yunjue.echo.mind.journey.JourneyCanonicalDay>>(emptyList())
+        var contextExceptions: Map<String, String> = emptyMap()
 
         override val consentFlow: Flow<Boolean> = flowOf(true)
         override val permissionEnabledFlow: Flow<Boolean> = flowOf(true)
@@ -76,6 +80,9 @@ class JourneyViewModelTest {
         override fun feedback(date: String): Boolean? = null
         override fun journeySeed(): Long = 7L
         override fun intelligenceAvailable(): Boolean = true
+        override val canonicalDays: Flow<List<com.yunjue.echo.mind.journey.JourneyCanonicalDay>> = canonicalFlow
+        override suspend fun snapshotToday() { todaySnapshotCalls += Unit }
+        override suspend fun contextExceptions(): Map<String, String> = contextExceptions
     }
 
     private val mainDispatcher = StandardTestDispatcher()
@@ -184,5 +191,50 @@ class JourneyViewModelTest {
         assertEquals(TrendUiState.PERMISSION_DISABLED, vm.uiState.value.trendState)
         assertFalse(vm.uiState.value.syncStatus.permissionEnabled)
         assertFalse(vm.uiState.value.syncStatus.consent)
+    }
+
+    @Test
+    fun refreshSnapshotsTodayCanonicalState() = runTest(mainDispatcher) {
+        val fake = FakeJourneyPort()
+        val vm = JourneyViewModel(app, fake)
+        collectState(vm)
+        advanceUntilIdle()
+        // init Refresh → snapshotToday 执行一次（§83）
+        assertEquals(1, fake.todaySnapshotCalls.size)
+        vm.onEvent(JourneyEvent.Refresh)
+        advanceUntilIdle()
+        assertEquals(2, fake.todaySnapshotCalls.size)
+    }
+
+    @Test
+    fun contextExceptionsPropagateIntoState() = runTest(mainDispatcher) {
+        val fake = FakeJourneyPort().apply { contextExceptions = mapOf("2026-08-05" to "travel") }
+        val vm = JourneyViewModel(app, fake)
+        collectState(vm)
+        advanceUntilIdle()
+        fake.timelineFlow.value = PortraitTimelineUiState(
+            days = 7, loading = false, portraits = (1..7).map { i -> portrait("2026-08-${i.toString().padStart(2, '0')}") },
+        )
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.riverSegments.any { it.kind == com.yunjue.echo.mind.journey.RiverSegmentKind.SPECIAL })
+    }
+
+    @Test
+    fun selectDayTogglesHistoricalReconstruction() = runTest(mainDispatcher) {
+        val fake = FakeJourneyPort()
+        val vm = JourneyViewModel(app, fake)
+        collectState(vm)
+        advanceUntilIdle()
+        fake.timelineFlow.value = PortraitTimelineUiState(
+            days = 7, loading = false, portraits = (1..7).map { i -> portrait("2026-08-${i.toString().padStart(2, '0')}") },
+        )
+        advanceUntilIdle()
+        vm.onEvent(JourneyEvent.SelectDay("2026-08-03"))
+        advanceUntilIdle()
+        assertEquals("2026-08-03", vm.uiState.value.selectedDay?.date)
+        // 再次点击同一日期 → 取消选择
+        vm.onEvent(JourneyEvent.SelectDay("2026-08-03"))
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.selectedDay)
     }
 }

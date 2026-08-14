@@ -8,7 +8,7 @@
 
 ```text
 data ──► memory, observation, presence, root, security
-di ──► data, intelligence, presence, root, security
+di ──► data, intelligence, journey, presence, root, security
 intelligence ──► memory, observation, ports, security
 journey ──► data, intelligence, observation, presence, root
 me ──► data, memory, observation
@@ -28,15 +28,15 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | data | 25 |
 | di | 1 |
 | intelligence | 16 |
-| journey | 7 |
+| journey | 14 |
 | me | 3 |
-| memory | 3 |
+| memory | 4 |
 | observation | 23 |
 | ports | 3 |
 | presence | 10 |
 | runtime | 1 |
 | security | 2 |
-| ui | 34 |
+| ui | 35 |
 
 ## 3. 跨领域边清单
 
@@ -47,6 +47,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - data → security
 - di → data
 - di → intelligence
+- di → journey
 - di → presence
 - di → root
 - di → security
