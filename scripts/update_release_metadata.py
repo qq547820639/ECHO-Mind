@@ -12,6 +12,8 @@
   REUSE_REPORT=1 python3 scripts/update_release_metadata.py            # 复用既有 junit
   ANDROID_GRADLE_BUILD_RESULT=passed python3 scripts/update_release_metadata.py
 """
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -49,18 +51,44 @@ def _nfc(path: Path) -> str:
     return unicodedata.normalize("NFC", str(path.relative_to(ROOT)))
 
 
-def _collect_source_files() -> list[Path]:
+def _git_tracked_relpaths(repo: Path) -> list[str]:
+    """git 索引中的受控文件相对路径（一律 NFC 归一化）。
+
+    ERA 12.8：SOURCE_MANIFEST 必须以 **git 受控文件集** 为唯一事实源，
+    不得扫描文件系统（此前因 .gitignore 的裸 `runtime/` 规则导致
+    EchoRuntimeCoordinator.kt 在工作树存在却从未入库，manifest 却记录了它——
+    clean checkout 与 final ZIP 因此互相矛盾）。
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=repo, capture_output=True, check=True
+    ).stdout
+    names = [n for n in out.decode("utf-8", "surrogateescape").split("\x00") if n]
+    return [unicodedata.normalize("NFC", n) for n in names]
+
+
+def _is_excluded(rel: str) -> bool:
+    parts = Path(rel).parts
+    if any(part in EXCLUDED_PARTS for part in parts):
+        return True
+    name = parts[-1]
+    return name in EXCLUDED_FILES or Path(name).suffix in EXCLUDED_SUFFIXES
+
+
+def collect_source_files(repo: Path) -> list[Path]:
     files = []
-    for path in sorted(ROOT.rglob("*")):
+    for rel in _git_tracked_relpaths(repo):
+        if _is_excluded(rel):
+            continue
+        path = repo / rel
         if not path.is_file():
-            continue
-        rel = path.relative_to(ROOT)
-        if any(part in EXCLUDED_PARTS for part in rel.parts):
-            continue
-        if path.name in EXCLUDED_FILES or path.suffix in EXCLUDED_SUFFIXES:
-            continue
+            raise RuntimeError(f"git 受控文件在 checkout 中缺失：{rel}")
         files.append(path)
-    return files
+    return sorted(files, key=lambda p: unicodedata.normalize("NFC", str(p.relative_to(repo))))
+
+
+def _collect_source_files() -> list[Path]:
+    """向后兼容入口（verify_source_manifest / distribution 经 collect_source_files(repo) 使用）。"""
+    return collect_source_files(ROOT)
 
 
 def _parse_junit(report: Path) -> dict:

@@ -17,6 +17,10 @@
 | 产品 README | `README.md` | v0.9.0 |
 | 发布说明 | `RELEASE_NOTES_v0.9.0.md` | 本版本 |
 | 架构决策 | `docs/architecture/ADRS.md` | ADR-001~024 |
+| 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
+| Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |
+| Distribution Closure | `scripts/build_source_archive.py` / `scripts/verify_source_archive.py` / `scripts/verify_final_package.py` + `scripts/test_source_archive.py` | ERA 12.8 门禁（CI 强制） |
+| Release 流程 | `.github/workflows/release-closure.yml` | §17 原子 release（tag v*） |
 | 代码架构清单 | `docs/architecture/ANDROID_CODE_INVENTORY.md` | CURRENT（ERA 12） |
 | 依赖图 | `docs/architecture/ANDROID_DEPENDENCY_GRAPH.md` | CURRENT（ERA 13 前置） |
 | Legacy 移除计划 | `docs/migrations/LEGACY_REMOVAL_PLAN.md` | CURRENT |

@@ -83,15 +83,18 @@ print("SBOM JSON valid")
 PY
 
 # ---------- 7. Android 真实构建（环境阻塞则如实标记） ----------
-if command -v java >/dev/null 2>&1 && command -v kotlinc >/dev/null 2>&1; then
-  # 仅当 JDK 存在时尝试 Gradle（SDK 未配置会在 gradlew 阶段失败并如实报错）
-  (cd android && ./gradlew testDebugUnitTest assembleDebug lintDebug)
-  echo "[preflight] android gradle: PASS"
-elif command -v java >/dev/null 2>&1; then
+# ERA 12.8：JDK 探测必须实际执行 `java -version`（macOS /usr/bin/java 可能是无 JVM 桩）。
+_java_ok() {
+  if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ] && "$JAVA_HOME/bin/java" -version >/dev/null 2>&1; then
+    return 0
+  fi
+  command -v java >/dev/null 2>&1 && java -version >/dev/null 2>&1
+}
+if _java_ok; then
   (cd android && ./gradlew testDebugUnitTest assembleDebug lintDebug)
   echo "[preflight] android gradle: PASS"
 else
-  echo "[preflight] android gradle: NOT RUN — JDK 缺失（ENVIRONMENT BLOCKED）"
+  echo "[preflight] android gradle: NOT RUN — 无可用 JDK（ENVIRONMENT BLOCKED，CI android-ci 全量执行）"
 fi
 
 printf '\nLOCAL PREFLIGHT PASSED\n'

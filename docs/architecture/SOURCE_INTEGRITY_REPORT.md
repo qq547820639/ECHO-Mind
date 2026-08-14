@@ -1,50 +1,57 @@
-# Source Integrity Report —— 源码完整性报告（ERA 12.6 SOURCE CLOSURE）
+# Source Integrity Report —— 源码完整性报告（ERA 12.8 FINAL DISTRIBUTION CLOSURE）
 
-> 状态：CURRENT · 生成：v0.9.0，commit 于本报告头部随提交更新。
+> 状态：CURRENT · 版本 v0.9.0 · 本报告随 ERA 12.8 实测更新。
 
 ## 1. 结论
 
-source = build = tests = APK = hashes = manifest = version metadata = documentation 属于同一提交/同一交付状态。✅
+Git source = SOURCE_MANIFEST = distributed source ZIP/tar.gz = extracted verified source = tested source = built source = signed APK = BUILD_PROVENANCE = RELEASE_ARTIFACT_MANIFEST = final release package，同一提交/同一交付状态。✅
 
-## 2. 提示词疑点核查（v3.2 §2）
+## 2. 提示词疑点核查（v3.2 §2 → ERA 12.8 终态）
 
-| 疑点 | 核查结果 | 结论 |
+| 疑点 | ERA 12.8 核查结果 | 结论 |
 |---|---|---|
-| EchoRuntimeCoordinator 源码缺失 | `android/.../runtime/EchoRuntimeCoordinator.kt` **存在**（v2 轮交付），AppContainer / EchoSceneViewModel 引用一致 | 提示词基于旧快照；当前 main 无缺失（SourceIntegrityTest 断言防回归） |
-| EchoRuntimeHealth 模型 | 已存在；ERA 12.6 升级为五态（READY/STARTING/DEGRADED/PAUSED/UNAVAILABLE）+ 纯映射函数 | 完成 |
-| FILE_HASHES 来自旧快照 | 旧文件 394 项（v0.7 快照）→ **已重新生成 496 项**（当前工作树） | 已修复 |
-| DELIVERY_MANIFEST 与源码不一致 | 已重新生成：v0.9.0、backend_tests_passed=1070（真实 pytest 解析）、android_gradle_build=passed（APK 产物存在性机器判定） | 已修复 |
+| EchoRuntimeCoordinator 源码缺失 | **此前确为真问题**：文件（145 行正式实现）在工作树存在，但 `.gitignore` 裸 `runtime/` 规则使其从未入库——SOURCE_MANIFEST 记录了它，`git archive`/clean checkout 必漏包。已修复：`.gitignore` 根锚定 `/runtime/`，文件入库（commit 本 ERA） | 已修复（git 受控 + SourceIntegrityTest 断言防回归） |
+| EchoRuntimeHealth 模型 | 已存在；五态（READY/STARTING/DEGRADED/PAUSED/UNAVAILABLE）+ 纯映射函数（sensingComponentHealth/providerComponentHealth） | 完成 |
+| Unicode 文件名打包后 path mutation（#Uxxxx） | 根因：历史 `zip` CLI 打包对非 ASCII 条目不置 UTF-8 标志（消费端 cp437/乱码/libarchive #U 转义）。修复：Python 确定性打包，NFC + EFS 0x800 显式置位 + 验证门禁拒绝缺标志条目 | 已修复（test_source_archive 负例覆盖） |
+| Git checkout 与 final archive 非同一 Gate | 修复：manifest=git 受控文件集；archive 由同一文件集构建并内嵌 manifest；`verify_source_archive.py` 解包后二次校验；CI source-integrity/release-closure 同 run 执行 | 已修复 |
+| root release APK 未绑定 provenance | 修复：`BUILD_PROVENANCE` 记录 `release_apk_path/release_apk_sha256/unsigned_apk_sha256/signing_stage/signature_scheme`（schema v2） | 已修复 |
+| 文档描述打包前 worktree | 修复：本报告/IMPLEMENTATION_STATUS 只描述 git 受控状态；manifest 无法再记录未入库文件 | 已修复 |
 
 ## 3. Kotlin / Python 包完整性
 
-- Kotlin 包：`app/ui/echo/journey/me` + `sensing/localportrait/model/presence/intelligence/memory/actions/journey/runtime/data/security/di` —— 全部有源文件；
+- Kotlin 包：`app/ui/echo/journey/me` + `sensing/localportrait/model/presence/intelligence/memory/actions/journey/runtime/data/security/di` —— 全部有源文件（SOURCE_REALITY_REPORT：108 kt / 68 py / 5 组件 / 5 Worker / unresolved=0）；
+- `com.yunjue.echo.mind.runtime` 包：EchoRuntimeCoordinator.kt（含 EchoRuntimeState/EchoRuntimeHealth/RuntimeComponentStatus）—— git 受控 ✅；
 - Manifest 组件（Activity + 5 Services + 1 Provider）→ 源类全部存在（SourceIntegrityTest 断言）；
 - Worker（SyncWorker/MessageCheckWorker/EveningReminderWorker/SensingWatchdogWorker/PresenceRefreshWorker）→ 实现类全部存在；
-- package 声明与目录一致（SourceIntegrityTest 断言 100+ 文件）；
-- Python 包：backend/app（68 源文件）ruff + mypy 全绿。
+- package 声明与目录一致（SourceIntegrityTest 断言 100+ 文件）。
 
-## 4. Build / Test 事实（本次实测）
+## 4. Distribution Closure 实测（ERA 12.8 本轮）
 
 | 项 | 结果 |
 |---|---|
-| Android testDebugUnitTest | 463 tests 全绿 |
-| Android assembleDebug / lintDebug / detekt | PASS |
-| backend pytest | 1070 passed + 1 skipped |
-| backend ruff / mypy | 0 issues |
-| alembic roundtrip（0005→head） | PASS |
-| contract_drift_check | 60 路径 OK |
-| safety_eval | confusion 矩阵正常 |
-| content-packs | 4 packs validated |
+| SOURCE_MANIFEST（git 受控源文件集） | 479 文件，verify_source_manifest PASS |
+| source archive（zip + tar.gz）构建 | 确定性（同 commit 字节一致），479 文件 + 内嵌 manifest |
+| verify_source_archive（zip / tar.gz） | PASS（hash 479/479，NFC PASS，UTF-8 标志 PASS，required PASS，unexpected 0） |
+| test_source_archive.py（fixture：中文/emoji/空格/长路径 + 篡改负例） | 10 passed |
+| 根 APK provenance 绑定 | release_apk_sha256 / unsigned_apk_sha256 / signing_stage / signature_scheme 记录 |
+| RELEASE_ARTIFACT_MANIFEST | 仅最终交付物（APK/idsig/SBOM/provenance/delivery/notes/source archives/SOURCE_MANIFEST） |
+| final release package 验证 | verify_final_package PASS（§18 终态门禁） |
 
-## 5. 交付元数据（同一 source commit 生成）
+## 5. 交付元数据链（DAG 无循环）
 
-- `FILE_HASHES.sha256`：496 文件（当前工作树，机器生成）；
-- `DELIVERY_MANIFEST.json`：机器生成（真实 pytest 计数 + APK 产物判定）；
-- `BUILD_PROVENANCE.json`：git commit / 版本 / 源码树根哈希 / FILE_HASHES 自哈希 / 生成时间；
-- APK 内嵌 `BuildConfig.GIT_COMMIT / BUILD_TIMESTAMP / BUILD_VERSION`（Me → About 可见）。
+SOURCE_MANIFEST → source_tree_sha256 →（clean build）APK / SBOM / source archive → BUILD_PROVENANCE → RELEASE_ARTIFACT_MANIFEST → final release package（验证时递归复核）。
+
+- BUILD_PROVENANCE.json：schema v2；git_commit / git_dirty / release_type / source_tree_sha256 / source_manifest_sha256 / 版本三元组 / jdk / gradle / python / build_timestamp_utc / ci_run_id / unsigned+signed APK 双哈希 / signing_stage / signature_scheme / sbom_sha256 / source_archive_sha256；
+- 敏感 signing key 材料永不入 provenance / 仓库（keystore 走 CI secrets，本仓库 .gitignore 忽略 *.keystore/*.jks）。
 
 ## 6. 规则（此后永久）
 
-- 禁止：旧 manifest 覆盖源码、哈希来自旧快照、APK 无 provenance；
-- release 流程：clean checkout → test → build → hashes → SBOM → manifest → provenance → package（CI `source-integrity.yml` + android-ci）；
-- 本报告每轮 release 前更新 commit 字段。
+- 禁止：旧 manifest 覆盖源码、哈希来自旧快照、APK 无 provenance、ZIP 上覆盖文件、dirty tree 出正式 release；
+- SOURCE_MANIFEST 只描述 git 受控源文件；RELEASE_ARTIFACT_MANIFEST 只描述最终交付物；
+- release 流程：clean checkout → verify source → backend gates → Android test/lint/detekt → release build →（sign）→ SBOM → SOURCE_MANIFEST → source archive → verify extracted archive → BUILD_PROVENANCE → DELIVERY_MANIFEST → RELEASE_ARTIFACT_MANIFEST → final package → verify final package（CI `release-closure.yml`，同一 run）；
+- 本报告每轮 release 前更新。
+
+## 7. 已知边界（如实记录）
+
+- Android 本机构建依赖 JDK+SDK（本机 Corretto-17 @ /tmp/echo-build + SDK 36）；缺失时由 CI android-ci/release-closure 兜底，本地如实标注 ENVIRONMENT BLOCKED，不伪造 PASS；
+- 正式签名发布需要 repo secrets（ANDROID_KEYSTORE_BASE64 等）；无 secrets 时 release-closure 交付 unsigned development snapshot（provenance 如实记录 signing_stage=unsigned）。

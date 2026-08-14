@@ -33,6 +33,16 @@
 ### Journey 全尺度（v2 §61）
 - 天 / 周 / 月 / **季（90 天）** / **年（365 天）** 五个时间尺度；季/年按 30 天视觉聚合（backend 画像窗口上限 90 → 365，openapi 重新导出）。
 
+## ERA 12.8 — FINAL DISTRIBUTION CLOSURE（本版本补丁）
+
+- **EchoRuntimeCoordinator 正式入库**：修复 `.gitignore` 裸 `runtime/` 规则（此前工作树存在但 git 缺失，clean checkout 必漏包）；SOURCE_MANIFEST 改为 **git 受控文件集** 唯一事实源；
+- **确定性 Source Archive**：`build_source_archive.py`（NFC + ZIP UTF-8 标志 + HEAD 时间戳，同 commit 字节级可复现）；修复中文路径 #Uxxxx/乱码变异根因；
+- **Final Archive Verification Gate**：`verify_source_archive.py`（解包 → 清单双向复核 → Unicode → required sources）+ `test_source_archive.py` 10 用例负例矩阵；
+- **root APK 绑定 Provenance**：`release_apk_sha256` / `unsigned_apk_sha256` / `signing_stage` / `signature_scheme`（schema v2，不记录 key 材料）；
+- **Artifact Manifest 只描述最终交付物**（不再 hash build 目录 debug/androidTest 临时 APK）；
+- **Final Release Package**：`build_final_package.py` + `verify_final_package.py`（§18 终态门禁，包内 source archive 递归验证）；
+- **CI**：source-integrity 扩展为完整 archive gate；新增 `release-closure.yml`（§17 原子 release：clean checkout → verify → backend → Android test/lint/detekt → release build → sign(secrets) → SBOM → metadata → archive → verify → package → final verify）。
+
 ## 验证（本环境实测）
 
 | 项 | 结果 |

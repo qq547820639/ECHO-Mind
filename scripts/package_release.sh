@@ -1,34 +1,73 @@
 #!/usr/bin/env bash
+# package_release.sh — ERA 12.8 Final Distribution Closure 编排（§17 原子发布流程）
+#
+# 同一 run 内执行：
+#   source manifest verify → (preflight) → source archive（确定性）
+#   → verify extracted source archive（§5/§6 Gate）
+#   → SBOM → provenance（root APK 绑定）→ delivery → artifact manifest
+#   → final release package → verify final package（§18 终态门禁）
+#
+# 用法：
+#   ./scripts/package_release.sh [--out-dir DIR] [--skip-preflight]
+#
+# 环境变量：
+#   ANDROID_GRADLE_BUILD_RESULT  —— 本 pipeline run 的 Android 构建结果（§16：只接受注入）
+#   REUSE_REPORT=1               —— 复用既有 junit 报告
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT_DIR="${1:-/mnt/data}"
-# v0.7.2 修复：版本从单一事实源读取（此前硬编码 "0.7.0" 曾绕过 version_source.json）
-VERSION="$(python3 -c "import json;print(json.load(open('$ROOT/scripts/version_source.json', encoding='utf-8'))['release_version'])")"
-BASE="ECHO_Mind_PortraitCore_v${VERSION}"
-# 源码已位于仓库根，打包时固定顶层目录名以保证产物可复现
-PKG_NAME="echo-mind-portrait-core"
+OUT_DIR="${OUT_DIR:-$ROOT/releases}"
+SKIP_PREFLIGHT=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out-dir) OUT_DIR="$2"; shift 2 ;;
+    --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+PY="${PYTHON:-$ROOT/backend/.venv/bin/python}"
+if [ ! -x "$PY" ]; then PY="$(command -v python3 || echo python3)"; fi
+export OUT_DIR
 cd "$ROOT"
-./scripts/release_preflight.sh
-sha256sum -c SOURCE_MANIFEST.sha256 >/tmp/echo-source-check.txt
-sha256sum -c RELEASE_ARTIFACT_MANIFEST.sha256 >/tmp/echo-artifact-check.txt 2>/dev/null || echo "WARN: artifact manifest 校验未通过（本地构建请先跑 scripts/update_release_metadata.py + scripts/generate_provenance.py）"
-rm -f "$OUT_DIR/$BASE.zip" "$OUT_DIR/$BASE.tar.gz" "$OUT_DIR/$BASE.bundle"
-(
-  cd "$ROOT/.."
-  # 在父目录创建固定名的临时软链接指向仓库根，作为打包顶层目录，
-  # 使产物顶层名恒为 PKG_NAME，不依赖仓库目录的实际名称
-  ln -sfn "$(basename "$ROOT")" "$PKG_NAME"
-  trap 'rm -f "$PKG_NAME"' EXIT
-  zip -qr "$OUT_DIR/$BASE.zip" "$PKG_NAME" \
-    -x '*/.git/*' '*/.venv/*' '*/__pycache__/*' '*/.pytest_cache/*' '*/.gradle/*' '*/build/*' '*.db' '*.pyc'
-  tar --exclude='.git' --exclude='.venv' --exclude='__pycache__' --exclude='.pytest_cache' \
-      --exclude='.gradle' --exclude='build' --exclude='*.db' --exclude='*.pyc' \
-      -czf "$OUT_DIR/$BASE.tar.gz" "$PKG_NAME"
-  rm -f "$PKG_NAME"
-  trap - EXIT
-)
-git bundle create "$OUT_DIR/$BASE.bundle" --all
-unzip -tq "$OUT_DIR/$BASE.zip" >/tmp/echo-zip-check.txt
-tar -tzf "$OUT_DIR/$BASE.tar.gz" >/tmp/echo-tar-check.txt
-git bundle verify "$OUT_DIR/$BASE.bundle" >/tmp/echo-bundle-check.txt
-sha256sum "$OUT_DIR/$BASE.zip" "$OUT_DIR/$BASE.tar.gz" "$OUT_DIR/$BASE.bundle" > "$OUT_DIR/$BASE.ARTIFACTS.sha256"
-printf 'packaged %s\n' "$BASE"
+mkdir -p "$OUT_DIR"
+
+echo "== 1/9 SOURCE_MANIFEST verify（git 受控源文件集）=="
+"$PY" scripts/verify_source_manifest.py
+
+if [ "$SKIP_PREFLIGHT" = "0" ]; then
+  echo "== 2/9 preflight（backend tests / lint / migration / android 如环境可用）=="
+  ./scripts/release_preflight.sh
+fi
+
+echo "== 3/9 build deterministic source archive =="
+"$PY" scripts/build_source_archive.py --out-dir "$OUT_DIR"
+
+VERSION="$("$PY" -c "import json;print(json.load(open('scripts/version_source.json', encoding='utf-8'))['release_version'])")"
+ZIP="$OUT_DIR/ECHO_Mind_PortraitCore_v${VERSION}.zip"
+TARGZ="$OUT_DIR/ECHO_Mind_PortraitCore_v${VERSION}.tar.gz"
+
+echo "== 4/9 verify extracted source archive（NFC / UTF-8 标志 / required / 双向清单）=="
+"$PY" scripts/verify_source_archive.py "$ZIP"
+"$PY" scripts/verify_source_archive.py "$TARGZ"
+
+echo "== 5/9 SBOM =="
+"$PY" scripts/generate_sbom.py
+
+echo "== 6/9 SOURCE_MANIFEST + DELIVERY_MANIFEST（build status 绑定本 run）=="
+ANDROID_GRADLE_BUILD_RESULT="${ANDROID_GRADLE_BUILD_RESULT:-not_run_in_this_pipeline}" \
+REUSE_REPORT="${REUSE_REPORT:-1}" "$PY" scripts/update_release_metadata.py
+"$PY" scripts/verify_source_manifest.py
+
+echo "== 7/9 BUILD_PROVENANCE（root APK 绑定 + unsigned/signed 双哈希 + signing stage）=="
+"$PY" scripts/generate_provenance.py
+
+echo "== 8/9 final release package =="
+"$PY" scripts/build_final_package.py --out-dir "$OUT_DIR"
+
+echo "== 9/9 verify final release package（§18 终态门禁）=="
+"$PY" scripts/verify_final_package.py "$OUT_DIR/ECHO_Mind_v${VERSION}.release.zip"
+
+echo
+echo "DISTRIBUTION CLOSURE PASS —— $VERSION"
+ls -lh "$OUT_DIR"/ECHO_Mind_PortraitCore_v${VERSION}.zip \
+       "$OUT_DIR"/ECHO_Mind_PortraitCore_v${VERSION}.tar.gz \
+       "$OUT_DIR"/ECHO_Mind_v${VERSION}.release.zip

@@ -1,0 +1,159 @@
+# release-closure（ERA 12.8 §17）：Atomic Release Workflow —— 同一 CI run 完成
+# clean checkout → verify source → backend gates → Android test/lint/detekt
+# → release build →（可选）sign → SBOM → SOURCE_MANIFEST → BUILD_PROVENANCE
+# → DELIVERY_MANIFEST → SOURCE_ARCHIVE → verify extracted archive
+# → RELEASE_ARTIFACT_MANIFEST → final package → verify final package（§18）。
+#
+# 触发：tag v*（正式 release 通道）或 workflow_dispatch（开发快照）。
+# 签名：仅在 secrets.ANDROID_KEYSTORE_BASE64 存在时执行（apksigner v1/v2/v3，
+# provenance 记录 signing_stage/signature_scheme，绝不记录 keystore 材料）。
+name: release-closure
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      sign_release:
+        description: "sign release APK (requires repo secrets)"
+        type: boolean
+        default: false
+
+jobs:
+  source-gate:
+    name: source integrity + archive gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+        with: {python-version: "3.12"}
+      - name: verify SOURCE_MANIFEST matches this checkout
+        run: python3 scripts/verify_source_manifest.py
+      - name: build deterministic source archive
+        run: python3 scripts/build_source_archive.py --out-dir dist
+      - name: verify extracted source archive（zip + tar.gz）
+        run: |
+          python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.zip
+          python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.tar.gz
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: source-archives
+          path: dist/*
+
+  backend:
+    name: backend validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+        with: {python-version: "3.12"}
+      - run: pip install -e 'backend[dev]'
+      - run: cd backend && pytest -q --junitxml=backend-junit.xml
+      - run: cd backend && ruff check app tests
+      - run: cd backend && mypy app
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: backend-junit
+          path: backend/backend-junit.xml
+
+  android:
+    name: android test + lint + detekt + release build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-java@v4 # TODO(ERA17): pin to commit SHA
+        with: {distribution: temurin, java-version: "17"}
+      - uses: android-actions/setup-android@v3 # TODO(ERA17): pin to commit SHA
+      - run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: unit tests + lint + detekt
+        run: cd android && chmod +x gradlew && ./gradlew testDebugUnitTest lintDebug detekt --stacktrace
+      - name: release build（unsigned；签名在 closure job 内完成）
+        run: cd android && ./gradlew assembleRelease --stacktrace -PECHO_API_BASE_URL=https://echo-mind.example.invalid
+      - run: echo "passed" > android-build-status.txt
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: android-build-status
+          path: android-build-status.txt
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: unsigned-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+  closure:
+    name: provenance + package + final verification
+    needs: [source-gate, backend, android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_API_BASE_URL: "https://echo-mind.example.invalid"
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+        with: {python-version: "3.12"}
+      - uses: actions/setup-java@v4 # TODO(ERA17): pin to commit SHA
+        with: {distribution: temurin, java-version: "17"}
+      - uses: android-actions/setup-android@v3 # TODO(ERA17): pin to commit SHA
+      - name: collect same-run build result + unsigned APK + source archives
+        uses: actions/download-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with: {name: android-build-status}
+      - uses: actions/download-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with: {name: unsigned-release-apk}
+      - uses: actions/download-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with: {name: source-archives}
+      - uses: actions/download-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with: {name: backend-junit}
+      - name: sign release APK（仅当 keystore secrets 存在；否则交付 unsigned 快照）
+        id: sign
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          VERSION="$(python3 -c "import json;print(json.load(open('scripts/version_source.json'))['release_version'])")"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p releases
+          cp dist/ECHO_Mind_PortraitCore_v*.zip dist/ECHO_Mind_PortraitCore_v*.tar.gz releases/
+          if [ -n "$KEYSTORE_B64" ] && { [ "$GITHUB_EVENT_NAME" = "push" ] || [ "${{ github.event.inputs.sign_release }}" = "true" ]; }; then
+            BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+            echo "$KEYSTORE_B64" | base64 -d > /tmp/echo-release.keystore
+            chmod 600 /tmp/echo-release.keystore
+            "$BT/zipalign" -f 4 app-release-unsigned.apk /tmp/aligned.apk
+            "$BT/apksigner" sign \
+              --ks /tmp/echo-release.keystore \
+              --ks-pass "pass:$KEYSTORE_PASSWORD" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --out "ECHO_Mind_v${VERSION}.apk" /tmp/aligned.apk
+            "$BT/apksigner" verify --print-certs "ECHO_Mind_v${VERSION}.apk" | head -5
+            echo "signed=true" >> "$GITHUB_ENV"
+            rm -f /tmp/echo-release.keystore
+          else
+            echo "signed=false（unsigned development snapshot）" >> "$GITHUB_ENV"
+          fi
+      - name: SBOM + SOURCE_MANIFEST + DELIVERY_MANIFEST（build status 绑定本 run）
+        run: |
+          python3 scripts/generate_sbom.py
+          mkdir -p .pytest_report && cp backend-junit.xml .pytest_report/junit.xml
+          ANDROID_GRADLE_BUILD_RESULT="$(cat android-build-status.txt)" \
+          REUSE_REPORT=1 python3 scripts/update_release_metadata.py
+      - name: BUILD_PROVENANCE（root APK 绑定 + signing stage/scheme；§15 禁 dirty release）
+        run: python3 scripts/generate_provenance.py --require-clean
+      - name: final release package + §18 终态门禁
+        run: |
+          python3 scripts/build_final_package.py --out-dir releases
+          python3 scripts/verify_final_package.py "releases/ECHO_Mind_v${VERSION}.release.zip"
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: echo-mind-release-set
+          path: |
+            releases/ECHO_Mind_v*.release.zip
+            ECHO_Mind_v*.apk
+            ECHO_Mind_v*.apk.idsig
+            SOURCE_MANIFEST.sha256
+            RELEASE_ARTIFACT_MANIFEST.sha256
+            BUILD_PROVENANCE.json
+            DELIVERY_MANIFEST.json
+            sbom.spdx.json

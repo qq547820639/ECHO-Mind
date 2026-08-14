@@ -1,9 +1,12 @@
-# source-integrity（ERA 12.7）：Source Package Integrity Gate。
+# source-integrity（ERA 12.8）：Source Package Integrity Gate —— §5 同一道 Gate。
 #
-# 职责：**每个 PR/push** 校验已提交的 SOURCE_MANIFEST 与当前工作树一致，
-# 防止 stale hash / 旧快照清单进入 release。
+# 职责：**每个 PR/push** 校验：
+#   1. 已提交的 SOURCE_MANIFEST 与 git 受控源文件集一致（stale hash 防回归）；
+#   2. 确定性 source archive（zip + tar.gz）可由当前 checkout 重建；
+#   3. archive 解包后 SOURCE_MANIFEST 再次 PASS（NFC / UTF-8 标志 / required / 双向清单）；
+#   4. Distribution Integrity Test Suite（Unicode/篡改/缺失/意外文件负例）。
 # 正式 release 元数据（DELIVERY_MANIFEST/BUILD_PROVENANCE/ARTIFACT_MANIFEST）
-# 由 android-ci 的 release-metadata job 在同一 pipeline run 内生成（build status 绑定）。
+# 由 release-closure 在同一 pipeline run 内生成。
 name: source-integrity
 on:
   pull_request:
@@ -11,14 +14,30 @@ on:
     branches: [main, "release/**"]
 jobs:
   integrity:
-    name: source manifest integrity
+    name: source manifest + archive gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
       - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
         with: {python-version: "3.12"}
       - name: python syntax check of integrity scripts
-        run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py
-      - name: verify SOURCE_MANIFEST matches this checkout
+        run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py scripts/distribution.py scripts/build_source_archive.py scripts/verify_source_archive.py scripts/build_final_package.py scripts/verify_final_package.py
+      - name: verify SOURCE_MANIFEST matches this checkout（git 受控文件集）
         run: python3 scripts/verify_source_manifest.py
+      - name: build deterministic source archive
+        run: python3 scripts/build_source_archive.py --out-dir dist
+      - name: verify extracted source archive（zip）
+        run: python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.zip
+      - name: verify extracted source archive（tar.gz）
+        run: python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.tar.gz
+      - name: distribution integrity test suite（Unicode / tamper / missing / unexpected）
+        run: |
+          pip install pytest
+          python3 -m pytest scripts/test_source_archive.py -q
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: source-archives
+          path: |
+            dist/ECHO_Mind_PortraitCore_v*.zip
+            dist/ECHO_Mind_PortraitCore_v*.tar.gz

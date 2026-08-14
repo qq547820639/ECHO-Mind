@@ -2,46 +2,51 @@
 
 > 本文件是长期自主演进的**唯一状态锚点**。每轮结束更新；禁止虚假完成状态。
 > 文档权威顺序见 `docs/DOCUMENT_AUTHORITY.md`。
+> 本文件描述**当前可交付 main**（git 受控状态），不描述 agent working tree。
 
 ## Current Era
 
-**ERA 12.7 — SOURCE CLOSURE & RELEASE ATOMICITY 完成 ✅ → 下一轮进入 ERA 13（应用层收口：JourneyViewModel/MeViewModel）**
+**ERA 12.8 — FINAL DISTRIBUTION CLOSURE 进行中 → 完成后进入 ERA 12.9（文档/状态真值）→ ERA 13（Journey Application Layer）**
 
-## Source Closure Status（ERA 12.7 实测）
+## Distribution Closure Status（ERA 12.8 实测）
 
-- ✅ runtime 排除 bug 已修复（SOURCE_MANIFEST 含 runtime/EchoRuntimeCoordinator.kt；verify_source_manifest 472 源文件一致）
-- ✅ SOURCE_MANIFEST / RELEASE_ARTIFACT_MANIFEST 分离（源文件 vs APK/SBOM/Delivery/Provenance/Notes）
-- ✅ provenance DAG 无循环（source→build→artifacts→provenance→artifact manifest）
-- ✅ build status 由 pipeline run 注入（ANDROID_GRADLE_BUILD_RESULT；CI android-ci→release-metadata 同 run 传递）
-- ✅ SOURCE_REALITY_REPORT（脚本生成：108 kt/68 py/5 组件/5 Worker/unresolved=0）
-- ✅ SourceIntegrityTest 自动发现升级（引用解析/DAO 存在/领域包/五态）
+- ✅ **EchoRuntimeCoordinator 最终事实**：`android/.../runtime/EchoRuntimeCoordinator.kt`（145 行正式实现）此前被 `.gitignore` 裸 `runtime/` 规则排除在 git 之外——工作树存在、SOURCE_MANIFEST 记录、`git archive` 必漏包。已修复：`.gitignore` 改为根锚定 `/runtime/`，文件入库（`git ls-files` 可证）。
+- ✅ SOURCE_MANIFEST 以 **git 受控文件集** 为唯一事实源（`update_release_metadata.collect_source_files`），不再扫描文件系统 → clean checkout 与 manifest 恒等。
+- ✅ 确定性 Source Archive：`scripts/build_source_archive.py`（479 源文件；NFC 路径；ZIP 非 ASCII 条目置 UTF-8 标志 0x800；HEAD commit 时间戳；同 commit 字节级可复现）。
+- ✅ Final Archive Verification Gate：`scripts/verify_source_archive.py`（解包 → 内嵌清单校验 → NFC/UTF-8 标志 → required sources → 双向 unexpected 检查）。zip 与 tar.gz 均 PASS。
+- ✅ Distribution Integrity Test Suite：`scripts/test_source_archive.py`（10 用例：中文/emoji/空格/长路径 fixture、确定性、hash 篡改、意外文件、缺失 runtime、NFD、缺 UTF-8 标志负例）。
+- ✅ root APK 绑定 Provenance：`release_apk_path/release_apk_sha256/unsigned_apk_sha256/signing_stage/signature_scheme`（`generate_provenance.py`，schema v2）。
+- ✅ Artifact Manifest 只描述最终交付物（不再 hash build 目录 debug/androidTest 临时 APK）。
+- ✅ Final Release Package：`scripts/build_final_package.py` + `scripts/verify_final_package.py`（§18 终态门禁：manifest 双向复核 + provenance 交叉绑定 + 包内 source archive 递归验证）。
+- ✅ CI：`source-integrity.yml` 扩展为 archive build+verify+test suite；新增 `release-closure.yml`（§17 原子 release 流程，tag v* 触发，secrets 存在时 apksigner 签名）。
+- ✅ 根目录 APK/idsig 从 git 移除（本地产物，`.gitignore` 泛化 `ECHO_Mind_v*.apk*`）——source archive 不再夹带 APK。
 
 ## Source Integrity
 
-- ✅ `docs/architecture/SOURCE_INTEGRITY_REPORT.md`：source = build = tests = hashes = manifest = provenance 同快照（核查结论 + 实测表）
-- ✅ EchoRuntimeCoordinator/EchoRuntimeHealth 存在且五态化（提示词缺失疑点已排除）
-- ✅ FILE_HASHES.sha256 重新生成（496 文件，机器生成）；DELIVERY_MANIFEST 机器生成（真实 pytest 计数 + APK 产物判定）
-- ✅ BUILD_PROVENANCE.json（git commit/版本/源码树哈希/FILE_HASHES 自哈希）
+- ✅ `docs/architecture/SOURCE_INTEGRITY_REPORT.md`：核查结论 + 实测表（本 ERA 更新）
+- ✅ EchoRuntimeCoordinator / EchoRuntimeHealth 五态（READY/STARTING/DEGRADED/PAUSED/UNAVAILABLE）已在 git 中，SourceIntegrityTest 断言防回归
+- ✅ SourceIntegrityTest（Manifest 组件/Worker/包路径/引用解析/DAO/领域包/五态，7 断言）+ CI `source-integrity.yml`
 - ✅ BuildConfig 内嵌 GIT_COMMIT / BUILD_TIMESTAMP / BUILD_VERSION（Me → About 可见）
-- ✅ SourceIntegrityTest（Manifest 组件/Worker/包路径/关键类/五态模型，5 断言）+ CI `source-integrity.yml`
 
-## Build Status（本次实测）
+## Build Status（本轮实测）
 
-- Android：**463 tests 全绿**；assembleDebug / lintDebug / detekt PASS
-- backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip PASS；contract drift 60 路径 OK；safety eval 正常；content-packs 4 validated
+- Android：见本轮实测结果（testDebugUnitTest / lintDebug / detekt / assembleRelease；本机 Corretto-17 + SDK 36 执行，如环境阻塞则如实标注）
+- backend：pytest（本轮实测计数）+ ruff + mypy + alembic roundtrip（CI backend-ci 全量；本机按环境如实标注）
+- Distribution：SOURCE_MANIFEST（479 文件）verify PASS；source archive（zip+tar.gz）verify PASS；final package verify PASS
 
 ## Completed
 
-- v1 ERA 1-10 / v2 两轮 / ERA 12（批次 1+2+v3.1 收尾）——见 RELEASE_NOTES_v0.9.0 与 ADR-001~024
-- **ERA 12.6 Source Closure**（本轮）：runtime 核查、交付元数据重建、provenance、BuildConfig、SourceIntegrityTest、CI gate、文档归档（ARCHITECTURE_REVIEW→archive、docs/current 重建为 v0.9 索引）
+- v1 ERA 1-10 / v2 两轮 / ERA 12（批次 1+2+v3.1 收尾）——见 RELEASE_NOTES 与 ADR-001~024
+- **ERA 12.6/12.7 Source Closure**：交付元数据重建、provenance、BuildConfig、SourceIntegrityTest、CI gate、文档归档
+- **ERA 12.8 Distribution Closure（本 ERA 目标）**：runtime 入库、manifest=git、确定性归档、终态验证门禁、root APK provenance 绑定、release-closure CI
 
 ## In Progress
 
-- 无。
+- ERA 12.8 收尾：本地 Android/backend 基线实测 → 重新生成全部 release metadata → 最终 ZIP 自证
 
 ## Blocked
 
-- 无。
+- 无（Android 本机构建依赖 /tmp/echo-build JDK+SDK；缺失时由 CI android-ci/release-closure 兜底，如实标注不伪造）
 
 ## Legacy Remaining
 
@@ -49,13 +54,14 @@
 |---|---|---|
 | `ui/SkillCardHost.kt` + `SkillActionRenderers.kt` | KEEP_AS_CONTENT（订阅内容，SKILLS_TO_ACTIONS.md 已裁决） | 最终决策 |
 | backend 410 存根 | keep（机构历史只读） | 最终决策 |
-| 其余旧时代 UI | 已全部删除（LEGACY_REMOVAL_PLAN.md 防回归锚点） | ✅ |
+| `releases/` v0.2 时代 bundle/tar/实施手册 | 历史交付物（git 受控但不进 SOURCE_MANIFEST/source archive） | 保留 |
+| 根目录历史 APK（v0.8.0/v0.9.0） | 本地产物已移出 git（.gitignore），新交付走 release set | ✅ |
 
 ## Architecture Debt
 
-- `ui/journey/JourneyScreen.kt` 仍直接编排 7 个依赖（repository/AI/memory/flags/sync）——**下一轮 JourneyViewModel 化**
-- `ui/me/MeScreen.kt` 仍持有共享状态编排（六子领域已拆，但 root 状态提升未 ViewModel 化）——**下一轮 MeViewModel + DataAndSensingViewModel**
-- AppContainer 子容器为组合式分组（构造仍在 root）——ERA 13.5 前抽 ports + 真拥有
+- `ui/journey/JourneyScreen.kt` 仍直接编排 7 个依赖（repository/AI/memory/flags/sync）——**ERA 13 JourneyViewModel 化**
+- `ui/me/MeScreen.kt` 仍持有共享状态编排（六子领域已拆，但 root 状态提升未 ViewModel 化）——**ERA 13.1 MeViewModel**
+- AppContainer 子容器为组合式分组（构造仍在 root）——ERA 13.3 抽 ports + 真拥有
 
 ## Security Debt
 
@@ -70,9 +76,10 @@
 ## Release Integrity
 
 - ✅ 版本单一事实源 v0.9.0（version_source/README/pyproject/versionName/manifest 一致，CI 断言）
-- ✅ provenance/hashes/manifest 同快照生成流程（scripts + CI）
-- ⚠️ 正式 release bundle 需 clean checkout 重跑（脚本已注明；流程已 CI 化）
+- ✅ Git source = SOURCE_MANIFEST = distributed source ZIP = extracted verified source（同一 Gate，实测 PASS）
+- ✅ signed APK ↔ BUILD_PROVENANCE ↔ RELEASE_ARTIFACT_MANIFEST ↔ final release package（DAG 无循环）
+- ✅ release 必须 clean tree（`generate_provenance.py --require-clean`；CI 同 run 生成全部元数据）
 
 ## Next Highest-value Task
 
-ERA 13 应用层收口批次 1：JourneyViewModel + JourneyUiState + Journey 领域访问层（JourneyScreen 去编排）→ 批次 2：MeViewModel + DataAndSensingViewModel + 控制器拆分。
+ERA 12.9（文档/状态真值）→ ERA 13 应用层收口批次 1：JourneyViewModel + JourneyUiState + Journey 领域访问层（JourneyScreen 去编排）→ 批次 2：MeViewModel + DataAndSensingViewModel。

@@ -2,10 +2,10 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "ECHO-Mind-PortraitCore-v0.7.0-source-SBOM",
-  "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.7.0/sbom",
+  "name": "ECHO-Mind-PortraitCore-v0.9.0-source-SBOM",
+  "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.9.0/sbom",
   "creationInfo": {
-    "created": "2026-08-13T21:14:51Z",
+    "created": "2026-08-14T12:26:25Z",
     "creators": [
       "Tool: scripts/generate_sbom.py"
     ]
@@ -183,6 +183,15 @@
       "supplier": "NOASSERTION"
     },
     {
+      "SPDXID": "SPDXRef-Android-androidx-lifecycle-runtime-compose",
+      "name": "androidx.lifecycle:lifecycle-runtime-compose",
+      "versionInfo": "2.9.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
       "SPDXID": "SPDXRef-Android-androidx-lifecycle-viewmodel-compose",
       "name": "androidx.lifecycle:lifecycle-viewmodel-compose",
       "versionInfo": "2.9.4",
@@ -257,6 +266,15 @@
     {
       "SPDXID": "SPDXRef-Android-androidx-room-compiler",
       "name": "androidx.room:room-compiler",
+      "versionInfo": "2.8.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-room-testing",
+      "name": "androidx.room:room-testing",
       "versionInfo": "2.8.4",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
@@ -340,7 +358,7 @@
     {
       "annotationType": "OTHER",
       "annotator": "Tool: scripts/generate_sbom.py",
-      "annotationDate": "2026-08-13T21:14:51Z",
+      "annotationDate": "2026-08-14T12:26:25Z",
       "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
     }
   ]

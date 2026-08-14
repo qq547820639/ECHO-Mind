@@ -1,23 +1,30 @@
 {
-  "schema_version": "echo-build-provenance-v1",
-  "git_commit": "c6eeaf52ea2ff3917ff5a2f6f21862db4f7bdea9",
+  "schema_version": "echo-build-provenance-v2",
+  "release_version": "0.9.0",
+  "git_commit": "ebc22d9fc92deeb004a28d4ef283fc717bb7ef41",
   "git_dirty": true,
   "release_type": "development",
-  "release_version": "0.9.0",
-  "android_version_code": 6,
+  "source_tree_sha256": "cf4b14eeb7b6ff1aa26c68509e1fd2ecae23331b7bc51e8ec5032abe609b5d2c",
+  "source_manifest_sha256": "0d3e6b1b7eedaf14fe57a462b2a20c415f817df520bb4d27d060b3f924c528fa",
   "android_version_name": "0.9.0",
+  "android_version_code": 6,
   "backend_version": "0.9.0",
-  "source_tree_sha256": "bc599f4a32971ed0fe4c969b1c90c4b405b4507fe0f7363c9fef9d8b347fd6fe",
-  "apk_sha256": {
-    "android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "dfdcf55a1bf111c6861be5f724ea2a4f1c097b024672e1705c83f5273ff7d7a0",
-    "android/app/build/outputs/apk/debug/app-debug.apk": "b3691b2121a38ad11770ea726d69e057434fd0abb94d29160027b3916fde2db6",
-    "android/app/build/outputs/apk/release/app-release-unsigned.apk": "94f1b016aa0e4da783b10b48da33a8a2284154ac67db56ac91060df32b96dd9f"
-  },
-  "sbom_sha256": "23db536dd6a08e2b710fa3096536e3793f1afa99656e22f4808cdccaa221912f",
-  "jdk_version": "",
-  "gradle_version": "",
+  "jdk_version": "17.0.20",
+  "gradle_version": "8.13",
   "python_version": "3.12.13",
-  "build_timestamp_utc": "2026-08-14T11:56:32.461923+00:00",
+  "build_timestamp_utc": "2026-08-14T12:26:26Z",
   "ci_run_id": "",
-  "builder_environment": "local-dev"
+  "builder_environment": "local-dev",
+  "unsigned_apk_path": "android/app/build/outputs/apk/release/app-release-unsigned.apk",
+  "unsigned_apk_sha256": "b7fc794b675f786d6d887bb7f05988b4d66ce07ebe051ab07e8034a6364f8302",
+  "release_apk_path": "ECHO_Mind_v0.9.0.apk",
+  "release_apk_sha256": "50967ab6607bf492df56ed5f27188c74a683b5a9a88c65fe31dc54551aa8d277",
+  "release_apk_idsig_sha256": "b27ee7be9d483daa424ad6f157f94467b95cc5a6fdff600793d0ef00565c95df",
+  "signing_stage": "signed",
+  "signature_scheme": "v2,v3",
+  "sbom_sha256": "43d7534e7e7467735f669c2ab74480792030ea06f1125c648fd27f9faceef546",
+  "source_archive_sha256": {
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "36da52e18943f82efefd949ad38d75b1a238ea9b16cab58a8fc882feecb5ff9e",
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "71d2a903f6841a203444a7f29583f38e58ec2ac41aca73f4c1b982aae788d35f"
+  }
 }

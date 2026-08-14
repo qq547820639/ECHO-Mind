@@ -59,8 +59,16 @@ jobs:
           export ANDROID_GRADLE_BUILD_RESULT="$(cat android-build-status.txt)"
           export REUSE_REPORT=1
           python3 scripts/update_release_metadata.py
-      - name: generate provenance + artifact manifest
-        run: python3 scripts/generate_provenance.py
+      - name: deterministic source archive + extracted verification gate（ERA 12.8）
+        run: |
+          mkdir -p releases
+          python3 scripts/build_source_archive.py --out-dir releases
+          python3 scripts/verify_source_archive.py releases/ECHO_Mind_PortraitCore_v*.zip
+          python3 scripts/verify_source_archive.py releases/ECHO_Mind_PortraitCore_v*.tar.gz
+      - name: generate SBOM + provenance + artifact manifest
+        run: |
+          python3 scripts/generate_sbom.py
+          python3 scripts/generate_provenance.py
       - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
         with:
           name: release-metadata
@@ -69,6 +77,8 @@ jobs:
             RELEASE_ARTIFACT_MANIFEST.sha256
             DELIVERY_MANIFEST.json
             BUILD_PROVENANCE.json
+            releases/ECHO_Mind_PortraitCore_v*.zip
+            releases/ECHO_Mind_PortraitCore_v*.tar.gz
 
   connected-test:
     name: instrumentation (API ${{ matrix.api-level }})
