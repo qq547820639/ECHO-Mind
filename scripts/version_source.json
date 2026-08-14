@@ -5,5 +5,6 @@
   "android_version_name": "0.9.0",
   "android_version_code": 6,
   "contract_manifest_version": "0.7.0",
-  "release_notes_file": "RELEASE_NOTES_v0.9.0.md"
+  "release_notes_file": "RELEASE_NOTES_v0.9.0.md",
+  "sbom_created_utc": "2026-08-14T00:00:00Z"
 }

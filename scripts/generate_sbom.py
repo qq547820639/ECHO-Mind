@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
@@ -71,13 +70,16 @@ for alias, module, version_ref, direct in re.findall(
     })
 
 def sbom_timestamp() -> str:
-    """§96：SBOM 时间戳 = HEAD 提交时间（确定性；同 commit 同 SBOM 字节）。"""
+    """§96：SBOM 时间戳 = 版本事实源 sbom_created_utc（版本冻结，commit 无关）。
+
+    语义：SBOM 描述 release vX.Y.Z——created = 该发布周期冻结日期；版本升级时才更新。
+    这样任何 checkout/任何提交顺序下重生成 SBOM 都字节一致（无 commit-SHA 循环依赖）。
+    """
     try:
-        out = subprocess.check_output(
-            ["git", "log", "-1", "--format=%cI"], cwd=ROOT, stderr=subprocess.DEVNULL
-        ).decode("utf-8").strip()
-        if out:
-            return datetime.fromisoformat(out).astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        version_source = json.loads((ROOT / "scripts" / "version_source.json").read_text(encoding="utf-8"))
+        ts = version_source.get("sbom_created_utc")
+        if ts:
+            return datetime.fromisoformat(ts).astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     except Exception:
         pass
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
