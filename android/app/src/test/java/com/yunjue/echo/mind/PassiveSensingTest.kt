@@ -219,8 +219,9 @@ class PassiveSensingTest {
             val channel = nm.getNotificationChannel("passive_sensing")
             assertNotNull("通知渠道应已创建", channel)
             assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
-            assertEquals(PassiveSensingService.NOTIFICATION_TITLE, "ECHO Mind")
-            assertEquals(PassiveSensingService.NOTIFICATION_TEXT, "被动采集中（端侧处理）")
+            // ERA 1 文案（Master Prompt PART 24）：透明责任，非工程语言
+            assertEquals(PassiveSensingService.NOTIFICATION_TITLE, "ECHO")
+            assertEquals(PassiveSensingService.NOTIFICATION_TEXT, "正在了解今天")
         } finally {
             controller.destroy()
         }

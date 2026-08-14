@@ -11,9 +11,11 @@ import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.LocalDataRights
 import com.yunjue.echo.mind.data.LocalPortraitDataSource
+import com.yunjue.echo.mind.data.MemoryRepository
 import com.yunjue.echo.mind.data.MessageRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
 import com.yunjue.echo.mind.data.PortraitRepository
+import com.yunjue.echo.mind.data.PresenceRepository
 import com.yunjue.echo.mind.data.SensingRepository
 import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.data.SyncStateRepository
@@ -205,6 +207,30 @@ internal val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+/**
+ * v8 → v9 迁移（ERA 6 EchoMemory）：新增 echo_memories 表（纯建表，无数据改写）。
+ */
+internal val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS echo_memories (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                createdAt INTEGER NOT NULL,
+                lastConfirmedAt INTEGER NOT NULL,
+                importance INTEGER NOT NULL,
+                retentionClass TEXT NOT NULL,
+                provenance TEXT NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )"""
+        )
+    }
+}
+
 class AppContainer(context: Context) {
     /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
      *  具体类型以支持 v1→v2 口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
@@ -255,6 +281,26 @@ class AppContainer(context: Context) {
     val localDataRights = LocalDataRights(database, cipher)
     // v0.7 分析消息（拉取式推送过渡）：订阅拉服务端小结 / 本地模式端侧算小结
     val messageRepository = MessageRepository(preferences, apiClient, localPortraitDataSource)
+    // ERA 2：单一 Current ECHO State（Today / Wallpaper / Dream 共享）
+    val echoStateStore = com.yunjue.echo.mind.presence.EchoStateStore()
+    // ERA 2：Presence 组装入口（分钟级刷新；唯一写入方）
+    val presenceRepository = PresenceRepository(
+        dataSource = localPortraitDataSource,
+        preferences = preferences,
+        passiveSensingPrefs = passiveSensingPrefs,
+        appContext = context.applicationContext,
+        store = echoStateStore,
+    )
+    // ERA 4：BYOM Intelligence（secret 设备端加密存储；LLM Provider ≠ ECHO）
+    val providerCredentialStore = com.yunjue.echo.mind.intelligence.ProviderCredentialStore(context, cipher)
+    val aiProviderManager = com.yunjue.echo.mind.intelligence.AiProviderManager(providerCredentialStore)
+    // ERA 6：EchoMemory（七类记忆 + 生命周期；Memory ≠ 聊天记录）
+    val memoryRepository = MemoryRepository(database, preferences)
+    // ERA 5：AI 叙事编排（fallback 链：AI 叙事 → 确定性叙事 → 观察事实）
+    val aiNarrativeService = com.yunjue.echo.mind.intelligence.AiNarrativeService(
+        hasProvider = { aiProviderManager.hasProvider() },
+        reason = { request -> aiProviderManager.reason(request) },
+    )
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
     val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(skillRepository)
@@ -294,7 +340,7 @@ private fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): 
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                MIGRATION_7_8
+                MIGRATION_7_8, MIGRATION_8_9
             )
             .openHelperFactory(SupportFactory(passphrase))
             .build()

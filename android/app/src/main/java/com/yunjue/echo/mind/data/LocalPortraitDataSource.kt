@@ -1,6 +1,8 @@
 package com.yunjue.echo.mind.data
 
 import com.yunjue.echo.mind.localportrait.LocalBaselineCalculator
+import com.yunjue.echo.mind.localportrait.LocalBaselineSnapshot
+import com.yunjue.echo.mind.localportrait.LocalDayAggregate
 import com.yunjue.echo.mind.localportrait.LocalPortraitEngine
 import com.yunjue.echo.mind.localportrait.LocalWindowRow
 import com.yunjue.echo.mind.localportrait.computeLocalDayAggregate
@@ -19,6 +21,12 @@ import java.time.ZoneId
  * 与服务端流水线逐语义镜像；服务端可用时以服务端为准（本数据源只做回退）。
  * 隐私：只读本地表，不产生任何新上行。
  */
+
+/** ERA 2：Presence 输入（AmbientEngine 的原始证据，只读本地表；模块内部类型，不跨模块暴露）。 */
+internal data class PresenceInputs(
+    val today: LocalDayAggregate?,
+    val baseline: LocalBaselineSnapshot?,
+)
 class LocalPortraitDataSource(private val db: EchoDatabase) {
 
     /** 读取某用户全部 passive-core-v1 窗口行（按窗口起点升序）。 */
@@ -97,6 +105,20 @@ class LocalPortraitDataSource(private val db: EchoDatabase) {
             windowEnd = snapshot.windowEnd.toString(),
             bucketUsage = snapshot.bucket,
             todayCoverage = todayCoverage
+        )
+    }
+
+    /** ERA 2：Presence 输入（当日聚合 + 基线快照；AmbientEngine 的数据源，只读）。 */
+    internal suspend fun presenceInputs(
+        userId: String,
+        today: LocalDate,
+        zoneId: ZoneId
+    ): PresenceInputs {
+        val rows = passiveCoreRows(userId)
+        val aggregates = aggregatesByDay(rows, zoneId)
+        return PresenceInputs(
+            today = aggregates[today],
+            baseline = com.yunjue.echo.mind.localportrait.buildLocalBaseline(today, aggregates.values.toList()),
         )
     }
 

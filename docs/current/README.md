@@ -7,8 +7,9 @@
 | 事实 | 位置 | 状态 |
 |---|---|---|
 | 产品最高契约 | `PORTRAIT_CONTRACT.md`（仓库根） | 冻结（v1.0） |
-| 产品 README | `README.md` | v0.7.0 pilot-candidate |
-| 发布说明 | `RELEASE_NOTES_v0.7.0.md` | 本版本 |
+| 产品 README | `README.md` | v0.8.0 Personal Ambient Intelligence |
+| 发布说明 | `RELEASE_NOTES_v0.8.0.md` | 本版本（ERA 1-10） |
+| 版本事实源 | `scripts/version_source.json` | 0.8.0（Android versionCode 5） |
 | OpenAPI 契约 | `docs/openapi.json` | 60 路径（实时导出） |
 | 跨端契约清单 | `docs/contract-manifest.json` | v0.7.0（21 required endpoints） |
 | Alembic head | `20260814_0001`（订阅生命周期） | roundtrip PASS |
@@ -19,6 +20,17 @@
 | Phase 0 事实基线 | `docs/current/00_Phase0_Fresh_Truth_Audit.md` | 本封板轮 |
 | Phase 6 UX 规格 | `docs/current/20_Phase6_Onboarding_UX_Spec.md` | 产品经理冻结 |
 | Phase 9 legacy 审计 | `docs/current/30_Phase9_Legacy_Audit.md` | 分类记录 |
+| 持续在场 v1.0 落地计划 | `docs/current/50_持续在场AI陪伴_差距分析与实施路线_v1.0.md` | 草案 · 待产品/工程评审 |
+| 产品宪法 | `docs/product/ECHO_PRODUCT_CONSTITUTION.md` | 冻结（v1.0，ERA 1） |
+| 个人智能契约 | `docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md` | 冻结（v1.0，ERA 1） |
+| 情绪智能契约（门槛） | `docs/intelligence/AFFECTIVE_CONTRACT.md` | 冻结（v1.0，ERA 10 前置） |
+| AI Provider 规格 | `docs/providers/AI_PROVIDER_SPEC.md` | 冻结（v1.0，ERA 1） |
+| Presence 架构 | `docs/presence/ECHO_PRESENCE_ARCHITECTURE.md` | 冻结（v1.0，ERA 1） |
+| 目标领域模型 | `docs/intelligence/ECHO_SELF_MODEL.md` | v1.0（ERA 6 实现） |
+| 迁移架构 | `docs/architecture/MIGRATION_ARCHITECTURE.md` | v1.0 |
+| 架构地图与冲突清单 | `docs/architecture/ECHO_ARCHITECTURE_MAP.md` | v1.0（ERA 1 审计产出） |
+| ADR 决策记录 | `docs/architecture/ADRS.md` | v1.0（ADR-001~020，最终裁决） |
+| 实施状态锚点 | `docs/IMPLEMENTATION_STATUS.md` | **v0.8.0 交付完成** |
 
 ## 单一版本事实源
 

@@ -11,7 +11,7 @@ class AppPreferences(
     private val cipher: FieldCipher,
     val passiveSensingPrefs: PassiveSensingPrefs = PassiveSensingPrefs(context)
 ) {
-    private val prefs = context.getSharedPreferences("echo_mind_app_state", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
 
     var institutionCode: String
         get() = prefs.getString("institution_code", "") ?: ""
@@ -368,8 +368,57 @@ class AppPreferences(
         get() = prefs.getBoolean("evening_reminder_enabled", true)
         set(value) = prefs.edit().putBoolean("evening_reminder_enabled", value).apply()
 
+    // ===== ERA 1：ECHO Awakening 锚点 =====
+    // 苏醒瞬间写入（epoch ms；0 = 尚未苏醒）。
+    // Day-0 SEED 画报的「已观察 N 分钟」与成长成熟度的存在性表达依赖此锚点。
+    // 老用户回填：取本地最早特征窗口日期（见 docs/architecture/MIGRATION_ARCHITECTURE.md §4）。
+
+    var awakenedAtEpochMs: Long
+        get() = prefs.getLong("awakened_at_epoch_ms", 0L)
+        set(value) = prefs.edit().putLong("awakened_at_epoch_ms", value).apply()
+
+    // ===== ERA 2/3：ECHO Presence 快照与设置 =====
+
+    /**
+     * 最近一版 EchoPresenceState 快照（[com.yunjue.echo.mind.presence.EchoPresenceCodec] 编码）。
+     * Wallpaper / Dream 进程只读此快照（不初始化业务容器）；PresenceRepository 每次刷新落盘。
+     */
+    var echoPresenceSnapshot: String?
+        get() = prefs.getString(KEY_ECHO_PRESENCE_SNAPSHOT, null)
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove(KEY_ECHO_PRESENCE_SNAPSHOT) else edit.putString(KEY_ECHO_PRESENCE_SNAPSHOT, value)
+            edit.apply()
+        }
+
+    /** 动态程度：QUIET / DEFAULT / LIVELY（Me → Presence 设置）。 */
+    var presenceMotionLevel: String
+        get() = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT"
+        set(value) = prefs.edit().putString("presence_motion_level", value).apply()
+
+    /** 增强夜间模式（额外降暗减速；昼夜亮度曲线本身已自动调暗）。默认关。 */
+    var presenceNightMode: Boolean
+        get() = prefs.getBoolean("presence_night_mode", false)
+        set(value) = prefs.edit().putBoolean("presence_night_mode", value).apply()
+
+    /** 减少动画（无障碍）：视觉参数 flowSpeed 归零。默认关。 */
+    var presenceReduceMotion: Boolean
+        get() = prefs.getBoolean("presence_reduce_motion", false)
+        set(value) = prefs.edit().putBoolean("presence_reduce_motion", value).apply()
+
+    /** 应用内建议（InterventionPolicy L2 opt-in）：打开时基于高置信状态给温和建议。默认开。 */
+    var presenceSuggestionsEnabled: Boolean
+        get() = prefs.getBoolean("presence_suggestions_enabled", true)
+        set(value) = prefs.edit().putBoolean("presence_suggestions_enabled", value).apply()
+
     companion object {
+        /** 应用状态 SharedPreferences 文件名（Wallpaper/Dream 进程直读快照用）。 */
+        const val PREFS_FILE = "echo_mind_app_state"
+
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
+
+        /** Presence 快照键（Wallpaper/Dream 进程经原始 SharedPreferences 直读）。 */
+        const val KEY_ECHO_PRESENCE_SNAPSHOT = "echo_presence_snapshot"
 
         // ===== Onboarding 七态 =====
         const val ONBOARDING_NOT_STARTED = "NOT_STARTED"

@@ -309,6 +309,68 @@ interface PortraitDao {
     suspend fun countPortraitsByUser(userId: String): Int
 }
 
+/**
+ * ERA 6 — EchoMemory 本地实体（Room v9）。
+ *
+ * Memory ≠ 聊天记录：每条记忆携带生命周期字段（PERSONAL_INTELLIGENCE_CONTRACT §5.2）。
+ * - id 为本地生成幂等键；content 为明文短文本（用户可见、可编辑、可删除）；
+ * - provenance 记录来源（observation-core / user-statement / ai-inference-v1…）；
+ * - deleted 为软删除（用户 forget / 自动过期后打标，历史可审计）。
+ */
+@Entity(tableName = "echo_memories")
+data class EchoMemoryEntity(
+    @PrimaryKey val id: String,
+    val userId: String,
+    val type: String,
+    val content: String,
+    val source: String,
+    val confidence: Float,
+    val createdAt: Long,
+    val lastConfirmedAt: Long,
+    val importance: Int,
+    val retentionClass: String,
+    val provenance: String,
+    val deleted: Boolean = false,
+)
+
+@Dao
+interface MemoryDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(value: EchoMemoryEntity)
+
+    @Query("SELECT * FROM echo_memories WHERE userId = :userId AND deleted = 0 ORDER BY importance DESC, lastConfirmedAt DESC")
+    fun observeByUser(userId: String): Flow<List<EchoMemoryEntity>>
+
+    @Query("SELECT * FROM echo_memories WHERE userId = :userId AND deleted = 0 ORDER BY importance DESC, lastConfirmedAt DESC LIMIT :limit")
+    suspend fun topByUser(userId: String, limit: Int): List<EchoMemoryEntity>
+
+    @Query("SELECT * FROM echo_memories WHERE userId = :userId AND type = :type AND deleted = 0 ORDER BY lastConfirmedAt DESC")
+    suspend fun byType(userId: String, type: String): List<EchoMemoryEntity>
+
+    @Query("SELECT * FROM echo_memories WHERE id = :id")
+    suspend fun byId(id: String): EchoMemoryEntity?
+
+    /** 用户 forget：软删除（可审计，不物理抹除）。 */
+    @Query("UPDATE echo_memories SET deleted = 1 WHERE id = :id")
+    suspend fun forget(id: String)
+
+    /** 用户 confirm：刷新确认时间 + 重要度 +10（上限 100）。 */
+    @Query("UPDATE echo_memories SET lastConfirmedAt = :now, importance = MIN(100, importance + 10) WHERE id = :id")
+    suspend fun confirm(id: String, now: Long)
+
+    /** 用户 edit：内容更新 + 确认时间刷新。 */
+    @Query("UPDATE echo_memories SET content = :content, lastConfirmedAt = :now WHERE id = :id")
+    suspend fun edit(id: String, content: String, now: Long)
+
+    /** 自动过期打标（purgeExpired）。 */
+    @Query("UPDATE echo_memories SET deleted = 1 WHERE id = :id")
+    suspend fun expire(id: String)
+
+    /** 本地数据权利：物理删除某用户全部记忆。 */
+    @Query("DELETE FROM echo_memories WHERE userId = :userId")
+    suspend fun deleteByUser(userId: String)
+}
+
 @Database(
     entities = [
         CheckinEntity::class,
@@ -320,9 +382,10 @@ interface PortraitDao {
         FeatureVectorEntity::class,
         ActiveSkillSessionEntity::class,
         EscalationEntity::class,
-        DailyPortraitEntity::class
+        DailyPortraitEntity::class,
+        EchoMemoryEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {
@@ -330,4 +393,5 @@ abstract class EchoDatabase : RoomDatabase() {
     abstract fun consentDao(): ConsentDao
     abstract fun escalationDao(): EscalationDao
     abstract fun portraitDao(): PortraitDao
+    abstract fun memoryDao(): MemoryDao
 }

@@ -35,8 +35,8 @@ import kotlinx.coroutines.launch
 private enum class Tab(val label: String, val icon: ImageVector) {
     TODAY("今天", Icons.Filled.Home),
     SKILLS("能力", Icons.Filled.Star),
-    TREND("趋势", Icons.Filled.DateRange),
-    SUPPORT("支持", Icons.Filled.Info)
+    TREND("旅程", Icons.Filled.DateRange),
+    SUPPORT("我的", Icons.Filled.Info)
 }
 
 /**
@@ -86,11 +86,7 @@ fun EchoMindApp(container: AppContainer) {
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
                 Tab.TODAY -> TodayScreen(
-                    portraitRepository = container.portraitRepository,
-                    syncStateRepository = container.syncStateRepository,
-                    skillRepository = container.skillRepository,
-                    messageRepository = container.messageRepository,
-                    coordinator = container.skillSessionCoordinator,
+                    container = container,
                     onGoToSkills = { tabName = Tab.SKILLS.name },
                     onGoToTrend = { tabName = Tab.TREND.name },
                     onEmergency = { tabName = Tab.SUPPORT.name },
@@ -112,7 +108,15 @@ fun EchoMindApp(container: AppContainer) {
                     subscriptionExpired = container.preferences.subscriptionExpired,
                     onGoToSupport = { tabName = Tab.SUPPORT.name }
                 )
-                Tab.TREND -> TrendScreen(container.portraitRepository, container.syncStateRepository, container.featureFlagRepository, onGoToSupport = { tabName = Tab.SUPPORT.name })
+                Tab.TREND -> TrendScreen(
+                    container.portraitRepository,
+                    container.syncStateRepository,
+                    container.featureFlagRepository,
+                    container.memoryRepository,
+                    container.aiNarrativeService,
+                    container.preferences,
+                    onGoToSupport = { tabName = Tab.SUPPORT.name }
+                )
                 Tab.SUPPORT -> SupportScreen(container)
             }
         }

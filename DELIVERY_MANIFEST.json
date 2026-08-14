@@ -1,15 +1,15 @@
 {
-  "project": "ECHO Mind Portrait Core",
-  "version": "0.7.0",
+  "project": "ECHO Mind Personal Ambient Intelligence",
+  "version": "0.8.0",
   "release_status": "pilot-candidate",
   "generated_at": "2026-08-14T06:28:25Z",
   "branch": "main",
-  "git_ref": "portrait-core-v0.7.0",
+  "git_ref": "personal-ambient-intelligence-v0.8.0",
   "scope": [
-    "Android phone-first Portrait Core client",
-    "passive sensing → derived features → daily aggregate → personal baseline → daily portrait",
-    "FastAPI institutional backend and workbench",
-    "deterministic safety rules, escalation, audit chain and data rights",
+    "Android phone-first Personal Ambient Intelligence client",
+    "observation core: passive sensing -> derived features -> daily aggregate -> personal baseline -> daily portrait",
+    "ECHO Scene / Presence (live wallpaper + dream) / Journey (visual memory river) / Actions / BYOM intelligence / EchoMemory",
+    "FastAPI institutional backend and workbench (unchanged observation contract)",
     "tests, safety corpus, CI/CD, SBOM and pilot governance pack"
   ],
   "validation": {
@@ -23,8 +23,8 @@
     "alembic_roundtrip": "passed",
     "contract_drift_check": "passed",
     "fault_injection_check": "passed",
-    "android_gradle_build": "external_gate_not_run",
-    "android_instrumentation": "external_gate_not_run",
+    "android_gradle_build": "passed",
+    "android_instrumentation": "ci_emulator_gate",
     "postgresql_docker_integration": "external_gate_not_run"
   },
   "production_claim": false,

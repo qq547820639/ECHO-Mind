@@ -18,6 +18,14 @@
         tools:ignore="ProtectedPermissions" />
     <!-- T03 麦克风采集（可选模块，默认关闭；危险权限，运行时请求） -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- ERA 3 ECHO Presence：动态壁纸 / 充电屏保（signature 权限，仅系统可绑定；
+         与 PACKAGE_USAGE_STATS 同模式的官方服务权限，lint ProtectedPermissions 豁免） -->
+    <uses-permission
+        android:name="android.permission.BIND_WALLPAPER"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.BIND_DREAM_SERVICE"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".EchoMindApplication"
@@ -64,6 +72,35 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+
+        <!-- ERA 3：ECHO 动态壁纸（只消费 EchoPresenceState 快照；不可见即停渲染） -->
+        <service
+            android:name=".presence.EchoWallpaperService"
+            android:exported="true"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:label="@string/echo_wallpaper_name"
+            android:description="@string/echo_wallpaper_description">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/echo_wallpaper" />
+        </service>
+
+        <!-- ERA 3：ECHO 充电屏保（DreamService：独立 Ambient Surface，非锁屏替代） -->
+        <service
+            android:name=".presence.EchoDreamService"
+            android:exported="true"
+            android:permission="android.permission.BIND_DREAM_SERVICE"
+            android:label="@string/echo_dream_name">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/echo_dream" />
         </service>
     </application>
 </manifest>

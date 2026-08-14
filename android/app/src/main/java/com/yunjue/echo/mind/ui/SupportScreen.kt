@@ -46,6 +46,50 @@ internal fun usageAccessSettingsIntent(context: Context): Intent =
 internal fun notificationListenerSettingsIntent(context: Context): Intent =
     Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
 
+/** ERA 6 收尾：单条记忆行（What ECHO Knows；四权齐全：编辑/确认/忘记）。 */
+@Composable
+private fun MemoryRow(
+    label: String,
+    content: String,
+    onConfirm: () -> Unit,
+    onForget: () -> Unit,
+    onEdit: (String) -> Unit,
+) {
+    var editing by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf(content) }
+    Column(Modifier.fillMaxWidth()) {
+        if (editing) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+            Row {
+                TextButton(onClick = {
+                    editing = false
+                    onEdit(draft)
+                }, enabled = draft.isNotBlank()) { Text("保存") }
+                TextButton(onClick = { editing = false; draft = content }) { Text("取消") }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = MaterialTheme.typography.labelSmall)
+                    Text(content, style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = { editing = true; draft = content }) { Text("编辑") }
+                TextButton(onClick = onConfirm) { Text("确认") }
+                TextButton(onClick = onForget) { Text("忘记") }
+            }
+        }
+    }
+}
+
 /**
  * 关闭被动感知总开关的**原子本地流程**（网络不可用不阻塞）。
  *
@@ -454,6 +498,248 @@ fun SupportScreen(container: AppContainer) {
                 }
                 Text(if (isNetworkAvailable(context)) "当前在线" else "当前离线")
                 Text(syncLabel)
+            }
+        }
+
+        // ===== ERA 3：ECHO Presence 控制中心（Master Prompt PART 46/55/58） =====
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("ECHO Presence", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "让 ECHO 留在手机上。壁纸与屏保只消费同一个 ECHO 状态，只渲染视觉，不显示任何文字。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("动态壁纸")
+                        Text("ECHO 持续存在于主屏与锁屏。不可见时停止渲染，不额外耗电。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+                                    android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                                    android.content.ComponentName(
+                                        context,
+                                        com.yunjue.echo.mind.presence.EchoWallpaperService::class.java
+                                    )
+                                )
+                            )
+                        }
+                    }) { Text("选择 ECHO 壁纸") }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("充电屏保")
+                        Text("充电放在桌面时，ECHO 成为环境的一部分（部分设备需在系统设置中手动启用）。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(onClick = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_DREAM_SETTINGS)) }
+                    }) { Text("系统屏保设置") }
+                }
+                Text("锁屏隐私：动态壁纸仅渲染视觉，不含任何文字——Public Safe 由构造保证。", style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider()
+                Text("动态程度", style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val motion = container.preferences.presenceMotionLevel
+                    listOf("QUIET" to "安静", "DEFAULT" to "默认", "LIVELY" to "明显").forEach { (value, label) ->
+                        FilterChip(
+                            selected = motion == value,
+                            onClick = { container.preferences.presenceMotionLevel = value },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("夜间模式")
+                        Text("夜间额外调暗减速（昼夜亮度本身已自动变化）。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = container.preferences.presenceNightMode,
+                        onCheckedChange = { container.preferences.presenceNightMode = it }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("减少动画")
+                        Text("无障碍支持：视觉保持静止。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = container.preferences.presenceReduceMotion,
+                        onCheckedChange = { container.preferences.presenceReduceMotion = it }
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("应用内建议")
+                        Text("打开时基于高置信的节律状态给温和建议；低置信度时不会出现。", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = container.preferences.presenceSuggestionsEnabled,
+                        onCheckedChange = { container.preferences.presenceSuggestionsEnabled = it }
+                    )
+                }
+            }
+        }
+
+        // ===== ERA 4：AI Intelligence（Me → Intelligence → AI Provider；BYOM 一等公民） =====
+        val storedConfig = remember { container.aiProviderManager.stored() }
+        var baseUrl by remember { mutableStateOf(storedConfig?.baseUrl ?: "") }
+        var modelName by remember { mutableStateOf(storedConfig?.model ?: "") }
+        var apiKey by remember { mutableStateOf(storedConfig?.apiKey ?: "") }
+        var aiStatus by remember { mutableStateOf<com.yunjue.echo.mind.intelligence.ProviderStatus?>(null) }
+        var aiBusy by remember { mutableStateOf(false) }
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("AI Intelligence", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "模型不是 ECHO。连接你自己的 AI（OpenAI 兼容服务、自建网关或局域网端点均可），" +
+                        "ECHO 的记忆与人格不会因换模型而改变。API Key 仅加密保存在本机，不会上传。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                val currentStatus = aiStatus ?: if (storedConfig != null) com.yunjue.echo.mind.intelligence.ProviderStatus.READY else null
+                if (currentStatus != null) {
+                    Text(
+                        com.yunjue.echo.mind.intelligence.providerStatusText(currentStatus),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (currentStatus == com.yunjue.echo.mind.intelligence.ProviderStatus.READY)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.error
+                    )
+                }
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
+                    label = { Text("Base URL（如 https://api.openai.com）") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = modelName,
+                    onValueChange = { modelName = it },
+                    label = { Text("模型名") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    label = { Text("API Key") },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                aiBusy = true
+                                aiStatus = com.yunjue.echo.mind.intelligence.ProviderStatus.VALIDATING
+                                val health = container.aiProviderManager.validate(
+                                    com.yunjue.echo.mind.intelligence.ProviderConfigDraft(
+                                        providerType = com.yunjue.echo.mind.intelligence.ProviderType.OPENAI_COMPATIBLE,
+                                        baseUrl = baseUrl,
+                                        model = modelName,
+                                        apiKey = apiKey,
+                                    )
+                                )
+                                aiStatus = health.status
+                                if (health.status == com.yunjue.echo.mind.intelligence.ProviderStatus.READY) {
+                                    container.aiProviderManager.save(
+                                        com.yunjue.echo.mind.intelligence.ProviderCredentialStore.Stored(
+                                            type = com.yunjue.echo.mind.intelligence.ProviderType.OPENAI_COMPATIBLE,
+                                            displayName = "My AI",
+                                            baseUrl = com.yunjue.echo.mind.intelligence.normalizeBaseUrl(baseUrl),
+                                            model = modelName.trim(),
+                                            apiKey = apiKey.trim(),
+                                        )
+                                    )
+                                }
+                                aiBusy = false
+                            }
+                        },
+                        enabled = !aiBusy
+                    ) { Text(if (aiBusy) "正在验证…" else "验证并连接") }
+                    if (container.aiProviderManager.hasProvider()) {
+                        OutlinedButton(onClick = {
+                            container.aiProviderManager.clear()
+                            apiKey = ""
+                            aiStatus = com.yunjue.echo.mind.intelligence.ProviderStatus.NOT_CONFIGURED
+                        }) { Text("断开连接") }
+                    }
+                }
+                Text(
+                    "使用自定义 AI 服务时，ECHO 为完成请求而选择的数据会发送给该服务商，其数据处理规则由该服务商决定。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        // ===== ERA 6：What ECHO Knows About Me（用户拥有 Memory Control） =====
+        val memories by container.memoryRepository.observeMemories().collectAsStateWithLifecycle(initialValue = emptyList())
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("What ECHO Knows About Me", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "ECHO 的记忆由你的数据与你告诉它的话形成。你可以确认、纠正或忘记任何一条。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                val corrections = memories.filter { it.type == com.yunjue.echo.mind.memory.MemoryType.CORRECTION }
+                val uncertain = memories.filter { it.confidence < 0.5f && it.type != com.yunjue.echo.mind.memory.MemoryType.CORRECTION }
+                val confirmed = memories.filter { it !in corrections && it !in uncertain }
+                if (memories.isEmpty()) {
+                    Text("还没有长期记忆。ECHO 正在慢慢认识你。", style = MaterialTheme.typography.bodySmall)
+                }
+                corrections.take(3).forEach { m ->
+                    MemoryRow(
+                        label = "你纠正过我的",
+                        content = m.content,
+                        onConfirm = { scope.launch { container.memoryRepository.confirm(m.id) } },
+                        onForget = { scope.launch { container.memoryRepository.forget(m.id) } },
+                        onEdit = { text -> scope.launch { container.memoryRepository.edit(m.id, text) } },
+                    )
+                }
+                uncertain.take(3).forEach { m ->
+                    MemoryRow(
+                        label = "我还不确定的",
+                        content = m.content,
+                        onConfirm = { scope.launch { container.memoryRepository.confirm(m.id) } },
+                        onForget = { scope.launch { container.memoryRepository.forget(m.id) } },
+                        onEdit = { text -> scope.launch { container.memoryRepository.edit(m.id, text) } },
+                    )
+                }
+                confirmed.take(3).forEach { m ->
+                    MemoryRow(
+                        label = "我已确认的",
+                        content = m.content,
+                        onConfirm = { scope.launch { container.memoryRepository.confirm(m.id) } },
+                        onForget = { scope.launch { container.memoryRepository.forget(m.id) } },
+                        onEdit = { text -> scope.launch { container.memoryRepository.edit(m.id, text) } },
+                    )
+                }
             }
         }
 

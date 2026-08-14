@@ -26,8 +26,8 @@ android {
         applicationId = "com.yunjue.echo.mind"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.7.0"
+        versionCode = 5
+        versionName = "0.8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }

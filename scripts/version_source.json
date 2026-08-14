@@ -1,9 +1,9 @@
 {
-  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。所有版本相关检查（CI + update_release_metadata.py + README 同步）以此为准。正式切换 0.7.0 需 P0 与 release gates 全绿。",
-  "release_version": "0.7.0",
-  "backend_package_version": "0.7.0",
-  "android_version_name": "0.7.0",
-  "android_version_code": 4,
+  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。所有版本相关检查（CI + update_release_metadata.py + README 同步）以此为准。v0.8.0 = Personal Ambient Intelligence（ERA 1-9 全量落地）。",
+  "release_version": "0.8.0",
+  "backend_package_version": "0.8.0",
+  "android_version_name": "0.8.0",
+  "android_version_code": 5,
   "contract_manifest_version": "0.7.0",
-  "release_notes_file": "RELEASE_NOTES_v0.7.0.md"
+  "release_notes_file": "RELEASE_NOTES_v0.8.0.md"
 }

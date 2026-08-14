@@ -4,8 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -13,9 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.FeatureFlagRepository
+import com.yunjue.echo.mind.data.MemoryRepository
 import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.SyncStateRepository
+import com.yunjue.echo.mind.intelligence.AiNarrativeService
+import com.yunjue.echo.mind.intelligence.EvidenceAssembler
+import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
+import com.yunjue.echo.mind.journey.JourneyScale
+import com.yunjue.echo.mind.journey.journeyAggregateParams
+import com.yunjue.echo.mind.journey.journeyThumbnailFrame
+import com.yunjue.echo.mind.journey.journeyWeekGroups
+import com.yunjue.echo.mind.journey.journeyWindowDays
+import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
 import com.yunjue.echo.mind.model.PortraitAvailability
@@ -24,6 +38,7 @@ import com.yunjue.echo.mind.model.SensingDiagnostics
 import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.dimensionTrendSymbol
 import com.yunjue.echo.mind.model.portraitStabilitySummary
+import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
@@ -183,17 +198,26 @@ fun TrendScreen(
     portraitRepository: PortraitRepository,
     syncStateRepository: SyncStateRepository,
     featureFlagRepository: FeatureFlagRepository,
+    memoryRepository: MemoryRepository,
+    aiNarrativeService: AiNarrativeService,
+    preferences: AppPreferences,
     onGoToSupport: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    // 7 日 / 28 日窗口（Milestone G：Portrait Timeline）
-    var windowDays by remember { mutableStateOf(7) }
+    // ERA 8：Journey 时间尺度（Day/Week/Month → 7/28 天画像窗口）
+    var scale by remember { mutableStateOf(JourneyScale.DAY) }
+    var windowDays by remember { mutableStateOf(journeyWindowDays(JourneyScale.DAY)) }
     // Phase 6.5.3：Trend 脱离 legacy Profile——画像可用性（baseline_days / missingSources）来自
     // GET /v1/me/baseline/status + 本地能力判定，不再 fetchProfile() / ProfileDisplay
     var availability by remember { mutableStateOf<PortraitAvailability?>(null) }
     var diagnostics by remember { mutableStateOf<SensingDiagnostics?>(null) }
     var retryKey by remember { mutableStateOf(0) }
     val timeline by portraitRepository.observePortraits(windowDays).collectAsStateWithLifecycle()
+
+    // ERA 8：长期叙事（fallback 链：AI → 确定性综述）+ 记忆证据
+    var narrative by remember { mutableStateOf<AiNarrativeService.NarrativeResult?>(null) }
+    var memories by remember { mutableStateOf<List<EchoMemory>>(emptyList()) }
+    var showEvidence by remember { mutableStateOf(false) }
 
     // 被动感知 consent + 租户 flag：任一关闭 → permission_disabled 态
     val consent by syncStateRepository.passiveSensingConsentFlow().collectAsStateWithLifecycle(initialValue = false)
@@ -243,6 +267,19 @@ fun TrendScreen(
         isPartial = timeline.isPartial
     )
 
+    // ERA 8：长期叙事（画像时间线就绪后组装；记忆证据一次加载）
+    LaunchedEffect(Unit) {
+        memories = memoryRepository.topMemories(5)
+    }
+    LaunchedEffect(timeline.portraits, scale) {
+        val evidence = EvidenceAssembler.fromPortraitHistory(timeline.portraits) +
+            EvidenceAssembler.fromMemories(memories)
+        narrative = aiNarrativeService.longitudinalNarrative(
+            evidence = evidence,
+            deterministicText = portraitStabilitySummary(timeline.portraits),
+        )
+    }
+
     // NO_DATA 细分原因（Phase 6.5.3：PortraitAvailability + SensingDiagnostics，语义不变）
     val currentAvailability = availability ?: PortraitAvailability()
     val currentDiagnostics = diagnostics ?: SensingDiagnostics(sensingActive = consent)
@@ -250,51 +287,52 @@ fun TrendScreen(
     val lastCollectionTs = currentAvailability.lastCollectedAt
     val lastSyncTs = currentAvailability.lastSyncedAt
 
-    Page("趋势") {
+    Page("旅程 · 我的时间") {
         // 契约点 2 固定免责文案（单测锚点）
         Text(TREND_DISCLAIMER)
         HorizontalDivider()
 
-        // 7 日 / 28 日窗口切换
+        // ERA 8：Journey 时间尺度（Day/Week/Month）
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = windowDays == 7,
-                onClick = { windowDays = 7 },
-                label = { Text("近 7 天") }
-            )
-            FilterChip(
-                selected = windowDays == 28,
-                onClick = { windowDays = 28 },
-                label = { Text("近 28 天") }
-            )
+            JourneyScale.entries.forEach { s ->
+                FilterChip(
+                    selected = scale == s,
+                    onClick = {
+                        scale = s
+                        windowDays = journeyWindowDays(s)
+                    },
+                    label = {
+                        Text(
+                            when (s) {
+                                JourneyScale.DAY -> "天"
+                                JourneyScale.WEEK -> "周"
+                                JourneyScale.MONTH -> "月"
+                            }
+                        )
+                    }
+                )
+            }
         }
 
         when (state) {
             TrendUiState.LOADING -> {
                 CircularProgressIndicator()
-                Text("趋势加载中…")
+                Text("旅程加载中…")
             }
             TrendUiState.PERMISSION_DISABLED -> {
-                Text("被动感知已关闭或权限被撤，无法获取新的趋势数据。")
+                Text("被动感知已关闭或权限被撤，无法获取新的旅程数据。")
                 OutlinedButton(onClick = {
                     runCatching { context.startActivity(appSettingsIntent(context)) }
                 }) { Text("前往系统设置修复权限") }
             }
             TrendUiState.ERROR -> {
-                Text("趋势加载失败")
+                Text("旅程加载失败")
                 Button(onClick = { retryKey++ }) { Text("重试") }
             }
             TrendUiState.NO_DATA -> {
                 Text(trendNoDataReasonText(noDataReason))
-                // v0.6.2（A4）：NO_DATA 态补充展示最近采集 / 最近成功同步时间；
-                // 文案只陈述事实，不焦虑不诊断（trendNoDataReasonText 语义保持）
                 Text("最近成功采集：${formatTimestamp(lastCollectionTs)}")
                 Text("最近成功同步：${formatTimestamp(lastSyncTs)}")
-                // 仅「可一键修复」的原因提供 CTA：
-                // - CLOSED：支持页可重新开启
-                // - SYSTEM_BACKGROUND：系统设置可调整电池/后台限制
-                // NEW_USER / SOURCE_GAPS / AWAITING_UPLOAD / PERSISTENCE_FAILURE /
-                // PERMISSION / UNKNOWN 不可一键修复 → 无 CTA 只保留文案
                 when (noDataReason) {
                     TrendNoDataReason.CLOSED -> OutlinedButton(onClick = onGoToSupport) {
                         Text("前往支持页重新开启")
@@ -308,12 +346,204 @@ fun TrendScreen(
                 }
             }
             TrendUiState.OFFLINE_CACHED -> {
-                Text("当前离线，以下为缓存的趋势数据。")
-                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs, portraitRepository::portraitFeedback)
+                Text("当前离线，以下为缓存的旅程。")
+                JourneyContent(
+                    scale = scale,
+                    timeline = timeline,
+                    narrative = narrative,
+                    showEvidence = showEvidence,
+                    onToggleEvidence = { showEvidence = !showEvidence },
+                    seed = journeySeed(preferences),
+                    lastCollectionTs = lastCollectionTs,
+                    lastSyncTs = lastSyncTs,
+                    portraitFeedback = portraitRepository::portraitFeedback,
+                )
             }
             TrendUiState.FRESH, TrendUiState.PARTIAL ->
-                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs, portraitRepository::portraitFeedback)
+                JourneyContent(
+                    scale = scale,
+                    timeline = timeline,
+                    narrative = narrative,
+                    showEvidence = showEvidence,
+                    onToggleEvidence = { showEvidence = !showEvidence },
+                    seed = journeySeed(preferences),
+                    lastCollectionTs = lastCollectionTs,
+                    lastSyncTs = lastSyncTs,
+                    portraitFeedback = portraitRepository::portraitFeedback,
+                )
         }
+    }
+}
+
+/** Journey 视觉种子：userId 稳定派生（与 Identity Genome 同源，保证跨天视觉血缘）。 */
+internal fun journeySeed(preferences: AppPreferences): Long =
+    preferences.userId.fold(0L) { acc, c -> acc * 31L + c.code }
+
+/**
+ * ERA 8 — Journey 主体（Master Prompt PART 69/70/71）：
+ * 视觉记忆河流（每天一个确定性视觉单元）→ 长期叙事（AI → 确定性综述 fallback）→
+ * 「查看依据」Evidence Layer（定量图表降级到第二层，不在第一视觉）。
+ */
+@Composable
+private fun JourneyContent(
+    scale: JourneyScale,
+    timeline: PortraitTimelineUiState,
+    narrative: AiNarrativeService.NarrativeResult?,
+    showEvidence: Boolean,
+    onToggleEvidence: () -> Unit,
+    seed: Long,
+    lastCollectionTs: Long,
+    lastSyncTs: Long,
+    portraitFeedback: (String) -> Boolean?,
+) {
+    val portraits = timeline.portraits
+
+    // 1. 视觉记忆河流（第一视觉）
+    VisualMemoryRiver(scale = scale, portraits = portraits, seed = seed, portraitFeedback = portraitFeedback)
+
+    // 2. 长期叙事（变化发生在叙事里，图表只是依据）
+    narrative?.let { n ->
+        Text(
+            if (n.text.isBlank()) portraitStabilitySummary(portraits) else n.text,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        if (!n.usedSources.isNullOrEmpty()) {
+            Text(
+                "依据：${n.usedSources.joinToString("、") { dataSourceLabelForJourney(it) }}",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+
+    // 3. Evidence Layer：查看依据（定量证据，非第一视觉）
+    HorizontalDivider()
+    TextButton(onClick = onToggleEvidence) { Text(if (showEvidence) "收起依据" else "查看依据") }
+    if (showEvidence) {
+        PortraitTimelineContent(
+            timeline = timeline,
+            lastCollectionTs = lastCollectionTs,
+            lastSyncTs = lastSyncTs,
+            portraitFeedback = portraitFeedback,
+        )
+    }
+}
+
+/** 依据数据源 → 用户可读标签（Journey 版；与 Today 的 dataSourceLabel 语义一致）。 */
+private fun dataSourceLabelForJourney(category: com.yunjue.echo.mind.intelligence.DataSourceCategory): String = when (category) {
+    com.yunjue.echo.mind.intelligence.DataSourceCategory.PORTRAIT_HISTORY -> "历史画像"
+    com.yunjue.echo.mind.intelligence.DataSourceCategory.BASELINE -> "个人基线"
+    com.yunjue.echo.mind.intelligence.DataSourceCategory.CONTEXT_EXCEPTIONS -> "你告诉我的特殊日期"
+    com.yunjue.echo.mind.intelligence.DataSourceCategory.USER_CORRECTIONS -> "你纠正过我的"
+    else -> "其他"
+}
+
+/** 视觉记忆河流：DAY=逐日 7 帧；WEEK=按周聚合 4 帧；MONTH=整月聚合 1 帧。 */
+@Composable
+private fun VisualMemoryRiver(
+    scale: JourneyScale,
+    portraits: List<DailyPortraitDto>,
+    seed: Long,
+    portraitFeedback: (String) -> Boolean?,
+) {
+    when (scale) {
+        JourneyScale.DAY -> {
+            val days = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                days.forEach { day ->
+                    val portrait = portraits.firstOrNull { it.date == day.toString() }
+                    JourneyThumbCell(
+                        portrait = portrait,
+                        seed = seed,
+                        label = "${day.monthValue}/${day.dayOfMonth}",
+                        mark = portraitFeedback(day.toString())?.let { if (it) "✓" else "✗" } ?: " ",
+                    )
+                }
+            }
+            Text("✓ 你觉得像 · ✗ 你觉得不太像", style = MaterialTheme.typography.labelSmall)
+        }
+        JourneyScale.WEEK -> {
+            val groups = journeyWeekGroups(portraits)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                groups.forEachIndexed { index, group ->
+                    JourneyAggregateCell(
+                        portraits = group,
+                        seed = seed,
+                        label = "第 ${index + 1} 周",
+                    )
+                }
+            }
+        }
+        JourneyScale.MONTH -> {
+            JourneyAggregateCell(
+                portraits = portraits,
+                seed = seed,
+                label = "近 28 天",
+                large = true,
+            )
+        }
+    }
+}
+
+/** 单日视觉记忆单元（CANONICAL_SNAPSHOT；无数据日 = 弥散占位，不编造）。 */
+@Composable
+private fun JourneyThumbCell(
+    portrait: DailyPortraitDto?,
+    seed: Long,
+    label: String,
+    mark: String,
+) {
+    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Canvas(Modifier.size(52.dp)) {
+            val frame = journeyThumbnailFrame(portrait, seed, this.size.width, this.size.height)
+            if (frame != null) {
+                drawEchoFrame(frame)
+            } else {
+                // 无数据日：低亮度弥散占位（Journey 的「没有记录」也是视觉记忆）
+                drawCircle(
+                    color = placeholderColor,
+                    radius = this.size.minDimension * 0.2f,
+                )
+            }
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall)
+        Text(mark, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/** 周/月聚合帧（视觉逐渐聚合，不是折线图）。 */
+@Composable
+private fun JourneyAggregateCell(
+    portraits: List<DailyPortraitDto>,
+    seed: Long,
+    label: String,
+    large: Boolean = false,
+) {
+    val cellSize = if (large) 140.dp else 72.dp
+    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Canvas(Modifier.size(cellSize)) {
+            val params = journeyAggregateParams(portraits)
+            val frame = params?.let {
+                computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
+            }
+            if (frame != null) {
+                drawEchoFrame(frame)
+            } else {
+                drawCircle(
+                    color = placeholderColor,
+                    radius = this.size.minDimension * 0.2f,
+                )
+            }
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall)
     }
 }
 

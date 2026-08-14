@@ -9,6 +9,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.yunjue.echo.mind.data.EveningReminderWorker
 import com.yunjue.echo.mind.data.MessageCheckWorker
+import com.yunjue.echo.mind.data.PresenceRefreshWorker
+import com.yunjue.echo.mind.data.SensingWatchdogWorker
 import java.util.concurrent.TimeUnit
 
 class EchoMindApplication : Application(), Configuration.Provider {
@@ -45,6 +47,20 @@ class EchoMindApplication : Application(), Configuration.Provider {
             "echo-message-check",
             ExistingPeriodicWorkPolicy.KEEP,
             request
+        )
+
+        // ERA 1 收尾：感知自愈看门狗（15min；consent 关绝不重启，服务门控 fail-closed）
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "echo-sensing-watchdog",
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<SensingWatchdogWorker>(15, TimeUnit.MINUTES).build()
+        )
+
+        // ERA 3 收尾：Presence 后台刷新（15min；Wallpaper/Dream 快照新鲜度 + 记忆过期清理）
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "echo-presence-refresh",
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<PresenceRefreshWorker>(15, TimeUnit.MINUTES).build()
         )
 
         // v0.7.4 UX：每晚小结提醒（21:00 自续期一次性任务；开关见支持页）

@@ -60,4 +60,9 @@
     <!-- 同步状态（P1-6 语义） -->
     <string name="sync_partial_updated">部分数据尚未同步：最近一次部分同步 %1$s</string>
     <string name="sync_last_success">最近成功同步：%1$s</string>
+
+    <!-- ERA 3：ECHO Presence 系统服务声明 -->
+    <string name="echo_wallpaper_name">ECHO 生命场</string>
+    <string name="echo_wallpaper_description">你的 ECHO 持续存在于主屏与锁屏。仅渲染视觉，不显示任何文字。</string>
+    <string name="echo_dream_name">ECHO 屏保</string>
 </resources>

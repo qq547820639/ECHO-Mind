@@ -229,9 +229,11 @@ class PassiveSensingService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "passive_sensing"
-        private const val CHANNEL_NAME = "被动采集"
-        internal const val NOTIFICATION_TITLE = "ECHO Mind"
-        internal const val NOTIFICATION_TEXT = "被动采集中（端侧处理）"
+        private const val CHANNEL_NAME = "ECHO 状态"
+        // ERA 1 文案（Master Prompt PART 24）：常驻通知只承担透明度责任——
+        // 「ECHO · 正在了解今天」，禁止「后台服务正在运行」式工程语言。
+        internal const val NOTIFICATION_TITLE = "ECHO"
+        internal const val NOTIFICATION_TEXT = "正在了解今天"
         private const val NOTIFICATION_ID = 0xA001
 
         const val ACTION_START = "com.yunjue.echo.mind.action.START_SENSING"
