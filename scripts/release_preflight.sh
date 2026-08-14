@@ -29,6 +29,12 @@ else
   PY="$(command -v python3 || command -v python)"
 fi
 echo "[preflight] backend python: $PY"
+# ERA 18 §96：backend 依赖锁定一致性（uv 可用时检查；缺失则如实标记）
+if command -v uv >/dev/null 2>&1; then
+  uv lock --project backend --check && echo "[preflight] uv.lock: PASS"
+else
+  echo "[preflight] uv.lock: NOT CHECKED — uv 不可用（CI backend-ci 强制检查）"
+fi
 (cd backend && "$ROOT/$PY" -m pytest -q)
 echo "[preflight] pytest: PASS"
 if "$ROOT/$PY" -m ruff --version >/dev/null 2>&1; then

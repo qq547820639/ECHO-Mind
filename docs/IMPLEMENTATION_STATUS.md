@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Affective 预备轮完成 ✅（§8 离线评估框架 + 契约冻结测试；affectiveState 恒 null）→ 下一轮：继续收尾（backend 依赖锁定 / 其他冻结项）或等待 §8/§9/§10 评审推进 Affective 激活**
+**§96 收尾轮完成 ✅（backend uv.lock 锁定 + SBOM 确定性）→ 下一轮：剩余收尾（依赖审计本地化/评审待办）或继续冻结项推进**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -59,6 +59,7 @@
 - **ERA 18 第一轮**：§93 Actions pinning（64 uses → immutable SHA + verify_workflow_pins.py CI 门禁）；§94 Release Set 完整性测试（test_release_set.py 5 用例入 release-closure）；§95 应用内构建信息（BUILD_VERSION 派生自 versionName、BUILD_TIMESTAMP 默认提交时间、BuildInfoTest）；§96 clean-room 复现（wrapper distributionSha256Sum + Gradle dependency locking 10 lockfiles + CLEAN_ROOM_REPRODUCTION.md 复现步骤与可复现性边界）
 - **ERA 18 收尾轮**：APK↔provenance 绑定闭环（test_release_set 增 APK dex 内嵌 commit == provenance.git_commit 断言，6/6）；§109 Memory Long History（Room v11 echo_memories 复合索引 + 迁移测试）；JVM 性能防退化门禁（PerformanceBaselineTest 4 预算 + PERFORMANCE_BASELINES.md）
 - **Affective 预备轮**：§8 离线评估框架（scripts/affective_eval.py：grounding/overreach/calibration 三指标 + 阈值 gate + 本地回放/真 Provider 双模式；8 场景合成验证集禁标签词；test_affective_eval.py 9 用例）；AffectiveContractFreezeTest（全 main 源码扫描：非空 AffectiveState 构造/非 null 赋值 = 发布阻断——affectiveState 恒 null 由测试强制）；docs/intelligence/AI_EVAL.md 复跑协议 + 激活前置清单
+- **§96 收尾轮**：backend 依赖锁定（backend/uv.lock：51 包精确版本 + 完整闭包；`uv lock --check` 接入 backend-ci + release_preflight 漂移门禁；venv 已 uv sync 对齐）；SBOM 升级（backend 段读 uv.lock 精确版本 + 时间戳改 HEAD 提交时间 → 同 commit 同 SBOM 字节）
 
 ## In Progress
 
@@ -103,4 +104,4 @@
 
 ## Next Highest-value Task
 
-后端依赖锁定（backend lockfile/pip-audit 本地化）与剩余收尾项；Affective 激活等待 §8/§9/§10 评审（评估框架已备好，评审时直接复跑）。
+依赖审计本地化（本地 pip-audit/osv-scanner 复跑路径）与剩余收尾；Affective 激活等待 §8/§9/§10 评审（评估框架已备好，评审时直接复跑）。

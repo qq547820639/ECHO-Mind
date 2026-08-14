@@ -12,7 +12,7 @@
 | Gradle | **8.13** wrapper + `distributionSha256Sum`（`20f1b117…ed78`，官方发行校验和） | `android/gradle/wrapper/gradle-wrapper.properties` |
 | Android 依赖 | **Gradle dependency locking**：全部模块 `gradle.lockfile`（10 个，`lockAllConfigurations()`；升级须显式 `./gradlew dependencies --update-locks`） | `android/**/gradle.lockfile` |
 | Kotlin/AGP/KSP/Room/Compose | 版本目录锁定（AGP 8.13.2 / Kotlin 2.3.20 / KSP 2.3.9 / Room 2.8.4 / Compose BOM 2026.06.00）+ lockfile 双保险 | `android/gradle/libs.versions.toml` + lockfiles |
-| Python | 3.12（实测 3.12.13）；backend 依赖按 `pyproject.toml` 版本约束（CI pip-audit + osv-scanner 审计） | `backend/pyproject.toml` |
+| Python | 3.12（实测 3.12.13）；backend 依赖锁定于 **`backend/uv.lock`**（uv 生成：精确版本 + 完整传递闭包 51 包，跨平台）；CI `uv lock --check` 漂移门禁；SBOM 从 uv.lock 取 backend 精确版本 | `backend/uv.lock` + `backend/pyproject.toml` |
 | Android SDK | compileSdk/targetSdk 36、minSdk 26、build-tools 36.0.0 | `android/app/build.gradle.kts` |
 | Actions | 全部 64 个 `uses:` pin 到 immutable commit SHA（`scripts/verify_workflow_pins.py` CI 门禁） | `.github/workflows/*.yml` |
 
