@@ -74,11 +74,13 @@ def issue_code(
     user_id: str | None = None,
     ttl_seconds: int | None = None,
     max_attempts: int = 5,
+    subscription_days: int | None = None,
 ) -> tuple[ActivationCode, str]:
     """签发一枚激活码（返回 (记录, 明文码)）。
 
     明文码只在此处返回一次；数据库只存 code_hash。
     ttl_seconds 缺省用 settings.activation_code_ttl_seconds。
+    v0.7 订阅：subscription_days 兑换成功后授予订阅天数（NULL = 不改变订阅状态）。
     """
     settings = get_settings()
     raw = generate_raw_code()
@@ -91,6 +93,7 @@ def issue_code(
             seconds=ttl_seconds if ttl_seconds is not None else settings.activation_code_ttl_seconds
         ),
         max_attempts=max_attempts,
+        subscription_days=subscription_days,
     )
     db.add(code)
     db.flush()
@@ -249,6 +252,15 @@ def redeem_code(
     db.flush()
     _record_attempt(db, tenant_id=row.tenant_id, code_hash=code_hash, actor_ip=actor_ip,
                     device_id=device_id, result="success")
+    # v0.7 订阅生命周期：码携带 subscription_days → 兑换成功后授予/续订订阅
+    # （从 max(now, 当前到期) 顺延；NULL = 不改变订阅状态，机构旧码兼容）。
+    if row.user_id is not None and row.subscription_days is not None:
+        user = db.get(User, row.user_id)
+        if user is not None:
+            from app.services.subscription import grant_subscription
+
+            grant_subscription(user, days=row.subscription_days, now=now)
+            db.flush()
     # 兑换成功后审计（success path）
     append_audit(
         db,

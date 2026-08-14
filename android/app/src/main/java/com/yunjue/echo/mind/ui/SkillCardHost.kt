@@ -19,7 +19,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -420,6 +420,7 @@ fun SkillListScreen(
     featureFlagRepository: FeatureFlagRepository,
     coordinator: SkillSessionCoordinator,
     localMode: Boolean = false,
+    subscriptionExpired: Boolean = false,
     onGoToSupport: () -> Unit = {}
 ) {
     val (skillState, retry) = rememberSkillList(skillRepository)
@@ -429,8 +430,8 @@ fun SkillListScreen(
     LaunchedEffect(Unit) {
         runCatching { featureFlagRepository.fetchFeatureFlags() }
     }
-    val featureFlags by featureFlagRepository.featureFlagsFlow.collectAsState(
-        initial = mapOf("skills_delivery_enabled" to true)
+    val featureFlags by featureFlagRepository.featureFlagsFlow.collectAsStateWithLifecycle(
+        initialValue = mapOf("skills_delivery_enabled" to true)
     )
     val skillsDeliveryEnabled = featureFlags["skills_delivery_enabled"] ?: true
 
@@ -455,6 +456,19 @@ fun SkillListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(stringResource(R.string.skills_subscription_hint))
+                    Button(onClick = onGoToSupport, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.skills_subscribe_button))
+                    }
+                }
+            }
+            // v0.7 订阅生命周期：已订阅但显式到期 → 续订提示
+            subscriptionExpired && skillState.loadFailed -> item {
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(stringResource(R.string.skills_subscription_expired_hint))
                     Button(onClick = onGoToSupport, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.skills_subscribe_button))
                     }

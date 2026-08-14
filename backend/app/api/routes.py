@@ -23,6 +23,7 @@ from app.api import (
     profiles,
     sandbox,
     skills,
+    subscription,
 )
 
 router = APIRouter()  # 无 prefix：各子 router 自带 /v1 prefix
@@ -34,6 +35,7 @@ router.include_router(features.router)
 router.include_router(narratives.router)
 router.include_router(portraits.router)
 router.include_router(messages.router)
+router.include_router(subscription.router)
 router.include_router(profiles.router)
 router.include_router(escalations.router)
 router.include_router(data_rights.router)

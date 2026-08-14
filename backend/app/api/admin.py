@@ -127,6 +127,7 @@ def issue_activation_code(
         user_id=payload.user_id,
         ttl_seconds=payload.ttl_seconds,
         max_attempts=payload.max_attempts,
+        subscription_days=payload.subscription_days,
     )
     append_audit(
         db,

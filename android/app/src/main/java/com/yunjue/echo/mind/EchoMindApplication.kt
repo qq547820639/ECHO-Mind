@@ -2,6 +2,13 @@ package com.yunjue.echo.mind
 
 import android.app.Application
 import androidx.work.Configuration
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.yunjue.echo.mind.data.MessageCheckWorker
+import java.util.concurrent.TimeUnit
 
 class EchoMindApplication : Application(), Configuration.Provider {
     val container by lazy { AppContainer(this) }
@@ -25,5 +32,18 @@ class EchoMindApplication : Application(), Configuration.Provider {
         // （生产 fail-closed 的 Keystore 初始化），应延迟到真正需要加密/建库时再触发；
         // 同时避免 Robolectric 单测在 Application.onCreate 阶段就构造生产 Keystore 导致失败。
         PassiveSensingPrefs(this)
+
+        // v0.7 订阅：分析消息周期检查（24h）——拉取式推送过渡的定时化。
+        // Worker 内部对本地模式直接短路，不产生任何网络请求。
+        val request = PeriodicWorkRequestBuilder<MessageCheckWorker>(24, TimeUnit.HOURS)
+            .setConstraints(
+                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            )
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "echo-message-check",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 }

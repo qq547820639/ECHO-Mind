@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +30,7 @@ import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
+import com.yunjue.echo.mind.model.subscriptionStatusText
 import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
@@ -61,12 +63,12 @@ internal suspend fun performPassiveSensingStop(
 fun SupportScreen(container: AppContainer) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pending by container.syncStateRepository.observePendingCount().collectAsState(initial = 0)
+    val pending by container.syncStateRepository.observePendingCount().collectAsStateWithLifecycle(initialValue = 0)
     var message by remember { mutableStateOf<String?>(null) }
 
     // ===== 数据与感知状态 =====
-    val passiveSensingEnabled by container.preferences.passiveSensingEnabledFlow().collectAsState(initial = false)
-    val micEnabled by container.preferences.micEnabledFlow().collectAsState(initial = false)
+    val passiveSensingEnabled by container.preferences.passiveSensingEnabledFlow().collectAsStateWithLifecycle(initialValue = false)
+    val micEnabled by container.preferences.micEnabledFlow().collectAsStateWithLifecycle(initialValue = false)
     // v0.6.1（P0-3 B）：本地已 ON、服务端尚未接受 granted 证据 → 显示「等待授权同步」
     var reEnabling by remember { mutableStateOf(container.preferences.consentSyncPending) }
 
@@ -87,7 +89,7 @@ fun SupportScreen(container: AppContainer) {
     val syncLabel = syncStateText(syncState, pending)
 
     // ===== 人工支持（v0.6.1，P0-2 客户端闭环） =====
-    val escalations by container.escalationRepository.observeEscalations().collectAsState(initial = emptyList())
+    val escalations by container.escalationRepository.observeEscalations().collectAsStateWithLifecycle(initialValue = emptyList())
     var showSupportConfirm by remember { mutableStateOf(false) }
 
     // v0.7 闭环：订阅模式打开支持页时向服务端刷新请求真实状态（送达确认/人工确认），
@@ -104,6 +106,11 @@ fun SupportScreen(container: AppContainer) {
         // v0.7 本地优先架构：未开通订阅（本地模式）时请求无法送达，明示不可用（不排队假送达）
         if (container.preferences.localMode) {
             message = "尚未开通订阅，无法发送支持请求（数据仅保存在本机）。请先在上方开通订阅。"
+            return
+        }
+        // v0.7 订阅生命周期：显式到期 → 拦截（续订后再提交）
+        if (container.preferences.subscriptionExpired) {
+            message = "订阅已到期，请续订后再提交支持请求。"
             return
         }
         scope.launch {
@@ -271,12 +278,17 @@ fun SupportScreen(container: AppContainer) {
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("开通订阅（可选）", style = MaterialTheme.typography.titleMedium)
-                // v0.7 订阅状态展示：已订阅（有 token）→ 状态行；未订阅 → 权益说明
+                // v0.7 订阅状态展示：已订阅（有 token）→ 到期/剩余天数；未订阅 → 权益说明
                 if (!container.preferences.localMode) {
+                    val statusText = subscriptionStatusText(container.preferences.subscriptionExpiresAt)
                     Text(
-                        "当前已订阅：云端同步与专业支持已开启。",
+                        statusText,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (container.preferences.subscriptionExpired) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                     )
                 } else {
                     Text(

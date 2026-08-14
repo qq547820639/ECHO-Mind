@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -192,11 +193,11 @@ fun TrendScreen(
     var availability by remember { mutableStateOf<PortraitAvailability?>(null) }
     var diagnostics by remember { mutableStateOf<SensingDiagnostics?>(null) }
     var retryKey by remember { mutableStateOf(0) }
-    val timeline by portraitRepository.observePortraits(windowDays).collectAsState()
+    val timeline by portraitRepository.observePortraits(windowDays).collectAsStateWithLifecycle()
 
     // 被动感知 consent + 租户 flag：任一关闭 → permission_disabled 态
-    val consent by syncStateRepository.passiveSensingConsentFlow().collectAsState(initial = false)
-    val flags by featureFlagRepository.featureFlagsFlow.collectAsState(initial = emptyMap())
+    val consent by syncStateRepository.passiveSensingConsentFlow().collectAsStateWithLifecycle(initialValue = false)
+    val flags by featureFlagRepository.featureFlagsFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
     val permissionEnabled = consent && (flags["passive_sensing_enabled"] ?: false)
 
     LaunchedEffect(retryKey, windowDays, consent) {
@@ -308,9 +309,10 @@ fun TrendScreen(
             }
             TrendUiState.OFFLINE_CACHED -> {
                 Text("当前离线，以下为缓存的趋势数据。")
-                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs)
+                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs, portraitRepository::portraitFeedback)
             }
-            TrendUiState.FRESH, TrendUiState.PARTIAL -> PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs)
+            TrendUiState.FRESH, TrendUiState.PARTIAL ->
+                PortraitTimelineContent(timeline, lastCollectionTs, lastSyncTs, portraitRepository::portraitFeedback)
         }
     }
 }
@@ -322,7 +324,12 @@ fun TrendScreen(
  * - 不做心理状态解释（TREND_DISCLAIMER 语义保持）
  */
 @Composable
-private fun PortraitTimelineContent(timeline: PortraitTimelineUiState, lastCollectionTs: Long, lastSyncTs: Long) {
+private fun PortraitTimelineContent(
+    timeline: PortraitTimelineUiState,
+    lastCollectionTs: Long,
+    lastSyncTs: Long,
+    portraitFeedback: (String) -> Boolean?
+) {
     val portraits = timeline.portraits
 
     // 数据覆盖度（近 N 天窗口）
@@ -333,6 +340,7 @@ private fun PortraitTimelineContent(timeline: PortraitTimelineUiState, lastColle
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             days.forEach { day ->
                 val hasData = portraits.any { it.date == day.toString() }
+                val feedback = portraitFeedback(day.toString())
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier
@@ -340,9 +348,19 @@ private fun PortraitTimelineContent(timeline: PortraitTimelineUiState, lastColle
                             .background(if (hasData) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
                     )
                     Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall)
+                    // v0.7 反馈标记：✓ 你觉得像 / ✗ 你觉得不太像（无反馈留空位保持对齐）
+                    Text(
+                        when (feedback) {
+                            true -> "✓"
+                            false -> "✗"
+                            null -> " "
+                        },
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
         }
+        Text("✓ 你觉得像 · ✗ 你觉得不太像", style = MaterialTheme.typography.labelSmall)
     }
 
     // missing window 标注

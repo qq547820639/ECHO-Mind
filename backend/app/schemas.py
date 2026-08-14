@@ -76,12 +76,15 @@ class OnboardingVerifyOut(BaseModel):
 
     仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等
     内部字段（JWT 载荷内部字段对用户透明）。
+    v0.7 订阅：subscription_expires_at / subscription_plan（可空 = 无订阅变更/机构旧用户）。
     """
     user_id: str
     access_token: str
     consent_versions: dict[str, str] = Field(default_factory=dict)
     l0_decision: str | None = None
     restricted: bool = False
+    subscription_expires_at: str | None = None
+    subscription_plan: str | None = None
 
 
 # ===== v0.6.1 ActivationCode（机构激活码，取代 external_ref 隐式激活语义） =====
@@ -93,10 +96,12 @@ class ActivationCodeCreate(BaseModel):
     - user_id 可空：空 = 待绑定（兑换时绑定到兑换者用户）；非空 = 预绑定用户。
     - ttl_seconds 可空：缺省用 settings.activation_code_ttl_seconds。
     - max_attempts：该码最大失败尝试次数（防爆破）。
+    - subscription_days：v0.7 订阅——兑换成功后授予的订阅天数（可空 = 不改变订阅状态）。
     """
     user_id: str | None = None
     ttl_seconds: int | None = Field(default=None, ge=60, le=365 * 24 * 3600)
     max_attempts: int = Field(default=5, ge=1, le=20)
+    subscription_days: int | None = Field(default=None, ge=1, le=3650)
 
 
 class ActivationCodeIssueOut(BaseModel):

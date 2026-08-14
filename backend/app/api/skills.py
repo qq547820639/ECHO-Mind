@@ -26,7 +26,7 @@ from app.schemas import (
 from app.services.audit import append_audit
 from app.services.sandbox.sanitizer import sanitize_skill, sanitize_skills
 
-from app.api.deps import DB, PRINCIPAL, ensure_user, require_feature_flag
+from app.api.deps import DB, PRINCIPAL, ensure_user, require_active_subscription, require_feature_flag
 
 router = APIRouter(prefix="/v1")
 
@@ -69,7 +69,9 @@ def list_skills(
 ):
     """用户拉取已 signed 的 Skill 列表（脱敏后下发；draft/reviewed/retired 不下发）。"""
     target_user_id = user_id or principal.subject
-    ensure_user(db, principal, target_user_id)
+    target_user = ensure_user(db, principal, target_user_id)
+    # v0.7 订阅门禁：能力练习属订阅能力，显式到期 → 402
+    require_active_subscription(db, target_user)
     rows = db.scalars(
         select(Skill).where(
             Skill.tenant_id == principal.tenant_id,

@@ -45,6 +45,9 @@ class User(Base):
     # 用户所在城市（可选登记），用于机构工作台调度属地资源。
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="active")
+    # v0.7 订阅生命周期：到期时间（NULL = 永不过期，机构旧用户向后兼容）与订阅档位。
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    subscription_plan: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("tenant_id", "external_ref", name="uq_user_external"),)
 
@@ -189,6 +192,8 @@ class ActivationCode(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    # v0.7 订阅生命周期：兑换成功后授予的订阅天数（NULL = 不改变订阅状态，机构旧码语义）。
+    subscription_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     __table_args__ = (
         Index("ix_activation_codes_tenant_created", "tenant_id", "created_at"),
     )

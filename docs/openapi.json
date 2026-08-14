@@ -826,6 +826,27 @@
         ]
       }
     },
+    "/v1/me/subscription": {
+      "get": {
+        "summary": "Me Subscription",
+        "operationId": "me_subscription_v1_me_subscription_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/v1/profile/{user_id}": {
       "get": {
         "summary": "Get Profile",
@@ -2874,11 +2895,24 @@
             "minimum": 1.0,
             "title": "Max Attempts",
             "default": 5
+          },
+          "subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3650.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Days"
           }
         },
         "type": "object",
         "title": "ActivationCodeCreate",
-        "description": "admin 签发激活码入参。\n\n- user_id 可空：空 = 待绑定（兑换时绑定到兑换者用户）；非空 = 预绑定用户。\n- ttl_seconds 可空：缺省用 settings.activation_code_ttl_seconds。\n- max_attempts：该码最大失败尝试次数（防爆破）。"
+        "description": "admin 签发激活码入参。\n\n- user_id 可空：空 = 待绑定（兑换时绑定到兑换者用户）；非空 = 预绑定用户。\n- ttl_seconds 可空：缺省用 settings.activation_code_ttl_seconds。\n- max_attempts：该码最大失败尝试次数（防爆破）。\n- subscription_days：v0.7 订阅——兑换成功后授予的订阅天数（可空 = 不改变订阅状态）。"
       },
       "ActivationCodeIssueOut": {
         "properties": {
@@ -3796,6 +3830,28 @@
             "type": "boolean",
             "title": "Restricted",
             "default": false
+          },
+          "subscription_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Expires At"
+          },
+          "subscription_plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Plan"
           }
         },
         "type": "object",
@@ -3804,7 +3860,7 @@
           "access_token"
         ],
         "title": "OnboardingVerifyOut",
-        "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。"
+        "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。\nv0.7 订阅：subscription_expires_at / subscription_plan（可空 = 无订阅变更/机构旧用户）。"
       },
       "PortraitFeedbackIn": {
         "properties": {

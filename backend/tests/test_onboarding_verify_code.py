@@ -72,8 +72,11 @@ def test_verify_code_no_internal_fields_leaked(client):
     response = client.post("/v1/onboarding/verify-code", json={"code": ACTIVE_CODE})
     assert response.status_code == 200
     body = response.json()
-    # 内部字段绝不外泄
-    assert set(body.keys()) == {"user_id", "access_token", "consent_versions", "l0_decision", "restricted"}
+    # 内部字段绝不外泄；v0.7 订阅字段为公开契约（contract-manifest OnboardingVerifyOut.fields）
+    assert set(body.keys()) == {
+        "user_id", "access_token", "consent_versions", "l0_decision", "restricted",
+        "subscription_expires_at", "subscription_plan",
+    }
     for forbidden in ("tenant_id", "role", "external_ref", "bootstrap"):
         assert forbidden not in body, f"响应泄露内部字段: {forbidden}"
 

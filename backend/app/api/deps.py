@@ -65,6 +65,17 @@ def require_write_role(db: Session, principal: Principal, *, object_type: str) -
                object_id=principal.subject, detail="role is not permitted to write")
 
 
+def require_active_subscription(db: Session, user: User) -> None:
+    """v0.7 订阅门禁：显式到期（expires_at <= now）→ 402 暂停云端订阅能力。
+
+    NULL 到期 = 永不过期（机构旧用户向后兼容）；本地模式功能不经过此门禁。
+    """
+    from app.services.subscription import subscription_active
+
+    if not subscription_active(user):
+        raise HTTPException(status_code=402, detail="subscription required")
+
+
 def require_psych_content_role(db: Session, principal: Principal, *, user_id: str) -> None:
     if principal.role not in {"user", "professional"}:
         forbid(db, principal, action="authz.psych_content_denied", object_type="user",
@@ -194,7 +205,7 @@ def open_escalation(
 
 
 def build_verify_out(db: Session, user: User) -> OnboardingVerifyOut:
-    """按用户组装 verify-code 输出（consent_versions + l0_decision）。"""
+    """按用户组装 verify-code 输出（consent_versions + l0_decision + 订阅状态）。"""
     access_token = create_access_token(subject=user.id, tenant_id=user.tenant_id, role="user")
     consent_versions: dict[str, str] = {}
     for consent_type in ("psychological_data", "passive_sensing", "voice_features"):
@@ -208,10 +219,16 @@ def build_verify_out(db: Session, user: User) -> OnboardingVerifyOut:
         ).order_by(OnboardingScreening.created_at.desc()).limit(1)
     )
     l0_decision = screening.decision if screening is not None else None
+    # v0.7 订阅：verify-code 响应携带订阅状态（可空 = 机构旧用户/无订阅变更）
+    from app.services.subscription import subscription_status
+
+    sub = subscription_status(user)
     return OnboardingVerifyOut(
         user_id=user.id,
         access_token=access_token,
         consent_versions=consent_versions,
         l0_decision=l0_decision,
         restricted=False,
+        subscription_expires_at=sub["expires_at"],
+        subscription_plan=sub["plan"],
     )

@@ -38,6 +38,7 @@ from app.api.deps import (
     forbid,
     get_escalation,
     open_escalation,
+    require_active_subscription,
     require_step_up,
     require_write_role,
 )
@@ -63,7 +64,9 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL):
     delivery_confirmed_at 在服务端接收时即写入（送达确认，不等于人工已收到）。
     """
     require_write_role(db, principal, object_type="escalation")
-    ensure_user(db, principal, payload.user_id)
+    user = ensure_user(db, principal, payload.user_id)
+    # v0.7 订阅门禁：显式到期 → 402（人工支持属订阅能力；本地模式端侧已先行拦截）
+    require_active_subscription(db, user)
     existing = db.scalar(select(Escalation).where(
         Escalation.tenant_id == principal.tenant_id,
         Escalation.event_id == payload.event_id,

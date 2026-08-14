@@ -333,6 +333,30 @@ class AppPreferences(
             edit.apply()
         }
 
+    // ===== 订阅生命周期（v0.7 订阅制） =====
+    // 订阅到期时间（epoch ms，null = 机构旧用户/无显式订阅=永不过期）与订阅档位。
+    // 由 verify-code 响应 / GET /v1/me/subscription 刷新。
+
+    var subscriptionExpiresAt: Long?
+        get() = if (prefs.contains("subscription_expires_at")) prefs.getLong("subscription_expires_at", 0L) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("subscription_expires_at") else edit.putLong("subscription_expires_at", value)
+            edit.apply()
+        }
+
+    var subscriptionPlan: String?
+        get() = if (prefs.contains("subscription_plan")) prefs.getString("subscription_plan", null) else null
+        set(value) {
+            val edit = prefs.edit()
+            if (value == null) edit.remove("subscription_plan") else edit.putString("subscription_plan", value)
+            edit.apply()
+        }
+
+    /** 订阅是否显式到期（null = 永不过期；到期时刻 <= now → true）。 */
+    val subscriptionExpired: Boolean
+        get() = subscriptionExpiresAt?.let { it <= System.currentTimeMillis() } ?: false
+
     companion object {
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
 

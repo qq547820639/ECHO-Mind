@@ -101,4 +101,22 @@ class LocalPortraitDigestTest {
         assertEquals("已积累 7/7 天，基线即将成型", baselineProgressText(9))
         assertEquals("已积累 0/7 天，基线即将成型", baselineProgressText(-1))
     }
+
+    @Test
+    fun subscriptionStatusTextSemantics() {
+        val now = 1_000_000_000_000L
+        // 机构旧用户：null = 永不过期
+        assertEquals("已订阅", com.yunjue.echo.mind.model.subscriptionStatusText(null, now))
+        // 未来到期：剩余天数
+        val future = now + 5 * 86_400_000L
+        assertTrue(
+            "未来到期应显示有效期与剩余天数",
+            com.yunjue.echo.mind.model.subscriptionStatusText(future, now).contains("剩余 5 天")
+        )
+        // 已过期：续订提示
+        assertEquals(
+            "订阅已到期，请续订",
+            com.yunjue.echo.mind.model.subscriptionStatusText(now - 1L, now)
+        )
+    }
 }

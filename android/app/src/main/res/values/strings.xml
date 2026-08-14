@@ -12,6 +12,7 @@
     <!-- v0.7 本地优先：未订阅时空态 -->
     <string name="skills_subscription_hint">能力练习是订阅功能，由专业团队审签后下发。开通订阅后即可使用。</string>
     <string name="skills_subscribe_button">开通订阅</string>
+    <string name="skills_subscription_expired_hint">订阅已到期，续订后即可使用能力练习。</string>
 
     <!-- v0.6.1（P2-15）：危机/隐私/人工支持关键按钮文案 + accessibility semantics -->
 

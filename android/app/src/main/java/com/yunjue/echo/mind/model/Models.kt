@@ -306,6 +306,23 @@ data class MessageDisplay(
 )
 
 /**
+ * 订阅状态文案（v0.7 订阅制，纯函数可单测）：
+ * - null = 永不过期（机构旧用户/未显式订阅）→「已订阅」；
+ * - 未来到期 → 「有效期至 yyyy-MM-dd（剩余 N 天）」；
+ * - 已过期 → 「订阅已到期，请续订」。
+ */
+fun subscriptionStatusText(expiresAtMs: Long?, nowMs: Long = System.currentTimeMillis()): String {
+    if (expiresAtMs == null) return "已订阅"
+    // 任何已到期的订阅（哪怕只差 1ms）都视为到期（整日差为 0 时不再误判为有效）
+    if (expiresAtMs <= nowMs) return "订阅已到期，请续订"
+    val daysLeft = ((expiresAtMs - nowMs) / 86_400_000L).toInt()
+    val date = java.time.Instant.ofEpochMilli(expiresAtMs)
+        .atZone(java.time.ZoneId.systemDefault())
+        .toLocalDate()
+    return "有效期至 $date（剩余 $daysLeft 天）"
+}
+
+/**
  * 画像批量拉取结果（Milestone G）：对齐 GET /v1/portraits?days=7|28 响应。
  * portraits 数组元素结构与 [DailyPortraitDto] 一致（含 date）。
  */

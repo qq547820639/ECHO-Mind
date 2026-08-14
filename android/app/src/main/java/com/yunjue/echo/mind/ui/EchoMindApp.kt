@@ -109,6 +109,7 @@ fun EchoMindApp(container: AppContainer) {
                     container.featureFlagRepository,
                     container.skillSessionCoordinator,
                     localMode = container.preferences.localMode,
+                    subscriptionExpired = container.preferences.subscriptionExpired,
                     onGoToSupport = { tabName = Tab.SUPPORT.name }
                 )
                 Tab.TREND -> TrendScreen(container.portraitRepository, container.syncStateRepository, container.featureFlagRepository, onGoToSupport = { tabName = Tab.SUPPORT.name })

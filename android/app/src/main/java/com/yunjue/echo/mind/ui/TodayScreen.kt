@@ -22,7 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,8 +101,8 @@ fun TodayScreen(
     onReEnableSensing: () -> Unit
 ) {
     val context = LocalContext.current
-    val state by portraitRepository.observeTodayPortrait().collectAsState()
-    val message by messageRepository.message.collectAsState()
+    val state by portraitRepository.observeTodayPortrait().collectAsStateWithLifecycle()
+    val message by messageRepository.message.collectAsStateWithLifecycle()
     var retryKey by remember { mutableStateOf(0) }
 
     // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次（画像 + 周小结）
@@ -112,7 +112,7 @@ fun TodayScreen(
     }
 
     // 同步状态 chip（沿用既有行为，PRD 契约点 9）
-    val pending by syncStateRepository.observePendingCount().collectAsState(initial = 0)
+    val pending by syncStateRepository.observePendingCount().collectAsStateWithLifecycle(initialValue = 0)
     val syncState = mapSyncState(
         pendingCount = pending,
         networkAvailable = isNetworkAvailable(context),

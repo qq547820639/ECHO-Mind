@@ -15,7 +15,10 @@ data class OnboardingVerifyResult(
     val accessToken: String,
     val consentVersions: Map<String, String> = emptyMap(),
     val l0Decision: String? = null,
-    val restricted: Boolean = false
+    val restricted: Boolean = false,
+    // v0.7 订阅生命周期：ISO 时间串 / 档位（可空 = 机构旧用户/无订阅变更）
+    val subscriptionExpiresAt: String? = null,
+    val subscriptionPlan: String? = null
 )
 
 /**
@@ -107,6 +110,10 @@ class OnboardingRepository(
                         runCatching { portraitDao.deleteByUser(previousUserId) }
                     }
                     preferences.clearAuthBlocked()
+                    // v0.7 订阅生命周期：verify-code 响应携带订阅状态 → 持久化（epoch ms）
+                    preferences.subscriptionExpiresAt = result.subscriptionExpiresAt
+                        ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                    preferences.subscriptionPlan = result.subscriptionPlan
                     preferences.onboardingState =
                         resolvedOnboardingStateAfterBinding(preferences.onboardingLocalSubmitted)
                     result
@@ -125,7 +132,11 @@ class OnboardingRepository(
             accessToken = o.optString("access_token"),
             consentVersions = consentVersions,
             l0Decision = o.optString("l0_decision").takeIf { it.isNotBlank() && it != "null" },
-            restricted = o.optBoolean("restricted", false)
+            restricted = o.optBoolean("restricted", false),
+            subscriptionExpiresAt = o.optString("subscription_expires_at")
+                .takeIf { it.isNotBlank() && it != "null" },
+            subscriptionPlan = o.optString("subscription_plan")
+                .takeIf { it.isNotBlank() && it != "null" }
         )
     }
 }

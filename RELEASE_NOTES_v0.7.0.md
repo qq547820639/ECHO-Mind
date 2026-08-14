@@ -27,7 +27,9 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - **Narrative 词汇**（Psychology Review）："移动较少/移动较多/接近" 替换 "安静/活跃/稳定"
 
 ### Android
-- **v0.7.2 硬化轮**：① Keystore v1→v2 双 alias 回退（v2 打开失败 → v1 口令解锁 + PRAGMA rekey 迁回 v2，旧库不再数据丢失；rekeyPragma 形状可测）；② androidTest 源集从无到有（迁移链 2→8 / Keystore 真机固定 IV 派生路径 / 引擎 golden 设备烟测），关闭 CI connected-test 空通过门；③ 画像反馈闭环：NOT_LIKE 后提供「重新生成」（订阅走 /me/portraits/rebuild，本地模式端侧重算）；④ 支持请求真实状态：订阅用户打开支持页时 refreshEscalationStatus 向服务端查询送达/人工确认（不再永远停留本地乐观值）；⑤ 死代码删除：SafetyEngine（+2 测试文件）、NarrativeProfileRepository、LegacyInputRepository、passiveSafety；⑥ 应用图标（自适应图标 XML，消除 lint MissingApplicationIcon）；⑦ detekt 启用 UnusedPrivateMember 规则并清零；⑧ 订阅卡片显示「当前已订阅」状态。
+- **订阅生命周期（v0.7.3）**：后端 `users.subscription_expires_at/subscription_plan` + `activation_codes.subscription_days`（迁移 20260814_0001，NULL=永不过期向后兼容）；兑换订阅码授予/续订订阅（从当前到期顺延）；`GET /v1/me/subscription` 状态端点；verify-code 响应携带订阅字段；显式到期 → /v1/escalations 与 /v1/skills 402（本地功能不受影响）。Android：订阅信息持久化、支持页「有效期至 X（剩余 N 天）/已到期」、到期拦截支持请求与能力页续订提示、`MessageCheckWorker` 24h 周期消息检查（订阅模式拉小结 + 新小结通知——推送过渡定时化）。
+- **生命周期收口**：全 UI `collectAsState` → `collectAsStateWithLifecycle`（新增 lifecycle-runtime-compose 依赖）；趋势页 7 天时间线标记画像反馈（✓ 像 / ✗ 不太像）。
+- **v0.7.2 硬化轮**：① Keystore v1→v2 双 alias 回退（v2 打开失败 → v1 口令解锁 + PRAGMA rekey 迁回 v2，旧库不再数据丢失；rekeyPragma 形状可测）；② androidTest 源集从无到有（迁移链 2→8 / Keystore 真机固定 IV 派生路径 / 引擎 golden 设备烟测），关闭 CI connected-test 空通过门；③ 画像反馈闭环：NOT_LIKE 后提供「重新生成」（订阅走 /me/portraits/rebuild，本地模式端侧重算）；④ 支持请求真实状态：订阅用户打开支持页时 refreshEscalationStatus 向服务端查询送达/人工确认（不再永远停留本地乐观值）；⑤ 死代码删除：SafetyEngine（+2 测试文件）、NarrativeProfileRepository、LegacyInputRepository、passiveSafety；⑥ 应用图标（自适应图标 XML，消除 lint MissingApplicationIcon）；⑦ detekt 启用 UnusedPrivateMember 规则并清零。
 - **分析消息闭环（拉取式推送过渡）**：后端新增 `GET /v1/me/messages`（近 7 天画像确定性生成「本周节律小结」，幂等 message.id，<3 天 abstain，词表安全 fail-closed）；Android `MessageRepository` 订阅模式拉取（SyncWorker 批末、新小结发本地通知 + 新渠道），本地模式用 `LocalPortraitDigest`（与后端逐语义镜像）端侧生成同款小结；Today 页顶部小结卡片。真实推送（FCM）配好后替换拉取式实现。
 - **基线进度可视化**：WARMING_UP / EARLY_BASELINE 显示「已积累 X/7 天」+ 进度条（服务端与本地画像共用 baseline_days）。
 - **本地模式「能力」页订阅空态**：未订阅时显示订阅提示 + 开通入口（替代「加载失败/重试」）。
@@ -49,15 +51,15 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 
 | 项 | 结果 |
 |---|---|
-| 后端 pytest（全量） | 1062 passed / 1 skipped |
+| 后端 pytest（全量） | 1070 passed / 1 skipped |
 | ruff check app tests | 0 errors（历史 F401 债务已清零） |
 | mypy app | 0 errors（历史类型债务已清零） |
-| Alembic upgrade→downgrade→upgrade | roundtrip PASS（head 20260813_0001 portrait_feedback） |
+| Alembic upgrade→downgrade→upgrade | roundtrip PASS（head 20260814_0001 订阅生命周期） |
 | fault_injection_check.py | 18/18 PASS（checker 已修复 LocalRepository 拆分后的路径引用） |
-| contract_drift_check.py | CONTRACT OK（59 路径，manifest v0.7.0） |
-| OpenAPI 导出 | PASS（59 路径，title：ECHO Mind Portrait Core API） |
+| contract_drift_check.py | CONTRACT OK（60 路径，manifest v0.7.0） |
+| OpenAPI 导出 | PASS（60 路径，title：ECHO Mind Portrait Core API） |
 | safety_eval / claim_scan / dynamic_code / content packs | PASS |
-| Android testDebugUnitTest / assembleDebug / lintDebug / detekt | PASS — 334 tests 0 失败 / APK 构建成功 / lint 0 error（含图标补齐）/ detekt 0 findings（UnusedPrivateMember 规则启用） |
+| Android testDebugUnitTest / assembleDebug / lintDebug / detekt / androidTest 编译 | PASS — 335 tests 0 失败 / APK 构建成功 / lint 0 error / detekt 0 findings / androidTest 编译通过 |
 | Android instrumentation（connectedDebugAndroidTest） | 用例已就绪（3 组：迁移链 2→8/Keystore 真机路径/引擎设备烟测），本机编译通过；执行待 CI 模拟器（API 34/36） |
 | PostgreSQL integration | NOT RUN — ENVIRONMENT BLOCKED（无 Docker/psql） |
 
