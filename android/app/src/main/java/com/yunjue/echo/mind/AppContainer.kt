@@ -235,142 +235,65 @@ class AppContainer(context: Context) {
     /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
     val applicationContext: Context = context.applicationContext
 
-    /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
-     *  具体类型以支持 v1→v2 口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
-    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher()
-    val passiveSensingPrefs = PassiveSensingPrefs(context)
-    val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
+    // ===== ERA 13.3 §43/§44：Root = Application-wide composition root，只组合六容器 =====
+    // 构造职责归各领域容器（di/EchoContainers.kt）；Root 不构造任何领域对象。
+    val core = com.yunjue.echo.mind.di.CoreContainer(context)
+    val observation = com.yunjue.echo.mind.di.ObservationContainer(core)
+    val presence = com.yunjue.echo.mind.di.PresenceContainer(core, observation)
+    val memory = com.yunjue.echo.mind.di.MemoryContainer(core)
+    val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(core, observation, memory)
+    val actions = com.yunjue.echo.mind.di.ActionContainer(core)
 
-    /**
-     * SQLCipher 全库加密数据库（Phase 3.1 Privacy Fail-Closed）。
-     *
-     * 生产语义：SQLCipher native lib 加载失败 → **fail closed**（抛 IllegalStateException，
-     * 不创建任何明文敏感数据库）。禁止 `runCatching{...}.getOrElse{普通Room}` 静默回退。
-     *
-     * JVM/Robolectric 测试需要普通 Room 时：使用显式 **Test Database Factory**
-     * （测试内 `Room.inMemoryDatabaseBuilder(...)`，见 DatabaseMigrationTest 等），
-     * 与生产路径完全分离；本容器不提供测试降级。
-     */
-    val database: EchoDatabase = runCatching { net.sqlcipher.database.SQLiteDatabase.loadLibs(context) }
-        .map {
-            openDatabase(context, cipher)
-        }
-        .getOrElse {
-            // Phase 3.1：SQLCipher 不可用 → fail closed，绝不静默回退明文 Room。
-            throw IllegalStateException(
-                "SQLCipher native library load failed in production: ${it.javaClass.simpleName}: ${it.message}",
-                it,
-            )
-        }
-    val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
-
-    // 跨域共享 outbox 原语（bounded-context 拆分，Step 1）。
-    // v0.7 本地优先架构：本地模式（未订阅）数据仅保存在本机，outbox 不写入
-    // （SyncWorker 亦静默，双保险）；订阅后自动恢复正常上行。
-    val outbox = Outbox(database, cipher, localModeProvider = { preferences.localMode })
-
-    // bounded-context 仓库（Step 1–3）。
-    val featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
-    val syncStateRepository = SyncStateRepository(database, preferences)
-    val consentRepository = ConsentRepository(outbox, preferences)
-    val sensingRepository = SensingRepository(database, cipher, outbox, preferences)
-    val skillRepository = SkillRepository(database, outbox, preferences, apiClient)
-    val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
-    val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
-    // v0.7 本地优先：端侧画像引擎数据源（本地模式 + 离线回退共用）
-    val localPortraitDataSource = LocalPortraitDataSource(database)
-    val portraitRepository = PortraitRepository(database, preferences, apiClient, outbox, localPortraitDataSource)
-    // v0.7 本地优先：本地数据权利（本地模式导出/删除，数据不出设备）
-    val localDataRights = LocalDataRights(database, cipher)
-    // v0.7 分析消息（拉取式推送过渡）：订阅拉服务端小结 / 本地模式端侧算小结
-    val messageRepository = MessageRepository(preferences, apiClient, localPortraitDataSource)
-    // ERA 2：单一 Current ECHO State（Today / Wallpaper / Dream 共享）
-    val echoStateStore = com.yunjue.echo.mind.presence.EchoStateStore()
-    // ERA 2：Presence 组装入口（分钟级刷新；唯一写入方）
-    val presenceRepository = PresenceRepository(
-        dataSource = localPortraitDataSource,
-        preferences = preferences,
-        passiveSensingPrefs = passiveSensingPrefs,
-        appContext = context.applicationContext,
-        store = echoStateStore,
-    )
-    // ERA 4：BYOM Intelligence（secret 设备端加密存储；LLM Provider ≠ ECHO）
-    val providerCredentialStore = com.yunjue.echo.mind.intelligence.ProviderCredentialStore(context, cipher)
-    val aiProviderManager = com.yunjue.echo.mind.intelligence.AiProviderManager(providerCredentialStore)
-    // ERA 6：EchoMemory（七类记忆 + 生命周期；Memory ≠ 聊天记录）
-    val memoryRepository = MemoryRepository(database, preferences)
-    // ERA 5：AI 叙事编排（fallback 链：AI 叙事 → 确定性叙事 → 观察事实）
-    val aiNarrativeService = com.yunjue.echo.mind.intelligence.AiNarrativeService(
-        hasProvider = { aiProviderManager.hasProvider() },
-        reason = { request -> aiProviderManager.reason(request) },
-    )
-    // v2 §13：Echo Runtime 协调器（UI 不再各自拼状态；六态/Presence/Provider 统一广播）
+    // ===== 跨域编排（composition root 职责） =====
+    /** v2 §13：Echo Runtime 协调器（六态/Presence/Provider 统一广播）。 */
     val echoRuntimeCoordinator = com.yunjue.echo.mind.runtime.EchoRuntimeCoordinator(
-        appContext = context.applicationContext,
-        preferences = preferences,
-        passiveSensingPrefs = passiveSensingPrefs,
-        presenceRepository = presenceRepository,
-        aiProviderManager = aiProviderManager,
+        appContext = core.applicationContext,
+        preferences = core.preferences,
+        passiveSensingPrefs = core.passiveSensingPrefs,
+        presenceRepository = presence.presenceRepository,
+        aiProviderManager = intelligence.aiProviderManager,
     )
-    // v2 §42：Context Compiler 真实数据检索（Task → 画像/基线/记忆 实际取证据）
-    val contextRetriever = com.yunjue.echo.mind.intelligence.EchoContextRetriever(
-        observationSource = localPortraitDataSource,
-        memoryReader = memoryRepository,
-        userId = { preferences.userId },
-    )
-    // ERA 13 §26：Journey Application Layer（JourneyScreen → JourneyViewModel → JourneyRepository）
+    /** ERA 13 §26：Journey Application Layer（跨 observation/intelligence/memory/core）。 */
     val journeyRepository = com.yunjue.echo.mind.journey.JourneyRepository(
-        portraitRepository = portraitRepository,
-        syncStateRepository = syncStateRepository,
-        featureFlagRepository = featureFlagRepository,
-        aiNarrativeService = aiNarrativeService,
-        contextRetriever = contextRetriever,
-        preferences = preferences,
-        appContext = context.applicationContext,
-        hasIntelligence = { aiProviderManager.hasProvider() },
+        portraitRepository = observation.portraitRepository,
+        syncStateRepository = core.syncStateRepository,
+        featureFlagRepository = core.featureFlagRepository,
+        aiNarrativeService = intelligence.aiNarrativeService,
+        contextRetriever = intelligence.contextRetriever,
+        preferences = core.preferences,
+        appContext = core.applicationContext,
+        hasIntelligence = { intelligence.aiProviderManager.hasProvider() },
     )
-
-    // ===== v3 §40：子容器分组（所有权拆分；同一实例，按领域暴露，新代码走领域入口） =====
-    val core = com.yunjue.echo.mind.di.CoreContainer(
-        cipher = cipher,
-        passiveSensingPrefs = passiveSensingPrefs,
-        preferences = preferences,
-        database = database,
-        outbox = outbox,
-        apiClient = apiClient,
-        featureFlagRepository = featureFlagRepository,
-        syncStateRepository = syncStateRepository,
-    )
-    val sensing = com.yunjue.echo.mind.di.SensingContainer(
-        consentRepository = consentRepository,
-        sensingRepository = sensingRepository,
-        skillRepository = skillRepository,
-        escalationRepository = escalationRepository,
-        onboardingRepository = onboardingRepository,
-    )
-    val observation = com.yunjue.echo.mind.di.ObservationContainer(
-        localPortraitDataSource = localPortraitDataSource,
-        portraitRepository = portraitRepository,
-        localDataRights = localDataRights,
-        messageRepository = messageRepository,
-    )
-    val presence = com.yunjue.echo.mind.di.PresenceContainer(
-        echoStateStore = echoStateStore,
-        presenceRepository = presenceRepository,
-    )
-    val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(
-        providerCredentialStore = providerCredentialStore,
-        aiProviderManager = aiProviderManager,
-        aiNarrativeService = aiNarrativeService,
-        contextRetriever = contextRetriever,
-    )
-    val memory = com.yunjue.echo.mind.di.MemoryContainer(
-        memoryRepository = memoryRepository,
-    )
-
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
-    val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(skillRepository)
+    val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(actions.skillRepository)
 
+    // ===== 兼容访问器（新代码走领域入口 core/observation/...；旧调用点逐步迁移） =====
+    val cipher get() = core.cipher
+    val passiveSensingPrefs get() = core.passiveSensingPrefs
+    val preferences get() = core.preferences
+    val database get() = core.database
+    val apiClient get() = core.apiClient
+    val outbox get() = core.outbox
+    val featureFlagRepository get() = core.featureFlagRepository
+    val syncStateRepository get() = core.syncStateRepository
+    val onboardingRepository get() = core.onboardingRepository
+    val escalationRepository get() = core.escalationRepository
+    val sensingRepository get() = observation.sensingRepository
+    val consentRepository get() = observation.consentRepository
+    val localPortraitDataSource get() = observation.localPortraitDataSource
+    val portraitRepository get() = observation.portraitRepository
+    val localDataRights get() = observation.localDataRights
+    val messageRepository get() = observation.messageRepository
+    val echoStateStore get() = presence.echoStateStore
+    val presenceRepository get() = presence.presenceRepository
+    val memoryRepository get() = memory.memoryRepository
+    val providerCredentialStore get() = intelligence.providerCredentialStore
+    val aiProviderManager get() = intelligence.aiProviderManager
+    val aiNarrativeService get() = intelligence.aiNarrativeService
+    val contextRetriever get() = intelligence.contextRetriever
+    val skillRepository get() = actions.skillRepository
+
+    // ===== Transient 工厂（§45：每次新建，非 Application scoped） =====
     /** 各 Collector 工厂：使用 applicationContext 避免泄漏 Activity。 */
     fun newSensorCollector(context: Context): SensorCollector =
         SensorCollector(context.applicationContext, newSensingEventHub())
@@ -380,7 +303,7 @@ class AppContainer(context: Context) {
         AppActivityCollector(context.applicationContext, newSensingEventHub())
     /** 麦克风采集器工厂（注入 passiveSensingPrefs 以读取 micEnabled 开关）。 */
     fun newMicCollector(context: Context): MicCollector =
-        MicCollector(context.applicationContext, passiveSensingPrefs)
+        MicCollector(context.applicationContext, core.passiveSensingPrefs)
 
     /** 进程内共享事件聚合层单例工厂。 */
     fun newSensingEventHub(): SensingEventHub = SensingEventHub.getInstance()
@@ -401,7 +324,7 @@ class AppContainer(context: Context) {
  * 该回退为防御性兜底（v1 密钥存在但 randomizedEncryptionRequired=true 时派生会失败，
  * 此时同样 fail-closed 抛原异常）。
  */
-private fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
+internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
     fun build(passphrase: ByteArray): EchoDatabase =
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(

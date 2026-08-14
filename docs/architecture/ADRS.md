@@ -227,3 +227,15 @@
   6. **真实依赖图（§48）**：新增 `scripts/generate_dependency_graph.py`（package/import 分析 + 循环检测；ports 契约层豁免；model 并入 Ground Truth 聚合）→ 生成 ANDROID_DEPENDENCY_GRAPH.md（11 域 53 边，无循环）；CI source-integrity drift gate 强制同步。
 - **理由**：Application Layer（Journey/Me）已收口；下一步是依赖方向：Domain interfaces ↑ data implementations。
 - **后果**：intelligence/observation 与 data 实现解耦；依赖图成为物理模块化（ERA 13.5）输入；下一轮 ERA 13.3 Real DI Ownership（AppContainer 拆构造职责）。
+
+## ADR-029：ERA 13.3 Real DI Ownership（子容器自持构造职责）
+
+- **决策**：
+  1. **AppContainer 缩减为 composition root（§43）**：只组合 CoreContainer/ObservationContainer/PresenceContainer/MemoryContainer/IntelligenceContainer/ActionContainer + 跨域编排（EchoRuntimeCoordinator/JourneyRepository/SkillSessionCoordinator）+ Transient 工厂；不再构造任何领域对象。
+  2. **容器自持构造职责（§44）**：CoreContainer(context) 构建 cipher/preferences/database(fail-closed)/apiClient/outbox/四基础仓库；ObservationContainer(core) 构建感知/同意/画像 Ground Truth；PresenceContainer(core, obs)；MemoryContainer(core)；IntelligenceContainer(core, obs, mem) 内部构建 credential store/provider manager/narrative service/context retriever；ActionContainer(core) 持有 SkillRepository。
+  3. **兼容访问器**：`container.preferences` 等为委托属性（所有权在子容器）；新代码走领域入口 `container.core.*`/`container.intelligence.*` 等；ArchitectureBoundaryTest 新增 `appContainerIsCompositionRootOnly`（禁止 Root 直接构造 17 类领域对象，防回归）。
+  4. **生命周期所有权（§45）**：Application / Worker / Service / ViewModel / Transient 五类 scope 明文化（docs/architecture/DI_OWNERSHIP.md）。
+  5. **DI Framework 裁决（§47）**：继续 structured manual DI（viewModelFactory + 领域容器）；不引入 Hilt——单模块阶段无等价收益，物理模块化后如出现跨模块注入需求再复评。
+  6. **不制造 God DI 文件（§46）**：构造职责按领域分布在各容器文件；Root 无领域对象构造。
+- **理由**：旧子容器只是「同一实例的分组暴露」（构造全部在 AppContainer），§43-§46 要求真正所有权。
+- **后果**：AppContainer 从 185 行构造体降为纯组合 + 委托；依赖方向与模块化输入齐备 → ERA 13.5 物理 Gradle 模块化开始（每次一个模块）。

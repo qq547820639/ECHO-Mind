@@ -118,6 +118,26 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    @Test
+    fun appContainerIsCompositionRootOnly() {
+        // ERA 13.3 §43/§44：Root 只组合六容器 + 跨域编排；领域对象构造归子容器。
+        // 防回归：AppContainer 类体内不得直接构造数据/智能/画像实现对象。
+        val t = textOf(File(srcRoot, "AppContainer.kt"))
+        val forbiddenConstructors = listOf(
+            "= MemoryRepository(", "= AiNarrativeService(", "= PortraitRepository(",
+            "= PresenceRepository(", "= LocalPortraitDataSource(", "= EchoStateStore(",
+            "= ProviderCredentialStore(", "= AiProviderManager(", "= EchoContextRetriever(",
+            "= SyncStateRepository(", "= FeatureFlagRepository(", "= ConsentRepository(",
+            "= SensingRepository(", "= SkillRepository(", "= EscalationRepository(",
+            "= OnboardingRepository(", "= LocalDataRights(", "= MessageRepository(",
+        )
+        assertTrue(
+            "AppContainer 不得直接构造领域对象（构造职责归子容器）：\n" +
+                offendingLines(t, forbiddenConstructors),
+            forbiddenConstructors.none { it in t }
+        )
+    }
+
     private fun offendingLines(text: String, needles: List<String>): String =
         text.lines().filter { line -> needles.any { it in line } }.take(3).joinToString("\n")
 }

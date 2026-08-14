@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.2 — DOMAIN PORTS 完成 ✅ → 下一轮 ERA 13.3（Real DI Ownership：AppContainer 拆构造职责）**
+**ERA 13.3 — REAL DI OWNERSHIP 完成 ✅ → 下一轮 ERA 13.5（Physical Gradle Modularization：每次一个模块）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**487 unit tests 全绿**（Journey 13 + Me 7 + 边界 2）；lintDebug / detekt PASS；assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**488 unit tests 全绿**（Journey 13 + Me 7 + 边界 3）；lintDebug / detekt PASS；assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -42,11 +42,12 @@
 - **ERA 12.9 Document/Status Truth**：IMPLEMENTATION_STATUS 只描述可交付 main；架构清单 LOC 实测修正（888→314）；Source Reality Report CI drift gate（§21）
 - **ERA 13 Journey Application Layer**：JourneyScreen（555→293 行）去编排；JourneyViewModel（168 行）+ JourneyUiState/JourneyEvent（§24/§25 全字段）+ JourneyRepository/JourneyPort（§26）；趋势七态纯逻辑迁 journey 包；ArchitectureBoundaryTest 新增 journey 不依赖 ui 断言；JourneyUiStateAssemblyTest（§102 矩阵）+ JourneyViewModelTest（4 用例）
 - **ERA 13.1 Me Application Layer**：MeScreen（326→124 行）去编排；MeViewModel + 四个子 ViewModel（§33-§36）；纯函数装配器 + combine7/8；MeStateAssemblyTest（§103 矩阵）
-- **ERA 13.2 Domain Ports**：ports 包（Observation/Memory/Presence 端口族；Actions 端口暂不建——Actions 不消费 Skills，不预置死端口）；五个 data 类 Adapter 化；EchoContextRetriever/EchoCorrectionService 只依赖端口；Ground Truth 断环（SyncEnqueue 根级缝隙）；ArchitectureBoundaryTest +2 断言；真实依赖图生成器（§48，11 域 53 边无循环，CI drift gate）
+- **ERA 13.2 Domain Ports**：ports 包（Observation/Memory/Presence 端口族）；五个 data 类 Adapter 化；EchoContextRetriever/EchoCorrectionService 只依赖端口；Ground Truth 断环（SyncEnqueue）；真实依赖图生成器（§48，11 域 53 边无循环，CI drift gate）
+- **ERA 13.3 Real DI Ownership**：AppContainer 缩减为 composition root（只组合六容器 + 跨域编排 + Transient 工厂）；六容器自持构造职责（Core/Observation/Presence/Memory/Intelligence/Action）；兼容访问器委托化；DI_OWNERSHIP.md 生命周期所有权（§45）；DI 裁决继续 structured manual DI（§47）；ArchitectureBoundaryTest +1（Root 禁止直接构造 17 类领域对象）
 
 ## In Progress
 
-- ERA 13.3 Real DI Ownership：子容器自持构造职责 + AppContainer 缩减为 composition root（本轮后立即执行）
+- ERA 13.5 Physical Gradle Modularization：依赖图已生成（11 域无循环）；从边界最清晰、依赖最少的模块开始，每次只拆一个（本轮后立即执行）
 
 ## Blocked
 
@@ -63,7 +64,7 @@
 
 ## Architecture Debt
 
-- AppContainer 子容器为组合式分组（构造仍在 root）——**ERA 13.3 Real DI Ownership**
+- 无（ERA 13.3 已解决：子容器自持构造，Root 为 composition root）
 
 ## Security Debt
 
