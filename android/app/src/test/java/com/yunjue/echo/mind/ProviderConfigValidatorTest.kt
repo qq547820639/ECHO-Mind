@@ -63,6 +63,18 @@ class ProviderConfigValidatorTest {
     fun localEndpointsAllowHttp() {
         assertTrue(validateProviderConfig(draft(baseUrl = "http://localhost:11434")).isEmpty())
         assertTrue(validateProviderConfig(draft(baseUrl = "http://192.168.1.20:8080")).isEmpty())
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://10.0.0.5:11434")).isEmpty())
+        // RFC 1918 172.16/12 内网段放行
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://172.16.0.2:11434")).isEmpty())
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://172.31.255.254:11434")).isEmpty())
+    }
+
+    @Test
+    fun public172RangeIsRejectedAsInsecure() {
+        // ERA 40：公网 172.x（如 172.217.x）不是私网——API Key 不得明文出网
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://172.217.16.1")).any { it.contains("https") })
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://172.15.0.1")).any { it.contains("https") })
+        assertTrue(validateProviderConfig(draft(baseUrl = "http://172.32.0.1")).any { it.contains("https") })
     }
 
     @Test

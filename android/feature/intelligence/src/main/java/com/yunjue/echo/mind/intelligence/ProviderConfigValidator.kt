@@ -38,15 +38,28 @@ fun validateProviderConfig(config: ProviderConfigDraft): List<String> {
     if (config.baseUrl.isBlank()) errors.add("请填写 Base URL")
     else {
         val normalized = normalizeBaseUrl(config.baseUrl)
-        if (!normalized.startsWith("https://") && !normalized.startsWith("http://localhost") &&
-            !normalized.startsWith("http://127.0.0.1") && !normalized.startsWith("http://10.") &&
-            !normalized.startsWith("http://192.168.") && !normalized.startsWith("http://172.")
-        ) {
-            // 非本机地址必须 HTTPS（设备 → Provider 直连链路的传输安全）
+        if (!normalized.startsWith("https://") && !isPrivateLanUrl(normalized)) {
+            // 非本机地址必须 HTTPS（设备 → Provider 直连链路的传输安全；
+            // API Key 只在私网明文例外——局域网自建网关场景）
             errors.add("Base URL 必须使用 https（本机地址除外）")
         }
     }
     if (config.model.isBlank()) errors.add("请填写模型名")
     if (config.timeoutSeconds !in 5..300) errors.add("超时时间需在 5-300 秒之间")
     return errors
+}
+
+/**
+ * ERA 40 安全复核：明文例外严格限定私网——
+ * localhost/127.0.0.1、10/8、192.168/16、**172.16/12（RFC 1918）**。
+ * 旧实现 `startsWith("http://172.")` 误放行公网 172.x（如 172.217.x）→ API Key 明文出网；
+ * 现按 RFC 1918 精确判定。纯函数，单测锚定。
+ */
+internal fun isPrivateLanUrl(normalizedBaseUrl: String): Boolean {
+    if (normalizedBaseUrl.startsWith("http://localhost")) return true
+    if (normalizedBaseUrl.startsWith("http://127.0.0.1")) return true
+    if (normalizedBaseUrl.startsWith("http://10.")) return true
+    if (normalizedBaseUrl.startsWith("http://192.168.")) return true
+    val rfc1918Prefix = Regex("^http://172\\.(1[6-9]|2[0-9]|3[0-1])\\.")
+    return rfc1918Prefix.containsMatchIn(normalizedBaseUrl)
 }

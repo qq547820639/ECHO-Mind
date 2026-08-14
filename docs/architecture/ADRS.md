@@ -489,3 +489,31 @@
   2. lint.xml 全局豁免仅 4 类并内联理由：UseKtx（既有风格，50 处零行为收益）、GradleDependency/NewerVersionAvailable/AndroidGradlePluginVersion（dependabot 负责升级）、Aligned16KB（SQLCipher 4.5.4 上游 native 未 16KB 对齐，待上游发布对齐产物）。
 - **理由**：lint 告警从「报告存在」变为「构建阻断」——与 detekt/mypy 双侧收紧对齐；备份规则补全同时强化「敏感本地数据不上云」隐私契约。
 - **后果**：未来任何新 lint 告警 = CI 红；16KB 对齐待 SQLCipher 上游跟进。
+
+## ADR-055：UI 层状态提升 + 槽位组合 smoke test 模式（ERA 32-39）
+
+- **决策**：
+  1. 三大世界根页面（EchoSceneScreen / JourneyScreen / MeScreen）全部收敛为「薄包装 + 纯内容」：包装层只做 ViewModel/流收集与容器依赖装配；纯内容以 state-in / event-out + 组合槽位（visualSurface/actionLayer/actionOverlay/九槽位 MeScreenContent 等）渲染，分组 data class（State/Navigation/CoreActions/FeedbackActions）保持 detekt 阈值。
+  2. 容器依赖（AppPreferences/SkillRepository/Coordinator）一律留在调用侧：偏好字段下沉为状态输入（aiPromptDismissed/awakenedAtEpochMs），组件去容器化（SeedPortraitBlock 只收 awakenedAtEpochMs、EchoVisualSurface 只收纯映射 config）。
+  3. 动画宿主组件（EchoLifeField 无限帧循环 / EchoActionOverlay 无限帧动画）不进入 Robolectric smoke test——由构造隔离（槽位注入 / 纯映射函数测试），真机行为由 CI connected-test 覆盖。
+  4. Robolectric + compose-ui-test-junit4 渲染基线覆盖三世界（ECHO 30 + Journey 9 + Me 51 + Onboarding 7 + 组件层），技术要点入测试惯例：clickable/selectable 合并语义用 hasClickAction()+hasText()；视口外点击必须 performScrollTo()；LazyColumn 用超高窗口 qualifiers 全量组合。
+- **理由**：UI 层此前零渲染测试；容器直连使渲染不可测。槽位模式同时消除 §31 类「Screen 直接编排 Repository」债务（SubscriptionViewModel 收口）。
+- **后果**：新增 Screen 必须状态提升后才可测；动画组件用纯映射测试模式替代 Robolectric 渲染。
+
+## ADR-056：backend mypy strict 冻结（ignore_missing_imports=false + 89 处裸泛型精确化）
+
+- **决策**：
+  1. `ignore_missing_imports = true → false` 探测——全部依赖自带类型（fastapi/sqlalchemy/pydantic/psycopg/PyJWT/cryptography），零豁免（预先假设的 passlib 豁免为死配置删除）。
+  2. `mypy --strict` 89 处误差脚本化行级修复：dimensions 桶统计精确为 `dict[str, float]`（顺带消除 2 处 Any 回传）、baseline_metrics 精确为 `dict[str, dict[str, float]]`、安全鸭子特征 `list[Any]`、其余路由/服务 JSON 载荷 `dict[str, Any]`（28 文件补 Any import）。
+  3. 配置冻结为 `strict = true`（在 disallow_untyped_defs 收紧之后的终态）。
+- **理由**：类型盲区消除——新代码裸泛型 / 未标注函数 / 未使用 ignore / 缺失 stub 引用 = CI 红；pytest 1070 全绿证明注解变更零行为漂移。
+- **后果**：backend 类型门禁达到 strict 终态；后续新增依赖若无类型 stub 将直接阻断。
+
+## ADR-057：detekt 27 规则 + lint 安全规则固化（ERA 37/39）
+
+- **决策**：
+  1. detekt 14 → 27 规则：style +4（UnusedImports/MayBeConst/UnnecessaryParentheses）、potential-bugs +4（CastToNullableType/DontDowncastCollectionTypes/LateinitUsage 主源集强制·测试源集豁免/UnusedUnaryOperator）、coroutines +1（SleepInsteadOfDelay）、performance +2（ForEachOnRange/UnnecessaryTemporaryInstantiation）；探测淘汰 CollapsibleIf（1.23 不存在）与 MissingWhenCase/RedundantElseInWhen（编译器默认检查）。探测清除 60+ 处未用 import/多余括号。
+  2. lint.xml 探测固化 4 条 error 级安全/RTL 规则（UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded——全仓库零命中）；UseKtx 豁免复核保留（50 处含刻意 commit() 同步写路径，KTX edit{} 默认 apply 语义不同）。
+  3. 性能防退化预算 7 → 9 行（Journey 365 天完整 UI 状态装配 <2000ms、Derived Pattern 1000 条派生 <1000ms）。
+- **理由**：Android 静态分析深度与 backend mypy strict 对齐的收官；豁免必须有复核后的活理由。
+- **后果**：新增代码未用 import/多余括号/主源集 lateinit/PendingIntent 可变标志等 = CI 红；性能预算随产品路径扩展。
