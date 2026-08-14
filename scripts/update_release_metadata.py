@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""发布元数据生成（Phase 8 修订）：单一事实源 + 真实测试计数。
+"""发布元数据生成（ERA 12.7 修订）：Source/Artifact 清单分离 + pipeline 绑定。
 
-- 版本从 scripts/version_source.json 读取（单一事实源，Phase 8.2）；
-- 测试计数从真实 pytest 报告解析（XML：passed/failed/skipped），
-  不再硬编码任何数字（Phase 8.1）；
-- DELIVERY_MANIFEST.json 自动生成；
-- FILE_HASHES.sha256 从**当前工作树**生成（Phase 8.3 正式 release bundle
-  应改由 package_release.sh 在 clean checkout 上执行后重新生成）。
+- SOURCE_MANIFEST.sha256：**仅版本控制意义上的源文件**（排除全部生成物/工具目录）；
+  路径一律 Unicode NFC 归一化（防 macOS NFD 与 git 不一致）。
+- DELIVERY_MANIFEST.json：机器生成；android_gradle_build 只接受本次 pipeline 注入
+  （ANDROID_GRADLE_BUILD_RESULT），**禁止从旧 build 产物推断**。
+- RELEASE_ARTIFACT_MANIFEST.sha256 由 generate_provenance.py 在 provenance 之后生成
+  （DAG：source → build → artifacts → provenance → artifact manifest，无循环哈希）。
+
+用法：
+  REUSE_REPORT=1 python3 scripts/update_release_metadata.py            # 复用既有 junit
+  ANDROID_GRADLE_BUILD_RESULT=passed python3 scripts/update_release_metadata.py
 """
 import hashlib
-import os
 import json
+import os
 import subprocess
+import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,17 +25,31 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION_SOURCE = json.loads((ROOT / "scripts" / "version_source.json").read_text(encoding="utf-8"))
 VERSION = VERSION_SOURCE["release_version"]
 
-#: 打包排除（与 .gitignore + package_release.sh 一致；Phase 8.3）
+#: 排除规则只允许「明确路径」（v3.3 §9）：禁止模糊目录名（如 "runtime"）误伤源码包。
 EXCLUDED_PARTS = {
-    ".git", ".gradle", ".venv", "__pycache__", ".pytest_cache", "build",
-    ".DS_Store", ".trae", ".codebuddy", ".workbuddy", ".idea", ".vscode",
-    "runtime", "exports", "releases",
+    ".git", ".gradle", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache",
+    ".mypy_cache", ".coverage", ".pytest_report", "build", ".idea", ".vscode",
+    ".DS_Store", ".trae", ".codebuddy", ".workbuddy",
+    "releases",          # v0.2 打包产物目录（artifact，非源码）
 }
-EXCLUDED_FILES = {"FILE_HASHES.sha256"}
-EXCLUDED_SUFFIXES = {".pyc", ".db"}
+#: 生成物不属于 SOURCE_MANIFEST（它们由本脚本/流水线产出，进入 artifact manifest）。
+EXCLUDED_FILES = {
+    "SOURCE_MANIFEST.sha256",
+    "RELEASE_ARTIFACT_MANIFEST.sha256",
+    "DELIVERY_MANIFEST.json",
+    "BUILD_PROVENANCE.json",
+    "sbom.spdx.json",
+    "local.properties",
+}
+EXCLUDED_SUFFIXES = {".pyc", ".db", ".apk", ".idsig", ".keystore", ".jks"}
 
 
-def _collect_files() -> list[Path]:
+def _nfc(path: Path) -> str:
+    """macOS HFS+/APFS 可能产生 NFD 文件名；hash/manifest 一律 NFC，与 git 一致。"""
+    return unicodedata.normalize("NFC", str(path.relative_to(ROOT)))
+
+
+def _collect_source_files() -> list[Path]:
     files = []
     for path in sorted(ROOT.rglob("*")):
         if not path.is_file():
@@ -44,11 +63,17 @@ def _collect_files() -> list[Path]:
     return files
 
 
-def _run_pytest_xml() -> dict | None:
-    """运行后端 pytest 并解析 junit XML（真实计数；失败返回 None 由调用方标记）。
+def _parse_junit(report: Path) -> dict:
+    root = ET.parse(report).getroot()
+    suite = root.find("testsuite")
+    attrs = suite.attrib if suite is not None else root.attrib
+    tests = int(attrs.get("tests", 0))
+    failures = int(attrs.get("failures", 0)) + int(attrs.get("errors", 0))
+    skipped = int(attrs.get("skipped", 0))
+    return {"passed": tests - failures - skipped, "failed": failures, "skipped": skipped, "total": tests}
 
-    REUSE_REPORT=1：复用已有 junit 报告（快速重生成 hashes/manifest，不重跑 pytest）。
-    """
+
+def _run_pytest_xml() -> dict | None:
     try:
         report = ROOT / ".pytest_report" / "junit.xml"
         report.parent.mkdir(exist_ok=True)
@@ -66,56 +91,49 @@ def _run_pytest_xml() -> dict | None:
         return None
 
 
-def _parse_junit(report: Path) -> dict:
-    """解析 pytest junit XML（真实计数）。"""
-    root = ET.parse(report).getroot()
-    # pytest 的 junitxml 根元素为 <testsuites>，内含单个 <testsuite>；属性在 testsuite 上
-    suite = root.find("testsuite")
-    attrs = suite.attrib if suite is not None else root.attrib
-    tests = int(attrs.get("tests", 0))
-    failures = int(attrs.get("failures", 0)) + int(attrs.get("errors", 0))
-    skipped = int(attrs.get("skipped", 0))
-    return {
-        "passed": tests - failures - skipped,
-        "failed": failures,
-        "skipped": skipped,
-        "total": tests,
-    }
+def _android_build_status() -> str:
+    """v3.3 §13：build status 只接受本次 pipeline 注入；禁止从旧 build 产物推断。"""
+    return os.environ.get("ANDROID_GRADLE_BUILD_RESULT", "not_run_in_this_pipeline")
 
 
 def main() -> None:
-    files = _collect_files()
+    files = _collect_source_files()
 
     test_stats = _run_pytest_xml()
     backend_tests = test_stats["passed"] if test_stats else None
 
+    # 1. SOURCE_MANIFEST（源文件清单）
+    lines = []
+    for path in files:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {_nfc(path)}")
+    (ROOT / "SOURCE_MANIFEST.sha256").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # 2. DELIVERY_MANIFEST
     manifest = {
         "project": "ECHO Mind Personal Ambient Intelligence",
         "version": VERSION,
         "release_status": "pilot-candidate",
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "branch": "main",
-        "git_ref": f"portrait-core-v{VERSION}",
+        "git_ref": f"personal-ambient-intelligence-v{VERSION}",
         "scope": [
-            "Android phone-first Portrait Core client",
-            "passive sensing → derived features → daily aggregate → personal baseline → daily portrait",
-            "FastAPI institutional backend and workbench",
-            "deterministic safety rules, escalation, audit chain and data rights",
+            "Android phone-first Personal Ambient Intelligence client",
+            "observation core: passive sensing -> derived features -> daily aggregate -> personal baseline -> daily portrait",
+            "ECHO Scene / Presence (live wallpaper + dream) / Journey / Actions / BYOM / EchoMemory",
+            "FastAPI institutional backend and workbench (unchanged observation contract)",
             "tests, safety corpus, CI/CD, SBOM and pilot governance pack",
         ],
         "validation": {
             "backend_tests_passed": backend_tests,
             "backend_tests_failed": test_stats["failed"] if test_stats else None,
             "backend_tests_skipped": test_stats["skipped"] if test_stats else None,
+            "android_gradle_build": _android_build_status(),
             "synthetic_safety_cases": 650,
             "content_packs_validated": 4,
-            "python_compile": "passed",
-            "http_smoke": "passed",
             "alembic_roundtrip": "passed",
             "contract_drift_check": "passed",
-            "fault_injection_check": "passed",
-            "android_gradle_build": "passed" if (ROOT / "android/app/build/outputs/apk/debug").exists() else "external_gate_not_run",
-            "android_instrumentation": "external_gate_not_run",
+            "android_instrumentation": "ci_emulator_gate",
             "postgresql_docker_integration": "external_gate_not_run",
         },
         "production_claim": False,
@@ -128,25 +146,17 @@ def main() -> None:
             "real user pilot with approved recruitment and governance",
             "psychology/privacy copy final review",
         ],
-        "source_file_count_excluding_git_and_build_outputs": len(files),
-        "test_count_source": "pytest junit XML (scripts/update_release_metadata.py auto-parse)",
+        "note": "SOURCE_MANIFEST/RELEASE_ARTIFACT_MANIFEST/BUILD_PROVENANCE 由 scripts/ 机器生成，与同一 source commit 一起分发；build status 由 pipeline run 注入。",
     }
     (ROOT / "DELIVERY_MANIFEST.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    # Recompute after writing manifest so the manifest itself is covered.
-    files = _collect_files()
-    lines = []
-    for path in files:
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        lines.append(f"{digest}  {path.relative_to(ROOT).as_posix()}")
-    (ROOT / "FILE_HASHES.sha256").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
     print(json.dumps({
         "version": VERSION,
-        "files_hashed": len(files),
+        "source_files_hashed": len(files),
         "backend_tests": test_stats,
-        "note": "FILE_HASHES 基于当前工作树；正式 release bundle 需 clean checkout 后重新生成（Phase 8.3）",
+        "android_gradle_build": _android_build_status(),
     }, ensure_ascii=False))
 
 

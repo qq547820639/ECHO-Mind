@@ -1,22 +1,23 @@
 {
-  "schema": "echo-build-provenance-v1",
-  "generated_at": "2026-08-14T11:31:00.267111+00:00",
-  "git_commit": "7ade0c76c3705d5a26e34a6be230e147ea581028",
-  "git_branch": "main",
-  "version": {
-    "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。v0.9.0 = v2 应用壳接管（ECHO/Journey/Me 三世界 + Runtime Coordinator + Context Retriever + Provider 测试连接 + 对话依据/反馈闭环）。",
-    "release_version": "0.9.0",
-    "backend_package_version": "0.9.0",
-    "android_version_name": "0.9.0",
-    "android_version_code": 6,
-    "contract_manifest_version": "0.7.0",
-    "release_notes_file": "RELEASE_NOTES_v0.9.0.md"
+  "schema_version": "echo-build-provenance-v1",
+  "git_commit": "c6eeaf52ea2ff3917ff5a2f6f21862db4f7bdea9",
+  "git_dirty": true,
+  "release_type": "development",
+  "release_version": "0.9.0",
+  "android_version_code": 6,
+  "android_version_name": "0.9.0",
+  "backend_version": "0.9.0",
+  "source_tree_sha256": "bc599f4a32971ed0fe4c969b1c90c4b405b4507fe0f7363c9fef9d8b347fd6fe",
+  "apk_sha256": {
+    "android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk": "dfdcf55a1bf111c6861be5f724ea2a4f1c097b024672e1705c83f5273ff7d7a0",
+    "android/app/build/outputs/apk/debug/app-debug.apk": "b3691b2121a38ad11770ea726d69e057434fd0abb94d29160027b3916fde2db6",
+    "android/app/build/outputs/apk/release/app-release-unsigned.apk": "94f1b016aa0e4da783b10b48da33a8a2284154ac67db56ac91060df32b96dd9f"
   },
-  "source_tree_sha256": "aa6c26e1aca3b33977cd6f3a41618160aef664c0ecc8f95f38e69ccc2c82d3f0",
-  "file_hashes_sha256_of_sha256_file": "7a2fa6577680146a064717d7a73b71a2acb0ed096ede7ff5d98da9dcd02bf8de",
-  "toolchain": {
-    "note": "在本机生成时为空；CI 环境由 source-integrity workflow 注入 JDK/SDK 版本。",
-    "jdk": "",
-    "android_sdk": ""
-  }
+  "sbom_sha256": "23db536dd6a08e2b710fa3096536e3793f1afa99656e22f4808cdccaa221912f",
+  "jdk_version": "",
+  "gradle_version": "",
+  "python_version": "3.12.13",
+  "build_timestamp_utc": "2026-08-14T11:56:32.461923+00:00",
+  "ci_run_id": "",
+  "builder_environment": "local-dev"
 }

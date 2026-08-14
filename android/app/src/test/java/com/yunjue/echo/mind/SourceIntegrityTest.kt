@@ -6,19 +6,22 @@ import java.io.File
 import java.util.regex.Pattern
 
 /**
- * v3.2 §4/§92 — Source Integrity Test（source = manifest = workers = package 一致性）。
+ * v3.3 §6/§93 — Source Integrity Test（自动发现，不靠手工维护路径清单）。
  *
- * 不依赖 Gradle 编译成功才发现打包缺文件：
  * 1. Manifest 注册的每个组件（activity/service/receiver/provider）都有对应源类；
  * 2. Application 注册的每个 Worker 类都存在；
  * 3. 每个 Kotlin 文件的 package 声明与目录路径一致；
- * 4. runtime/intelligence/presence 关键类存在（防止快照缺失）。
+ * 4. project-local 引用（import + 全限定）目标存在（符号声明索引 + 豁免规则）；
+ * 5. Room DAO 抽象函数（abstract fun xxxDao）有对应接口/类；
+ * 6. 必需领域包存在；runtime 五态健康模型完整。
  */
 class SourceIntegrityTest {
 
-    private val moduleRoot = File(".")
-    private val srcRoot = File(moduleRoot, "src/main/java/com/yunjue/echo/mind")
-    private val manifest = File(moduleRoot, "src/main/AndroidManifest.xml")
+    private val srcRoot = File("src/main/java/com/yunjue/echo/mind")
+    private val manifest = File("src/main/AndroidManifest.xml")
+
+    private fun allKotlinFiles(): List<File> =
+        srcRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
 
     private fun readOrFail(f: File): String {
         assertTrue("文件应存在：${f.path}", f.exists())
@@ -28,33 +31,31 @@ class SourceIntegrityTest {
     @Test
     fun manifestComponentsHaveSourceClasses() {
         val text = readOrFail(manifest)
-        val componentPattern = Pattern.compile(
+        val matcher = Pattern.compile(
             "<(activity|service|receiver|provider)[^>]*android:name=\"\\.([A-Za-z0-9_.]+)\""
-        )
-        val matcher = componentPattern.matcher(text)
+        ).matcher(text)
         var count = 0
         while (matcher.find()) {
             count++
-            val className = matcher.group(2)
-            val path = className.replace('.', '/') + ".kt"
-            val f = File(srcRoot, path)
-            assertTrue("Manifest 组件缺少源类：.$className（期望 $path）", f.exists())
+            val path = matcher.group(2).replace('.', '/') + ".kt"
+            assertTrue("Manifest 组件缺少源类：.${matcher.group(2)}", File(srcRoot, path).exists())
         }
         assertTrue("Manifest 应至少注册若干组件", count >= 3)
     }
 
     @Test
     fun registeredWorkersExist() {
-        // EchoMindApplication 注册的周期/一次性 Worker 必须有实现类
         val appFile = File(srcRoot, "EchoMindApplication.kt")
         val text = readOrFail(appFile)
-        val workerPattern = Pattern.compile("([A-Za-z]+Worker)\\b")
-        val matcher = workerPattern.matcher(text)
-        val workers = mutableSetOf<String>()
-        while (matcher.find()) workers.add(matcher.group(1))
+        val workers = Pattern.compile("([A-Za-z]+Worker)\\b").matcher(text)
+            .let { m ->
+                val set = mutableSetOf<String>()
+                while (m.find()) set.add(m.group(1))
+                set
+            }
         assertTrue(workers.isNotEmpty())
         for (worker in workers) {
-            val found = srcRoot.walkTopDown().any { it.isFile && it.name == "$worker.kt" }
+            val found = allKotlinFiles().any { it.name == "$worker.kt" }
             assertTrue("Worker 已注册但缺少实现：$worker", found)
         }
     }
@@ -62,8 +63,7 @@ class SourceIntegrityTest {
     @Test
     fun packageDeclarationsMatchDirectories() {
         var checked = 0
-        for (f in srcRoot.walkTopDown()) {
-            if (!f.isFile || f.extension != "kt") continue
+        for (f in allKotlinFiles()) {
             val firstLine = f.readLines().firstOrNull { it.startsWith("package ") } ?: continue
             val declared = firstLine.removePrefix("package ").trim()
             val expected = "com.yunjue.echo.mind" + f.parentFile.path
@@ -76,22 +76,75 @@ class SourceIntegrityTest {
     }
 
     @Test
-    fun runtimeAndCoreClassesExist() {
-        // v3.2 §2：runtime 快照完整性（防提示词所述缺失场景）
-        for (relative in listOf(
-            "runtime/EchoRuntimeCoordinator.kt",
-            "presence/EchoPresenceState.kt",
-            "intelligence/EchoContextCompiler.kt",
-            "intelligence/EchoContextRetriever.kt",
-            "memory/EchoMemory.kt",
-        )) {
-            assertTrue("关键类缺失：$relative", File(srcRoot, relative).exists())
+    fun projectLocalReferencesResolve() {
+        // 符号声明索引：class/interface/object/fun/val/typealias/enum class（含修饰符与扩展属性）
+        val declarations = mutableMapOf<String, File>()
+        val declPattern = Pattern.compile(
+            "\\s*(?:(?:public|internal|private|protected|abstract|open|sealed|data|enum|annotation|value|suspend)\\s+)*" +
+                "(?:const\\s+)?(?:data\\s+)?(?:class|interface|object|fun|val|var|typealias|enum class)\\s+" +
+                "(?:[\\w.]+\\.)?([A-Za-z_][\\w]*)"
+        )
+        for (f in allKotlinFiles()) {
+            for (line in f.readLines()) {
+                val m = declPattern.matcher(line)
+                if (m.find()) declarations.putIfAbsent(m.group(1), f)
+            }
+        }
+        val refPattern = Pattern.compile(
+            "(?:import\\s+)?com\\.yunjue\\.echo\\.mind\\.([\\w.]+)\\.([A-Za-z_][\\w]*)"
+        )
+        val unresolved = mutableListOf<String>()
+        for (f in allKotlinFiles()) {
+            val text = f.readText()
+            val m = refPattern.matcher(text)
+            while (m.find()) {
+                if (m.group(1) == "BuildConfig") continue                    // 生成字段
+                if (text.substring(0, m.start()).count { it == '"' } % 2 == 1) continue // 字符串字面量内
+                val name = m.group(2)
+                if (name == name.uppercase()) continue                        // 枚举条目/常量
+                val line = text.substring(0, m.start()).substringAfterLast('\n')
+                if (line.trim().startsWith("package")) continue
+                if (line.trim().startsWith("import") && text.startsWith(".*", m.end())) continue
+                val tail = text.substring(m.end()).trimStart()
+                if (tail.startsWith("(")) continue                           // 已知对象方法调用
+                if (name !in declarations) {
+                    unresolved.add("${f.name} → $name（来自 ${m.group(1)}）")
+                }
+            }
+        }
+        assertTrue("存在无法解析的 project-local 引用：\n" + unresolved.joinToString("\n"), unresolved.isEmpty())
+    }
+
+    @Test
+    fun roomDaoAbstractionsExist() {
+        val db = readOrFail(File(srcRoot, "data/EchoDatabase.kt"))
+        val matcher = Pattern.compile("abstract\\s+fun\\s+([A-Za-z]+Dao)\\(\\)").matcher(db)
+        var count = 0
+        while (matcher.find()) {
+            count++
+            val name = matcher.group(1)
+            val found = allKotlinFiles().any { f ->
+                val text = f.readText()
+                text.contains("interface $name", ignoreCase = true) ||
+                    text.contains("abstract class $name", ignoreCase = true) ||
+                    text.contains("interface ${name.capitalize()}")
+            }
+            assertTrue("Room 抽象 DAO 缺少定义：$name", found)
+        }
+        assertTrue("应至少存在一个 Room DAO 抽象函数", count >= 2)
+    }
+
+    @Test
+    fun requiredDomainPackagesExist() {
+        for (domain in listOf("sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime")) {
+            val dir = File(srcRoot, domain)
+            assertTrue("领域包缺失：$domain", dir.isDirectory)
+            assertTrue("领域包为空：$domain", dir.walkTopDown().any { it.isFile && it.extension == "kt" })
         }
     }
 
     @Test
     fun runtimeHealthModelIsFiveState() {
-        // v3.2 §3：READY/STARTING/DEGRADED/PAUSED/UNAVAILABLE 五态聚合模型
         val runtime = readOrFail(File(srcRoot, "runtime/EchoRuntimeCoordinator.kt"))
         for (state in listOf("READY", "STARTING", "DEGRADED", "PAUSED", "UNAVAILABLE")) {
             assertTrue("RuntimeComponentStatus 缺少 $state", "RuntimeComponentStatus.$state" in runtime)

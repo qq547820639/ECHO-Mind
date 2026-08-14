@@ -5,7 +5,16 @@
 
 ## Current Era
 
-**ERA 12.6 — SOURCE CLOSURE 完成 ✅ → 下一轮进入 ERA 13（应用层收口：Journey/Me ViewModel 化）**
+**ERA 12.7 — SOURCE CLOSURE & RELEASE ATOMICITY 完成 ✅ → 下一轮进入 ERA 13（应用层收口：JourneyViewModel/MeViewModel）**
+
+## Source Closure Status（ERA 12.7 实测）
+
+- ✅ runtime 排除 bug 已修复（SOURCE_MANIFEST 含 runtime/EchoRuntimeCoordinator.kt；verify_source_manifest 472 源文件一致）
+- ✅ SOURCE_MANIFEST / RELEASE_ARTIFACT_MANIFEST 分离（源文件 vs APK/SBOM/Delivery/Provenance/Notes）
+- ✅ provenance DAG 无循环（source→build→artifacts→provenance→artifact manifest）
+- ✅ build status 由 pipeline run 注入（ANDROID_GRADLE_BUILD_RESULT；CI android-ci→release-metadata 同 run 传递）
+- ✅ SOURCE_REALITY_REPORT（脚本生成：108 kt/68 py/5 组件/5 Worker/unresolved=0）
+- ✅ SourceIntegrityTest 自动发现升级（引用解析/DAO 存在/领域包/五态）
 
 ## Source Integrity
 

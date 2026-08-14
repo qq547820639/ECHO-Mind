@@ -4,14 +4,15 @@
 
 ## 权威顺序（从高到低）
 
-1. **Product Constitution** — `docs/product/ECHO_PRODUCT_CONSTITUTION.md`
-2. **Version Source** — `scripts/version_source.json`
-3. **Current Contracts** — `PORTRAIT_CONTRACT.md`、`docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md`、`AFFECTIVE_CONTRACT.md`、`docs/providers/AI_PROVIDER_SPEC.md`、`docs/presence/ECHO_PRESENCE_ARCHITECTURE.md`
-4. **Architecture Decision Records** — `docs/architecture/ADRS.md`（ADR-001~024+）
-5. **Implementation Status** — `docs/IMPLEMENTATION_STATUS.md`（每轮状态锚点）
-6. **README** — 当前用户可见产品（与 Version Source 强制一致，CI 断言）
-7. **Current technical docs** — `docs/architecture/*`（含 ANDROID_CODE_INVENTORY、ANDROID_DEPENDENCY_GRAPH）、`docs/migrations/*`
-8. **Historical specs** — `docs/archive/`、`.trae/specs`、`.workbuddy/`、`.codebuddy/`（仅考古，禁止作为当前要求来源）
+1. **Frozen Product Constitution / Contracts** — `docs/product/ECHO_PRODUCT_CONSTITUTION.md` + 冻结契约
+2. **Actual source code** — 当前 main 的实际代码行为（冲突时代码是事实，但同一变更必须修正文档）
+3. **Version Source** — `scripts/version_source.json`
+4. **Current Contracts** — `PORTRAIT_CONTRACT.md`、`docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md`、`AFFECTIVE_CONTRACT.md`、`docs/providers/AI_PROVIDER_SPEC.md`、`docs/presence/ECHO_PRESENCE_ARCHITECTURE.md`
+5. **Architecture Decision Records** — `docs/architecture/ADRS.md`（ADR-001~024+）
+6. **Implementation Status** — `docs/IMPLEMENTATION_STATUS.md`（每轮状态锚点）
+7. **README** — 当前用户可见产品（与 Version Source 强制一致，CI 断言）
+8. **Current technical docs** — `docs/architecture/*`（含 ANDROID_CODE_INVENTORY、ANDROID_DEPENDENCY_GRAPH）、`docs/migrations/*`
+9. **Historical specs** — `docs/archive/`、`.trae/specs`、`.workbuddy/`、`.codebuddy/`（仅考古，禁止作为当前要求来源）
 
 ## 规则
 

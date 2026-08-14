@@ -29,10 +29,46 @@ jobs:
       # 待 CI 首跑验证：本机无 Gradle，未能本地验证 detekt 规则集与仓库现状兼容；
       # 首次跑通后再按 detekt.yml 内的策略逐步收紧规则集。
       - run: cd android && ./gradlew detekt --stacktrace
+      # v3.3 §13：build status 与本次 pipeline run 绑定（供 release-metadata job 消费）
+      - run: echo "passed" > android-build-status.txt
+      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+        with:
+          name: android-build-status
+          path: android-build-status.txt
       - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
         with:
           name: echo-mind-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
+
+  release-metadata:
+    name: release metadata (same pipeline run)
+    needs: [unit-lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+        with: {python-version: "3.12"}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - uses: actions/download-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: android-build-status
+      - name: generate source manifest + delivery manifest (build status from THIS run)
+        run: |
+          export ANDROID_GRADLE_BUILD_RESULT="$(cat android-build-status.txt)"
+          export REUSE_REPORT=1
+          python3 scripts/update_release_metadata.py
+      - name: generate provenance + artifact manifest
+        run: python3 scripts/generate_provenance.py
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: release-metadata
+          path: |
+            SOURCE_MANIFEST.sha256
+            RELEASE_ARTIFACT_MANIFEST.sha256
+            DELIVERY_MANIFEST.json
+            BUILD_PROVENANCE.json
 
   connected-test:
     name: instrumentation (API ${{ matrix.api-level }})

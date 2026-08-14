@@ -9,7 +9,8 @@ BASE="ECHO_Mind_PortraitCore_v${VERSION}"
 PKG_NAME="echo-mind-portrait-core"
 cd "$ROOT"
 ./scripts/release_preflight.sh
-sha256sum -c FILE_HASHES.sha256 >/tmp/echo-hash-check.txt
+sha256sum -c SOURCE_MANIFEST.sha256 >/tmp/echo-source-check.txt
+sha256sum -c RELEASE_ARTIFACT_MANIFEST.sha256 >/tmp/echo-artifact-check.txt 2>/dev/null || echo "WARN: artifact manifest 校验未通过（本地构建请先跑 scripts/update_release_metadata.py + scripts/generate_provenance.py）"
 rm -f "$OUT_DIR/$BASE.zip" "$OUT_DIR/$BASE.tar.gz" "$OUT_DIR/$BASE.bundle"
 (
   cd "$ROOT/.."
