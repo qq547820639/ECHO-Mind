@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（8/9：剩 :feature:journey）→ 完成后进入 ERA 14（ECHO Long-term Identity）**
+**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 完成 ✅（9/9 模块）→ ERA 14（ECHO Long-term Identity）开始**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -48,11 +48,12 @@
 - **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）
 - **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）
 - **ERA 13.5 第四批模块**：:feature:observation（16 文件）；平台组件留 :app；MicDerivedFeatureSource 契约下沉；Ground Truth API 公开化；Manifest 组件检查多根化
-- **ERA 13.5 第五批模块**（依赖序一次拆解 ×3）：:feature:presence（5 文件 + compose；EchoStateStore 抽出留 :app；Wallpaper/Dream 服务留 :app）+ :core:ports（3 端口文件，契约层）+ :feature:intelligence（13 文件，无 ui/data 依赖）；488 tests 全绿（app + 八模块聚合构建）
+- **ERA 13.5 第五批模块**（依赖序一次拆解 ×3）：:feature:presence（5 文件 + compose；EchoStateStore 抽出留 :app）+ :core:ports（契约层）+ :feature:intelligence（13 文件，无 ui/data 依赖）
+- **ERA 13.5 收官**：:feature:journey（6 域文件；JourneyRepository 留 :app 应用层）——**9/9 模块全部完成**（:app + :core:model/:core:security/:core:ports + :feature:actions/:feature:observation/:feature:presence/:feature:intelligence/:feature:memory/:feature:journey）；§51 五条边界全部编译器物理强制；488 tests 全绿（app + 九模块聚合构建）
 
 ## In Progress
 
-- ERA 13.5 Physical Gradle Modularization：最后一批 :feature:journey（journey 域 + 应用层 JourneyRepository 归属裁决）→ 之后 ERA 14 ECHO Long-term Identity（§52-§61）
+- ERA 14 ECHO Long-term Identity（§52-§61）：IdentityGenome/LifeSeason/DailyComposition/MomentState 真实数据流（§52 先审计：字段存在 ≠ 实现完成）+ placeholder 清除 + EchoVisualMapper 冻结（本轮后立即执行）
 
 ## Blocked
 
@@ -69,7 +70,7 @@
 
 ## Architecture Debt
 
-- 无（ERA 13.3 已解决：子容器自持构造，Root 为 composition root）
+- 无（ERA 13.3/13.5 已解决：子容器自持构造 + 物理模块化完成）
 
 ## Security Debt
 

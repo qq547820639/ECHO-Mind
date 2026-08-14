@@ -291,3 +291,12 @@
   4. 扫描器四件套登记三模块根；presence API internal → public（AmbientEngine/maturityOpenness/PRESENCE_COPY_*）。
 - **理由**：ports 引用 presence 类型、intelligence 引用 ports——依赖序 presence → ports → intelligence 是唯一无环拆解顺序。
 - **后果**：§51 边界物理化：intelligence 模块内无 ui/data 依赖（编译器强制）；模块版图 8/9（剩 :feature:journey）；ERA 13.5 完成后进入 ERA 14（ECHO Long-term Identity）。
+
+## ADR-035：ERA 13.5 收官模块 :feature:journey（模块化全部完成）
+
+- **决策**：
+  1. **:feature:journey**：journey 域 6 文件（JourneyDomain/JourneyVisuals/JourneyTrendState/JourneyUiState/JourneyPort/JourneyEvent）；依赖 :core:model + :feature:presence + :feature:intelligence + coroutines；
+  2. **JourneyRepository 留 :app**（split-package）：应用层服务（依赖 data 实现 + root AppPreferences + intelligence 服务），方向 app → feature:journey；
+  3. **ERA 13.5 完成**：9 模块（:app + :core:model/:core:security/:core:ports + :feature:actions/:feature:observation/:feature:presence/:feature:intelligence/:feature:memory/:feature:journey）；§51 五条边界全部由编译器物理强制（observation 模块无 intelligence；presence 渲染无 Room；memory 无 Provider；intelligence 无 ui/data；feature 模块无 app 反向依赖）。
+- **理由**：§49 推荐目标（:app + 3 core + 6 feature）全部落地；不机械执行——EchoStateStore/Wallpaper/Dream/Collector 平台组件按语义留 :app。
+- **后果**：模块化 Era 完成 → ERA 14（ECHO Long-term Identity：IdentityGenome/LifeSeason/DailyComposition/MomentState 真实数据流）开始。

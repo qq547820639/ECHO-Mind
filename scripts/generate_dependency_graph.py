@@ -25,6 +25,7 @@ SRC_ROOTS = [
     ROOT / "android" / "feature" / "observation" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
     ROOT / "android" / "feature" / "presence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
     ROOT / "android" / "feature" / "intelligence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+    ROOT / "android" / "feature" / "journey" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
 ]
 
 #: 领域聚合映射：子包 → 顶层领域（依赖图按领域展示）。

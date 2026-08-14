@@ -35,7 +35,7 @@
 - Repository：12
 - Runtime/Coordinator：4
 - ViewModel：7
-- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'core:security', 'core:model', 'core:ports']
+- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'feature:journey', 'core:security', 'core:model', 'core:ports']
 
 ## Manifest Components
 - `.main.MainActivity` ✅
