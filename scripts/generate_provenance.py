@@ -54,13 +54,35 @@ def git(*args: str) -> str:
         return "unknown"
 
 
+#: 本流程自身产出的机器生成文件（每次 release run 都重写；dirty 判定只看源码）。
+GENERATED_METADATA = {
+    "SOURCE_MANIFEST.sha256",
+    "RELEASE_ARTIFACT_MANIFEST.sha256",
+    "DELIVERY_MANIFEST.json",
+    "BUILD_PROVENANCE.json",
+    "sbom.spdx.json",
+}
+
+
 def git_dirty() -> bool:
+    """§15：源码树是否 dirty。
+
+    机器生成的元数据文件（GENERATED_METADATA）不计入——它们由本流水线重写，
+    判定语义是「源码有没有未提交变更」；CI --require-clean 对源码变更硬失败。
+    """
     try:
-        return subprocess.check_output(
-            ["git", "status", "--porcelain"], cwd=ROOT
-        ).strip() != b""
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=ROOT
+        ).decode("utf-8", "replace")
     except Exception:
         return True
+    dirty = []
+    for line in out.splitlines():
+        path = line[3:].strip().strip('"')
+        path = path.split(" -> ", 1)[-1]  # rename 行
+        if path not in GENERATED_METADATA:
+            dirty.append(line)
+    return bool(dirty)
 
 
 def source_tree_sha256() -> str:
