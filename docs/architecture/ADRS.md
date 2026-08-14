@@ -421,3 +421,11 @@
   2. **日期边界测试修复**（backend 6 用例周末 flaky 根因）：画像基线按 weekday/weekend 分桶（MIN_BUCKET_DAYS=2）——测试以 9 天窗口播种，周六/周日运行时 weekend 桶仅 2 有效日 → WARMING_UP；test_messages 用固定日期，滚动 7 天窗口过期后同病。修复：e2e 增 `_seed_history`（bucket-aware：只播种双桶各 ≥7 日的必要日期，~14 天，时长 2.4× 优于朴素 28 天）；test_messages TODAY 改为用户时区实时「今天」。与 cryptography 升级无关（46 版同样失败，已交叉验证）。
 - **理由**：审计门禁必须与锁定依赖同源才可复跑；测试必须对真实时钟（周末/午夜边界）鲁棒。
 - **后果**：backend 全量测试时长 +~2 分钟（e2e 双桶播种）；安全审计发现并修复 3 级串联漏洞链；下一轮继续剩余收尾。
+
+## ADR-047：后端测试时长优化 + osv-scanner 本地化（收尾）
+
+- **决策**：
+  1. e2e 测试时长优化：`_seed_history` 每日窗口 120→80（覆盖 0.28 ≥ MIN_COVERAGE 0.25，留安全边际）——READY 依赖用例请求量 -33%；全量 backend 测试 2:52 → **1:52**（17 个 e2e/messages 用例 2:18 → 1:36），断言语义不变。
+  2. osv-scanner 本地化：官方 darwin_arm64 二进制下载（GitHub release 网络超时重试 + 断点续传）；失败则如实保持 audit_dependencies.py 的 NOT RUN 豁免（security-ci 强制执行不变）。
+- **理由**：测试时长是 CI 反馈速度与开发迭代成本；审计工具本地化让「CI 通过」可在本地预演。
+- **后果**：backend-ci 全量 ~2 分钟内回到基线水平；osv 全仓本地首跑结果待网络可用后记录。
