@@ -7,3 +7,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "EchoMindAndroid"
 include(":app")
+include(":feature:actions")
+include(":core:security")

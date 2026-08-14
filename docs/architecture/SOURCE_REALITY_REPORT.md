@@ -4,7 +4,6 @@
 
 ## Kotlin 包
 - `com.yunjue.echo.mind`
-- `com.yunjue.echo.mind.actions`
 - `com.yunjue.echo.mind.data`
 - `com.yunjue.echo.mind.data.outbox`
 - `com.yunjue.echo.mind.di`
@@ -17,7 +16,6 @@
 - `com.yunjue.echo.mind.ports`
 - `com.yunjue.echo.mind.presence`
 - `com.yunjue.echo.mind.runtime`
-- `com.yunjue.echo.mind.security`
 - `com.yunjue.echo.mind.sensing`
 - `com.yunjue.echo.mind.ui`
 - `com.yunjue.echo.mind.ui.echo`
@@ -41,7 +39,7 @@
 - Repository：12
 - Runtime/Coordinator：4
 - ViewModel：7
-- Gradle modules：['app']
+- Gradle modules：['app', 'feature:actions', 'core:security']
 
 ## Manifest Components
 - `.main.MainActivity` ✅

@@ -12,12 +12,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ANDROID_SRC = ROOT / "android" / "app" / "src" / "main"
 JAVA = ANDROID_SRC / "java" / "com" / "yunjue" / "echo" / "mind"
+# ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）
+MODULE_JAVA_ROOTS = [
+    ROOT / "android" / "feature" / "actions" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+    ROOT / "android" / "core" / "security" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+]
 MANIFEST = ANDROID_SRC / "AndroidManifest.xml"
 BACKEND = ROOT / "backend" / "app"
 
 
 def kotlin_files() -> list[Path]:
-    return sorted(p for p in JAVA.rglob("*.kt") if p.is_file())
+    roots = [JAVA] + [r for r in MODULE_JAVA_ROOTS if r.is_dir()]
+    return sorted({p for root in roots for p in root.rglob("*.kt") if p.is_file()})
 
 
 def python_files() -> list[Path]:

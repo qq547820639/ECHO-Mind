@@ -17,10 +17,16 @@ class ArchitectureBoundaryTest {
 
     private val srcRoot = File("src/main/java/com/yunjue/echo/mind")
 
+    /** ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）。 */
+    private val moduleRoots = listOf(
+        srcRoot,
+        File("../feature/actions/src/main/java/com/yunjue/echo/mind"),
+        File("../core/security/src/main/java/com/yunjue/echo/mind"),
+    )
+
     private fun filesUnder(relativeDir: String): List<File> =
-        File(srcRoot, relativeDir).walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .toList()
+        moduleRoots.map { File(it, relativeDir) }.filter { it.isDirectory }
+            .flatMap { it.walkTopDown().filter { f -> f.isFile && f.extension == "kt" }.toList() }
 
     private fun textOf(f: File): String = f.readText()
 

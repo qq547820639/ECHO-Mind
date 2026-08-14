@@ -239,3 +239,14 @@
   6. **不制造 God DI 文件（§46）**：构造职责按领域分布在各容器文件；Root 无领域对象构造。
 - **理由**：旧子容器只是「同一实例的分组暴露」（构造全部在 AppContainer），§43-§46 要求真正所有权。
 - **后果**：AppContainer 从 185 行构造体降为纯组合 + 委托；依赖方向与模块化输入齐备 → ERA 13.5 物理 Gradle 模块化开始（每次一个模块）。
+
+## ADR-030：ERA 13.5 Physical Gradle Modularization 第一批（:feature:actions + :core:security）
+
+- **决策**（§50 每次只拆一个；本批两个，均为零依赖叶子模块）：
+  1. **:feature:actions**：`com.yunjue.echo.mind.actions`（EchoActionRuntime/InterventionPolicy，2 文件，仅依赖 kotlinx-coroutines）——边界最清晰、零项目依赖；
+  2. **:core:security**：`com.yunjue.echo.mind.security`（AndroidKeystoreFieldCipher/FieldCipher，2 文件，仅 Android 框架）——零项目依赖；
+  3. 模块参数：com.android.library + kotlin-android + detekt（共享 android/detekt.yml）；namespace 保留原包名（模块边界 ≠ 包重命名）；:app 以 project() 依赖两个模块；
+  4. 扫描器多根化：SourceIntegrityTest / ArchitectureBoundaryTest / generate_source_reality / generate_dependency_graph 登记模块源码根（新增模块在此登记，防止空扫假通过）；
+  5. 下一批候选：:core:model（需先把 CapabilityState/SensingCapability 两个纯枚举从 sensing 迁入 model 消除 Ground Truth 内依赖）→ 之后 :feature:memory / :feature:observation。
+- **理由**：ports + DI 已稳定（ERA 13.2/13.3）；依赖图无循环（11 域）；模块化从此开始收紧编译边界。
+- **后果**：:app 无法再反向依赖动作/安全模块内部实现（编译器强制）；CI gradle 任务天然聚合多模块；后续模块按 move → compile → test → lint → fix → continue 逐次推进。

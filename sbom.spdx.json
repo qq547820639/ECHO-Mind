@@ -5,7 +5,7 @@
   "name": "ECHO-Mind-PortraitCore-v0.9.0-source-SBOM",
   "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.9.0/sbom",
   "creationInfo": {
-    "created": "2026-08-14T13:24:32Z",
+    "created": "2026-08-14T13:42:02Z",
     "creators": [
       "Tool: scripts/generate_sbom.py"
     ]
@@ -345,6 +345,15 @@
       "supplier": "NOASSERTION"
     },
     {
+      "SPDXID": "SPDXRef-Android-kotlinx-coroutines-core",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+      "versionInfo": "1.10.2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
       "SPDXID": "SPDXRef-Android-kotlinx-coroutines-test",
       "name": "org.jetbrains.kotlinx:kotlinx-coroutines-test",
       "versionInfo": "1.10.2",
@@ -358,7 +367,7 @@
     {
       "annotationType": "OTHER",
       "annotator": "Tool: scripts/generate_sbom.py",
-      "annotationDate": "2026-08-14T13:24:32Z",
+      "annotationDate": "2026-08-14T13:42:02Z",
       "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
     }
   ]

@@ -51,6 +51,16 @@
 - `ui/TodayScreen.kt` → 已重构为 `EchoSceneScreen.kt`（无残留）
 - `SkillListScreen`（旧「能力」Tab 全页）→ 已删除（v2-1）
 
+## 4.5 物理模块（ERA 13.5 §49，逐次拆分）
+
+| 模块 | 内容 | 依赖 | 状态 |
+|---|---|---|---|
+| `:app` | 应用壳 + 全部业务源码 | :feature:actions / :core:security | 主模块 |
+| `:feature:actions` | actions/*（EchoActionRuntime/InterventionPolicy） | kotlinx-coroutines（零项目依赖） | ✅ 第一批 |
+| `:core:security` | security/*（AndroidKeystoreFieldCipher/FieldCipher） | Android 框架（零项目依赖） | ✅ 第一批 |
+| `:core:model` | model/* | 待 CapabilityState/SensingCapability 纯枚举迁入 | 下一批 |
+| `:feature:memory` / `:feature:observation` | memory/* / sensing+localportrait+model | 待 model 拆分 | 第三批 |
+
 ## 5. 所有权 Scope（v3 §41）
 
 | 对象 | Scope | 说明 |

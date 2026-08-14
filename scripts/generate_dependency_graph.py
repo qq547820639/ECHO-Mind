@@ -14,7 +14,12 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "android" / "app" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind"
+# ERA 13.5：app + 物理模块源码根（新增模块在此登记）
+SRC_ROOTS = [
+    ROOT / "android" / "app" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+    ROOT / "android" / "feature" / "actions" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+    ROOT / "android" / "core" / "security" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+]
 
 #: 领域聚合映射：子包 → 顶层领域（依赖图按领域展示）。
 DOMAIN_OF = {
@@ -43,7 +48,8 @@ def main() -> int:
     edges: dict[str, set[str]] = defaultdict(set)
     files_by_domain: dict[str, int] = defaultdict(int)
 
-    for f in sorted(SRC.rglob("*.kt")):
+    all_files = sorted({f for root in SRC_ROOTS if root.is_dir() for f in root.rglob("*.kt")})
+    for f in all_files:
         text = f.read_text(encoding="utf-8", errors="replace")
         m = re.search(r"^package\s+com\.yunjue\.echo\.mind\.([\w.]+)", text, re.MULTILINE)
         if not m:

@@ -20,8 +20,16 @@ class SourceIntegrityTest {
     private val srcRoot = File("src/main/java/com/yunjue/echo/mind")
     private val manifest = File("src/main/AndroidManifest.xml")
 
+    /** ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）。 */
+    private val moduleRoots = listOf(
+        srcRoot,
+        File("../feature/actions/src/main/java/com/yunjue/echo/mind"),
+        File("../core/security/src/main/java/com/yunjue/echo/mind"),
+    )
+
     private fun allKotlinFiles(): List<File> =
-        srcRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+        moduleRoots.filter { it.isDirectory }
+            .flatMap { it.walkTopDown().filter { f -> f.isFile && f.extension == "kt" }.toList() }
 
     private fun readOrFail(f: File): String {
         assertTrue("文件应存在：${f.path}", f.exists())
@@ -138,9 +146,9 @@ class SourceIntegrityTest {
     @Test
     fun requiredDomainPackagesExist() {
         for (domain in listOf("sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime")) {
-            val dir = File(srcRoot, domain)
-            assertTrue("领域包缺失：$domain", dir.isDirectory)
-            assertTrue("领域包为空：$domain", dir.walkTopDown().any { it.isFile && it.extension == "kt" })
+            val dirs = moduleRoots.map { File(it, domain) }.filter { it.isDirectory }
+            assertTrue("领域包缺失：$domain", dirs.isNotEmpty())
+            assertTrue("领域包为空：$domain", dirs.any { dir -> dir.walkTopDown().any { it.isFile && it.extension == "kt" } })
         }
     }
 
