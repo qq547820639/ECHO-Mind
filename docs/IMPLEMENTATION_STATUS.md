@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Compose UI smoke tests 轮完成 ✅（UI 层首个渲染测试基建 + Journey 状态提升 + 13 用例）→ 下一轮：MeScreen 分区状态提升 + Me smoke tests**
+**MeScreen 状态提升 + Me smoke tests 轮完成 ✅（六分区 state-in/event-out + SubscriptionViewModel + 51 用例）→ 下一轮：backend mypy ignore_missing_imports 收窄 / detekt·lint 下一轮扩围 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**636 unit tests 全绿**（ERA 32 Compose UI smoke tests +13：JourneyScreen 9 用例 + SupportSection 3 用例——Robolectric + compose-ui-test-junit4 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**687 unit tests 全绿**（ERA 33 Me smoke tests +51：MeScreenContent 根组合矩阵 7 + DataAndSensing 12 + Presence 6 + Intelligence 5 + WhatEchoKnows 7 + Subscription 7 + SubscriptionViewModel 7——Robolectric + Compose 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0（本轮附带修复 backend/scripts/verify_audit.py E401 多行 import，`ruff check .` 全树 0）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -70,6 +70,8 @@
 - **Android SAST 扩围轮**：detekt 5 → 14 规则（coroutines 2 + potential-bugs 5 + style 4 候选规则探测轮全模块零告警后固化，maxIssues=0 不变；RedundantVisibilityModifier 因 detekt 1.23 移除不启用）——未来新增代码命中即 CI 红
 - **Android lint 硬门禁轮**：`warningsAsErrors = true` + lint.xml（97 告警全部处置：13 项真实修复含 ApplySharedPref/ObsoleteSdkInt/mipmap-anydpi 归一/备份双规则全域排除（隐私契约）/14 条真未用 string 删除/Autoboxing 3 处/版本目录 2 处；4 类豁免内联理由 UseKtx/dependabot 升级类/Aligned16KB SQLCipher 上游）——未来任何新 lint 告警 = CI 红
 - **Compose UI smoke tests 轮**：UI 层首个真渲染测试基建——compose-ui-test-junit4 + ui-test-manifest（BOM 管理版本）入版本目录 + :app；JourneyScreen 状态提升为薄包装 + `JourneyScreenContent`（state-in / event-out，纯 JourneyUiState 渲染，架构 §27 不变）；JourneyScreenSmokeTest 9 用例（免责声明/六态分支/尺度选择事件/单日历史重建事件/Evidence 折叠事件——含 merged semantics 与 performScrollTo 视口外点击两项真实发现）+ SupportSectionSmokeTest 3 用例（回调/空清单/状态行/未知回退）；app gradle.lockfile 重写同步（espresso 传递闭包）；backend/scripts/verify_audit.py E401 顺手修复（`ruff check .` 全树 0）——UI 层从此有渲染防回归基线
+- **MeScreen 状态提升 + Me smoke tests 轮**：Me 六分区全部 state-in / event-out——`MeScreenContent`（九槽位组合矩阵：crisis/subscription/support/data/presence/intelligence/memory/about）+ `DataAndSensingContent`（平台权限编排留在调用侧：onToggleSensing 通知预检回调/onLaunchMicPermission/恢复深链回调）+ `PresenceSettingsContent` + `IntelligenceSettingsContent` + `WhatEchoKnowsContent` + `SubscriptionContent`；**§31 收口**：新增 `SubscriptionViewModel`（旧 SubscriptionSection 直接在 Composable 内调 onboardingRepository/featureFlagRepository/SyncWorker——依赖全部构造注入，7 用例单测无 AppContainer）；新增 51 渲染/业务用例（+7 根组合矩阵）——Me 世界从此有渲染防回归基线
+- **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
 
@@ -114,4 +116,4 @@
 
 ## Next Highest-value Task
 
-MeScreen 分区状态提升（DataAndSensing/Presence/Intelligence/WhatEchoKnows 各区段 state-in/event-out 化）+ Me smoke tests（根页组合渲染矩阵）；随后 backend `ignore_missing_imports` 收窄（mypy 类型盲区消除）与 detekt/lint 下一轮 probe→clear→freeze 扩围。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+backend `ignore_missing_imports` 收窄（mypy 类型盲区消除：从全局 true 逐步收紧为按模块豁免）；随后 detekt/lint 下一轮 probe→clear→freeze 扩围与 EchoScene/Why 页 smoke tests 补全。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

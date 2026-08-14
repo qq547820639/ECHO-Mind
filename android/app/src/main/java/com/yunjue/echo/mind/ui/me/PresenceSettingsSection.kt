@@ -25,12 +25,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.PresenceSettingsEvent
+import com.yunjue.echo.mind.me.PresenceSettingsUiState
 
 /**
  * ERA 13.1 §35 — Me → Presence：ECHO Presence 控制中心。
  * 动态壁纸（跳系统选择器）/ 充电屏保 / 锁屏隐私说明 /
  * 动态程度 / 夜间模式 / 减少动画 / 应用内建议（L2 opt-in）。
  * 视觉偏好业务在 PresenceSettingsViewModel；壁纸/屏保系统 intent 属 UI 平台职责。
+ *
+ * ERA 33 状态提升：Section 只做 VM 收集 + 系统 intent；纯渲染在 PresenceSettingsContent。
  */
 @Composable
 fun PresenceSettingsSection(container: AppContainer) {
@@ -38,6 +41,36 @@ fun PresenceSettingsSection(container: AppContainer) {
     val vm: PresenceSettingsViewModel = viewModel(factory = PresenceSettingsViewModel.factory(container))
     val state by vm.uiState.collectAsStateWithLifecycle()
 
+    PresenceSettingsContent(
+        state = state,
+        onEvent = vm::onEvent,
+        onSelectWallpaper = {
+            runCatching {
+                context.startActivity(
+                    Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+                        android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                        android.content.ComponentName(
+                            context,
+                            com.yunjue.echo.mind.presence.EchoWallpaperService::class.java
+                        )
+                    )
+                )
+            }
+        },
+        onDreamSettings = {
+            runCatching { context.startActivity(Intent(Settings.ACTION_DREAM_SETTINGS)) }
+        },
+    )
+}
+
+/** ERA 33 — Presence 纯状态内容（state-in / event-out；系统 intent 经回调注入）。 */
+@Composable
+fun PresenceSettingsContent(
+    state: PresenceSettingsUiState,
+    onEvent: (PresenceSettingsEvent) -> Unit,
+    onSelectWallpaper: () -> Unit,
+    onDreamSettings: () -> Unit,
+) {
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ECHO Presence", style = MaterialTheme.typography.titleMedium)
@@ -55,19 +88,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                     Text("动态壁纸")
                     Text("ECHO 持续存在于主屏与锁屏。不可见时停止渲染，不额外耗电。", style = MaterialTheme.typography.bodySmall)
                 }
-                Button(onClick = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
-                                android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                                android.content.ComponentName(
-                                    context,
-                                    com.yunjue.echo.mind.presence.EchoWallpaperService::class.java
-                                )
-                            )
-                        )
-                    }
-                }) { Text("选择 ECHO 壁纸") }
+                Button(onClick = onSelectWallpaper) { Text("选择 ECHO 壁纸") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -78,9 +99,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                     Text("充电屏保")
                     Text("充电放在桌面时，ECHO 成为环境的一部分（部分设备需在系统设置中手动启用）。", style = MaterialTheme.typography.bodySmall)
                 }
-                Button(onClick = {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_DREAM_SETTINGS)) }
-                }) { Text("系统屏保设置") }
+                Button(onClick = onDreamSettings) { Text("系统屏保设置") }
             }
             Text("锁屏隐私：动态壁纸仅渲染视觉，不含任何文字——Public Safe 由构造保证。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
@@ -89,7 +108,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                 listOf("QUIET" to "安静", "DEFAULT" to "默认", "LIVELY" to "明显").forEach { (value, label) ->
                     FilterChip(
                         selected = state.motionLevel == value,
-                        onClick = { vm.onEvent(PresenceSettingsEvent.SetMotionLevel(value)) },
+                        onClick = { onEvent(PresenceSettingsEvent.SetMotionLevel(value)) },
                         label = { Text(label) }
                     )
                 }
@@ -105,7 +124,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                 }
                 Switch(
                     checked = state.nightMode,
-                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetNightMode(it)) }
+                    onCheckedChange = { onEvent(PresenceSettingsEvent.SetNightMode(it)) }
                 )
             }
             Row(
@@ -119,7 +138,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                 }
                 Switch(
                     checked = state.reduceMotion,
-                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetReduceMotion(it)) }
+                    onCheckedChange = { onEvent(PresenceSettingsEvent.SetReduceMotion(it)) }
                 )
             }
             Row(
@@ -133,7 +152,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                 }
                 Switch(
                     checked = state.suggestionsEnabled,
-                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetSuggestionsEnabled(it)) }
+                    onCheckedChange = { onEvent(PresenceSettingsEvent.SetSuggestionsEnabled(it)) }
                 )
             }
         }

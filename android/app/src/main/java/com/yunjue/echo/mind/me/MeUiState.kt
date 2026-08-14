@@ -123,6 +123,19 @@ data class MemoryManagementUiState(
     val filter: MemoryType? = null,
 )
 
+/**
+ * ERA 33 — Subscription（可选订阅开通）状态。
+ * 业务（激活码验证 / 订阅状态快照）在 SubscriptionViewModel；UI 只渲染。
+ */
+data class SubscriptionUiState(
+    val bindCode: String = "",
+    val binding: Boolean = false,
+    val bindMessage: String? = null,
+    val localMode: Boolean = true,
+    val subscriptionExpiresAt: Long? = null,
+    val subscriptionExpired: Boolean = false,
+)
+
 /** Memory 分类视图（§80：Observed/User-confirmed/Correction/不确定 区分展示）。 */
 data class MemoryGroups(
     val corrections: List<com.yunjue.echo.mind.memory.EchoMemory> = emptyList(),

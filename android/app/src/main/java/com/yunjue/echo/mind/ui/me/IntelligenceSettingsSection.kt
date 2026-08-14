@@ -20,18 +20,29 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.IntelligenceSettingsEvent
+import com.yunjue.echo.mind.me.IntelligenceSettingsUiState
 
 /**
  * ERA 13.1 §34 — Me → Intelligence：AI Provider 独立页面。
  *
  * Current provider / Model / Status / 测试连接（四步）/ 更换 Provider / 断开连接。
  * 业务全部在 IntelligenceSettingsViewModel；本节只渲染。
+ *
+ * ERA 33 状态提升：Section 只做 VM 收集；纯渲染在 IntelligenceSettingsContent。
  */
 @Composable
 fun IntelligenceSettingsSection(container: AppContainer) {
     val vm: IntelligenceSettingsViewModel = viewModel(factory = IntelligenceSettingsViewModel.factory(container))
     val state by vm.uiState.collectAsStateWithLifecycle()
+    IntelligenceSettingsContent(state = state, onEvent = vm::onEvent)
+}
 
+/** ERA 33 — Intelligence Settings 纯状态内容（state-in / event-out）。 */
+@Composable
+fun IntelligenceSettingsContent(
+    state: IntelligenceSettingsUiState,
+    onEvent: (IntelligenceSettingsEvent) -> Unit,
+) {
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("AI Intelligence", style = MaterialTheme.typography.titleMedium)
@@ -60,14 +71,14 @@ fun IntelligenceSettingsSection(container: AppContainer) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { vm.onEvent(IntelligenceSettingsEvent.TestConnection) },
+                    onClick = { onEvent(IntelligenceSettingsEvent.TestConnection) },
                     enabled = !state.busy
                 ) { Text(if (state.busy) "正在测试…" else "测试连接") }
-                OutlinedButton(onClick = { vm.onEvent(IntelligenceSettingsEvent.ToggleChangeExpanded) }) {
+                OutlinedButton(onClick = { onEvent(IntelligenceSettingsEvent.ToggleChangeExpanded) }) {
                     Text(if (state.changeExpanded) "收起设置" else "更换 Provider")
                 }
                 if (state.providerConfigured) {
-                    OutlinedButton(onClick = { vm.onEvent(IntelligenceSettingsEvent.Disconnect) }) {
+                    OutlinedButton(onClick = { onEvent(IntelligenceSettingsEvent.Disconnect) }) {
                         Text("断开连接")
                     }
                 }
@@ -75,28 +86,28 @@ fun IntelligenceSettingsSection(container: AppContainer) {
             if (state.changeExpanded) {
                 OutlinedTextField(
                     value = state.draftBaseUrl,
-                    onValueChange = { vm.onEvent(IntelligenceSettingsEvent.UpdateDraftBaseUrl(it)) },
+                    onValueChange = { onEvent(IntelligenceSettingsEvent.UpdateDraftBaseUrl(it)) },
                     label = { Text("Base URL（如 https://api.openai.com）") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = state.draftModel,
-                    onValueChange = { vm.onEvent(IntelligenceSettingsEvent.UpdateDraftModel(it)) },
+                    onValueChange = { onEvent(IntelligenceSettingsEvent.UpdateDraftModel(it)) },
                     label = { Text("模型名") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = state.draftApiKey,
-                    onValueChange = { vm.onEvent(IntelligenceSettingsEvent.UpdateDraftApiKey(it)) },
+                    onValueChange = { onEvent(IntelligenceSettingsEvent.UpdateDraftApiKey(it)) },
                     label = { Text("API Key") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Button(
-                    onClick = { vm.onEvent(IntelligenceSettingsEvent.SaveAndConnect) },
+                    onClick = { onEvent(IntelligenceSettingsEvent.SaveAndConnect) },
                     enabled = !state.busy
                 ) { Text(if (state.busy) "正在验证…" else "保存并连接") }
             }

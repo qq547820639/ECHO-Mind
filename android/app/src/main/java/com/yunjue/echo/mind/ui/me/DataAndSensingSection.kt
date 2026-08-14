@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.DataAndSensingEvent
+import com.yunjue.echo.mind.me.DataAndSensingUiState
 import com.yunjue.echo.mind.model.CapabilityState
 import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.ui.formatTimestamp
@@ -41,6 +42,9 @@ import com.yunjue.echo.mind.ui.usageAccessSettingsIntent
  * ERA 13.1 §33 — Me → Data & Sensing：信任控制中心。
  *
  * 业务全部在 DataAndSensingViewModel；本节只渲染 + 系统权限请求（UI 平台职责）。
+ *
+ * ERA 33 状态提升：Section 只做 VM 收集 + 平台权限编排（launcher / 分享 / 通知权限预检）；
+ * 纯渲染在 DataAndSensingContent（state-in / event-out）。
  */
 @Composable
 fun DataAndSensingSection(container: AppContainer, context: Context) {
@@ -54,6 +58,53 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> vm.onEvent(DataAndSensingEvent.MicPermissionResult(granted)) }
 
+    // 本地模式导出：VM 生成 JSON 后经 SharedFlow 一次性事件 → UI 分享（平台职责）
+    androidx.compose.runtime.LaunchedEffect(vm) {
+        vm.exportJson.collect { json ->
+            val share = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, json)
+            }
+            runCatching { context.startActivity(Intent.createChooser(share, "导出本地数据")) }
+        }
+    }
+
+    DataAndSensingContent(
+        state = state,
+        onEvent = vm::onEvent,
+        onToggleSensing = { enabled ->
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            vm.onEvent(DataAndSensingEvent.ToggleSensing(enabled))
+        },
+        onLaunchMicPermission = { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+        onRecoverUsageAccess = {
+            runCatching { context.startActivity(usageAccessSettingsIntent(context)) }
+        },
+        onRecoverNotificationAccess = {
+            runCatching { context.startActivity(notificationListenerSettingsIntent(context)) }
+        },
+    )
+}
+
+/**
+ * ERA 33 — Data & Sensing 纯状态内容（state-in / event-out）。
+ * 系统意图（权限请求 / 设置页深链 / 分享）全部经回调注入；无 AppContainer / ViewModel 持有。
+ */
+@Composable
+fun DataAndSensingContent(
+    state: DataAndSensingUiState,
+    onEvent: (DataAndSensingEvent) -> Unit,
+    onToggleSensing: (Boolean) -> Unit,
+    onLaunchMicPermission: () -> Unit,
+    onRecoverUsageAccess: () -> Unit,
+    onRecoverNotificationAccess: () -> Unit,
+) {
     // 统一「数据与感知」consent 中心（契约点 3，10 项状态）
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -70,7 +121,7 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
                 }
                 Switch(
                     checked = state.eveningReminderEnabled,
-                    onCheckedChange = { vm.onEvent(DataAndSensingEvent.SetEveningReminder(it)) }
+                    onCheckedChange = { onEvent(DataAndSensingEvent.SetEveningReminder(it)) }
                 )
             }
             // 被动感知总开关（flag 不覆盖用户 consent）
@@ -87,16 +138,7 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
                 }
                 Switch(
                     checked = state.sensingEnabled,
-                    onCheckedChange = { enabled ->
-                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            androidx.core.content.ContextCompat.checkSelfPermission(
-                                context, Manifest.permission.POST_NOTIFICATIONS
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                        vm.onEvent(DataAndSensingEvent.ToggleSensing(enabled))
-                    }
+                    onCheckedChange = onToggleSensing
                 )
             }
             // 能力级权限状态（系统真实状态；恢复按钮跳系统设置）
@@ -119,25 +161,21 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
                 name = "应用使用情况",
                 description = "未开启「应用使用情况」。ECHO 仍可工作，但行为分布会更粗略。",
                 recoveryLabel = "开启使用情况访问",
-                onRecover = {
-                    runCatching { context.startActivity(usageAccessSettingsIntent(context)) }
-                }
+                onRecover = onRecoverUsageAccess
             )
             CapabilityStatusRow(
                 state = state.capabilityStates[SensingCapability.NOTIFICATION] ?: CapabilityState.DENIED,
                 name = "通知使用权",
                 description = "未开启「通知使用权」。ECHO 仍可工作，但通知使用情况不会被记录。",
                 recoveryLabel = "开启通知使用权",
-                onRecover = {
-                    runCatching { context.startActivity(notificationListenerSettingsIntent(context)) }
-                }
+                onRecover = onRecoverNotificationAccess
             )
             CapabilityStatusRow(
                 state = state.capabilityStates[SensingCapability.MIC] ?: CapabilityState.DENIED,
                 name = "麦克风",
                 description = "麦克风未开启（可选）。这不影响每日画像的生成。",
                 recoveryLabel = "开启麦克风（可选）",
-                onRecover = { vm.onEvent(DataAndSensingEvent.ToggleMic(true)) }
+                onRecover = { onEvent(DataAndSensingEvent.ToggleMic(true)) }
             )
             // 采集/同步时间观测（事实陈述，非工程噪音——这是信任控制中心，职责在此）
             Text("最近成功采集：${formatTimestamp(state.lastCollectionTs)}")
@@ -157,7 +195,7 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
     // 同步区块（状态文案，不暴露 HTTP status）
     Text("同步", style = MaterialTheme.typography.titleMedium)
     Text(state.syncLabel)
-    Button(onClick = { vm.onEvent(DataAndSensingEvent.SyncNow) }, modifier = Modifier.fillMaxWidth()) { Text("立即同步") }
+    Button(onClick = { onEvent(DataAndSensingEvent.SyncNow) }, modifier = Modifier.fillMaxWidth()) { Text("立即同步") }
     HorizontalDivider()
 
     // 麦克风分项
@@ -171,12 +209,12 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
         Text("麦克风采集")
         Switch(
             checked = state.micEnabled,
-            onCheckedChange = { vm.onEvent(DataAndSensingEvent.ToggleMic(it)) }
+            onCheckedChange = { onEvent(DataAndSensingEvent.ToggleMic(it)) }
         )
     }
     if (state.showMicConfirm) {
         AlertDialog(
-            onDismissRequest = { vm.onEvent(DataAndSensingEvent.MicConfirmDismissed) },
+            onDismissRequest = { onEvent(DataAndSensingEvent.MicConfirmDismissed) },
             title = { Text("开启麦克风采集") },
             text = {
                 Text(
@@ -186,12 +224,12 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.onEvent(DataAndSensingEvent.MicConfirmDismissed)
-                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    onEvent(DataAndSensingEvent.MicConfirmDismissed)
+                    onLaunchMicPermission()
                 }) { Text("同意并继续") }
             },
             dismissButton = {
-                TextButton(onClick = { vm.onEvent(DataAndSensingEvent.MicConfirmDismissed) }) { Text("取消") }
+                TextButton(onClick = { onEvent(DataAndSensingEvent.MicConfirmDismissed) }) { Text("取消") }
             }
         )
     }
@@ -212,41 +250,31 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
 
     // 数据权利（本地导出/删除覆盖记忆/画像/特征）
     Text("数据权利", style = MaterialTheme.typography.titleMedium)
-    // 本地模式导出：VM 生成 JSON 后经 SharedFlow 一次性事件 → UI 分享（平台职责）
-    androidx.compose.runtime.LaunchedEffect(vm) {
-        vm.exportJson.collect { json ->
-            val share = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, json)
-            }
-            runCatching { context.startActivity(Intent.createChooser(share, "导出本地数据")) }
-        }
-    }
     OutlinedButton(onClick = {
-        vm.onEvent(DataAndSensingEvent.RequestExport)
+        onEvent(DataAndSensingEvent.RequestExport)
     }, modifier = Modifier.fillMaxWidth()) {
         Text(if (state.localMode) "导出本地数据" else "申请导出数据")
     }
     OutlinedButton(onClick = {
-        vm.onEvent(DataAndSensingEvent.RequestDelete)
+        onEvent(DataAndSensingEvent.RequestDelete)
     }, modifier = Modifier.fillMaxWidth()) { Text("申请删除数据") }
     if (state.showLocalDeleteConfirm) {
         AlertDialog(
-            onDismissRequest = { vm.onEvent(DataAndSensingEvent.DismissLocalDelete) },
+            onDismissRequest = { onEvent(DataAndSensingEvent.DismissLocalDelete) },
             title = { Text("删除本地数据") },
             text = { Text("将删除本机保存的全部派生特征、画像缓存与同意记录，且不可恢复（本地模式无云端副本）。是否继续？") },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.onEvent(DataAndSensingEvent.ConfirmLocalDelete)
+                    onEvent(DataAndSensingEvent.ConfirmLocalDelete)
                 }) { Text("删除") }
             },
             dismissButton = {
-                TextButton(onClick = { vm.onEvent(DataAndSensingEvent.DismissLocalDelete) }) { Text("取消") }
+                TextButton(onClick = { onEvent(DataAndSensingEvent.DismissLocalDelete) }) { Text("取消") }
             }
         )
     }
     OutlinedButton(onClick = {
-        vm.onEvent(DataAndSensingEvent.RevokeConsent)
+        onEvent(DataAndSensingEvent.RevokeConsent)
     }, modifier = Modifier.fillMaxWidth()) { Text("撤回同意并停止服务") }
     state.message?.let { Text(it) }
     HorizontalDivider()

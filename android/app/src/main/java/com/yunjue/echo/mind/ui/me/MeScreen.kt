@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.me.MeEvent
+import com.yunjue.echo.mind.me.MeUiState
 import com.yunjue.echo.mind.ui.Page
 import com.yunjue.echo.mind.ui.dialIntent
 
@@ -34,6 +35,9 @@ import com.yunjue.echo.mind.ui.dialIntent
  * 根页面只负责组合子领域（Subscription / Support / Data&Sensing / Presence /
  * Intelligence / Memory / About / Crisis）+ 支持请求二次确认对话框；
  * 业务全部在 MeViewModel 与各子 ViewModel（§33–§36），无 LaunchedEffect 编排。
+ *
+ * ERA 33 状态提升：MeScreen 只做 VM 收集 + 子领域装配；纯渲染在 MeScreenContent
+ * （state-in / event-out + 组合槽位，Compose smoke test 无需 AppContainer）。
  */
 @Composable
 fun MeScreen(container: AppContainer) {
@@ -41,18 +45,54 @@ fun MeScreen(container: AppContainer) {
     val meVm: MeViewModel = viewModel(factory = MeViewModel.factory(container))
     val state by meVm.uiState.collectAsStateWithLifecycle()
 
+    MeScreenContent(
+        state = state,
+        onEvent = meVm::onEvent,
+        crisisCard = { CrisisCard(context) },
+        subscription = { SubscriptionSection(container) },
+        support = {
+            SupportSection(
+                escalations = state.escalations,
+                onRequestSupport = { meVm.onEvent(MeEvent.RequestSupportClicked) },
+            )
+        },
+        dataAndSensing = { DataAndSensingSection(container, context) },
+        presenceSettings = { PresenceSettingsSection(container) },
+        intelligenceSettings = { IntelligenceSettingsSection(container) },
+        whatEchoKnows = { WhatEchoKnowsSection(container) },
+        aboutCard = { AboutCard() },
+    )
+}
+
+/**
+ * ERA 33 — Me 根页面纯状态内容（state-in / event-out + 组合槽位）。
+ * 只消费 [MeUiState]；子领域以槽位注入（各 Section 的 VM 装配留在 MeScreen 调用侧）。
+ */
+@Composable
+fun MeScreenContent(
+    state: MeUiState,
+    onEvent: (MeEvent) -> Unit,
+    crisisCard: @Composable () -> Unit,
+    subscription: @Composable () -> Unit,
+    support: @Composable () -> Unit,
+    dataAndSensing: @Composable () -> Unit,
+    presenceSettings: @Composable () -> Unit,
+    intelligenceSettings: @Composable () -> Unit,
+    whatEchoKnows: @Composable () -> Unit,
+    aboutCard: @Composable () -> Unit,
+) {
     if (state.showSupportConfirm) {
         AlertDialog(
-            onDismissRequest = { meVm.onEvent(MeEvent.SupportDismissed) },
+            onDismissRequest = { onEvent(MeEvent.SupportDismissed) },
             title = { Text(stringResource(R.string.support_request_confirm_title)) },
             text = { Text(stringResource(R.string.support_request_confirm_body)) },
             confirmButton = {
-                TextButton(onClick = { meVm.onEvent(MeEvent.SupportConfirmed) }) {
+                TextButton(onClick = { onEvent(MeEvent.SupportConfirmed) }) {
                     Text(stringResource(R.string.support_request_confirm_ok))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { meVm.onEvent(MeEvent.SupportDismissed) }) {
+                TextButton(onClick = { onEvent(MeEvent.SupportDismissed) }) {
                     Text(stringResource(R.string.support_request_confirm_cancel))
                 }
             }
@@ -60,17 +100,14 @@ fun MeScreen(container: AppContainer) {
     }
 
     Page("Me · 我的控制权") {
-        CrisisCard(context)
-        SubscriptionSection(container, context)
-        SupportSection(
-            escalations = state.escalations,
-            onRequestSupport = { meVm.onEvent(MeEvent.RequestSupportClicked) },
-        )
-        DataAndSensingSection(container, context)
-        PresenceSettingsSection(container)
-        IntelligenceSettingsSection(container)
-        WhatEchoKnowsSection(container)
-        AboutCard()
+        crisisCard()
+        subscription()
+        support()
+        dataAndSensing()
+        presenceSettings()
+        intelligenceSettings()
+        whatEchoKnows()
+        aboutCard()
         state.message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }

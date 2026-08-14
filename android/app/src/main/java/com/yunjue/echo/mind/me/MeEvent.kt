@@ -84,3 +84,9 @@ sealed interface MemoryManagementEvent {
     /** ERA 15.5 §78/§79：用户解释优先（添加特殊时期，用户自述最高置信）。 */
     data class AddContextException(val kind: String, val note: String) : MemoryManagementEvent
 }
+
+/** ERA 33 — 可选订阅开通事件面（SubscriptionViewModel 唯一交互入口）。 */
+sealed interface SubscriptionEvent {
+    data class UpdateBindCode(val value: String) : SubscriptionEvent
+    data object Bind : SubscriptionEvent
+}

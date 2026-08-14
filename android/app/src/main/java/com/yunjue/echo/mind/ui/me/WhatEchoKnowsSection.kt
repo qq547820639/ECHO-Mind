@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.MemoryManagementEvent
+import com.yunjue.echo.mind.me.MemoryManagementUiState
 import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
 
@@ -36,11 +37,22 @@ import com.yunjue.echo.mind.memory.MemoryType
  * Derived Pattern / Temporary Interpretation）+ §78/§79 特殊时期用户入口。
  *
  * 业务在 MemoryManagementViewModel；本节只渲染。
+ *
+ * ERA 33 状态提升：Section 只做 VM 收集；纯渲染在 WhatEchoKnowsContent。
  */
 @Composable
 fun WhatEchoKnowsSection(container: AppContainer) {
     val vm: MemoryManagementViewModel = viewModel(factory = MemoryManagementViewModel.factory(container))
     val state by vm.uiState.collectAsStateWithLifecycle()
+    WhatEchoKnowsContent(state = state, onEvent = vm::onEvent)
+}
+
+/** ERA 33 — What ECHO Knows 纯状态内容（state-in / event-out）。 */
+@Composable
+fun WhatEchoKnowsContent(
+    state: MemoryManagementUiState,
+    onEvent: (MemoryManagementEvent) -> Unit,
+) {
     val memories = state.memories
 
     Card {
@@ -59,7 +71,7 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                 ContextExceptionDialog(
                     onDismiss = { showAddDialog = false },
                     onConfirm = { kind, note ->
-                        vm.onEvent(MemoryManagementEvent.AddContextException(kind, note))
+                        onEvent(MemoryManagementEvent.AddContextException(kind, note))
                         showAddDialog = false
                     },
                 )
@@ -80,7 +92,7 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                 ).forEach { (type, label) ->
                     FilterChip(
                         selected = state.filter == type,
-                        onClick = { vm.onEvent(MemoryManagementEvent.SetFilter(type)) },
+                        onClick = { onEvent(MemoryManagementEvent.SetFilter(type)) },
                         label = { Text(label) }
                     )
                 }
@@ -97,7 +109,7 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                         MemoryRow(
                             label = label + if (m.type == MemoryType.TEMPORARY_INTERPRETATION && m.confidence < 0.5f) "（还不确定）" else "",
                             memory = m,
-                            vm = vm,
+                            onEvent = onEvent,
                         )
                     }
                 }
@@ -162,7 +174,11 @@ private fun ContextExceptionDialog(
 
 /** 单条记忆行（四权：编辑/确认/忘记；编辑为内联文本框）。 */
 @Composable
-private fun MemoryRow(label: String, memory: EchoMemory, vm: MemoryManagementViewModel) {
+private fun MemoryRow(
+    label: String,
+    memory: EchoMemory,
+    onEvent: (MemoryManagementEvent) -> Unit,
+) {
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf(memory.content) }
     Column(Modifier.fillMaxWidth()) {
@@ -176,7 +192,7 @@ private fun MemoryRow(label: String, memory: EchoMemory, vm: MemoryManagementVie
             Row {
                 TextButton(onClick = {
                     editing = false
-                    vm.onEvent(MemoryManagementEvent.Edit(memory.id, draft))
+                    onEvent(MemoryManagementEvent.Edit(memory.id, draft))
                 }, enabled = draft.isNotBlank()) { Text("保存") }
                 TextButton(onClick = { editing = false; draft = memory.content }) { Text("取消") }
             }
@@ -191,8 +207,8 @@ private fun MemoryRow(label: String, memory: EchoMemory, vm: MemoryManagementVie
                     Text(memory.content, style = MaterialTheme.typography.bodySmall)
                 }
                 TextButton(onClick = { editing = true; draft = memory.content }) { Text("编辑") }
-                TextButton(onClick = { vm.onEvent(MemoryManagementEvent.Confirm(memory.id)) }) { Text("确认") }
-                TextButton(onClick = { vm.onEvent(MemoryManagementEvent.Forget(memory.id)) }) { Text("忘记") }
+                TextButton(onClick = { onEvent(MemoryManagementEvent.Confirm(memory.id)) }) { Text("确认") }
+                TextButton(onClick = { onEvent(MemoryManagementEvent.Forget(memory.id)) }) { Text("忘记") }
             }
         }
     }
