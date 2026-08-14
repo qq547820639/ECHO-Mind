@@ -1,18 +1,18 @@
 {
   "schema_version": "echo-build-provenance-v2",
   "release_version": "0.9.0",
-  "git_commit": "c31c667975717ff3322c601233557793f154cc00",
+  "git_commit": "a1afa2a8a87e35a0b0f1ca032ccfe9ed4bea1970",
   "git_dirty": false,
   "release_type": "release",
-  "source_tree_sha256": "3eafd75bb013330bc8fa0dad42e18d6fe9b20bef257d64157c314880bf1ac178",
-  "source_manifest_sha256": "e6514fd55eb249c7f3abe3495d832532de3ca33a278218db21eef6268b04fce3",
+  "source_tree_sha256": "27ce4163ee6428e431d37fc5133b7fbe6ba9af27f7c5826b9d66c1d43d9123e6",
+  "source_manifest_sha256": "31452fde89ad8ab7cdd69c52005448c6c3e52217bac2419023e8ae17d6458703",
   "android_version_name": "0.9.0",
   "android_version_code": 6,
   "backend_version": "0.9.0",
   "jdk_version": "17.0.20",
   "gradle_version": "8.13",
   "python_version": "3.9.6",
-  "build_timestamp_utc": "2026-08-14T13:42:02Z",
+  "build_timestamp_utc": "2026-08-14T13:42:24Z",
   "ci_run_id": "",
   "builder_environment": "local-dev",
   "unsigned_apk_path": "android/app/build/outputs/apk/release/app-release-unsigned.apk",
@@ -24,7 +24,7 @@
   "signature_scheme": "v2,v3",
   "sbom_sha256": "e9320da9df98d51b25c52d17b2547131a2644742f9c917a3e7dbb06b19bac922",
   "source_archive_sha256": {
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "acdf3070bd3b59d775fd6b70e7cacdb1efe26c6281a18851654ee055352a349d",
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "e8297ba8cf32f4e6d33b9bc7632dca1f29d7587f503428eec0c6c352dd236003"
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "165d6253d70c6a47bf5d377983b6e68b9a4546f65f1a4f4e375e2667ff88fd79",
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "fb137a011ef429cb4d85db3ef10a7e68a6b26bcc89eac5bb88a7864f1f9dcb4a"
   }
 }
