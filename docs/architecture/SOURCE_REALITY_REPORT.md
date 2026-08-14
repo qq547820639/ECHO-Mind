@@ -11,6 +11,7 @@
 - `com.yunjue.echo.mind.intelligence`
 - `com.yunjue.echo.mind.journey`
 - `com.yunjue.echo.mind.localportrait`
+- `com.yunjue.echo.mind.me`
 - `com.yunjue.echo.mind.memory`
 - `com.yunjue.echo.mind.model`
 - `com.yunjue.echo.mind.presence`
@@ -32,13 +33,13 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：115
+- Kotlin 文件：123
 - Python 文件：68
 - Manifest Components：5（缺失源类：0）
 - Worker：5（缺失实现：0）
 - Repository：12
 - Runtime/Coordinator：4
-- ViewModel：2
+- ViewModel：7
 - Gradle modules：['app']
 
 ## Manifest Components
@@ -58,7 +59,7 @@
 ## Repository / Runtime / ViewModel
 - Repository：ConsentRepository, EscalationRepository, FeatureFlagRepository, JourneyRepository, MemoryRepository, MessageRepository, OnboardingRepository, PortraitRepository, PresenceRepository, SensingRepository, SkillRepository, SyncStateRepository
 - Runtime：EchoActionRuntime, EchoRuntimeCoordinator, SensingRuntimeStatus, SkillSessionCoordinator
-- ViewModel：EchoSceneViewModel, JourneyViewModel
+- ViewModel：DataAndSensingViewModel, EchoSceneViewModel, IntelligenceSettingsViewModel, JourneyViewModel, MeViewModel, MemoryManagementViewModel, PresenceSettingsViewModel
 
 ## Domain packages（必须存在）
 - `sensing` ✅

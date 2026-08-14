@@ -16,18 +16,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.me.PresenceSettingsEvent
 
 /**
- * v3 §28 — Me → Presence：ECHO Presence 控制中心（Master Prompt PART 46/55/58）。
- * 动态壁纸（跳系统选择器，不是「导出壁纸」）/ 充电屏保 / 锁屏隐私说明 /
+ * ERA 13.1 §35 — Me → Presence：ECHO Presence 控制中心。
+ * 动态壁纸（跳系统选择器）/ 充电屏保 / 锁屏隐私说明 /
  * 动态程度 / 夜间模式 / 减少动画 / 应用内建议（L2 opt-in）。
+ * 视觉偏好业务在 PresenceSettingsViewModel；壁纸/屏保系统 intent 属 UI 平台职责。
  */
 @Composable
-fun PresenceSettingsSection(container: AppContainer, context: Context) {
+fun PresenceSettingsSection(container: AppContainer) {
+    val context = LocalContext.current
+    val vm: PresenceSettingsViewModel = viewModel(factory = PresenceSettingsViewModel.factory(container))
+    val state by vm.uiState.collectAsStateWithLifecycle()
+
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ECHO Presence", style = MaterialTheme.typography.titleMedium)
@@ -76,11 +86,10 @@ fun PresenceSettingsSection(container: AppContainer, context: Context) {
             HorizontalDivider()
             Text("动态程度", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val motion = container.preferences.presenceMotionLevel
                 listOf("QUIET" to "安静", "DEFAULT" to "默认", "LIVELY" to "明显").forEach { (value, label) ->
                     FilterChip(
-                        selected = motion == value,
-                        onClick = { container.preferences.presenceMotionLevel = value },
+                        selected = state.motionLevel == value,
+                        onClick = { vm.onEvent(PresenceSettingsEvent.SetMotionLevel(value)) },
                         label = { Text(label) }
                     )
                 }
@@ -95,8 +104,8 @@ fun PresenceSettingsSection(container: AppContainer, context: Context) {
                     Text("夜间额外调暗减速（昼夜亮度本身已自动变化）。", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
-                    checked = container.preferences.presenceNightMode,
-                    onCheckedChange = { container.preferences.presenceNightMode = it }
+                    checked = state.nightMode,
+                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetNightMode(it)) }
                 )
             }
             Row(
@@ -109,8 +118,8 @@ fun PresenceSettingsSection(container: AppContainer, context: Context) {
                     Text("无障碍支持：视觉保持静止。", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
-                    checked = container.preferences.presenceReduceMotion,
-                    onCheckedChange = { container.preferences.presenceReduceMotion = it }
+                    checked = state.reduceMotion,
+                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetReduceMotion(it)) }
                 )
             }
             Row(
@@ -123,8 +132,8 @@ fun PresenceSettingsSection(container: AppContainer, context: Context) {
                     Text("打开时基于高置信的节律状态给温和建议；低置信度时不会出现。", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
-                    checked = container.preferences.presenceSuggestionsEnabled,
-                    onCheckedChange = { container.preferences.presenceSuggestionsEnabled = it }
+                    checked = state.suggestionsEnabled,
+                    onCheckedChange = { vm.onEvent(PresenceSettingsEvent.SetSuggestionsEnabled(it)) }
                 )
             }
         }

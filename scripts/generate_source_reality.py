@@ -48,6 +48,7 @@ def symbol_declarations() -> dict[str, Path]:
             m = re.match(
                 r"\s*(?:(?:public|internal|private|protected|abstract|open|sealed|data|enum|annotation|value|suspend)\s+)*"
                 r"(?:const\s+)?(?:data\s+)?(?:class|interface|object|fun|val|var|typealias|enum class)\s+"
+                r"(?:<[^>]+>\s+)?"  # 泛型函数（fun <A, B, ...> combine7）
                 r"(?:[\w.]+\.)?([A-Za-z_][\w]*)", line)
             if m:
                 decl.setdefault(m.group(1), f)

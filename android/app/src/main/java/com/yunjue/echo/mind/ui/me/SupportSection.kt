@@ -13,18 +13,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.EscalationEntity
 
 /**
- * v3 §28/§69 — Me → Support：真正的人工支持内容（订阅功能）。
- * 其余旧 SupportScreen 内容已迁至各自子领域（Data & Sensing / Presence / Intelligence / Memory）。
+ * ERA 13.1 §31 — Me → Support：真正的人工支持内容（订阅功能）。
+ * 业务（请求/刷新）在 MeViewModel；本节只渲染清单与请求按钮。
  * 用户侧最小状态：未 ACK 前绝不显示「人工已收到」。
  */
 @Composable
 fun SupportSection(
-    container: AppContainer,
     escalations: List<EscalationEntity>,
     onRequestSupport: () -> Unit,
 ) {
@@ -38,7 +36,7 @@ fun SupportSection(
             if (escalations.isNotEmpty()) {
                 HorizontalDivider()
                 Text(stringResource(R.string.support_recent_requests), style = MaterialTheme.typography.titleSmall)
-                escalations.take(3).forEach { esc ->
+                escalations.take(5).forEach { esc ->
                     EscalationStatusRow(esc)
                 }
             }

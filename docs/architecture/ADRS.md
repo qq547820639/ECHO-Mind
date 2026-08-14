@@ -196,3 +196,18 @@
   7. **测试（§102 矩阵）**：JourneyUiStateAssemblyTest 8 用例（empty/partial/7d/28d/90d/365d/missing days/context exceptions/AI unavailable/seed 稳定）+ JourneyViewModelTest 4 用例（fake JourneyPort；Robolectric sdk=35）。
 - **理由**：Journey 是当前最大 UI/Application debt（555 行 Screen 直接编排 7 依赖）；§23-§30 要求 Screen 1–2 分钟可读。
 - **后果**：Journey Application Layer 完成（§110：Screen 不再直接 orchestrate repositories）；ERA 13.1（Me Application Layer）开始；JourneyPort 成为 ERA 13.2 全局 ports 的先行样本。
+
+## ADR-027：ERA 13.1 Me Application Layer（五 ViewModel 收口）
+
+- **决策**：
+  1. **MeScreen 去编排**（326 → 124 行）：删除全部 Repository/Worker/权限/麦克风/感知生命周期编排与 LaunchedEffect；根页面只组合七卡（Crisis/Subscription/Support/Data&Sensing/Presence/Intelligence/WhatEchoKnows/About）+ 支持请求确认对话框。
+  2. **MeViewModel**（§31/§32）：根页面摘要（Presence/Intelligence/Memory/Sensing/Support）+ 人工支持请求流（本地模式/订阅到期前置检查 → requestHumanSupport → SyncWorker）。
+  3. **DataAndSensingViewModel**（§33）：permission truth（系统真实能力状态）、sensing pause/resume、mic opt-in（二次确认对话框状态 + 权限结果闭环）、usage access/notification listener 恢复、每晚提醒、数据权利（本地导出经 SharedFlow 一次性事件 / 删除 / 撤回同意）、本机计数、last active。
+  4. **IntelligenceSettingsViewModel**（§34）：provider config 草稿 / 测试连接 / 保存并连接（READY 才落盘）/ 断开。
+  5. **PresenceSettingsViewModel**（§35）：动态程度 / 夜间模式 / 减少动画 / 应用内建议（壁纸/屏保系统 intent 属 UI 平台职责）。
+  6. **MemoryManagementViewModel**（§36）：confirm/edit/forget + 类别过滤（全部/纠正/已确认/我告诉你的）；pin 属 ERA 15.5（EchoMemory 无 pinned 字段，不预置死事件）。
+  7. **纯函数装配器**：assembleMeUiState / assembleDataAndSensingUiState（分组输入类，detekt LongParameterList 合规）+ combine7/combine8 助手（kotlinx combine 上限 5 参）。
+  8. **测试（§103 矩阵）**：MeStateAssemblyTest 7 用例（provider/permission/sensing/mic/memory/data rights/support/presence 摘要 + 记忆过滤）。
+  9. **工具链修复**：SourceIntegrityTest / generate_source_reality 声明扫描支持泛型顶层函数（fun <A,...> combine7）。
+- **理由**：MeScreen 是最后一个直接编排共享状态与多 Repository 的根页面（§31-§36）。
+- **后果**：Me Application Layer 完成（§110：Screen 不再直接 orchestrate repositories）；ERA 13.2 Domain Ports 开始（Data package → Adapter）。

@@ -82,6 +82,7 @@ class SourceIntegrityTest {
         val declPattern = Pattern.compile(
             "\\s*(?:(?:public|internal|private|protected|abstract|open|sealed|data|enum|annotation|value|suspend)\\s+)*" +
                 "(?:const\\s+)?(?:data\\s+)?(?:class|interface|object|fun|val|var|typealias|enum class)\\s+" +
+                "(?:<[^>]+>\\s+)?" + // 泛型函数（fun <A, B, ...> combine7）
                 "(?:[\\w.]+\\.)?([A-Za-z_][\\w]*)"
         )
         for (f in allKotlinFiles()) {

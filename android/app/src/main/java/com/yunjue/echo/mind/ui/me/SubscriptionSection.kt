@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,7 +22,6 @@ import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.OnboardingVerifyException
 import com.yunjue.echo.mind.model.subscriptionStatusText
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -29,7 +29,8 @@ import kotlinx.coroutines.launch
  * 免费本地版 = 完整产品；订阅 = 云端同步备份 + 长周期分析 + 专业支持（ADR-020 最终边界）。
  */
 @Composable
-fun SubscriptionSection(container: AppContainer, context: Context, scope: CoroutineScope) {
+fun SubscriptionSection(container: AppContainer, context: Context) {
+    val scope = rememberCoroutineScope()
     var bindCode by remember { mutableStateOf("") }
     var binding by remember { mutableStateOf(false) }
     var bindMessage by remember { mutableStateOf<String?>(null) }

@@ -33,6 +33,8 @@
 | actions | `actions/*`（EchoActionRuntime 60 行，ERA 12 已建立）、`ui/EchoActionOverlay.kt` | NEW_CORE | Overlay 状态经 Runtime 注入；ERA 13 actions 收口 |
 | journey 应用层 | `journey/JourneyRepository.kt`（应用服务）+ `journey/JourneyPort.kt`（数据端口）+ `journey/JourneyUiState.kt`（状态+纯函数装配）+ `journey/JourneyEvent.kt` + `journey/JourneyTrendState.kt`（七态纯逻辑） | NEW_CORE | ERA 13：Screen → ViewModel → Repository → 数据实现；ArchitectureBoundaryTest 断言 journey 不依赖 ui |
 | journey UI | `ui/journey/JourneyScreen.kt`（293 行，实测）+ `ui/journey/JourneyViewModel.kt`（168 行）+ `ui/journey/JourneyEvidenceView.kt`（142 行） | NEW_CORE | Screen 只组合：Scale selector / Visual Memory River / Narrative / Evidence；无 LaunchedEffect 编排 |
+| me 应用层 | `me/MeUiState.kt`（MeUiState + 装配器 + 分组输入）+ `me/MeEvent.kt`（5 事件面）+ `me/FlowCombine.kt`（combine7/8 助手） | NEW_CORE | ERA 13.1：根页面摘要 + 子领域状态纯函数装配 |
+| me UI | `ui/me/MeScreen.kt`（124 行，实测）+ `ui/me/MeViewModel.kt` + `ui/me/DataAndSensingViewModel.kt`（§33）+ `ui/me/IntelligenceSettingsViewModel.kt`（§34）+ `ui/me/PresenceSettingsViewModel.kt`（§35）+ `ui/me/MemoryManagementViewModel.kt`（§36） | NEW_CORE | Screen 只组合七卡；无 LaunchedEffect 业务编排；权限请求（UI 平台职责）与业务（VM）分离 |
 
 ## 3. 基础设施
 
