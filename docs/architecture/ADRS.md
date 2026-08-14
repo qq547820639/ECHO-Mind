@@ -481,3 +481,11 @@
   2. RedundantVisibilityModifier 不启用（detekt 1.23 已移除该规则）；naming/WildcardImport/MagicNumber 维持关闭（既有风格契约，与策略注释一致）。
 - **理由**：Android 侧静态分析深度与 backend mypy 收紧对齐（本轮为第 30 轮的对偶举措）；只固化「全绿通过」的规则，不引入需要批量修复的噪音。
 - **后果**：未来新增代码命中上述 9 条新规则即 CI 红；规则集后续继续按「探测→清零→固化」流程扩围。
+
+## ADR-054：Android lint 硬门禁（warningsAsErrors + 97 条告警清零）
+
+- **决策**：
+  1. `app/build.gradle.kts` 启用 `lint { warningsAsErrors = true; lintConfig = lint.xml }`——97 条告警（94 W + 3 H）全部处置：修复 13 项真实信号（ApplySharedPref commit→apply；ObsoleteSdkInt 恒真检查删除 + mipmap-anydpi-v26 目录归一；DataExtractionRules 补 fullBackupContent/dataExtractionRules 双规则（与 allowBackup=false 隐私契约一致，全域排除）；UnusedResources 14 条真未用 string 删除（manifest label 改 @string/app_name）；AutoboxingStateCreation 3 处 mutableIntStateOf；UseTomlInstead 2 处入版本目录；CanvasSize 以 View.onDraw 语义抑制；debug cleartext 以 tools:ignore 定点豁免）。
+  2. lint.xml 全局豁免仅 4 类并内联理由：UseKtx（既有风格，50 处零行为收益）、GradleDependency/NewerVersionAvailable/AndroidGradlePluginVersion（dependabot 负责升级）、Aligned16KB（SQLCipher 4.5.4 上游 native 未 16KB 对齐，待上游发布对齐产物）。
+- **理由**：lint 告警从「报告存在」变为「构建阻断」——与 detekt/mypy 双侧收紧对齐；备份规则补全同时强化「敏感本地数据不上云」隐私契约。
+- **后果**：未来任何新 lint 告警 = CI 红；16KB 对齐待 SQLCipher 上游跟进。

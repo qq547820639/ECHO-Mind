@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Android SAST 扩围轮完成 ✅（detekt 5 → 14 规则，探测全绿固化）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
+**Android lint 硬门禁轮完成 ✅（warningsAsErrors + 97 告警清零 + 备份规则补全）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -68,6 +68,7 @@
 - **安全覆盖补缺轮**：security-ci CodeQL 扩 java-kotlin（manual build + Android SDK + compileDebugKotlin 提取，P2 落地；超时 60min）；release-closure 包内门禁补 pip install pytest（修潜伏失败）并追加 affective 评估 9 用例；README 计数 623 对齐
 - **backend 类型收紧轮**：mypy `disallow_untyped_defs=true`（84 → 0，22 文件全标注：路由真实契约类型 + 410 路由 -> None + 辅助参数）；过程中契约测试抓获 Pydantic 响应校验 bool→int 强转（list_escalations chain_broken/delivery_confirmed 0/1 化）——联合并入 bool 修复（教训：路由注解改变序列化语义，须跑契约测试）；backend 1070 passed + 1 skipped / ruff 0 / mypy 0
 - **Android SAST 扩围轮**：detekt 5 → 14 规则（coroutines 2 + potential-bugs 5 + style 4 候选规则探测轮全模块零告警后固化，maxIssues=0 不变；RedundantVisibilityModifier 因 detekt 1.23 移除不启用）——未来新增代码命中即 CI 红
+- **Android lint 硬门禁轮**：`warningsAsErrors = true` + lint.xml（97 告警全部处置：13 项真实修复含 ApplySharedPref/ObsoleteSdkInt/mipmap-anydpi 归一/备份双规则全域排除（隐私契约）/14 条真未用 string 删除/Autoboxing 3 处/版本目录 2 处；4 类豁免内联理由 UseKtx/dependabot 升级类/Aligned16KB SQLCipher 上游）——未来任何新 lint 告警 = CI 红
 
 ## In Progress
 

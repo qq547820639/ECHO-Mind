@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug only: allow cleartext HTTP for local development backends (e.g. 10.0.2.2). -->
-<network-security-config>
+<!-- Debug only: allow cleartext HTTP for local development backends (e.g. 10.0.2.2).
+     tools:ignore 原因：仅 debug 源集生效；release 构建使用主源集安全配置（cleartext 禁止）。 -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="InsecureBaseConfiguration">
     <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

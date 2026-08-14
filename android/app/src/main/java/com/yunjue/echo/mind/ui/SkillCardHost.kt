@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -252,8 +253,8 @@ fun SkillCardHost(skill: SkillDisplay, coordinator: SkillSessionCoordinator) {
     }
 
     var uiStatus by remember(skill.id) { mutableStateOf(session.status) }
-    var uiStep by remember(skill.id) { mutableStateOf(session.currentStep) }
-    var uiDuration by remember(skill.id) { mutableStateOf(session.durationSeconds) }
+    var uiStep by remember(skill.id) { mutableIntStateOf(session.currentStep) }
+    var uiDuration by remember(skill.id) { mutableIntStateOf(session.durationSeconds) }
 
     fun syncUi() {
         uiStatus = session.status
@@ -397,7 +398,7 @@ internal fun rememberSkillList(skillRepository: SkillRepository): Pair<SkillFetc
     var result by remember {
         mutableStateOf(SkillFetchResult(skills = null, coldStartHint = null, loadFailed = false))
     }
-    var retryKey by remember { mutableStateOf(0) }
+    var retryKey by remember { mutableIntStateOf(0) }
     LaunchedEffect(retryKey) {
         result = withContext(Dispatchers.IO) { skillRepository.fetchSkills() }
     }

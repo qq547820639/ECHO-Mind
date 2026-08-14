@@ -2,6 +2,7 @@ package com.yunjue.echo.mind.presence
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.annotation.SuppressLint
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.service.dreams.DreamService
@@ -49,6 +50,7 @@ internal class EchoDreamView(context: Context) : View(context) {
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
 
+    @SuppressLint("CanvasSize") // View.onDraw 的 canvas 即完整绘制面，canvas.width/height 为正确引用
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = canvas.width.toFloat()

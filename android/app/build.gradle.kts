@@ -37,6 +37,11 @@ val buildTimestamp: String = providers.gradleProperty("ECHO_BUILD_TIMESTAMP").or
     }.getOrDefault("unknown")
 
 android {
+    lint {
+        // ERA 31：lint 硬门禁（warningsAsErrors；豁免见 lint.xml，理由内联）
+        warningsAsErrors = true
+        lintConfig = file("lint.xml")
+    }
     namespace = "com.yunjue.echo.mind"
     compileSdk = 36
 
@@ -123,7 +128,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     // A3（Batch A）：底部导航/FAB 无障碍图标（Add/Home/Star/TrendingUp/Info，BOM 管理版本）
-    implementation("androidx.compose.material:material-icons-core")
+    implementation(libs.androidx.compose.material.icons.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -143,7 +148,7 @@ dependencies {
     // 非 Robolectric 路径下方法抛异常/返回默认值，无法解析 JSONObject）。org.json:json
     // 是 android.jar 中 org.json 的官方镜像实现，API 兼容；Robolectric 测试类加载时
     // 若命中本依赖的 org.json，行为与 android-all 一致。
-    testImplementation("org.json:json:20240303")
+    testImplementation(libs.json.org.lib)
 
     // v0.7.2：Instrumented 测试源集（androidTest）——关闭 CI connected-test 空通过门。
     // MigrationTestHelper 需要 schemas 目录作为 androidTest assets。

@@ -105,7 +105,7 @@ class AppPreferences(
         val json = JSONObject().apply {
             flags.forEach { (k, v) -> put(k, v) }
         }.toString()
-        prefs.edit().putString(KEY_FEATURE_FLAGS, json).commit()
+        prefs.edit().putString(KEY_FEATURE_FLAGS, json).apply()
         _featureFlagsFlow.value = parseFlagsJson(json)
     }
 

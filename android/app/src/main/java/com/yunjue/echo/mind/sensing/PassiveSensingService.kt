@@ -282,11 +282,8 @@ class PassiveSensingService : Service() {
         /** 启动被动采集前台服务。 */
         fun start(context: Context) {
             val intent = Intent(context, PassiveSensingService::class.java).setAction(ACTION_START)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            // minSdk 26：startForegroundService 恒可用（O 检查为 ObsoleteSdkInt lint 目标，已移除）
+            context.startForegroundService(intent)
         }
 
         /** 停止被动采集前台服务。 */

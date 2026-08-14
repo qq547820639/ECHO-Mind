@@ -579,6 +579,15 @@
       "supplier": "NOASSERTION"
     },
     {
+      "SPDXID": "SPDXRef-Android-androidx-compose-material-icons-core",
+      "name": "androidx.compose.material:material-icons-core",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
       "SPDXID": "SPDXRef-Android-androidx-room-runtime",
       "name": "androidx.room:room-runtime",
       "versionInfo": "2.8.4",
@@ -645,6 +654,15 @@
       "SPDXID": "SPDXRef-Android-junit",
       "name": "junit:junit",
       "versionInfo": "4.13.2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-json-org-lib",
+      "name": "org.json:json",
+      "versionInfo": "20240303",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
