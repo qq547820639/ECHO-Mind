@@ -8,5 +8,6 @@ dependencyResolutionManagement {
 rootProject.name = "EchoMindAndroid"
 include(":app")
 include(":feature:actions")
+include(":feature:memory")
 include(":core:security")
 include(":core:model")

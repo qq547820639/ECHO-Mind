@@ -260,3 +260,13 @@
   4. 扫描器四件套登记 :core:model 模块根。
 - **理由**：模型是横切词表（model 层），先拆它为后续 :feature:memory / :feature:observation 提供共享底。
 - **后果**：依赖图 11 域保持无循环；下一批 :feature:memory（依赖 :core:model + ports 迁移）。
+
+## ADR-032：ERA 13.5 第三批模块 :feature:memory（EchoMemory 领域模型）
+
+- **决策**（§50 每次一个）：
+  1. **:feature:memory**：`memory/EchoMemory.kt`（MemoryType/EchoMemory/RetentionClass/decay 纯函数，零项目依赖）迁入模块；
+  2. **EchoCorrectionService 留在 :app**（同包 split-package）：它是应用层服务（消费 EchoMemoryWriter/CorrectionMemoryWriter 端口），依赖方向 app → feature:memory 而非反向；
+  3. 依赖方向：:app → :feature:memory（+ :core:model/:core:security/:feature:actions）；memory 模块不依赖 Provider/intelligence（§51 边界由模块化进一步收紧）；
+  4. 扫描器四件套登记 :feature:memory 模块根。
+- **理由**：memory 是依赖最少的领域模型；split-package 是模块边界 ≠ 包重命名的自然结果（服务在应用层，模型在领域模块）。
+- **后果**：下一批 :feature:observation（sensing + localportrait 迁入；需先处理 data 实现类对其的引用方向）。

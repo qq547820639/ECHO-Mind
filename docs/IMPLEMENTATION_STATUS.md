@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model）→ 下一轮 :feature:memory（依赖 :core:model + ports 迁移）**
+**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model + :feature:memory）→ 下一轮 :feature:observation（sensing + localportrait 迁入）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -45,11 +45,12 @@
 - **ERA 13.2 Domain Ports**：ports 包（Observation/Memory/Presence 端口族）；五个 data 类 Adapter 化；EchoContextRetriever/EchoCorrectionService 只依赖端口；Ground Truth 断环（SyncEnqueue）；真实依赖图生成器（§48，11 域 53 边无循环，CI drift gate）
 - **ERA 13.3 Real DI Ownership**：AppContainer 缩减为 composition root（六容器自持构造 + 跨域编排 + Transient 工厂）；DI_OWNERSHIP.md 生命周期所有权（§45）；DI 裁决继续 structured manual DI（§47）；ArchitectureBoundaryTest +1（Root 禁止直接构造 17 类领域对象）
 - **ERA 13.5 第一批模块**：:feature:actions + :core:security（零依赖叶子）；扫描器四件套多根化；detekt 共享配置
-- **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）；488 tests 全绿（app + 三模块聚合构建）
+- **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）
+- **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）；488 tests 全绿（app + 四模块聚合构建）
 
 ## In Progress
 
-- ERA 13.5 Physical Gradle Modularization：第三批 :feature:memory（依赖 :core:model；EchoCorrectionService 的 ports 依赖方向需同步理顺）→ 第四批 :feature:observation
+- ERA 13.5 Physical Gradle Modularization：第四批 :feature:observation（sensing + localportrait 迁入；需先处理 data 实现类对其引用方向）→ 之后 :feature:intelligence / :feature:presence / :feature:journey
 
 ## Blocked
 
