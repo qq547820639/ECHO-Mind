@@ -22,6 +22,7 @@ class ArchitectureBoundaryTest {
         srcRoot,
         File("../feature/actions/src/main/java/com/yunjue/echo/mind"),
         File("../core/security/src/main/java/com/yunjue/echo/mind"),
+        File("../core/model/src/main/java/com/yunjue/echo/mind"),
     )
 
     private fun filesUnder(relativeDir: String): List<File> =

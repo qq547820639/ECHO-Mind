@@ -2,8 +2,8 @@ package com.yunjue.echo.mind.me
 
 import com.yunjue.echo.mind.data.EscalationEntity
 import com.yunjue.echo.mind.memory.MemoryType
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 
 /**
  * ERA 13.1 §32 — Me 根页面单一 UI 状态。

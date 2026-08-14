@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（第一批：:feature:actions + :core:security）→ 下一轮 :core:model（枚举迁入）+ :feature:memory**
+**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model）→ 下一轮 :feature:memory（依赖 :core:model + ports 迁移）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -44,11 +44,12 @@
 - **ERA 13.1 Me Application Layer**：MeScreen（326→124 行）去编排；MeViewModel + 四个子 ViewModel（§33-§36）；纯函数装配器 + combine7/8；MeStateAssemblyTest（§103 矩阵）
 - **ERA 13.2 Domain Ports**：ports 包（Observation/Memory/Presence 端口族）；五个 data 类 Adapter 化；EchoContextRetriever/EchoCorrectionService 只依赖端口；Ground Truth 断环（SyncEnqueue）；真实依赖图生成器（§48，11 域 53 边无循环，CI drift gate）
 - **ERA 13.3 Real DI Ownership**：AppContainer 缩减为 composition root（六容器自持构造 + 跨域编排 + Transient 工厂）；DI_OWNERSHIP.md 生命周期所有权（§45）；DI 裁决继续 structured manual DI（§47）；ArchitectureBoundaryTest +1（Root 禁止直接构造 17 类领域对象）
-- **ERA 13.5 第一批模块**：:feature:actions（2 文件，零项目依赖）+ :core:security（2 文件，仅 Android 框架）；多根扫描器（SourceIntegrity/ArchitectureBoundary/两个生成器登记模块根）；detekt 共享配置接入两模块；488 tests 全绿（app+两模块聚合构建）
+- **ERA 13.5 第一批模块**：:feature:actions + :core:security（零依赖叶子）；扫描器四件套多根化；detekt 共享配置
+- **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）；488 tests 全绿（app + 三模块聚合构建）
 
 ## In Progress
 
-- ERA 13.5 Physical Gradle Modularization：第二批（:core:model 需先把 CapabilityState/SensingCapability 纯枚举迁入 model 消除 Ground Truth 内依赖）→ 第三批 :feature:memory / :feature:observation
+- ERA 13.5 Physical Gradle Modularization：第三批 :feature:memory（依赖 :core:model；EchoCorrectionService 的 ports 依赖方向需同步理顺）→ 第四批 :feature:observation
 
 ## Blocked
 

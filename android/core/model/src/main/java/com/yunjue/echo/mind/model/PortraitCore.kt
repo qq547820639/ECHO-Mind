@@ -101,30 +101,30 @@ fun mapServerStatus(status: String?): PortraitStatus? = when (status) {
 
 // ===== 九态文案（单测锚点；与 spec 一一对应，UI 层不得另行硬编码） =====
 
-internal const val PORTRAIT_COPY_WARMING_UP =
+const val PORTRAIT_COPY_WARMING_UP =
     "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较“今天”和“平常的你”。"
 // Phase 6.2（规格 §2.3）：PARTIAL_DATA 横幅补充「缺失来源不影响已有部分」；SENSING_DISABLED
 // 改为「事实 + 恢复路径，不焦虑不推断」的完整文案（替换旧「被动感知已关闭。」）。
-internal const val PORTRAIT_COPY_PARTIAL_BANNER =
+const val PORTRAIT_COPY_PARTIAL_BANNER =
     "今天的数据还不完整，以下画像仅反映已经采集到的部分。缺失来源不会影响已有部分的有效性。"
-internal const val PORTRAIT_COPY_OFFLINE_BANNER = "当前离线，显示最近一次生成的画像。"
+const val PORTRAIT_COPY_OFFLINE_BANNER = "当前离线，显示最近一次生成的画像。"
 // 离线画像引擎（端侧本地重算）：与服务端同算法，由本机数据确定性生成。
-internal const val PORTRAIT_COPY_LOCAL_BANNER = "当前离线，画像由本机数据生成。"
-internal const val PORTRAIT_COPY_SENSING_DISABLED =
+const val PORTRAIT_COPY_LOCAL_BANNER = "当前离线，画像由本机数据生成。"
+const val PORTRAIT_COPY_SENSING_DISABLED =
     "被动感知已关闭，ECHO 暂时无法生成画像。重新开启后，它会继续学习你的日常节奏。"
-internal const val PORTRAIT_COPY_LOAD_FAILED = "加载失败"
-internal const val PORTRAIT_COPY_RETRY = "重试"
-internal const val PORTRAIT_COPY_REENABLE = "重新开启"
-internal const val PORTRAIT_COPY_FEEDBACK_QUESTION = "这个描述像今天的你吗？"
-internal const val PORTRAIT_COPY_FEEDBACK_LIKE = "挺像"
-internal const val PORTRAIT_COPY_FEEDBACK_NOT_LIKE = "不太像"
-internal const val PORTRAIT_COPY_FEEDBACK_SAVED = "已记录，感谢反馈。"
-internal const val PORTRAIT_COPY_REGENERATE = "重新生成"
-internal const val PORTRAIT_COPY_GO_TREND = "过去 7 天 →"
-internal const val PORTRAIT_COPY_SECTION_WHY = "为什么这么说？"
-internal const val PORTRAIT_COPY_SECTION_ACTION = "想做点什么？"
-internal const val PORTRAIT_COPY_GO_SKILLS = "前往「能力」页"
-internal const val PORTRAIT_COPY_DIMENSIONS_TITLE = "和你的平常相比"
+const val PORTRAIT_COPY_LOAD_FAILED = "加载失败"
+const val PORTRAIT_COPY_RETRY = "重试"
+const val PORTRAIT_COPY_REENABLE = "重新开启"
+const val PORTRAIT_COPY_FEEDBACK_QUESTION = "这个描述像今天的你吗？"
+const val PORTRAIT_COPY_FEEDBACK_LIKE = "挺像"
+const val PORTRAIT_COPY_FEEDBACK_NOT_LIKE = "不太像"
+const val PORTRAIT_COPY_FEEDBACK_SAVED = "已记录，感谢反馈。"
+const val PORTRAIT_COPY_REGENERATE = "重新生成"
+const val PORTRAIT_COPY_GO_TREND = "过去 7 天 →"
+const val PORTRAIT_COPY_SECTION_WHY = "为什么这么说？"
+const val PORTRAIT_COPY_SECTION_ACTION = "想做点什么？"
+const val PORTRAIT_COPY_GO_SKILLS = "前往「能力」页"
+const val PORTRAIT_COPY_DIMENSIONS_TITLE = "和你的平常相比"
 
 /**
  * 状态 → 用户文案（纯函数；LOADING 为 spinner、EARLY_BASELINE/LOW_CONFIDENCE/READY 为内容驱动，返回空串）。
@@ -172,12 +172,12 @@ const val PORTRAIT_COPY_BASELINE_UNLOCKED = "你的基线已经成型——从�
  * Phase 5（SCREEN 解耦）：SCREEN_PATTERN 拆为 SCREEN_AMOUNT（总量）与
  * SCREEN_TIMING（时段）；RHYTHM missing 时后端省略该维度（missing != irregular）。
  */
-internal val PORTRAIT_DIMENSIONS: List<String> = listOf(
+val PORTRAIT_DIMENSIONS: List<String> = listOf(
     "RHYTHM", "MOVEMENT", "SCREEN_AMOUNT", "SCREEN_TIMING", "DAY_STRUCTURE", "STABILITY"
 )
 
 /** 7 日趋势矩阵渲染的维度子集（spec：节律/移动/屏幕）。 */
-internal val PORTRAIT_TREND_DIMENSIONS: List<String> = listOf(
+val PORTRAIT_TREND_DIMENSIONS: List<String> = listOf(
     "RHYTHM", "MOVEMENT", "SCREEN_AMOUNT", "SCREEN_TIMING"
 )
 
@@ -224,7 +224,7 @@ fun dimensionTrendSymbol(value: String?): String = when (value) {
 // ===== 28 日稳定性综述（Milestone G：客户端确定性计算，不做心理状态解释） =====
 // Phase 6.3（规格 §3.1/§3.2）：第一版把「稳定/最稳定」替换为「接近/最接近」，
 // 消除「情绪稳定/心理稳定」歧义；「稳定性」措辞改为「节律变化」。
-internal const val PORTRAIT_SUMMARY_NO_DATA = "暂无足够数据判断节律变化。"
+const val PORTRAIT_SUMMARY_NO_DATA = "暂无足够数据判断节律变化。"
 
 /**
  * 28 日视图综述文字（纯函数，确定性）：
@@ -297,7 +297,7 @@ data class PortraitTimelineUiState(
  * 和近期有些不同）与 REWRITE 词（安静 / 活跃 / 稳定 → 第一版替换为 移动较少 / 移动较多 / 接近）
  * 的区分以词表为门禁：本表只放 BLOCK 词，保证「画像链绝不输出心理状态推断」。
  */
-internal val PORTRAIT_BLOCKED_VOCABULARY: List<String> = listOf(
+val PORTRAIT_BLOCKED_VOCABULARY: List<String> = listOf(
     "焦虑", "抑郁", "孤独", "压力过大", "情绪低落", "社交退缩",
     "心理异常", "心理风险", "精神疾病", "自杀", "自伤"
 )

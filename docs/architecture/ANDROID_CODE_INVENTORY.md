@@ -58,8 +58,9 @@
 | `:app` | 应用壳 + 全部业务源码 | :feature:actions / :core:security | 主模块 |
 | `:feature:actions` | actions/*（EchoActionRuntime/InterventionPolicy） | kotlinx-coroutines（零项目依赖） | ✅ 第一批 |
 | `:core:security` | security/*（AndroidKeystoreFieldCipher/FieldCipher） | Android 框架（零项目依赖） | ✅ 第一批 |
-| `:core:model` | model/* | 待 CapabilityState/SensingCapability 纯枚举迁入 | 下一批 |
-| `:feature:memory` / `:feature:observation` | memory/* / sensing+localportrait+model | 待 model 拆分 | 第三批 |
+| `:core:model` | model/*（Models/PortraitCore/PortraitAvailability/SensingCapability） | 零项目依赖（java.time/UUID） | ✅ 第二批 |
+| `:feature:memory` | memory/* | :core:model | 第三批 |
+| `:feature:observation` | sensing/* + localportrait/* | :core:model | 第四批 |
 
 ## 5. 所有权 Scope（v3 §41）
 

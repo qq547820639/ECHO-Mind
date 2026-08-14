@@ -22,8 +22,8 @@ import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.security.FieldCipher
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.ui.SkillSessionCoordinator
 import com.yunjue.echo.mind.ui.SkillTerminal
 import com.yunjue.echo.mind.journey.TrendNoDataReason

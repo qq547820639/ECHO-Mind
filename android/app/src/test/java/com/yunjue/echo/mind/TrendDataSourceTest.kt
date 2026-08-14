@@ -7,8 +7,8 @@ import com.yunjue.echo.mind.model.NarrativeFetchResult
 import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.ProfileDisplay
 import com.yunjue.echo.mind.model.SensingDiagnostics
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
 import com.yunjue.echo.mind.journey.TrendNoDataReason
 import com.yunjue.echo.mind.journey.TrendUiState

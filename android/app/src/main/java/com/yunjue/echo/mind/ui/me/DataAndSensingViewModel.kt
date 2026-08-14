@@ -20,7 +20,7 @@ import com.yunjue.echo.mind.me.MicUiInputs
 import com.yunjue.echo.mind.me.SensingUiInputs
 import com.yunjue.echo.mind.me.assembleDataAndSensingUiState
 import com.yunjue.echo.mind.me.combine8
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
 import com.yunjue.echo.mind.ui.performPassiveSensingStop
 import kotlinx.coroutines.Dispatchers

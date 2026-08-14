@@ -3,8 +3,8 @@ package com.yunjue.echo.mind.journey
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.SensingDiagnostics
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 import java.time.LocalDate
 
 /**

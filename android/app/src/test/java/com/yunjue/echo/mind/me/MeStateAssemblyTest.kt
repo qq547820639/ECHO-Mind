@@ -4,8 +4,8 @@ import com.yunjue.echo.mind.intelligence.ProviderCredentialStore
 import com.yunjue.echo.mind.intelligence.ProviderType
 import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

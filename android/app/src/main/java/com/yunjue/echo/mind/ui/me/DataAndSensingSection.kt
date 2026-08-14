@@ -31,8 +31,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.DataAndSensingEvent
-import com.yunjue.echo.mind.sensing.CapabilityState
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.ui.formatTimestamp
 import com.yunjue.echo.mind.ui.notificationListenerSettingsIntent
 import com.yunjue.echo.mind.ui.usageAccessSettingsIntent

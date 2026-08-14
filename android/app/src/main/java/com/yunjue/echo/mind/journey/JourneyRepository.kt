@@ -14,7 +14,7 @@ import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.model.SensingDiagnostics
 import com.yunjue.echo.mind.model.portraitStabilitySummary
-import com.yunjue.echo.mind.sensing.SensingCapability
+import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

@@ -250,3 +250,13 @@
   5. 下一批候选：:core:model（需先把 CapabilityState/SensingCapability 两个纯枚举从 sensing 迁入 model 消除 Ground Truth 内依赖）→ 之后 :feature:memory / :feature:observation。
 - **理由**：ports + DI 已稳定（ERA 13.2/13.3）；依赖图无循环（11 域）；模块化从此开始收紧编译边界。
 - **后果**：:app 无法再反向依赖动作/安全模块内部实现（编译器强制）；CI gradle 任务天然聚合多模块；后续模块按 move → compile → test → lint → fix → continue 逐次推进。
+
+## ADR-031：ERA 13.5 第二批模块 :core:model（Ground Truth 词表 + 共享模型）
+
+- **决策**（§50 每次一个；本批一个）：
+  1. **枚举归位**：`SensingCapability` / `CapabilityState`（纯 Kotlin 枚举）自 `sensing/SensingCapabilities.kt` 迁入 `model/SensingCapability.kt`——消除 Ground Truth 内部 sensing↔model 依赖；`capabilityState()` 判定函数留在 sensing（Android 上下文判定）；
+  2. **:core:model**：model/*（Models/PortraitCore/PortraitAvailability/SensingCapability，4 文件，零项目依赖，仅 java.time/UUID）；
+  3. **编译器强制边界生效**：:core:model 的 `internal` 声明对 :app 不可见——按共享核心模块语义将 22 处 internal 声明改为 public（模块 API 面明文化）；
+  4. 扫描器四件套登记 :core:model 模块根。
+- **理由**：模型是横切词表（model 层），先拆它为后续 :feature:memory / :feature:observation 提供共享底。
+- **后果**：依赖图 11 域保持无循环；下一批 :feature:memory（依赖 :core:model + ports 迁移）。

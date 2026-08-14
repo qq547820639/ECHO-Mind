@@ -10,6 +10,8 @@ import android.os.Build
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.yunjue.echo.mind.model.CapabilityState
+import com.yunjue.echo.mind.model.SensingCapability
 
 /**
  * Phase 6.1 Permission Degraded：感知能力模型（PM 规格 §2）。
@@ -24,11 +26,6 @@ import androidx.core.content.ContextCompat
  * 本文件含 Android 上下文判定（[capabilityState]），枚举本身为纯 Kotlin，
  * 可被 model 层（[com.yunjue.echo.mind.model.PortraitAvailability]）与纯 JVM 单测引用。
  */
-enum class SensingCapability { SENSOR, SCREEN, USAGE, NOTIFICATION, MIC }
-
-/** Phase 6.1 Permission Degraded：能力状态（PM 规格 §2.1）。 */
-enum class CapabilityState { AVAILABLE, DENIED, UNAVAILABLE, DISABLED }
-
 /**
  * 逐能力状态判定（PM 规格 §2.1 / 任务 B）：
  * - SENSOR：传感器硬件存在性 + 被动感知总开关（加速度计/陀螺仪无运行时权限）；

@@ -99,6 +99,7 @@ dependencies {
     // ERA 13.5：物理模块（每次一个；actions/security 为零依赖叶子模块）
     implementation(project(":feature:actions"))
     implementation(project(":core:security"))
+    implementation(project(":core:model"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
