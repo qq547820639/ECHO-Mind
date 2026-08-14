@@ -7,7 +7,8 @@
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +16,8 @@ from app.database import SessionLocal
 from app.models import DailyPortrait
 from app.services.messages import BLOCKED_VOCABULARY, build_weekly_digest
 
-TODAY = date(2026, 8, 10)
+# 与路由一致：用户时区（Asia/Shanghai）的「今天」——固定日期会在窗口滚动后过期（周末/午夜 flaky 根因）
+TODAY = datetime.now(ZoneInfo("Asia/Shanghai")).date()
 
 
 def _portrait(day_offset: int, user_id: str = "u_demo", dimensions: dict | None = None) -> DailyPortrait:

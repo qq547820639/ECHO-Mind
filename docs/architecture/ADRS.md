@@ -413,3 +413,11 @@
   2. SBOM 升级：`generate_sbom.py` 的 backend 段改读 uv.lock 精确版本（无锁回退 pyproject 范围）；时间戳锚定 version_source.json 的 `sbom_created_utc`（版本冻结，commit 无关——首版尝试锚定 HEAD 提交时间因「SBOM 在 manifest 内 + 依赖 commit SHA」循环依赖被 clean-room 门禁否决后修正；任意 checkout 重生成字节一致，含 provenance chore 提交之后）。
 - **理由**：§96「dependency lock state」必须可验证（Android 已有 gradle.lockfile；backend 补齐 uv.lock 后双侧锁定闭环）；SBOM 非确定性时间戳破坏同 commit 字节复现。
 - **后果**：SBOM 包数 41→76（backend 51 锁定 + Android 25）；uv.lock 变更（依赖升级）需要显式 `uv lock` 重生成并通过 CI 门禁；SBOM 字节级确定性由 clean-room 门禁验证（版本升级时更新 sbom_created_utc）。
+
+## ADR-046：依赖审计本地化 + 日期边界测试修复（§96/测试策略收尾）
+
+- **决策**：
+  1. **依赖审计本地化**：新增 `scripts/audit_dependencies.py`——backend 走 uv.lock → `uv export` → `uvx pip-audit`（OSV）；全仓 osv-scanner 本地可选（未安装如实 NOT RUN，security-ci 强制执行）；接入 release_preflight 与 security-ci（pip-audit 步改走锁定依赖，与本地同构）。首跑即命中真实漏洞：cryptography 46.0.7（GHSA-537c）→ 48.0.1（PYSEC-2026-3554）→ 49.0.0（PYSEC-2026-3552）→ 最终 pin `>=50,<51`（uv.lock 重解析、venv 重同步、全量后端测试复核）。
+  2. **日期边界测试修复**（backend 6 用例周末 flaky 根因）：画像基线按 weekday/weekend 分桶（MIN_BUCKET_DAYS=2）——测试以 9 天窗口播种，周六/周日运行时 weekend 桶仅 2 有效日 → WARMING_UP；test_messages 用固定日期，滚动 7 天窗口过期后同病。修复：e2e 增 `_seed_history`（bucket-aware：只播种双桶各 ≥7 日的必要日期，~14 天，时长 2.4× 优于朴素 28 天）；test_messages TODAY 改为用户时区实时「今天」。与 cryptography 升级无关（46 版同样失败，已交叉验证）。
+- **理由**：审计门禁必须与锁定依赖同源才可复跑；测试必须对真实时钟（周末/午夜边界）鲁棒。
+- **后果**：backend 全量测试时长 +~2 分钟（e2e 双桶播种）；安全审计发现并修复 3 级串联漏洞链；下一轮继续剩余收尾。

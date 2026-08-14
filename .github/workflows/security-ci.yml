@@ -44,11 +44,12 @@ jobs:
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4
         if: github.event_name == 'pull_request'
 
-      # Python 依赖审计：pip-audit（backend/pyproject.toml 为 PEP 621 依赖清单）
+      # Python 依赖审计：pip-audit（§96 收尾：改走 backend/uv.lock 锁定依赖，
+      # 与本地 scripts/audit_dependencies.py 同构；osv-scanner 步骤继续覆盖全仓）
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install pip-audit
-      - run: pip-audit -r backend/pyproject.toml
+      - run: pip install uv pip-audit
+      - run: python3 scripts/audit_dependencies.py
 
       # Gradle/全仓依赖审计：osv-scanner（覆盖 gradle lockfile 与 Python 依赖）
       - uses: google/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1  # v2

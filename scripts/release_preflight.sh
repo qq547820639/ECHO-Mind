@@ -67,6 +67,7 @@ fi
 "$ROOT/$PY" scripts/safety_eval.py
 "$ROOT/$PY" scripts/contract_drift_check.py
 "$ROOT/$PY" scripts/verify_workflow_pins.py
+"$ROOT/$PY" scripts/audit_dependencies.py
 "$ROOT/$PY" scripts/fault_injection_check.py
 echo "[preflight] content packs / claim scan / dynamic code / safety / contract drift / fault injection: PASS"
 

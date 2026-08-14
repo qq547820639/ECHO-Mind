@@ -91,6 +91,27 @@ def _seed_day(client, user_headers, *, local_date, active_start_hour: int = 8,
 
 
 
+def _seed_history(client, user_headers, **kwargs):
+    """播种足够历史：weekday 与 weekend 两个桶各 ≥7 有效日（含 today 所在桶）。
+
+    只播种必要日期（约 14 天），控制用例时长；weekend 边界（周六/周日跑测试）
+    不再因 9 天窗口内周末不足而退化为 WARMING_UP。
+    """
+    seeded_weekday = seeded_weekend = 0
+    d = 1  # 从昨天开始回退（today 由各用例单独播种）
+    while seeded_weekday < 7 or seeded_weekend < 7:
+        local_date = LOCAL_TODAY - timedelta(days=d)
+        if local_date.weekday() >= 5:
+            if seeded_weekend < 7:
+                _seed_day(client, user_headers, local_date=local_date, **kwargs)
+                seeded_weekend += 1
+        elif seeded_weekday < 7:
+            _seed_day(client, user_headers, local_date=local_date, **kwargs)
+            seeded_weekday += 1
+        d += 1
+        assert d < 45, f"seed history 窗口异常：{d} 天仍未覆盖双桶 7 日"
+
+
 def _finalize_today(client, user_headers):
     """触发最终物化：POST /v1/me/portraits/rebuild（repair 语义；测试验证最终画像）。
     说明：materializer 对今天有 15 分钟 debounce（当天合并），连续 ingest 后
@@ -139,8 +160,7 @@ def test_full_chain_day3_early_baseline(client, user_headers, passive_sensing_co
 
 def test_full_chain_baseline_ready_and_stable(client, user_headers, passive_sensing_consent):
     """7+ 有效日：BASELINE_READY + 稳定日 VERY_SIMILAR。"""
-    for d in range(10):
-        _seed_day(client, user_headers, local_date=LOCAL_TODAY - timedelta(days=10 - d), windows=120)
+    _seed_history(client, user_headers, windows=120)
     _seed_day(client, user_headers, local_date=LOCAL_TODAY, windows=120)
     _finalize_today(client, user_headers)
     resp = client.get("/v1/me/portraits/today", headers=user_headers)
@@ -153,9 +173,7 @@ def test_full_chain_baseline_ready_and_stable(client, user_headers, passive_sens
 
 def test_full_chain_later_rhythm(client, user_headers, passive_sensing_consent):
     """稳定 7 天后，今天 active_start 明显更晚 → RHYTHM LATER。"""
-    for d in range(9):
-        _seed_day(client, user_headers, local_date=LOCAL_TODAY - timedelta(days=9 - d),
-                  active_start_hour=8, windows=120)
+    _seed_history(client, user_headers, active_start_hour=8, windows=120)
     # 今天 11:00 才开始活跃（基线约 08:00）→ RHYTHM LATER
     _seed_day(client, user_headers, local_date=LOCAL_TODAY, active_start_hour=11, windows=120)
     _finalize_today(client, user_headers)
@@ -168,9 +186,7 @@ def test_full_chain_later_rhythm(client, user_headers, passive_sensing_consent):
 
 def test_full_chain_less_movement_and_later_screen(client, user_headers, passive_sensing_consent):
     """稳定基线后：今天 movement 明显低 → MOVEMENT LESS；晚间屏幕明显多 → SCREEN_TIMING LATER。"""
-    for d in range(9):
-        _seed_day(client, user_headers, local_date=LOCAL_TODAY - timedelta(days=9 - d),
-                  movement=1.0, late_minutes=20.0, windows=120)
+    _seed_history(client, user_headers, movement=1.0, late_minutes=20.0, windows=120)
     _seed_day(client, user_headers, local_date=LOCAL_TODAY,
               movement=0.05, late_minutes=180.0, windows=120, late_windows=12)
     _finalize_today(client, user_headers)
@@ -187,8 +203,7 @@ def test_full_chain_less_movement_and_later_screen(client, user_headers, passive
 
 def test_full_chain_partial_data(client, user_headers, passive_sensing_consent):
     """低覆盖（1 个窗口 / 预期 288）→ PARTIAL_DATA。"""
-    for d in range(9):
-        _seed_day(client, user_headers, local_date=LOCAL_TODAY - timedelta(days=9 - d), windows=120)
+    _seed_history(client, user_headers, windows=120)
     # 今天仅 1 个窗口 → 覆盖 < 0.4 → PARTIAL_DATA
     _seed_day(client, user_headers, local_date=LOCAL_TODAY, windows=100)
     _finalize_today(client, user_headers)
@@ -199,9 +214,7 @@ def test_full_chain_partial_data(client, user_headers, passive_sensing_consent):
 
 def test_full_chain_low_confidence(client, user_headers, passive_sensing_consent):
     """基线就绪但今天覆盖极低 + missing sources → LOW_CONFIDENCE。"""
-    for d in range(9):
-        _seed_day(client, user_headers, local_date=LOCAL_TODAY - timedelta(days=9 - d),
-                  windows=90, sources=["screen", "accel"])
+    _seed_history(client, user_headers, windows=90, sources=["screen", "accel"])
     # 今天仅 notification 来源（核心 sensor 缺失）→ missing_sources 高 → LOW_CONFIDENCE
     _seed_day(client, user_headers, local_date=LOCAL_TODAY, windows=3, sources=["notification"])
     _finalize_today(client, user_headers)

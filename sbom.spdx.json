@@ -95,7 +95,7 @@
     {
       "SPDXID": "SPDXRef-Python-cryptography",
       "name": "cryptography",
-      "versionInfo": "46.0.7",
+      "versionInfo": "50.0.0",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",

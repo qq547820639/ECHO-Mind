@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**§96 收尾轮完成 ✅（backend uv.lock 锁定 + SBOM 确定性闭环）→ 下一轮：依赖审计本地化（pip-audit/osv-scanner 本地复跑）或剩余收尾**
+**依赖审计本地化轮完成 ✅（audit_dependencies.py + cryptography 漏洞链修复 + 日期边界测试修复）→ 下一轮：剩余收尾/审计复核**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -60,6 +60,7 @@
 - **ERA 18 收尾轮**：APK↔provenance 绑定闭环（test_release_set 增 APK dex 内嵌 commit == provenance.git_commit 断言，6/6）；§109 Memory Long History（Room v11 echo_memories 复合索引 + 迁移测试）；JVM 性能防退化门禁（PerformanceBaselineTest 4 预算 + PERFORMANCE_BASELINES.md）
 - **Affective 预备轮**：§8 离线评估框架（scripts/affective_eval.py：grounding/overreach/calibration 三指标 + 阈值 gate + 本地回放/真 Provider 双模式；8 场景合成验证集禁标签词；test_affective_eval.py 9 用例）；AffectiveContractFreezeTest（全 main 源码扫描：非空 AffectiveState 构造/非 null 赋值 = 发布阻断——affectiveState 恒 null 由测试强制）；docs/intelligence/AI_EVAL.md 复跑协议 + 激活前置清单
 - **§96 收尾轮**：backend 依赖锁定（backend/uv.lock：51 包精确版本 + 完整闭包；`uv lock --check` 接入 backend-ci + release_preflight 漂移门禁；venv 已 uv sync --extra dev 对齐——backend 实测 1070 passed + 1 skipped / ruff 0 / mypy 0）；SBOM 升级（backend 段读 uv.lock 精确版本；时间戳锚定 version_source.json sbom_created_utc——版本冻结、commit 无关；clean-room 门禁验证字节级确定性，含 chore 提交后重生成）
+- **依赖审计本地化轮**：scripts/audit_dependencies.py（uv.lock → uv export → pip-audit OSV + osv-scanner 本地可选/CI 强制；入 release_preflight + security-ci 同构）；首跑命中并修复 cryptography 漏洞链（46.0.7 → 48.0.1 → 49.0.0 三级串联 → pin `>=50,<51`，uv.lock 重解析 + venv 重同步 + 全量测试复核）；backend 6 用例日期边界 flaky 修复（weekend 桶播种不足 + test_messages 固定日期过期——e2e `_seed_history` 双桶各 ≥7 日 + messages 实时今天；与 cryptography 升级无关已交叉验证）
 
 ## In Progress
 
@@ -104,4 +105,4 @@
 
 ## Next Highest-value Task
 
-依赖审计本地化（本地 pip-audit/osv-scanner 复跑路径）与剩余收尾；Affective 激活等待 §8/§9/§10 评审（评估框架已备好，评审时直接复跑）。
+剩余收尾：backend 全量测试时长优化（e2e 双桶播种 ~2.9min）与依赖审计复核（osv-scanner 本地安装后首跑）；Affective 激活等待 §8/§9/§10 评审。
