@@ -171,16 +171,33 @@ class LocalModeTest {
                 version = "path-a-consent-2026.07", granted = true, grantedAt = 1L, evidenceHash = "h"
             )
         )
+        // ERA 47 覆盖复核：记忆 + Journey Canonical 快照纳入导出/删除五域
+        db.memoryDao().upsert(
+            com.yunjue.echo.mind.data.EchoMemoryEntity(
+                id = "m1", userId = userId, type = "CORRECTION", content = "你纠正过我", source = "ui",
+                confidence = 1f, createdAt = 1L, lastConfirmedAt = 2L, importance = 90,
+                retentionClass = "LONG_TERM", provenance = "correction", deleted = false
+            )
+        )
+        db.journeyCanonicalDao().upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "cd1", userId = userId, localDate = "2026-08-10", payload = "{}", createdAtEpochMs = 1L
+            )
+        )
 
         val rights = LocalDataRights(db, cipher)
         val json = rights.exportLocalData(userId)
         assertTrue("导出应含派生特征窗口", json.contains("derived_feature_windows"))
         assertTrue("导出应解密 summary 明文", json.contains("活动量中"))
         assertTrue("导出应含同意记录", json.contains("passive_sensing"))
+        assertTrue("导出应含记忆（五域对齐）", json.contains("\"memories\"") && json.contains("你纠正过我"))
+        assertTrue("导出应含 Journey Canonical 快照", json.contains("journey_canonical_days") && json.contains("cd1"))
 
         rights.deleteLocalData(userId)
         assertEquals("删除后无派生特征", 0, db.dao().allPassiveCoreRows(userId).size)
         assertEquals("删除后无画像缓存", 0, db.portraitDao().queryByDateRange(userId, "1900-01-01", "2999-12-31").size)
         assertEquals("删除后无同意记录", 0, db.consentDao().allByUser(userId).size)
+        assertEquals("删除后无记忆", 0, db.memoryDao().allByUser(userId).size)
+        assertEquals("删除后无 Canonical 快照", 0, db.journeyCanonicalDao().countByUser(userId))
     }
 }

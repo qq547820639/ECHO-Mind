@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**数据库维护 Worker 复核轮完成 ✅（§76 全语义对照 PASS + 维护序列测试锚点 3 用例——四步固定顺序/fail-closed/恒成功）→ 下一轮：数据权利导出覆盖复核 / Affective 评审等待**
+**数据权利导出覆盖复核轮完成 ✅（本地导出 3 域 → 5 域——记忆与 Journey Canonical 快照纳入，与删除域一一对齐）→ 下一轮：SyncWorker outbox 生命周期复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -84,6 +84,7 @@
 - **文档真值 + security 预演轮**：文档权威双文件 ADR 计数对齐（README_AUTHORITY/DOCUMENT_AUTHORITY 的「ADR-001~047+」→ 057）；docs/current 时代描述更新（ERA 30-43 质量门禁深化：detekt 27 规则 / lint 安全规则 / mypy strict / UI smoke tests / CI 复核 / 设备锚点）；**订阅到期毫秒边界契约补测**（expires_at == now → 无效，锁定 `expires > reference` 语义）；**security-ci 本地预演**：`audit_dependencies.py`（uv.lock → pip-audit）CI 同构执行「No known vulnerabilities found」；trivy/trufflehog/osv-scanner 本地未安装如实记录（security-ci 强制执行不变）
 - **迁移链收官轮**：Room 迁移链 instrumentation 覆盖补齐——此前 2→8 全链 + 7→8 单步，v9（echo_memories）/v10（journey_canonical_days）/v11（复合索引）迁移无测试；新增 8→11 全链（v10 表+索引可写读 / v11 复合索引存在 / 旧特征行保留锚）+ 10→11 索引单步（PRAGMA index_list 校验）；激活码 TTL 毫秒边界契约（expires_at == now → 拒绝，锁定 `_is_expired` 的 <= 语义）——迁移链 2→11 自此无断档，android-ci 注释同步
 - **数据库维护 Worker 复核轮**：§76 全语义逐条对照——decay（memoryDecayScore 检索相关性衰减，MemoryMaturityTest.decayScoreDecreasesOverTime）、expiry（shouldForget + purgeExpired 软删，expiryBasedOnRetention）、reinforce（confirm 提升 importance + 刷新确认时间）、derivePatterns（幂等哈希 id upsert）均有实现与测试；Worker 注册（echo-presence-refresh 15min KEEP unique）+ onboarding 门禁 + 四步顺序 + fail-closed 复核 PASS；**落地测试锚点**：抽取 `PresenceMaintenanceScript`（纯 JVM 可测维护序列），3 用例锁定固定顺序 / 中途异常不阻断后续步骤 / 全步异常仍完成（worker 恒 success 语义）
+- **数据权利导出覆盖复核轮**：导出/删除域对照发现**真实缺口**——deleteLocalData 覆盖五域（特征/画像/同意/记忆/Canonical 快照）而 exportLocalData 仅三域，用户无法导出自己的记忆与 Journey 视觉快照；修复：MemoryDao 增 `allByUser`（导出专用全量查询，含软删记录与 deleted 标记——完整记录不留盲区；UI 热路径仍走 LIMIT 截断不变）+ JourneyCanonicalDao.range 纳入，导出 JSON 增 `memories` / `journey_canonical_days` 两节；LocalModeTest 扩域断言五域导出内容与删除后五域清零；云端路径复核（backend DSR 矩阵依法保留分类/幂等重放）与 device-first 分工一致（后端不持有设备记忆）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -129,4 +130,4 @@
 
 ## Next Highest-value Task
 
-数据权利导出覆盖复核（本地模式 exportLocalData 与云端 requestDataAction 双路径 + 覆盖范围逐域对照：记忆/画像/特征/同意记录）；随后 Room 12 预研（如需新表）与 SyncWorker outbox 生命周期复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+SyncWorker outbox 生命周期复核（重试退避 / 死信 / 幂等重放 / 本地模式静默的端到端状态矩阵与清理边界）；随后 Room 12 预研（如需新表）与数据权利删除的云端撤回证据链复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

@@ -11,8 +11,9 @@ import java.time.Instant
  * 本地模式（未订阅）下「你的数据你做主」承诺的端侧实现——导出与删除直接在本机完成，
  * 不走 Outbox（本地模式 outbox 静默，旧路径会假成功）。
  *
- * - [exportLocalData]：聚合本地派生特征窗口 / 画像缓存 / 同意记录为 JSON（summary 解密）；
- * - [deleteLocalData]：事务内清除该用户的派生特征、画像缓存与同意记录。
+ * - [exportLocalData]：聚合本地派生特征窗口 / 画像缓存 / 同意记录 / 记忆 / Journey Canonical
+ *   快照为 JSON（summary 解密；五域与 [deleteLocalData] 一一对齐）；
+ * - [deleteLocalData]：事务内清除该用户的派生特征、画像缓存、同意记录、记忆与 Canonical 快照。
  *
  * 已订阅用户仍走服务端 DSR（/v1/data-subject-requests，含依法保留分类矩阵）。
  */
@@ -25,6 +26,9 @@ class LocalDataRights(
         val windows = db.dao().allPassiveCoreRows(userId)
         val portraits = db.portraitDao().queryByDateRange(userId, "1900-01-01", "2999-12-31")
         val consents = db.consentDao().allByUser(userId)
+        // ERA 47 覆盖复核：记忆 + Journey Canonical 快照纳入导出（与 deleteLocalData 五域对齐）
+        val memories = db.memoryDao().allByUser(userId)
+        val canonicalDays = db.journeyCanonicalDao().range(userId, "1900-01-01", "2999-12-31")
 
         val windowJson = JSONArray()
         windows.forEach { w ->
@@ -61,6 +65,34 @@ class LocalDataRights(
                 }
             )
         }
+        val memoryJson = JSONArray()
+        memories.forEach { m ->
+            memoryJson.put(
+                JSONObject().apply {
+                    put("id", m.id)
+                    put("type", m.type)
+                    put("content", m.content)
+                    put("source", m.source)
+                    put("confidence", m.confidence)
+                    put("created_at", Instant.ofEpochMilli(m.createdAt).toString())
+                    put("last_confirmed_at", Instant.ofEpochMilli(m.lastConfirmedAt).toString())
+                    put("importance", m.importance)
+                    put("retention_class", m.retentionClass)
+                    put("deleted", m.deleted)
+                }
+            )
+        }
+        val canonicalJson = JSONArray()
+        canonicalDays.forEach { d ->
+            canonicalJson.put(
+                JSONObject().apply {
+                    put("id", d.id)
+                    put("local_date", d.localDate)
+                    put("payload", d.payload)
+                    put("created_at", Instant.ofEpochMilli(d.createdAtEpochMs).toString())
+                }
+            )
+        }
 
         return JSONObject().apply {
             put("exported_at", Instant.now().toString())
@@ -69,6 +101,8 @@ class LocalDataRights(
             put("derived_feature_windows", windowJson)
             put("portraits", portraitJson)
             put("consents", consentJson)
+            put("memories", memoryJson)
+            put("journey_canonical_days", canonicalJson)
         }.toString(2)
     }
 

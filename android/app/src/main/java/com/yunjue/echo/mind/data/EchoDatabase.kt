@@ -353,6 +353,10 @@ interface MemoryDao {
     @Query("SELECT * FROM echo_memories WHERE userId = :userId AND type = :type AND deleted = 0 ORDER BY lastConfirmedAt DESC")
     suspend fun byType(userId: String, type: String): List<EchoMemoryEntity>
 
+    /** 本地数据权利导出：该用户全部记忆（含软删记录与 deleted 标记，完整记录不留盲区）。 */
+    @Query("SELECT * FROM echo_memories WHERE userId = :userId ORDER BY createdAt ASC")
+    suspend fun allByUser(userId: String): List<EchoMemoryEntity>
+
     @Query("SELECT * FROM echo_memories WHERE id = :id")
     suspend fun byId(id: String): EchoMemoryEntity?
 
