@@ -27,6 +27,7 @@ Passive Sensing → Derived Features → DailyBehaviorAggregate → PersonalBase
 - **Narrative 词汇**（Psychology Review）："移动较少/移动较多/接近" 替换 "安静/活跃/稳定"
 
 ### Android
+- **v0.7.3 真机闪退根除（信封加密）**：数据库口令弃用"固定 IV GCM 派生"非标准做法（部分机型 Keymaster 生成该参数密钥抛异常 → 首启闪退，真机实测暴露），改为**信封加密**——随机 32 字节 SQLCipher 口令经 Keystore 标准 GCM（默认参数，全机型兼容）加密存储，跨重启稳定；旧固定 IV 库经 deriveLegacyDatabasePassphrase 一次性解锁 + PRAGMA rekey 迁移（数据不丢失）。
 - **订阅生命周期（v0.7.3）**：后端 `users.subscription_expires_at/subscription_plan` + `activation_codes.subscription_days`（迁移 20260814_0001，NULL=永不过期向后兼容）；兑换订阅码授予/续订订阅（从当前到期顺延）；`GET /v1/me/subscription` 状态端点；verify-code 响应携带订阅字段；显式到期 → /v1/escalations 与 /v1/skills 402（本地功能不受影响）。Android：订阅信息持久化、支持页「有效期至 X（剩余 N 天）/已到期」、到期拦截支持请求与能力页续订提示、`MessageCheckWorker` 24h 周期消息检查（订阅模式拉小结 + 新小结通知——推送过渡定时化）。
 - **生命周期收口**：全 UI `collectAsState` → `collectAsStateWithLifecycle`（新增 lifecycle-runtime-compose 依赖）；趋势页 7 天时间线标记画像反馈（✓ 像 / ✗ 不太像）。
 - **v0.7.2 硬化轮**：① Keystore v1→v2 双 alias 回退（v2 打开失败 → v1 口令解锁 + PRAGMA rekey 迁回 v2，旧库不再数据丢失；rekeyPragma 形状可测）；② androidTest 源集从无到有（迁移链 2→8 / Keystore 真机固定 IV 派生路径 / 引擎 golden 设备烟测），关闭 CI connected-test 空通过门；③ 画像反馈闭环：NOT_LIKE 后提供「重新生成」（订阅走 /me/portraits/rebuild，本地模式端侧重算）；④ 支持请求真实状态：订阅用户打开支持页时 refreshEscalationStatus 向服务端查询送达/人工确认（不再永远停留本地乐观值）；⑤ 死代码删除：SafetyEngine（+2 测试文件）、NarrativeProfileRepository、LegacyInputRepository、passiveSafety；⑥ 应用图标（自适应图标 XML，消除 lint MissingApplicationIcon）；⑦ detekt 启用 UnusedPrivateMember 规则并清零。

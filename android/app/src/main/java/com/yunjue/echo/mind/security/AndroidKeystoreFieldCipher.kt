@@ -1,10 +1,12 @@
 package com.yunjue.echo.mind.security
 
+import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -18,22 +20,18 @@ import javax.crypto.spec.GCMParameterSpec
  *   **fail closed**（初始化即抛 [IllegalStateException]），绝不静默生成进程内随机密钥。
  * - **测试语义**：JVM/Robolectric 环境显式使用 [JvmTestFieldCipher]，**不做运行期自动降级**。
  *
- * 数据库派生口令（v0.7.2 双 alias 兼容）：
- * - 主 alias = v2（setRandomizedEncryptionRequired(false)，固定 IV 派生可用）；
- * - [deriveLegacyDatabasePassphrase] 尝试用 v1 alias 派生口令：**仅当** v1 密钥存在且
- *   允许固定 IV 派生时成功（v0.7 预修复版在真机首启即崩、从未建成加密库，故现实设备
- *   上基本不存在 v1 库；此回退为防御性兜底）。AppContainer 在 v2 打开失败时
- *   以 v1 口令解锁并用 PRAGMA rekey 迁移到 v2。
- * - TODO(KDF)：固定 IV GCM + SHA-256 属非标准 KDF。建议改为 Keystore 密钥作
- *   HKDF/HMAC-SHA256 的 IKM 派生 SQLCipher 口令，并为「字段加密」「口令派生」
- *   分设独立 alias（key rotation 时互不影响）。
+ * 数据库口令（v0.7.3 信封加密，根除真机闪退）：
+ * - **主路径（信封）**：随机生成 32 字节 SQLCipher 口令，用 Keystore 密钥做
+ *   **标准 GCM（随机 IV）** 加密后存入 SharedPreferences；每次启动解密还原。
+ *   密钥仅使用默认参数（randomizedEncryptionRequired=true），兼容所有 Keymaster，
+ *   不再依赖"固定 IV + setRandomizedEncryptionRequired(false)"这一非标准用法
+ *   （部分机型生成该参数密钥会抛异常 → 首启闪退，9e23c32 之后仍有残留风险）。
+ * - **旧库一次性解锁回退**：[deriveLegacyDatabasePassphrase] 用 v2 alias 的固定 IV
+ *   派生旧口令（仅对已存在且支持固定 IV 的旧密钥有效），AppContainer 在信封口令
+ *   打开失败时以旧口令解锁并 PRAGMA rekey 迁移到信封口令（数据不丢失）。
  */
-class AndroidKeystoreFieldCipher : FieldCipher {
-    // v2：修复真机启动闪退——v1 密钥默认 randomizedEncryptionRequired=true，
-    // 而 deriveDatabasePassphrase 用固定 IV 加密，会在真机抛 InvalidAlgorithmParameterException。
-    // 升 alias 强制重建密钥，避免已崩溃设备上残留参数错误的 v1 密钥。
+class AndroidKeystoreFieldCipher(private val context: Context) : FieldCipher {
     private val alias = "echo_mind_sensitive_fields_v2"
-    private val legacyAlias = "echo_mind_sensitive_fields_v1"
 
     private val keyStore: KeyStore = runCatching {
         KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -49,20 +47,19 @@ class AndroidKeystoreFieldCipher : FieldCipher {
     @Volatile
     private var cachedDbPassphrase: ByteArray? = null
 
-    private fun key(): SecretKey = key(alias)
+    private val envelopePrefs = context.getSharedPreferences("echo_mind_crypto", Context.MODE_PRIVATE)
 
-    private fun key(aliasName: String): SecretKey {
-        val existing = keyStore.getKey(aliasName, null) as? SecretKey
+    private fun key(): SecretKey {
+        val existing = keyStore.getKey(alias, null) as? SecretKey
         if (existing != null) return existing
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
-            KeyGenParameterSpec.Builder(aliasName, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
-                // 允许调用方传入固定 IV：deriveDatabasePassphrase 用固定 IV 加密固定盐
-                // 派生稳定口令。默认 true 时传固定 IV 会抛 InvalidAlgorithmParameterException（真机闪退根因）。
-                .setRandomizedEncryptionRequired(false)
+                // 默认 randomizedEncryptionRequired=true：标准随机 IV，
+                // 兼容所有 Keymaster（不再放宽密钥约束，根除部分机型 generateKey 异常）
                 .build()
         )
         return generator.generateKey()
@@ -85,36 +82,45 @@ class AndroidKeystoreFieldCipher : FieldCipher {
     }
 
     /**
-     * 派生 SQLCipher 数据库口令（32 字节，v2 alias）。
-     *
-     * 方法：用 Android Keystore 中的 AES-GCM 密钥加密固定盐值，对密文取 SHA-256 输出 32 字节。
-     * 使用固定 IV（全零 12 字节）确保派生结果跨进程重启稳定可复现。
-     * 首次派生后缓存在内存中，后续直接返回同一口令。
+     * SQLCipher 数据库口令（32 字节，信封加密主路径）：
+     * 首次生成随机口令 → 用 Keystore 密钥 GCM 加密 → 存入 SharedPreferences；
+     * 之后每次解密还原（跨重启稳定）。Keystore 密钥本身不可导出。
      */
     override fun deriveDatabasePassphrase(): ByteArray {
         cachedDbPassphrase?.let { return it.copyOf() }
-        val passphrase = derivePassphraseFor(alias)
+        val stored = envelopePrefs.getString(ENVELOPE_KEY, null)
+        val passphrase = if (stored != null) {
+            runCatching { Base64.decode(decrypt(stored), Base64.NO_WRAP) }.getOrNull()
+                ?: generateAndStoreEnvelope()
+        } else {
+            generateAndStoreEnvelope()
+        }
         cachedDbPassphrase = passphrase
         return passphrase.copyOf()
     }
 
-    /**
-     * v1→v2 兼容回退：用 v1 alias 派生旧口令；v1 密钥不存在或固定 IV 派生
-     * 不可用（预修复版残留的 randomizedEncryptionRequired=true 密钥）→ 返回 null。
-     */
-    fun deriveLegacyDatabasePassphrase(): ByteArray? =
-        runCatching { derivePassphraseFor(legacyAlias) }.getOrNull()
-
-    private fun derivePassphraseFor(aliasName: String): ByteArray {
-        val salt = "echo_mind_db_passphrase_salt_v1".toByteArray(Charsets.UTF_8)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val fixedIv = ByteArray(12)
-        cipher.init(Cipher.ENCRYPT_MODE, key(aliasName), GCMParameterSpec(128, fixedIv))
-        val ciphertextWithTag = cipher.doFinal(salt)
-        return MessageDigest.getInstance("SHA-256").digest(ciphertextWithTag)
+    private fun generateAndStoreEnvelope(): ByteArray {
+        val passphrase = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        val encrypted = encrypt(Base64.encodeToString(passphrase, Base64.NO_WRAP))
+        envelopePrefs.edit().putString(ENVELOPE_KEY, encrypted).commit()
+        return passphrase
     }
 
+    /**
+     * 旧库一次性解锁回退（v0.7.2 及更早版本用固定 IV 派生的口令）：
+     * 仅对已存在且允许固定 IV 的旧密钥有效；新设备/新密钥上返回 null。
+     */
+    fun deriveLegacyDatabasePassphrase(): ByteArray? =
+        runCatching {
+            val salt = "echo_mind_db_passphrase_salt_v1".toByteArray(Charsets.UTF_8)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, key(), GCMParameterSpec(128, ByteArray(12)))
+            MessageDigest.getInstance("SHA-256").digest(cipher.doFinal(salt))
+        }.getOrNull()
+
     companion object {
+        private const val ENVELOPE_KEY = "db_passphrase_envelope"
+
         /** SQLCipher PRAGMA rekey 语句：口令以 x'hex' blob 字面量传入（byte[] 口令安全）。 */
         fun rekeyPragma(passphrase: ByteArray): String {
             val hex = passphrase.joinToString("") { "%02x".format(it) }

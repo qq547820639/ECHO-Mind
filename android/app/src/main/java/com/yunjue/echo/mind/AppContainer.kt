@@ -207,8 +207,8 @@ internal val MIGRATION_7_8 = object : Migration(7, 8) {
 
 class AppContainer(context: Context) {
     /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
-     *  具体类型以支持 v1→v2 口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
-    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher()
+     *  具体类型以支持旧库口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
+    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher(context)
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
 
@@ -279,15 +279,12 @@ class AppContainer(context: Context) {
 }
 
 /**
- * SQLCipher 加密库打开（v0.7.2 双 alias 兼容）：
- * 1. 用 v2 派生口令打开（正常路径）；
- * 2. v2 打开失败（SQLiteException，如旧库口令不匹配）→ 若 v1 密钥可派生旧口令，
- *    以 v1 口令解锁并把库 rekey 到 v2（PRAGMA rekey），下次启动走正常路径；
+ * SQLCipher 加密库打开（v0.7.3 信封口令 + 旧库一次性解锁）：
+ * 1. 用信封口令打开（正常路径：随机 32 字节口令经 Keystore 标准 GCM 加密存储）；
+ * 2. 打开失败（SQLiteException，如旧版固定 IV 派生的库）→ 尝试旧固定 IV 口令
+ *    （deriveLegacyDatabasePassphrase，仅旧参数密钥设备有效）解锁，
+ *    并把库 PRAGMA rekey 到信封口令，下次启动走正常路径；
  * 3. 两者皆不可用 → 抛原异常（fail-closed，绝不回退明文）。
- *
- * 说明：v0.7 预修复版在真机首启即崩、从未建成加密库，现实设备基本不存在 v1 库；
- * 该回退为防御性兜底（v1 密钥存在但 randomizedEncryptionRequired=true 时派生会失败，
- * 此时同样 fail-closed 抛原异常）。
  */
 private fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
     fun build(passphrase: ByteArray): EchoDatabase =
