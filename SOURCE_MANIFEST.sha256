@@ -7,7 +7,7 @@ fe16400ad17dadcdd7a053a983d6c6f1957007e7ecec95b2a821876666242fbd  .github/workfl
 1f1e5022fcc6d9258610a5c5fe73a5bef1a5b9c84c77e6ac25f86d09c066080d  .gitignore
 1cb583368385f2d5c3c8808f5a933a1824388b96816a0199f45b83c5335a9d2e  Makefile
 5fc5919e646a637747a171a89bb1700adb635322246ef653820ae8ce1b01cb5c  PORTRAIT_CONTRACT.md
-8f22fc6edc26e59769b7b86ba6489c19355e746c3244d0571d5afe00c6d02caf  README.md
+43ac764858f973c5c35202ed8ff468378d28d03f90f28402ae7c27973e884b47  README.md
 93a79b01c9674104e6d6cabb735eb1ae8c1d7d7e7329b4a9dd7f652edaca1804  RELEASE_NOTES_v0.2.0.md
 0028eecff690311519240df6b857dc0a120dab71d9ed4559bc88185288fbf2eb  RELEASE_NOTES_v0.6.0.md
 3ab9380798e062043871c8ca9e08d11b7ae9f3742c2000bb5e49706143a9e5e5  RELEASE_NOTES_v0.7.0.md
@@ -78,7 +78,7 @@ bee98d99a9283f2647219d218e209cc449d8452243ac982d5bc2401b625c4fc4  android/app/sr
 d21fcbea9c1977af21a0906c2b76acbdd4c45245c00db2b61a0283ec91cd17e0  android/app/src/main/java/com/yunjue/echo/mind/sensing/PassiveSensingService.kt
 b47f2fd5adff172b887bdc3d164f005cea53a4cffdb2b1a63f4b5ff6381a22c3  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoActionOverlay.kt
 752a93d459cf921299f11ae42a738dc8a6bcd6bdfe91cabc95463f0ffcba0f49  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoMindApp.kt
-a800d6f2fa888b1a631d7cafd72aa7babc05418e3623a6abc99e34ace1a59874  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt
+ac57a7ae2d559d859e2da9a879c7065566289e3dfcbb6e3d8f4a31cfa8406507  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt
 602bc541b85082d0610f07da39f68c4617e1992b6e071d225f0e448c47f2fed2  android/app/src/main/java/com/yunjue/echo/mind/ui/JourneyState.kt
 f475e17421f30bc8a4689916b388f22bb67929804046199e0eebd6f15c5d1fed  android/app/src/main/java/com/yunjue/echo/mind/ui/MeSupportHelpers.kt
 37c2a6438f08a5ba81d615a94ab311486aab292221322dffab01529f18e53046  android/app/src/main/java/com/yunjue/echo/mind/ui/OnboardingScreen.kt
@@ -89,7 +89,7 @@ da040c1814cc9fe027045389be869c058d0652d9e0add93453b3d1425a68e60f  android/app/sr
 d655f7bd6b1df11d8ff2ebb4c968ad093641120d52beab880cf56144f2daae14  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/EchoSceneUiState.kt
 3a2f6b1e322ef88e310613c1428e7ce2565970f82e82f49c7d2ce437a2b9a81a  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/EchoSceneViewModel.kt
 fb88d4d02fbff5bfa489e25dac73d772514d3b38fe823e8a0e0f49e0b4e72969  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/actions/EchoActionLayer.kt
-32eacefd9f73050e12d42a76506e48e9d729628384e9436ea5aaaaf18f0494a2  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoPortraitStates.kt
+7a49a562bc02548b3a8e1a67ad91b1b6d1b14a953561c24782546afeb7c3f9fb  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoPortraitStates.kt
 e28a584fdc2995da3c404244933317f3baa5d81c4d123023e7373b700c3ecd36  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoStatusOverlay.kt
 6206a6b20f3ad68ef7d3e8d92c9e8db4bdb30be660a0891aea32be472aca1b1c  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoVisualSurface.kt
 4da0c75dd5e091b87b441a0b01951e939ecb3ae48f012ce788c84378d8d776f3  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/SkillListSection.kt
@@ -198,6 +198,7 @@ f49097533efcea6ca726a8b023d6c29621c07eefe1f1918002141a206ba51e58  android/app/sr
 b303479637b0a245de8a53d913b3b2f7919306ecbbf5921788dbc88da78cb810  android/app/src/test/java/com/yunjue/echo/mind/security/HkdfSha256Test.kt
 cfd8eb4eed37bf8f12bc021adfb24894d2813dfce540a8927eafbfe5b2d2136c  android/app/src/test/java/com/yunjue/echo/mind/security/JvmTestFieldCipher.kt
 2bc0ceba83634d53f8270130cb9cd24b6c513ce5a1f6f7fc734779cdf6bc50d3  android/app/src/test/java/com/yunjue/echo/mind/security/TestKeystoreFixtures.kt
+e2603a3ff26626ad5c47eb6f150938a4f73b8671b6d6d0a03402119d72a83cc4  android/app/src/test/java/com/yunjue/echo/mind/ui/EchoSceneContentSmokeTest.kt
 8655bcc101c538b3b21f7e34205a8c29eac15927a09751aed693247eec398b8d  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoPortraitStatesSmokeTest.kt
 3311ff9456ab576d6694ee64bdd92bbb88f933bc71e314de94a88350ba084fdc  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoStatusOverlaySmokeTest.kt
 b26ab1b4c7c414c6db3079af1d14531826f1732db4000a2f6f436b9109bb970d  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/conversation/EchoConversationLayerSmokeTest.kt
@@ -498,7 +499,7 @@ dd79199277b0db7470ad73a3c27bf8b97be2f8b69d7165133a2f4de3a18232dc  docs/11_部署
 93222a258b2ecd5c3fa0243c111d51dd11a42b61cec6eb930103d4d650c75db1  docs/12_验收记录模板.md
 dec15ad000bc86d1fe140510344c4ad2ea82d1929b03a1eeddb175562f020ea2  docs/15_外部执行任务交接.md
 0fdd62e84c972e0aebc5ade15fac02318f02c7d078a7b068c963665d07b0ceff  docs/DOCUMENT_AUTHORITY.md
-7284982568c576ca799dc998fa7c245c10ba25bb24d2f6ebc50ff11c4113ecae  docs/IMPLEMENTATION_STATUS.md
+659107c3470d4d4da056468e4175649d3f08bd149eead1dfa6df065fb01c5762  docs/IMPLEMENTATION_STATUS.md
 7a4a156e727eed3bb27be8f7e50ba3d8a9b32b931ceb1e48206e767212610c28  docs/README_AUTHORITY.md
 b2962d4b931980698303487a49a2f4bc716c92a6c9123c019f5dd83d09c3e671  docs/architecture/ADRS.md
 455249fc665de07e36d711605a88217404a5a1ec463240a734b69f88b36d6f0f  docs/architecture/ANDROID_CODE_INVENTORY.md

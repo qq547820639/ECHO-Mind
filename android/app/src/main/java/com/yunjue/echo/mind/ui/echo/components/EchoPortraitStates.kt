@@ -18,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_BASELINE_UNLOCKED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
@@ -35,7 +34,7 @@ import com.yunjue.echo.mind.presence.presenceSeedRuntimeText
 
 /** Day-0 SEED ECHO：存在与陪伴的表达，不伪造个性判断。 */
 @Composable
-fun SeedPortraitBlock(preferences: AppPreferences, state: PortraitUiState) {
+fun SeedPortraitBlock(awakenedAtEpochMs: Long, state: PortraitUiState) {
     Column(
         Modifier.fillMaxWidth().padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -48,7 +47,7 @@ fun SeedPortraitBlock(preferences: AppPreferences, state: PortraitUiState) {
         if (factsOnly != null) {
             Text(factsOnly, style = MaterialTheme.typography.bodyMedium)
         }
-        val observedMinutes = preferences.awakenedAtEpochMs
+        val observedMinutes = awakenedAtEpochMs
             .takeIf { it > 0L }
             ?.let { (System.currentTimeMillis() - it) / 60_000L }
         if (observedMinutes != null) {

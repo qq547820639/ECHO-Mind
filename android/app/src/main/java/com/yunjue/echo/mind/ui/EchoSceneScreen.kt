@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.actions.EchoActionKind
+import com.yunjue.echo.mind.intelligence.ConversationPhase
+import com.yunjue.echo.mind.intelligence.ConversationTurn
+import com.yunjue.echo.mind.model.MessageDisplay
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
@@ -66,6 +71,9 @@ import java.time.format.DateTimeFormatter
  * Screen 只负责**组合**：Visual / Headline(Why) / Conversation / Action。
  * 所有业务逻辑（AI 请求/记忆写入/证据检索/行动运行）在 [EchoSceneViewModel] +
  * Coordinator/Controller/Service 层，Screen 不直接操作 Repository。
+ *
+ * ERA 36 状态提升：Screen 只做六流收集 + 容器依赖 slot 化 + 回调装配；
+ * 纯渲染在 [EchoSceneContent]（state-in / event-out，Compose smoke test 无需 AppContainer）。
  */
 @Composable
 fun EchoSceneScreen(
@@ -83,6 +91,128 @@ fun EchoSceneScreen(
     val runningAction by viewModel.actionRuntime.running.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
 
+    EchoSceneContent(
+        state = EchoSceneContentState(
+            uiState = uiState,
+            portrait = portrait,
+            turns = turns,
+            phase = phase,
+            runningAction = runningAction,
+            message = message,
+            aiPromptDismissed = container.preferences.aiPromptDismissed,
+            awakenedAtEpochMs = container.preferences.awakenedAtEpochMs,
+        ),
+        navigation = EchoSceneNavigation(
+            onGoToJourney = onGoToJourney,
+            onGoToMe = onGoToMe,
+            onEmergency = onEmergency,
+        ),
+        coreActions = EchoSceneCoreActions(
+            onConsumeUnlocked = viewModel::consumeBaselineUnlocked,
+            onReEnableSensing = { viewModel.reEnableSensing(); viewModel.refresh() },
+            onRetryPortrait = viewModel::retryPortrait,
+            onStartAction = viewModel::startAction,
+            onStopAction = viewModel::stopAction,
+            onAsk = viewModel::ask,
+            onConversationFeedback = viewModel::recordConversationFeedback,
+        ),
+        feedbackActions = EchoSceneFeedbackActions(
+            onDismissAiPrompt = viewModel::dismissAiPrompt,
+            onPortraitLike = { viewModel.recordPortraitFeedback(it, true) },
+            onPortraitNotLike = { viewModel.recordPortraitFeedback(it, false) },
+            onPortraitCorrection = viewModel::recordPortraitCorrection,
+            onRebuildTodayPortrait = viewModel::rebuildTodayPortrait,
+            portraitFeedbackFor = viewModel::portraitFeedback,
+        ),
+        visualSurface = {
+            EchoVisualSurface(
+                presence = uiState.presence,
+                preferences = container.preferences,
+            )
+        },
+        actionLayer = {
+            val presenceNow = uiState.presence
+            EchoActionLayer(
+                availability = viewModel.actionRuntime.availability(
+                    confidence = presenceNow?.confidence ?: 0f,
+                    ambientKnown = presenceNow != null && presenceNow.maturity != EchoMaturity.SEED,
+                    suggestionsEnabled = container.preferences.presenceSuggestionsEnabled,
+                ),
+                skillRepository = container.skillRepository,
+                coordinator = container.skillSessionCoordinator,
+                onStartAction = viewModel::startAction,
+            )
+        },
+        actionOverlay = {
+            EchoActionOverlay(
+                presence = uiState.presence,
+                mode = if (runningAction == EchoActionKind.BREATHING)
+                    EchoActionMode.BREATHING else EchoActionMode.PAUSE,
+                onDone = viewModel::stopAction,
+            )
+        },
+    )
+}
+
+/** ERA 36 — EchoSceneContent 状态输入（六流聚合 + 偏好派生输入）。 */
+data class EchoSceneContentState(
+    val uiState: EchoSceneUiState,
+    val portrait: PortraitUiState,
+    val turns: List<ConversationTurn>,
+    val phase: ConversationPhase,
+    val runningAction: EchoActionKind?,
+    val message: MessageDisplay?,
+    val aiPromptDismissed: Boolean,
+    val awakenedAtEpochMs: Long = 0L,
+)
+
+/** ERA 36 — EchoSceneContent 导航回调（世界间跳转）。 */
+data class EchoSceneNavigation(
+    val onGoToJourney: () -> Unit,
+    val onGoToMe: () -> Unit,
+    val onEmergency: () -> Unit,
+)
+
+/** ERA 36 — EchoSceneContent 核心业务回调（运行时/画像/对话/行动）。 */
+data class EchoSceneCoreActions(
+    val onConsumeUnlocked: () -> Boolean,
+    val onReEnableSensing: () -> Unit,
+    val onRetryPortrait: () -> Unit,
+    val onStartAction: (EchoActionKind) -> Unit,
+    val onStopAction: () -> Unit,
+    val onAsk: (String) -> Unit,
+    val onConversationFeedback: (String, String, Boolean, String?) -> Unit,
+)
+
+/** ERA 36 — EchoSceneContent 反馈/提示回调（Correction Memory 与 AI 提示）。 */
+data class EchoSceneFeedbackActions(
+    val onDismissAiPrompt: () -> Unit,
+    val onPortraitLike: (String) -> Unit,
+    val onPortraitNotLike: (String) -> Unit,
+    val onPortraitCorrection: (String, String, String?) -> Unit,
+    val onRebuildTodayPortrait: () -> Unit,
+    val portraitFeedbackFor: (String) -> Boolean?,
+)
+
+/**
+ * ERA 36 — EchoScene 纯状态内容（state-in / event-out + 视觉·行动·覆盖层三槽位）。
+ * 只消费 [EchoSceneContentState]；无 ViewModel / Repository / AppPreferences 持有。
+ * 行动覆盖层为槽位：真实 EchoActionOverlay 含无限帧动画（Robolectric 不友好），
+ * 由调用侧注入；本层只负责 runningAction != null 的条件渲染。
+ */
+@Composable
+fun EchoSceneContent(
+    state: EchoSceneContentState,
+    navigation: EchoSceneNavigation,
+    coreActions: EchoSceneCoreActions,
+    feedbackActions: EchoSceneFeedbackActions,
+    visualSurface: @Composable () -> Unit,
+    actionLayer: @Composable () -> Unit,
+    actionOverlay: @Composable () -> Unit,
+) {
+    val uiState = state.uiState
+    val portrait = state.portrait
+
     val todayMd = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
     var askExpanded by remember { mutableStateOf(false) }
 
@@ -92,12 +222,7 @@ fun EchoSceneScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // 1. ECHO 视觉主体
-            item {
-                EchoVisualSurface(
-                    presence = uiState.presence,
-                    preferences = container.preferences,
-                )
-            }
+            item { visualSurface() }
             item { Text("今天 · $todayMd", style = MaterialTheme.typography.headlineMedium) }
 
             // 2. 状态透明（非 ACTIVE 才可见）+ 初次 AI 提示
@@ -105,14 +230,14 @@ fun EchoSceneScreen(
                 EchoStatusOverlay(
                     sensing = uiState.sensing,
                     intelligenceAvailable = uiState.intelligenceAvailable,
-                    aiPromptDismissed = container.preferences.aiPromptDismissed,
-                    onGoToMe = onGoToMe,
-                    onDismissAiPrompt = { viewModel.dismissAiPrompt() },
+                    aiPromptDismissed = state.aiPromptDismissed,
+                    onGoToMe = navigation.onGoToMe,
+                    onDismissAiPrompt = feedbackActions.onDismissAiPrompt,
                 )
             }
 
             // 3. 周小结消息（订阅/本地镜像）
-            message?.let { msg ->
+            state.message?.let { msg ->
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -132,7 +257,7 @@ fun EchoSceneScreen(
                 }
                 PortraitStatus.WARMING_UP -> item {
                     if (echoMaturity(uiState.baselineDays) == EchoMaturity.SEED) {
-                        SeedPortraitBlock(container.preferences, portrait)
+                        SeedPortraitBlock(awakenedAtEpochMs = state.awakenedAtEpochMs, state = portrait)
                     } else {
                         Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
                         BaselineProgress(uiState.baselineDays)
@@ -151,18 +276,18 @@ fun EchoSceneScreen(
                     CoverageRow(portrait.portrait?.coverage)
                 }
                 PortraitStatus.READY -> item {
-                    UnlockBanner(consumeUnlocked = { viewModel.consumeBaselineUnlocked() }, state = portrait)
-                    EchoWhyLayer(uiState = uiState, onGoToJourney = onGoToJourney)
+                    UnlockBanner(consumeUnlocked = coreActions.onConsumeUnlocked, state = portrait)
+                    EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney)
                 }
                 PortraitStatus.PARTIAL_DATA -> {
                     item { Text(PORTRAIT_COPY_PARTIAL_BANNER, Modifier.padding(top = 12.dp)) }
-                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = onGoToJourney) }
+                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney) }
                 }
                 PortraitStatus.OFFLINE_CACHED -> {
                     if (portrait.offline) {
                         item { Text(PORTRAIT_COPY_OFFLINE_BANNER, Modifier.padding(top = 12.dp)) }
                     }
-                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = onGoToJourney) }
+                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney) }
                 }
                 PortraitStatus.SENSING_DISABLED -> item {
                     Column(
@@ -171,10 +296,7 @@ fun EchoSceneScreen(
                     ) {
                         Text(PORTRAIT_COPY_SENSING_DISABLED)
                         Button(
-                            onClick = {
-                                viewModel.reEnableSensing()
-                                viewModel.refresh()
-                            },
+                            onClick = coreActions.onReEnableSensing,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(PORTRAIT_COPY_REENABLE)
@@ -188,41 +310,38 @@ fun EchoSceneScreen(
                     ) {
                         Text(PORTRAIT_COPY_LOAD_FAILED)
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { viewModel.retryPortrait() }) { Text(PORTRAIT_COPY_RETRY) }
+                        Button(onClick = coreActions.onRetryPortrait) { Text(PORTRAIT_COPY_RETRY) }
                     }
                 }
             }
 
             // 5. Journey 入口（Layer 3 证据/长期趋势）
             item {
-                OutlinedButton(onClick = onGoToJourney, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = navigation.onGoToJourney, modifier = Modifier.fillMaxWidth()) {
                     Text("Journey · 我的时间 →")
                 }
             }
 
             // 6. 行动（EchoActionRuntime 统一裁决；Scene 内执行）
-            item {
-                val presenceNow = uiState.presence
-                EchoActionLayer(
-                    availability = viewModel.actionRuntime.availability(
-                        confidence = presenceNow?.confidence ?: 0f,
-                        ambientKnown = presenceNow != null && presenceNow.maturity != EchoMaturity.SEED,
-                        suggestionsEnabled = container.preferences.presenceSuggestionsEnabled,
-                    ),
-                    skillRepository = container.skillRepository,
-                    coordinator = container.skillSessionCoordinator,
-                    onStartAction = { viewModel.startAction(it) },
-                )
-            }
+            item { actionLayer() }
 
             // 7. 紧急入口（安全资源常驻可达）
             item {
-                OutlinedButton(onClick = onEmergency, modifier = Modifier.fillMaxWidth()) { Text("紧急支持") }
+                OutlinedButton(onClick = navigation.onEmergency, modifier = Modifier.fillMaxWidth()) { Text("紧急支持") }
             }
 
             // 8. 画像反馈（Correction Memory 由 Service 写入）
             if (portrait.status == PortraitStatus.READY || portrait.status == PortraitStatus.PARTIAL_DATA) {
-                item { PortraitFeedbackRow(viewModel, portrait) }
+                item {
+                    PortraitFeedbackContent(
+                        state = portrait,
+                        feedbackLookup = feedbackActions.portraitFeedbackFor,
+                        onLike = feedbackActions.onPortraitLike,
+                        onNotLike = feedbackActions.onPortraitNotLike,
+                        onCorrection = feedbackActions.onPortraitCorrection,
+                        onRebuild = feedbackActions.onRebuildTodayPortrait,
+                    )
+                }
             }
 
             // 9. Ask ECHO 对话层（Controller 状态机驱动）
@@ -234,12 +353,10 @@ fun EchoSceneScreen(
                     ) { Text(if (askExpanded) "收起对话" else "问 ECHO") }
                     if (askExpanded) {
                         EchoConversationLayer(
-                            turns = turns,
-                            phase = phase,
-                            onAsk = { viewModel.ask(it) },
-                            onFeedback = { q, a, like, reason ->
-                                viewModel.recordConversationFeedback(q, a, like, reason)
-                            },
+                            turns = state.turns,
+                            phase = state.phase,
+                            onAsk = coreActions.onAsk,
+                            onFeedback = coreActions.onConversationFeedback,
                         )
                     }
                 }
@@ -249,23 +366,26 @@ fun EchoSceneScreen(
         }
 
         // 10. Scene 内行动覆盖层（运行时 running 状态驱动；结束回 Ambient Scene）
-        runningAction?.let { kind ->
-            EchoActionOverlay(
-                presence = uiState.presence,
-                mode = if (kind == com.yunjue.echo.mind.actions.EchoActionKind.BREATHING)
-                    EchoActionMode.BREATHING else EchoActionMode.PAUSE,
-                onDone = { viewModel.stopAction() },
-            )
-        }
+        state.runningAction?.let { actionOverlay() }
     }
 }
 
-/** 用户反馈（「挺像/不太像」+ 原因 → EchoCorrectionService；不直接创建 MemoryEntity）。 */
+/**
+ * ERA 36 — 画像反馈纯内容（用户反馈「挺像/不太像」+ 原因 → 回调；
+ * 不直接创建 MemoryEntity，不持有 ViewModel）。
+ */
 @Composable
-private fun PortraitFeedbackRow(viewModel: EchoSceneViewModel, state: PortraitUiState) {
+fun PortraitFeedbackContent(
+    state: PortraitUiState,
+    feedbackLookup: (String) -> Boolean?,
+    onLike: (String) -> Unit,
+    onNotLike: (String) -> Unit,
+    onCorrection: (String, String, String?) -> Unit,
+    onRebuild: () -> Unit,
+) {
     val portrait = state.portrait ?: return
     val date = portrait.date
-    var feedback by remember(date) { mutableStateOf(viewModel.portraitFeedback(date)) }
+    var feedback by remember(date) { mutableStateOf(feedbackLookup(date)) }
     var reasonPicked by remember(date) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider()
@@ -273,11 +393,11 @@ private fun PortraitFeedbackRow(viewModel: EchoSceneViewModel, state: PortraitUi
         if (feedback == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = {
-                    viewModel.recordPortraitFeedback(date, helpful = true)
+                    onLike(date)
                     feedback = true
                 }) { Text(PORTRAIT_COPY_FEEDBACK_LIKE) }
                 OutlinedButton(onClick = {
-                    viewModel.recordPortraitFeedback(date, helpful = false)
+                    onNotLike(date)
                     feedback = false
                 }) { Text(PORTRAIT_COPY_FEEDBACK_NOT_LIKE) }
             }
@@ -290,10 +410,10 @@ private fun PortraitFeedbackRow(viewModel: EchoSceneViewModel, state: PortraitUi
                         com.yunjue.echo.mind.memory.CORRECTION_REASONS.chunked(4).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 row.forEach { reason ->
-                                    androidx.compose.material3.AssistChip(
+                                    AssistChip(
                                         onClick = {
                                             reasonPicked = true
-                                            viewModel.recordPortraitCorrection(date, reason, portrait.summary)
+                                            onCorrection(date, reason, portrait.summary)
                                         },
                                         label = { Text(reason) }
                                     )
@@ -303,7 +423,7 @@ private fun PortraitFeedbackRow(viewModel: EchoSceneViewModel, state: PortraitUi
                     }
                 }
                 TextButton(
-                    onClick = { viewModel.rebuildTodayPortrait() },
+                    onClick = onRebuild,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(PORTRAIT_COPY_REGENERATE)
