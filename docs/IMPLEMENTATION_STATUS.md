@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**§22 文档真值 + Provider 传输安全复核轮完成 ✅（ADR-055~057 补录 + docs/current 计数对齐 + 172.x 公网明文 API Key 洞修复）→ 下一轮：CI 工作流参数复核 / Affective 评审等待**
+**CI 工作流参数复核轮完成 ✅（backend/security-ci Python 3.13→3.12 对齐可复现环境 + security-ci SDK 确定性安装 + release-closure 分布完整性补测）→ 下一轮：backend 安全复核（审计链/token 权限边界）/ Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -78,6 +78,7 @@
 - **ECHO 组件基线收官轮**：`EchoVisualSurface` 偏好输入纯函数化（`echoVisualSurfaceConfig` 映射矩阵 5 用例——未知动效等级回退 DEFAULT/减少动画→REDUCED_MOTION；组件只收 config，不再持 AppPreferences；EchoLifeField 无限帧动画由构造隔离）；`EchoActionLayer` 槽位化（`EchoActionLayerContent` 纯内容 + 订阅能力槽位，5 用例含 L2 建议门禁与「什么也不做」折叠语义）；`OnboardingStepContent` 三步渲染矩阵（state/actions 分组 11 回调，7 用例：契约句锚点/18+与边界门禁/五同意门禁/能力行系统真实状态/授权·跳过回调/苏醒 CTA·abstain/紧急入口常驻——编排层保留权限 launcher 与服务启动）——UI 组件可测面收官（含动画宿主类组件的纯映射测试模式）
 - **lint 复核 + 性能基准扩项轮**：lint.xml 豁免逐条复核——UseKtx 仍命中 50 处（含刻意 commit() 同步写路径，KTX edit{} 默认 apply 语义不同，转换有行为风险）豁免保留并更新理由；探测固化 4 条 error 级安全/RTL 规则（UnspecifiedImmutableFlag PendingIntent 可变标志 / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded）——全仓库零命中直接冻结；性能预算 7 → 9 行（Journey 365 天完整 UI 状态装配 assembleJourneyUiState 全链 <2000ms、Derived Pattern 1000 条派生 <1000ms，均取最优 3 次防退化语义不变）
 - **§22 文档真值 + Provider 传输安全复核轮**：ADR 补录 055（UI 状态提升 + 槽位组合 smoke test 模式——三大世界根页面收敛与动画宿主构造隔离决策）/ 056（backend mypy strict 冻结：ignore_missing_imports=false + 89 处裸泛型精确化）/ 057（detekt 27 规则 + lint 安全规则 + 性能预算 9 行固化）；docs/current 事实表对齐（ADR 001~057 / 九行预算表 / ERA 30-39 质量门禁深化）；**Provider 传输安全复核**：TLS 路径确认平台默认证书校验（无自定义 TrustManager/hostname 绕过）+ **发现并修复公网 172.x 明文洞**——旧 `http://172.` 前缀误放行公网段（172.217.x）致 API Key 明文出网，改按 RFC 1918 精确判定（172.16/12），+2 用例锁定边界（内网放行/公网拒绝）
+- **CI 工作流参数复核轮**：五 workflow 逐条对照本地门禁——backend-ci / security-ci Python **3.13 → 3.12**（对齐 CLEAN_ROOM_REPRODUCTION.md 与 uv.lock 解析环境，消除 frozen 解析漂移风险）；security-ci 补 sdkmanager 显式安装 platform 36 + build-tools 36.0.0（与 android-ci 同构，不依赖 gradle 自动下载的隐性授权路径）；release-closure 终态门禁补 `test_source_archive.py`（§107 分布完整性负例套件进入同一 atomic run——此前仅 source-integrity 覆盖且 tag push 不触发）；verify_workflow_pins 66 uses 全 SHA 门禁复核 PASS
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -123,4 +124,4 @@
 
 ## Next Highest-value Task
 
-CI 工作流参数复核（android-ci/release-closure 与本地门禁对齐：任务参数、超时、缓存策略、backend uv --frozen 路径逐条对照）；随后 backend 安全复核（审计链/token 权限边界）或性能基准真机数字由 CI connected-test 补采。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+backend 安全复核（审计链 verify_audit_chain / token 权限边界 / 激活码与订阅端点速率限制逐条复核 + 契约测试补缺）；随后性能基准真机数字由 CI connected-test 补采。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

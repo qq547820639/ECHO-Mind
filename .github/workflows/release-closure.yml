@@ -142,12 +142,13 @@ jobs:
           REUSE_REPORT=1 python3 scripts/update_release_metadata.py
       - name: BUILD_PROVENANCE（root APK 绑定 + signing stage/scheme；§15 禁 dirty release）
         run: python3 scripts/generate_provenance.py --require-clean
-      - name: final release package + §18 终态门禁 + §94 release set 完整性
+      - name: final release package + §18 终态门禁 + §94/§107 release set 与分布完整性
         run: |
           python3 scripts/build_final_package.py --out-dir releases
           python3 scripts/verify_final_package.py "releases/ECHO_Mind_v${VERSION}.release.zip"
           pip install pytest
           python3 -m pytest scripts/test_release_set.py -q
+          python3 -m pytest scripts/test_source_archive.py -q
           python3 -m pytest scripts/test_affective_eval.py -q
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
