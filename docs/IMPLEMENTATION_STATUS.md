@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**性能基线补齐轮完成 ✅（Presence 装配 + Context 编译入 JVM 防退化门禁；osv-scanner 本地安装确认被网络阻断）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
+**CI 锁定执行轮完成 ✅（backend-ci/release-closure 改 uv --frozen 锁定安装执行 + workflow YAML 门禁 + §22 文档真值对齐）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -63,6 +63,7 @@
 - **依赖审计本地化轮**：scripts/audit_dependencies.py（uv.lock → uv export → pip-audit OSV + osv-scanner 本地可选/CI 强制；入 release_preflight + security-ci 同构）；首跑命中并修复 cryptography 漏洞链（46.0.7 → 48.0.1 → 49.0.0 三级串联 → pin `>=50,<51`，uv.lock 重解析 + venv 重同步 + 全量测试复核）；backend 6 用例日期边界 flaky 修复（weekend 桶播种不足 + test_messages 固定日期过期——e2e `_seed_history` 双桶各 ≥7 日 + messages 实时今天；与 cryptography 升级无关已交叉验证）
 - **收尾轮**：backend 测试时长优化（`_seed_history` 每日窗口 120→80，覆盖 0.28 安全边际；全量 2:52 → **1:52**，e2e+messages 17 用例 2:18 → 1:36，断言语义不变）；osv-scanner 本地化尝试（GitHub release-assets 网络超时——本地如实 NOT RUN 豁免，security-ci 强制执行不变）
 - **性能基线补齐轮**：PerformanceBaselineTest 增 Presence 装配全链（200 次 <2s）与 Context 编译（500 证据 ×20 次 <2s，含禁止数据剔除路径）——PART PERFORMANCE 的 JVM 可代表项全部有防退化预算；PERFORMANCE_BASELINES.md 六行预算表
+- **CI 锁定执行轮**：backend-ci/release-closure 全部 backend 步骤改 uv --frozen 锁定安装 + uv run 执行（安装即漂移门禁，替代 uv lock --check；本地同路径预演通过）；verify_workflow_pins.py 增 YAML 结构校验；§22 文档真值（ADR 计数 047、Android 单测 617 与 main 对齐）
 
 ## In Progress
 

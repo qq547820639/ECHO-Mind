@@ -23,6 +23,15 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 def check_file(path: Path) -> list[str]:
     problems = []
+    # 结构校验：YAML 必须可解析（防手改 workflow 引入语法错误）
+    try:
+        import yaml  # noqa: PLC0415
+
+        with open(path, encoding="utf-8") as fh:
+            yaml.safe_load(fh)
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"{path.name}: YAML 解析失败：{exc}")
+        return problems
     for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         m = USE_RE.match(line)
         if not m:

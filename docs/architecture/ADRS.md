@@ -429,3 +429,12 @@
   2. osv-scanner 本地化：官方 darwin_arm64 二进制下载（GitHub release 网络超时重试 + 断点续传）；失败则如实保持 audit_dependencies.py 的 NOT RUN 豁免（security-ci 强制执行不变）。
 - **理由**：测试时长是 CI 反馈速度与开发迭代成本；审计工具本地化让「CI 通过」可在本地预演。
 - **后果**：backend-ci 全量 ~2 分钟内回到基线水平；osv 全仓本地首跑结果待网络可用后记录。
+
+## ADR-048：CI 锁定依赖执行 + workflow 结构门禁 + 文档真值（§96 收尾 / §22）
+
+- **决策**：
+  1. backend-ci 与 release-closure 全部 backend 步骤改为 **uv 锁定执行**：`pip install uv` → `uv sync --project backend --extra dev --frozen`（安装即漂移门禁：pyproject 与 uv.lock 不一致即失败，替代原 `uv lock --check`）+ `uv run --project backend --directory backend …` 执行 ruff/mypy/pytest/alembic/静态检查/OpenAPI——CI 与本地同一锁定环境（本地已按同路径预演通过）。
+  2. `verify_workflow_pins.py` 增 YAML 结构校验（手改 workflow 的语法错误在本地/CI 即断；5 个 workflow 全部解析通过）。
+  3. 文档真值（§22）：README/权威文档的 ADR 计数（020/023/024 → 047）与 Android 单测计数（613 → 617）与当前 main 对齐；历史条目（v1/v2 时代的 ADR-001~024）保留为史实不做伪更新。
+- **理由**：§96 的「dependency lock state」只有在 CI 与本地都从锁执行时才成立；文档真值必须与当前可交付 main 一致（§110 禁文档完成主义）。
+- **后果**：CI 不再从版本范围安装（锁定执行）；未来升级依赖 = 改 pyproject → `uv lock` → 提交 → CI --frozen 验证。

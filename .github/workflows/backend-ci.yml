@@ -17,13 +17,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
-      - name: uv.lock drift gate（ERA 18 §96：backend 依赖锁定一致性）
-        run: |
-          pip install uv
-          uv lock --project backend --check
-      - run: cd backend && ruff check app tests
-      - run: cd backend && mypy app
+      - run: pip install uv
+      - name: uv sync --frozen（ERA 25：锁定依赖安装 + uv.lock 漂移门禁合一）
+        run: uv sync --project backend --extra dev --frozen
+      - run: uv run --project backend --directory backend ruff check app tests
+      - run: uv run --project backend --directory backend mypy app
 
   test-sqlite:
     name: test (SQLite 默认路径)
@@ -33,8 +31,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
-      - run: cd backend && pytest -q
+      - run: pip install uv
+      - run: uv sync --project backend --extra dev --frozen
+      - run: uv run --project backend --directory backend pytest -q
 
   test-postgres:
     name: test (PostgreSQL 16) + coverage
@@ -60,9 +59,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
+      - run: pip install uv
+      - run: uv sync --project backend --extra dev --frozen
       # 跳过 sqlite_only 用例（conftest 根据 DATABASE_URL 自动 skip）；覆盖阈值见 coverage baseline
-      - run: cd backend && pytest -q -m "not sqlite_only" --cov=app --cov-report=term-missing --cov-fail-under=70
+      - run: uv run --project backend --directory backend pytest -q -m "not sqlite_only" --cov=app --cov-report=term-missing --cov-fail-under=70
 
   alembic-postgres:
     name: alembic round-trip (PostgreSQL 16)
@@ -88,10 +88,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
-      - run: cd backend && alembic upgrade head
-      - run: cd backend && alembic downgrade base
-      - run: cd backend && alembic upgrade head
+      - run: pip install uv
+      - run: uv sync --project backend --extra dev --frozen
+      - run: uv run --project backend --directory backend alembic upgrade head
+      - run: uv run --project backend --directory backend alembic downgrade base
+      - run: uv run --project backend --directory backend alembic upgrade head
 
   static-checks:
     name: static checks (content / claims / dynamic code / safety eval)
@@ -101,11 +102,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
-      - run: python scripts/validate_content_packs.py
-      - run: python scripts/claim_scan.py
-      - run: python scripts/check_dynamic_code.py
-      - run: python scripts/safety_eval.py
+      - run: pip install uv
+      - run: uv sync --project backend --extra dev --frozen
+      - run: uv run --project backend python scripts/validate_content_packs.py
+      - run: uv run --project backend python scripts/claim_scan.py
+      - run: uv run --project backend python scripts/check_dynamic_code.py
+      - run: uv run --project backend python scripts/safety_eval.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: api-and-safety-reports
@@ -122,8 +124,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.13"}
-      - run: pip install -e 'backend[dev]'
-      - run: cd backend && python scripts/export_openapi.py
+      - run: pip install uv
+      - run: uv sync --project backend --extra dev --frozen
+      - run: uv run --project backend --directory backend python scripts/export_openapi.py
       - run: git diff --exit-code docs/openapi.json
 
   contract-drift:
