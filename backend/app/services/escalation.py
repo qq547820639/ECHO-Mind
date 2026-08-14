@@ -12,9 +12,9 @@ audit events; ack_at / takeover_at / status change exclusively through the
 explicit ack/takeover endpoints. The scan is idempotent: each tier is guarded
 by its own timestamp and fires at most once.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -23,6 +23,36 @@ from app.services.audit import append_audit
 from typing import Any
 
 CLOSED_STATUSES = ("closed", "reviewed")
+
+#: ERA 42 安全复核：支持请求创建频率上限（每用户每小时）。
+#: 红色信号触发（危机/主动求助）豁免——429 永不阻断危机信号；幂等重放不计入窗口。
+ESCALATION_CREATE_LIMIT_MAX = 20
+ESCALATION_CREATE_LIMIT_WINDOW = timedelta(hours=1)
+ESCALATION_CREATE_EXEMPT_TRIGGERS = frozenset({
+    "l0_current_danger",
+    "help_requested",
+    "text_red_signal",
+    "journal_red_signal",
+    "phq9_item9_positive",
+})
+
+
+def count_recent_escalations(
+    db: Session,
+    *,
+    tenant_id: str,
+    user_id: str,
+    now: datetime | None = None,
+) -> int:
+    """窗口内该用户已创建的支持请求数（与激活码防爆破同款 SQL 窗口模式）。"""
+    cutoff = (now or datetime.now(timezone.utc)) - ESCALATION_CREATE_LIMIT_WINDOW
+    return db.scalar(
+        select(func.count()).select_from(Escalation).where(
+            Escalation.tenant_id == tenant_id,
+            Escalation.user_id == user_id,
+            Escalation.opened_at >= cutoff,
+        )
+    ) or 0
 
 
 def _age_seconds(opened_at: datetime, now: datetime) -> float:

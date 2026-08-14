@@ -28,7 +28,12 @@ from app.config import get_settings
 from app.models import EmergencyContact, Escalation, User
 from app.schemas import EscalationClose, EscalationCreate, EscalationReview
 from app.services.audit import append_audit
-from app.services.escalation import scan_sla_breaches
+from app.services.escalation import (
+    ESCALATION_CREATE_EXEMPT_TRIGGERS,
+    ESCALATION_CREATE_LIMIT_MAX,
+    count_recent_escalations,
+    scan_sla_breaches,
+)
 
 from app.api.deps import (
     DB,
@@ -73,6 +78,25 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL) -
     ))
     if existing:
         return {"id": existing.id, "status": existing.status, "idempotent_replay": True}
+    # ERA 42 安全复核：支持请求创建频率上限（防支持刷屏/值班疲劳）。
+    # 红色信号触发豁免——429 永不阻断危机信号；幂等重放已在上面短路，不计入窗口。
+    if payload.trigger not in ESCALATION_CREATE_EXEMPT_TRIGGERS:
+        recent = count_recent_escalations(
+            db, tenant_id=principal.tenant_id, user_id=payload.user_id
+        )
+        if recent >= ESCALATION_CREATE_LIMIT_MAX:
+            append_audit(
+                db,
+                tenant_id=principal.tenant_id,
+                actor_type=principal.role,
+                actor_id=principal.subject,
+                action="escalation.rate_limited",
+                object_type="escalation",
+                object_id=payload.user_id,
+                metadata={"trigger": payload.trigger, "window_recent": recent},
+            )
+            db.commit()
+            raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试")
     row = open_escalation(
         db,
         tenant_id=principal.tenant_id,
