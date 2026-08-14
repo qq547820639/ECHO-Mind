@@ -19,13 +19,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import DailyNarrative, DerivedFeature, UserProfile, utcnow
+from app.schemas import DerivedFeatureIn
 
 #: 画像聚合窗口：近 N 天叙事 + 派生特征
 PROFILE_WINDOW_DAYS = 7
 
 
 def ingest_feature(
-    db: Session, *, tenant_id: str, user_id: str, feature
+    db: Session, *, tenant_id: str, user_id: str, feature: DerivedFeatureIn
 ) -> tuple[DerivedFeature, bool]:
     """幂等入库派生特征。返回 (row, idempotent_replay)。"""
     existing = db.scalar(select(DerivedFeature).where(

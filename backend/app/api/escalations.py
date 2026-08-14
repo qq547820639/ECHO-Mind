@@ -57,7 +57,7 @@ def _age_seconds(opened_at: datetime, now: datetime) -> float:
 
 
 @router.post("/escalations")
-def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL):
+def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL) -> dict:
     """用户/服务端创建升级事件（幂等：同 tenant+event_id 返回既有记录）。
 
     用户侧调用链（v0.6.1 客户端闭环）：Android Outbox → POST /v1/escalations；
@@ -96,7 +96,7 @@ def list_escalations(
     assigned_to: str | None = Query(default=None),
     limit: int = Query(50, ge=1, le=200),
     cursor: str | None = Query(default=None, description="opaque cursor（X-Next-Cursor 响应头回填）"),
-):
+) -> list[dict[str, int | str | datetime | bool | None]]:
     """机构工作台队列：cursor 分页 + 过滤（v0.6.1）。
 
     **契约保持**：响应体仍为数组（与 v0.6 一致）；分页元数据放在响应头
@@ -190,7 +190,7 @@ def escalation_metrics(
     principal: Annotated[Principal, Depends(require_roles(
         "professional", "admin", "auditor", "quality_reviewer", "security_auditor",
     ))],
-):
+) -> dict:
     """聚合指标（v0.6.2 起延迟为真实百分位）。
 
     - 状态分布 / 总数在数据库聚合；
@@ -277,7 +277,7 @@ def escalation_metrics(
 def sla_scan(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("on_call", "admin"))],
-):
+) -> dict:
     """运维定时触发的 SLA 扫描：推进未确认红色事件的自动升级链路（幂等）。"""
     summary = scan_sla_breaches(db, tenant_id=principal.tenant_id, actor_id=principal.subject)
     append_audit(
@@ -304,7 +304,7 @@ def escalation_detail(
     escalation_id: str,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles(*WORKBENCH_ROLES))],
-):
+) -> dict:
     row = get_escalation(db, principal, escalation_id)
     require_step_up(db, principal, object_type="escalation", object_id=row.id)
     return {
@@ -343,7 +343,7 @@ def escalation_user_status(
     escalation_id: str,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("user", "on_call", "professional", "admin"))],
-):
+) -> dict:
     """用户侧状态查询：只暴露送达确认与接管状态，不暴露内部升级细节。
 
     human_acknowledged 仅由显式 ack/takeover 决定；系统通知（notified_*）与
@@ -364,7 +364,7 @@ def escalation_user_status(
 
 
 @router.get("/escalations/{escalation_id}/case-review")
-def escalation_case_review(escalation_id: str, db: DB, principal: PRINCIPAL):
+def escalation_case_review(escalation_id: str, db: DB, principal: PRINCIPAL) -> dict:
     """个案复核证据链视图（仅复核类角色 + step-up）。"""
     row = get_escalation(db, principal, escalation_id)
     if principal.role not in CASE_REVIEW_ROLES:
@@ -526,7 +526,7 @@ def ack_escalation(
     escalation_id: str,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("on_call", "professional", "admin"))],
-):
+) -> dict:
     row = get_escalation(db, principal, escalation_id)
     if row.status in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="already closed")
@@ -546,7 +546,7 @@ def takeover(
     escalation_id: str,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("on_call", "professional", "admin"))],
-):
+) -> dict:
     row = get_escalation(db, principal, escalation_id)
     if row.status in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="already closed")
@@ -581,7 +581,7 @@ def close_escalation(
     payload: EscalationClose,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("professional", "admin"))],
-):
+) -> dict:
     row = get_escalation(db, principal, escalation_id)
     if row.takeover_at is None:
         raise HTTPException(status_code=409, detail="takeover required before close")
@@ -609,7 +609,7 @@ def review_escalation(
     payload: EscalationReview,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("professional", "admin"))],
-):
+) -> dict:
     row = get_escalation(db, principal, escalation_id)
     if row.status not in {"closed", "reviewed"}:
         raise HTTPException(status_code=409, detail="close required before review")

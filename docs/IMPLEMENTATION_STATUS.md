@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**安全覆盖补缺轮完成 ✅（Kotlin SAST 落地 + release 门禁补缺 + README 真值）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
+**backend 类型收紧轮完成 ✅（mypy disallow_untyped_defs=true：84 错误 → 0 + Pydantic bool 强转契约修复）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -66,6 +66,7 @@
 - **CI 锁定执行轮**：backend-ci/release-closure 全部 backend 步骤改 uv --frozen 锁定安装 + uv run 执行（安装即漂移门禁，替代 uv lock --check；本地同路径预演通过）；verify_workflow_pins.py 增 YAML 结构校验；§22 文档真值（ADR 计数 047、Android 单测 617 与 main 对齐）
 - **Runtime 六态收尾轮**：§101 computeEchoRuntimeHealth 纯函数化（sensing 六态 → 组件聚合 / presence / intelligence / memory）+ EchoRuntimeHealthTest 5 用例；PerformanceBaselineTest 增首帧计算 1000 次 <2s（七行预算表）；dependabot backend 生态 pip → uv（升级 PR 自动更新 pyproject + uv.lock）；osv-scanner 第五次下载仍被网络阻断（exit 16，CI 强制）
 - **安全覆盖补缺轮**：security-ci CodeQL 扩 java-kotlin（manual build + Android SDK + compileDebugKotlin 提取，P2 落地；超时 60min）；release-closure 包内门禁补 pip install pytest（修潜伏失败）并追加 affective 评估 9 用例；README 计数 623 对齐
+- **backend 类型收紧轮**：mypy `disallow_untyped_defs=true`（84 → 0，22 文件全标注：路由真实契约类型 + 410 路由 -> None + 辅助参数）；过程中契约测试抓获 Pydantic 响应校验 bool→int 强转（list_escalations chain_broken/delivery_confirmed 0/1 化）——联合并入 bool 修复（教训：路由注解改变序列化语义，须跑契约测试）；backend 1070 passed + 1 skipped / ruff 0 / mypy 0
 
 ## In Progress
 

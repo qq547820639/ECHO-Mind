@@ -37,7 +37,7 @@ def get_daily_narrative(
     date: date_cls | None = Query(default=None),
     from_: date_cls | None = Query(default=None, alias="from"),
     to: date_cls | None = Query(default=None),
-):
+) -> dict:
     """只读叙事查询：GET 不写库、不读时生成。
 
     - ``date`` 单日查询（向后兼容），缺失返回 404；

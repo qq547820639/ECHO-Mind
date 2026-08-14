@@ -30,6 +30,8 @@ from app.services.baseline.day_type import bucket_for_date
 from app.services.portrait.engine import baseline_digest, generate_portrait
 
 from app.api.deps import DB, PRINCIPAL, ensure_user
+from sqlalchemy.orm import Session
+from app.auth import Principal
 
 router = APIRouter(prefix="/v1")
 
@@ -55,7 +57,7 @@ def _portrait_out(row: DailyPortrait) -> dict:
     }
 
 
-def _lightweight_status(db, *, tenant_id: str, user_id: str, tz_name: str, today: date_cls) -> dict:
+def _lightweight_status(db: Session, *, tenant_id: str, user_id: str, tz_name: str, today: date_cls) -> dict:
     """只读计算轻量状态视图（绝不写库）。
 
     返回 dict（BaselineStatusOut 形状）供 GET /portraits/today 与 GET /baseline/status 使用。
@@ -81,8 +83,8 @@ def _lightweight_status(db, *, tenant_id: str, user_id: str, tz_name: str, today
     if baseline_row is not None:
         valid_days = baseline_row.valid_days
         version = baseline_row.baseline_version
-        window_start = baseline_row.window_start
-        window_end = baseline_row.window_end
+        window_start: date_cls | None = baseline_row.window_start
+        window_end: date_cls | None = baseline_row.window_end
         bucket_usage = baseline_row.bucket
         baseline_snapshot_digest = baseline_digest(baseline_row.metrics)
     else:
@@ -117,12 +119,12 @@ def _lightweight_status(db, *, tenant_id: str, user_id: str, tz_name: str, today
     }
 
 
-def _resolve_user(db, principal, user_id: str) -> User:
+def _resolve_user(db: Session, principal: Principal, user_id: str) -> User:
     """租户隔离 + 授权校验后返回用户（ensure_user 已含 tenant/role/status 校验）。"""
     return ensure_user(db, principal, user_id)
 
 
-def _get_today_portrait(db, principal, user_id: str) -> PortraitOut:
+def _get_today_portrait(db: Session, principal: Principal, user_id: str) -> PortraitOut:
     """只读：今日画像。已生成返回完整；否则返回轻量状态视图（不写库）。"""
     user = _resolve_user(db, principal, user_id)
     tz_name = user.timezone or "Asia/Shanghai"
@@ -148,7 +150,7 @@ def _get_today_portrait(db, principal, user_id: str) -> PortraitOut:
     )
 
 
-def _list_portraits(db, principal, user_id: str, days: int) -> PortraitListOut:
+def _list_portraits(db: Session, principal: Principal, user_id: str, days: int) -> PortraitListOut:
     """只读：最近 N 天画像列表（按 local_date 升序，含 coverage）。"""
     user = _resolve_user(db, principal, user_id)
     tz_name = user.timezone or "Asia/Shanghai"
@@ -167,7 +169,7 @@ def _list_portraits(db, principal, user_id: str, days: int) -> PortraitListOut:
     )
 
 
-def _baseline_status(db, principal, user_id: str) -> BaselineStatusOut:
+def _baseline_status(db: Session, principal: Principal, user_id: str) -> BaselineStatusOut:
     """只读：基线状态（绝不 rebuild / 写库）。"""
     user = _resolve_user(db, principal, user_id)
     tz_name = user.timezone or "Asia/Shanghai"
@@ -185,7 +187,7 @@ def _baseline_status(db, principal, user_id: str) -> BaselineStatusOut:
     )
 
 
-def _record_portrait_feedback(db, principal, payload: PortraitFeedbackIn) -> dict:
+def _record_portrait_feedback(db: Session, principal: Principal, payload: PortraitFeedbackIn) -> dict:
     """写路径：记录当前用户画像反馈（幂等 tenant+event_id，重复返回 idempotent_replay）。
 
     - user 由 principal.subject 确定（body 里的 user_id 被忽略，绝不信任）；
@@ -216,7 +218,7 @@ def _record_portrait_feedback(db, principal, payload: PortraitFeedbackIn) -> dic
     return {"id": row.id, "idempotent_replay": False}
 
 
-def _rebuild_portrait(db, principal, user_id: str, local_date: date_cls | None = None) -> PortraitOut:
+def _rebuild_portrait(db: Session, principal: Principal, user_id: str, local_date: date_cls | None = None) -> PortraitOut:
     """显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。"""
     user = _resolve_user(db, principal, user_id)
     tz_name = user.timezone or "Asia/Shanghai"
@@ -231,7 +233,7 @@ def _rebuild_portrait(db, principal, user_id: str, local_date: date_cls | None =
 
 
 @router.get("/portraits/today")
-def get_today_portrait(user_id: str, db: DB, principal: PRINCIPAL):
+def get_today_portrait(user_id: str, db: DB, principal: PRINCIPAL) -> PortraitOut:
     """只读：今日画像。已生成返回完整；否则返回轻量状态视图（不写库）。"""
     return _get_today_portrait(db, principal, user_id)
 
@@ -254,7 +256,7 @@ def baseline_status(user_id: str, db: DB, principal: PRINCIPAL) -> BaselineStatu
 
 
 @router.post("/portraits/rebuild")
-def rebuild_portrait(payload: PortraitRebuildIn, db: DB, principal: PRINCIPAL):
+def rebuild_portrait(payload: PortraitRebuildIn, db: DB, principal: PRINCIPAL) -> PortraitOut:
     """显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。"""
     return _rebuild_portrait(db, principal, payload.user_id, payload.local_date)
 
@@ -263,7 +265,7 @@ def rebuild_portrait(payload: PortraitRebuildIn, db: DB, principal: PRINCIPAL):
 
 
 @router.get("/me/portraits/today")
-def get_me_today_portrait(db: DB, principal: PRINCIPAL):
+def get_me_today_portrait(db: DB, principal: PRINCIPAL) -> PortraitOut:
     """只读：当前用户（principal.subject）今日画像。已生成返回完整；否则轻量状态视图。"""
     return _get_today_portrait(db, principal, principal.subject)
 
@@ -285,13 +287,13 @@ def me_baseline_status(db: DB, principal: PRINCIPAL) -> BaselineStatusOut:
 
 
 @router.post("/me/portraits/rebuild")
-def rebuild_me_portrait(payload: MePortraitRebuildIn, db: DB, principal: PRINCIPAL):
+def rebuild_me_portrait(payload: MePortraitRebuildIn, db: DB, principal: PRINCIPAL) -> PortraitOut:
     """显式重建当前用户（principal.subject）当日画像；body 不接收 user_id。"""
     return _rebuild_portrait(db, principal, principal.subject, payload.local_date)
 
 
 @router.post("/me/portraits/feedback")
-def record_me_portrait_feedback(payload: PortraitFeedbackIn, db: DB, principal: PRINCIPAL):
+def record_me_portrait_feedback(payload: PortraitFeedbackIn, db: DB, principal: PRINCIPAL) -> dict:
     """记录当前用户（principal.subject）画像反馈；body 里的 user_id 被忽略。"""
     return _record_portrait_feedback(db, principal, payload)
 

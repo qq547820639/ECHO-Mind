@@ -6,6 +6,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import get_settings
+from collections.abc import Callable
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -89,7 +90,7 @@ def get_principal(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token") from exc
 
 
-def require_roles(*roles: str):
+def require_roles(*roles: str) -> Callable[..., Principal]:
     def dependency(principal: Annotated[Principal, Depends(get_principal)]) -> Principal:
         if principal.role not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient role")

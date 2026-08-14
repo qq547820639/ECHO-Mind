@@ -21,7 +21,7 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/me/messages")
-def me_messages(db: DB, principal: PRINCIPAL):
+def me_messages(db: DB, principal: PRINCIPAL) -> dict:
     user: User = ensure_user(db, principal, principal.subject)
     tz_name = user.timezone or "Asia/Shanghai"
     today = datetime.now(UTC).astimezone(ZoneInfo(tz_name)).date()

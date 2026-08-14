@@ -465,3 +465,11 @@
   2. docs/current/README.md 真值对齐（ERA 12.8-18 完成 + Affective 预备冻结、ADR-001~050、新架构文档/CLEAN_ROOM/PERFORMANCE_BASELINES/AI_EVAL/双锁回填）；Phase9 安全供应链文档回填 Kotlin SAST 与锁定审计。
 - **理由**：§8 复跑协议需要一个零外部依赖的自检入口；§22 文档只描述当前 main 已存在能力。
 - **后果**：release-closure 的 affective 9 用例随每次发布链路运行；mock 自检可在任何 clean runner 复跑。
+
+## ADR-052：backend mypy 收紧（disallow_untyped_defs=true，84 → 0）
+
+- **决策**：
+  1. `pyproject.toml` 启用 `disallow_untyped_defs = true`（原注释标注的下一步）：84 个未标注函数逐一补齐——路由返回类型按真实契约标注（dict / list[dict[...]] / PortraitOut / ActivationCodeIssueOut / SandboxRunOut / OnboardingVerifyOut…）；410 停用路由标注 `-> None`（恒 raise）；内部辅助参数（Session/Principal/flush_context/instances/**fields）补齐。
+  2. 过程暴露 1 个真实行为差异：`list_escalations` 加 `-> list[dict[str, int | str | datetime | None]]` 后，Pydantic 响应校验把 dict 值中的 bool 沿 int 分支强转为 0/1（`chain_broken`/`delivery_confirmed` 契约破坏，workbench 契约测试抓获）→ 联合类型并入 `bool` 修复。**教训：给路由加响应注解会改变序列化语义，必须跑契约测试而非只跑 mypy。**
+- **理由**：全量类型标注让未标注函数成为 CI 阻断项；响应注解 = 响应契约的运行时强制。
+- **后果**：backend mypy 门禁更严；未来新函数未标注即 CI 红。

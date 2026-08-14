@@ -19,7 +19,7 @@ router = APIRouter(prefix="/v1")
 
 
 @router.post("/onboarding/consents")
-def create_consent(payload: ConsentCreate, db: DB, principal: PRINCIPAL):
+def create_consent(payload: ConsentCreate, db: DB, principal: PRINCIPAL) -> dict:
     require_write_role(db, principal, object_type="consent")
     ensure_user(db, principal, payload.user_id)
     now = datetime.now(UTC)
@@ -49,7 +49,7 @@ def create_consent(payload: ConsentCreate, db: DB, principal: PRINCIPAL):
 
 
 @router.get("/onboarding/consents/latest")
-def get_latest_consents(user_id: str, db: DB, principal: PRINCIPAL):
+def get_latest_consents(user_id: str, db: DB, principal: PRINCIPAL) -> dict:
     ensure_user(db, principal, user_id)
     rows = db.scalars(select(Consent).where(
         Consent.tenant_id == principal.tenant_id,

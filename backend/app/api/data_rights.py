@@ -40,6 +40,7 @@ from app.schemas import DataSubjectRequestComplete, DataSubjectRequestCreate
 from app.services.audit import append_audit
 
 from app.api.deps import DB, PRINCIPAL, ensure_user, require_write_role
+from datetime import datetime
 
 router = APIRouter(prefix="/v1")
 
@@ -137,7 +138,7 @@ def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, 
 
 
 @router.post("/data-subject-requests")
-def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL):
+def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL) -> dict:
     require_write_role(db, principal, object_type="data_subject_request")
     ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(DataSubjectRequest).where(
@@ -170,7 +171,7 @@ def list_dsr(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin", "auditor"))],
     status: str | None = None,
-):
+) -> list[dict[str, str | datetime | None]]:
     query = select(DataSubjectRequest).where(DataSubjectRequest.tenant_id == principal.tenant_id)
     if status:
         query = query.where(DataSubjectRequest.status == status)
@@ -191,7 +192,7 @@ def complete_dsr(
     payload: DataSubjectRequestComplete,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-):
+) -> dict:
     row = db.get(DataSubjectRequest, request_id)
     if not row or row.tenant_id != principal.tenant_id:
         raise HTTPException(status_code=404, detail="not found")

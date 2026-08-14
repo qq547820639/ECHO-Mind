@@ -20,6 +20,7 @@ from app.services.audit import append_audit
 from app.services.sandbox import schedule_sandbox_run
 
 from app.api.deps import DB, PRINCIPAL, ensure_user, require_feature_flag
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/v1")
 
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/v1")
 _SANDBOX_RATE_WINDOW_SECONDS = 3600.0
 
 
-def _check_sandbox_concurrency(db, tenant_id: str) -> bool:
+def _check_sandbox_concurrency(db: Session, tenant_id: str) -> bool:
     """调度期快速失败：租户当前 running 数是否低于并发上限（执行期由槽保证）。"""
     from app.config import get_settings
 
@@ -40,7 +41,7 @@ def _check_sandbox_concurrency(db, tenant_id: str) -> bool:
     return (running or 0) < get_settings().sandbox_max_concurrent
 
 
-def _check_sandbox_rate(db, tenant_id: str, user_id: str) -> bool:
+def _check_sandbox_rate(db: Session, tenant_id: str, user_id: str) -> bool:
     """租户+用户最近 1 小时创建的 run 数是否低于速率上限。"""
     from app.config import get_settings
 
@@ -77,7 +78,7 @@ def schedule_sandbox(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin", "professional"))],
     _flag: Annotated[None, Depends(require_feature_flag("sandbox_enabled"))],
-):
+) -> SandboxRunOut:
     """触发一次自进化沙箱运行（幂等：同 tenant+user+date 返回同一记录）。
 
     并发配额：调度期 running 计数快速失败 + 执行期原子租户槽（双保险）。
@@ -116,7 +117,7 @@ def get_sandbox_run(
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("sandbox_enabled"))],
-):
+) -> SandboxRunOut:
     """查询单个沙箱运行记录。受 ensure_user 校验目标用户归属。"""
     run = db.get(SandboxRun, run_id)
     if not run or run.tenant_id != principal.tenant_id:

@@ -38,7 +38,7 @@ def ingest_derived_feature(
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("passive_sensing_enabled"))],
-):
+) -> dict:
     from fastapi import HTTPException as _HTTPException
     from app.services.telemetry import log_feature_ingest_reject, count_event
 

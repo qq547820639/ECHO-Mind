@@ -23,6 +23,7 @@ from app.database import get_db
 from app.models import Consent, Escalation, OnboardingScreening, User
 from app.schemas import OnboardingVerifyOut
 from app.services.audit import append_audit
+from collections.abc import Callable
 
 DB = Annotated[Session, Depends(get_db)]
 PRINCIPAL = Annotated[Principal, Depends(get_principal)]
@@ -131,7 +132,7 @@ def require_voice_features_consent(db: Session, principal: Principal, user_id: s
         raise HTTPException(status_code=412, detail="active voice-features consent required")
 
 
-def require_feature_flag(flag_key: str):
+def require_feature_flag(flag_key: str) -> Callable[..., None]:
     """灰度回滚：FastAPI 依赖工厂，校验当前租户某 feature flag 是否开启。
 
     关闭则返回 410 Gone（与路由层 idempotent 410 语义一致）。

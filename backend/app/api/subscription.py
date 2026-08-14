@@ -16,6 +16,6 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/me/subscription")
-def me_subscription(db: DB, principal: PRINCIPAL):
+def me_subscription(db: DB, principal: PRINCIPAL) -> dict:
     user: User = ensure_user(db, principal, principal.subject)
     return subscription_status(user)

@@ -12,6 +12,7 @@ from sqlalchemy import event, inspect
 from sqlalchemy.orm import Session
 
 from app.models import AuditEvent, Escalation, RiskSignal
+from typing import Any
 
 APPEND_ONLY_MODELS = (AuditEvent, RiskSignal)
 PROTECTED_MODELS = (AuditEvent, RiskSignal, Escalation)
@@ -58,7 +59,7 @@ def _changed_columns(obj: object) -> set[str]:
     }
 
 
-def _guard_before_flush(session: Session, flush_context, instances) -> None:
+def _guard_before_flush(session: Session, flush_context: Any, instances: Any) -> None:
     for obj in session.deleted:
         if isinstance(obj, PROTECTED_MODELS):
             raise ImmutableRecordError(

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from typing import Any
 
 logger = logging.getLogger("echo_mind.telemetry")
 
@@ -20,7 +21,7 @@ logger = logging.getLogger("echo_mind.telemetry")
 _FIELD_ORDER = ("ts", "level", "event", "request_id", "method", "path", "status", "duration_ms")
 
 
-def _emit(event: str, **fields) -> None:
+def _emit(event: str, **fields: Any) -> None:
     record: dict[str, object] = {"ts": _now_iso(), "level": "info", "event": event}
     for key in _FIELD_ORDER:
         if key in fields and fields[key] is not None:

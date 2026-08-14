@@ -41,7 +41,7 @@ def create_tenant(
     payload: TenantCreate,
     db: DB,
     x_bootstrap_key: Annotated[str | None, Header()] = None,
-):
+) -> dict:
     from app.config import get_settings
 
     if x_bootstrap_key != get_settings().bootstrap_key:
@@ -54,7 +54,7 @@ def create_tenant(
 
 
 @router.post("/users")
-def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL):
+def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL) -> dict:
     if principal.role not in {"admin", "professional"}:
         raise HTTPException(status_code=403, detail="insufficient role")
     user = User(
@@ -85,7 +85,7 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL):
 
 
 @router.post("/onboarding/l0")
-def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL):
+def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL) -> dict:
     require_write_role(db, principal, object_type="onboarding_screening")
     user = ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(OnboardingScreening).where(
@@ -137,7 +137,7 @@ def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL):
 
 
 @router.post("/onboarding/emergency-contact")
-def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal: PRINCIPAL):
+def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal: PRINCIPAL) -> dict:
     require_write_role(db, principal, object_type="emergency_contact")
     ensure_user(db, principal, payload.user_id)
     consent = latest_consent(db, principal.tenant_id, payload.user_id, "emergency_contact")
@@ -166,7 +166,7 @@ def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal:
 
 
 @router.post("/onboarding/verify-code", response_model=OnboardingVerifyOut)
-def verify_onboarding_code(payload: OnboardingVerifyIn, db: DB, request: Request):
+def verify_onboarding_code(payload: OnboardingVerifyIn, db: DB, request: Request) -> OnboardingVerifyOut:
     """激活码交换（v0.6.1）：预认证薄路由，供端侧激活使用。
 
     主路径：机构激活码（ActivationCode）——哈希存储 / TTL / 一次性消费 /

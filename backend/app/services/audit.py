@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditEvent
 from app.request_context import get_current_request_id
+from typing import Any
 
 #: per-tenant 线程锁（SQLite 测试环境回退路径）；PostgreSQL 使用 advisory xact lock。
 #: 使用 RLock 以便 tenant_append_serialized 上下文与 append_audit 内部可嵌套获取。
@@ -54,7 +55,7 @@ def _is_postgres(db: Session) -> bool:
     return db.get_bind().dialect.name == "postgresql"
 
 
-def _canonical_payload(event: AuditEvent | None = None, **kwargs) -> dict:
+def _canonical_payload(event: AuditEvent | None = None, **kwargs: Any) -> dict:
     if event is not None:
         return {
             "event_id": event.event_id,

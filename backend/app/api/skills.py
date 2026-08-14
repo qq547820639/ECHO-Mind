@@ -66,7 +66,7 @@ def list_skills(
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
     user_id: str | None = Query(default=None),
-):
+) -> dict:
     """用户拉取已 signed 的 Skill 列表（脱敏后下发；draft/reviewed/retired 不下发）。"""
     target_user_id = user_id or principal.subject
     target_user = ensure_user(db, principal, target_user_id)
@@ -118,7 +118,7 @@ def get_skill(
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
-):
+) -> dict:
     """用户拉取单个 Skill 详情（脱敏后下发；signed-only + action_type 白名单）。"""
     row = _get_owned_skill(db, principal, skill_id)
     ensure_user(db, principal, row.user_id)
@@ -147,7 +147,7 @@ def create_skill_completion(
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("skills_delivery_enabled"))],
-):
+) -> dict:
     """Skill 执行完成/停止上报（幂等：同 tenant+event_id 返回同一记录）。
 
     - 校验 skill 属于当前用户且 status=='signed'
@@ -197,7 +197,7 @@ def transition_skill(
     payload: SkillTransition,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin", "professional"))],
-):
+) -> dict:
     """Skill 治理状态机转换：draft→reviewed→signed→retired（不能跳级、不能逆转）。
 
     转入 signed 时（PRD 契约点 5）必须提供 policy_version 与 review_evidence（缺失 → 422）；

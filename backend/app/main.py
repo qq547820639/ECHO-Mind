@@ -15,6 +15,8 @@ from app.database import Base, SessionLocal, engine
 from app.request_context import current_request_id
 from app.services import immutability  # noqa: F401  registers the append-only ORM guard
 from app.services.telemetry import log_request
+from collections.abc import AsyncIterator
+from starlette.middleware.base import RequestResponseEndpoint
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -22,7 +24,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Local/demo convenience. Pilot/production deployment must use Alembic migrations instead.
     if settings.environment == "local":
         Base.metadata.create_all(bind=engine)
@@ -47,7 +49,7 @@ app.include_router(router)
 
 
 @app.middleware("http")
-async def request_context_and_security_headers(request: Request, call_next):
+async def request_context_and_security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
     request_id = request.headers.get("x-request-id") or f"req_{uuid4().hex}"
     request.state.request_id = request_id
     token = current_request_id.set(request_id)
@@ -77,12 +79,12 @@ async def request_context_and_security_headers(request: Request, call_next):
 
 
 @app.get("/health")
-def health():
+def health() -> dict:
     return {"status": "ok", "service": "echo-mind-path-a", "version": APP_VERSION, "environment": settings.environment}
 
 
 @app.get("/ready")
-def ready(response: Response):
+def ready(response: Response) -> dict:
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
@@ -93,5 +95,5 @@ def ready(response: Response):
 
 
 @app.get("/console", response_class=HTMLResponse)
-def console(request: Request):
+def console(request: Request) -> Response:
     return TEMPLATES.TemplateResponse(request=request, name="console.html", context={"version": APP_VERSION})

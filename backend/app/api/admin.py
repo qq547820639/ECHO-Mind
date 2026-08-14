@@ -35,7 +35,7 @@ def audit_events(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("auditor", "admin", "security_auditor"))],
     limit: int = Query(100, ge=1, le=1000),
-):
+) -> list[dict[str, datetime | str | None]]:
     rows = db.scalars(select(AuditEvent).where(
         AuditEvent.tenant_id == principal.tenant_id,
     ).order_by(AuditEvent.occurred_at.desc()).limit(limit)).all()
@@ -56,12 +56,12 @@ def audit_events(
 def audit_verify(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("auditor", "admin", "security_auditor"))],
-):
+) -> dict:
     return verify_audit_chain(db, principal.tenant_id)
 
 
 @router.get("/config/flags")
-def get_config_flags(db: DB, principal: PRINCIPAL):
+def get_config_flags(db: DB, principal: PRINCIPAL) -> dict:
     """用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。"""
     return get_tenant_flags(db, principal.tenant_id)
 
@@ -71,7 +71,7 @@ def update_tenant_flags(
     payload: TenantFlagUpdate,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-):
+) -> dict:
     """admin 修改本租户的 feature flag（灰度回滚入口）。"""
     try:
         updated = set_tenant_flag(db, principal.tenant_id, payload.flag_key, payload.value)
@@ -95,7 +95,7 @@ def update_tenant_flags(
 def tenant_portrait(
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin", "professional", "auditor"))],
-):
+) -> dict:
     """机构去标识群体画像（小桶 <5 suppression；不返回单个用户 ID/特征）。"""
     portrait = build_tenant_portrait(db, principal.tenant_id)
     append_audit(
@@ -116,7 +116,7 @@ def issue_activation_code(
     payload: ActivationCodeCreate,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-):
+) -> ActivationCodeIssueOut:
     """admin 签发激活码：明文码仅在响应中出现一次；数据库只存 SHA-256 哈希。"""
     if payload.user_id is not None:
         ensure_user(db, principal, payload.user_id)
@@ -156,7 +156,7 @@ def list_activation_codes(
     principal: Annotated[Principal, Depends(require_roles("admin"))],
     limit: int = Query(100, ge=1, le=500),
     include_consumed: bool = Query(default=False),
-):
+) -> list[ActivationCodeOut]:
     """admin 查看本租户激活码（不含明文；已消费码默认隐藏）。"""
     from app.models import ActivationCode as ActivationCodeModel
     from app.services.activation import _is_expired
@@ -191,7 +191,7 @@ def revoke_activation_code(
     code_id: str,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-):
+) -> dict:
     """admin 吊销激活码（幂等：已吊销重复调用返回同一结果）。"""
     from app.models import ActivationCode as ActivationCodeModel
 
@@ -220,7 +220,7 @@ def batch_retire_skills(
     payload: SkillBatchRetire,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-):
+) -> dict:
     """admin 批量回滚 Skill（仅本租户受影响；已 retired 幂等跳过）。"""
     from app.models import Skill
 
