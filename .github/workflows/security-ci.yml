@@ -45,7 +45,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       # Python 依赖审计：pip-audit（backend/pyproject.toml 为 PEP 621 依赖清单）
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install pip-audit
       - run: pip-audit -r backend/pyproject.toml

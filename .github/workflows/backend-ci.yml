@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: cd backend && ruff check app tests
@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: cd backend && pytest -q
@@ -55,7 +55,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/echo
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       # 跳过 sqlite_only 用例（conftest 根据 DATABASE_URL 自动 skip）；覆盖阈值见 coverage baseline
@@ -83,7 +83,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/echo
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: cd backend && alembic upgrade head
@@ -96,7 +96,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: python scripts/validate_content_packs.py
@@ -117,7 +117,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: pip install -e 'backend[dev]'
       - run: cd backend && python scripts/export_openapi.py
@@ -129,7 +129,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4 # TODO(T03): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(T03): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(T03): pin to commit SHA
         with: {python-version: "3.13"}
       - run: python scripts/contract_drift_check.py
       - run: python scripts/fault_injection_check.py

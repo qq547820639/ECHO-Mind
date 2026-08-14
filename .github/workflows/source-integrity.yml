@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
-      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v7 # TODO(ERA17): pin to commit SHA
         with: {python-version: "3.12"}
       - name: python syntax check of integrity scripts
         run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py
