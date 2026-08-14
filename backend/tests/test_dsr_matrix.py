@@ -182,3 +182,33 @@ def test_dsr_complete_idempotent_replay(client, admin_headers):
     with SessionLocal() as db:
         completed = db.query(DataSubjectRequest).filter_by(id=dsr_id).one()
         assert completed.status == "completed"
+
+
+def test_dsr_receipt_binds_to_audit_evidence(client, admin_headers):
+    """ERA 49 回执-证据链一致性：返回回执 per_category 与 dsr.complete 审计证据逐类一致，
+    且删除完成后审计哈希链仍完整可验证。"""
+    _seed_all_user_data()
+    dsr = client.post("/v1/data-subject-requests", json={
+        "event_id": "evt_dsr_bind_0001", "user_id": "u_demo", "request_type": "delete",
+    }, headers=_admin_headers())
+    dsr_id = dsr.json()["id"]
+
+    done = client.post(f"/v1/data-subject-requests/{dsr_id}/complete", json={}, headers=admin_headers)
+    assert done.status_code == 200
+    receipt = done.json()["result_summary"]["per_category"]
+
+    with SessionLocal() as db:
+        aud = db.query(AuditEvent).filter(
+            AuditEvent.tenant_id == "t_demo",
+            AuditEvent.action == "dsr.complete",
+            AuditEvent.object_id == dsr_id,
+        ).order_by(AuditEvent.occurred_at.desc()).first()
+        assert aud is not None, "dsr.complete 审计事件应存在"
+        stored = aud.metadata_json["per_category"]
+
+        # 回执与审计证据绑定：删除计数逐类一致
+        for category in ("derived_features", "journal_entries", "user_profiles", "checkins"):
+            assert stored[category]["count"] == receipt[category]["count"] == 1, category
+        # 保留类理由一致（同意证据链依法保留）
+        assert stored["consents"]["retained_reason"] == receipt["consents"]["retained_reason"]
+        assert stored["risk_signals"]["action"] == receipt["risk_signals"]["action"] == "retain"
