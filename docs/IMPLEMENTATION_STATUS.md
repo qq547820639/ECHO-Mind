@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**backend mypy strict 轮完成 ✅（ignore_missing_imports 盲区消除 + 89 处裸泛型精确化 + strict 全家桶冻结）→ 下一轮：detekt/lint 扩围 probe→clear→freeze / EchoScene·Why 页 smoke tests / Affective 评审等待**
+**ECHO 世界 smoke tests 轮完成 ✅（Why/Status/Conversation/Portrait 四组件 30 渲染用例——ECHO 世界首个 UI 渲染基线）→ 下一轮：EchoSceneScreen 顶层状态提升（slot 化）+ detekt 扩围 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**687 unit tests 全绿**（ERA 33 Me smoke tests +51：MeScreenContent 根组合矩阵 7 + DataAndSensing 12 + Presence 6 + Intelligence 5 + WhatEchoKnows 7 + Subscription 7 + SubscriptionViewModel 7——Robolectric + Compose 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**717 unit tests 全绿**（ERA 35 ECHO 世界 smoke tests +30：EchoWhyLayer 8（Progressive Explanation 三层：一句话/AI 依据行/展开事实卡/Journey 入口）+ EchoStatusOverlay 6（感知六态可信呈现 + AI 提示卡）+ EchoConversationLayer 7（问答渲染/依据双清单/像我·不太像反馈流/阶段禁用态/发送事件）+ EchoPortraitStates 9（summary/基线进度/覆盖度/解锁仪式一次性语义）——Robolectric + Compose 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -72,6 +72,7 @@
 - **Compose UI smoke tests 轮**：UI 层首个真渲染测试基建——compose-ui-test-junit4 + ui-test-manifest（BOM 管理版本）入版本目录 + :app；JourneyScreen 状态提升为薄包装 + `JourneyScreenContent`（state-in / event-out，纯 JourneyUiState 渲染，架构 §27 不变）；JourneyScreenSmokeTest 9 用例（免责声明/六态分支/尺度选择事件/单日历史重建事件/Evidence 折叠事件——含 merged semantics 与 performScrollTo 视口外点击两项真实发现）+ SupportSectionSmokeTest 3 用例（回调/空清单/状态行/未知回退）；app gradle.lockfile 重写同步（espresso 传递闭包）；backend/scripts/verify_audit.py E401 顺手修复（`ruff check .` 全树 0）——UI 层从此有渲染防回归基线
 - **MeScreen 状态提升 + Me smoke tests 轮**：Me 六分区全部 state-in / event-out——`MeScreenContent`（九槽位组合矩阵：crisis/subscription/support/data/presence/intelligence/memory/about）+ `DataAndSensingContent`（平台权限编排留在调用侧：onToggleSensing 通知预检回调/onLaunchMicPermission/恢复深链回调）+ `PresenceSettingsContent` + `IntelligenceSettingsContent` + `WhatEchoKnowsContent` + `SubscriptionContent`；**§31 收口**：新增 `SubscriptionViewModel`（旧 SubscriptionSection 直接在 Composable 内调 onboardingRepository/featureFlagRepository/SyncWorker——依赖全部构造注入，7 用例单测无 AppContainer）；新增 51 渲染/业务用例（+7 根组合矩阵）——Me 世界从此有渲染防回归基线
 - **backend mypy strict 轮**：`ignore_missing_imports = true → false` 探测——全部依赖自带类型，零豁免（passlib 豁免为死配置已删）；`mypy --strict` 89 处误差（86 裸 dict + 1 裸 list + 2 no-any-return）脚本化行级修复：dimensions 桶统计精确为 `dict[str, float]`（顺带消除 2 处 Any 回传）、baseline_metrics 精确为 `dict[str, dict[str, float]]`、安全鸭子特征 `list[Any]`、其余路由/服务 JSON 载荷 `dict[str, Any]`（28 文件补 Any import）；配置冻结为 `strict = true`——新增代码裸泛型 / 未标注函数 / 未使用 ignore = CI 红；pytest 1070 全绿证无行为漂移
+- **ECHO 世界 smoke tests 轮**：ECHO 世界首个 UI 渲染基线（+30 用例）——EchoWhyLayerSmokeTest 8（§9 Progressive Explanation 三层全链路：一句话/AI 依据行/确定性隐藏依据/展开·收起事实卡/空事实占位/Journey 入口回调）、EchoStatusOverlaySmokeTest 6（感知六态可信呈现：非 ACTIVE 才可见 + 初次 AI 提示卡三态）、EchoConversationLayerSmokeTest 7（问答渲染/依据双清单「参考了·没有使用」/像我即时记录/不太像→原因 chips 强制/非 IDLE 禁用态/发送清空事件）、EchoPortraitStatesSmokeTest 9（summary 空态/基线进度文案/覆盖度百分比与隐藏/解锁仪式一次性 consume 语义）——ECHO 三大世界 UI 渲染基线自此齐备（Journey 9 + Me 51 + ECHO 30）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -117,4 +118,4 @@
 
 ## Next Highest-value Task
 
-detekt/lint 下一轮 probe→clear→freeze 扩围（规则候选探测轮全绿后固化）；EchoScene/Why 页 Compose smoke tests 补全（ECHO 世界 UI 渲染基线）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+EchoSceneScreen 顶层状态提升（六流 + 容器依赖 slot 化 → `EchoSceneContent` 状态矩阵 smoke test，覆盖九态分支/反馈行/行动覆盖层）；随后 detekt 下一轮 probe→clear→freeze 扩围。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
