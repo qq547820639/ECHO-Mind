@@ -24,13 +24,13 @@ import com.yunjue.echo.mind.data.SyncStateRepository
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.EchoContextRetriever
 import com.yunjue.echo.mind.intelligence.ReasoningTaskId
+import com.yunjue.echo.mind.journey.buildJourneyDays
+import com.yunjue.echo.mind.journey.buildJourneyPeriods
+import com.yunjue.echo.mind.journey.JourneyDay
+import com.yunjue.echo.mind.journey.JourneyPeriod
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyScale
-import com.yunjue.echo.mind.journey.journeyAggregateParams
 import com.yunjue.echo.mind.journey.journeyChunkDays
-import com.yunjue.echo.mind.journey.journeyGroups
-import com.yunjue.echo.mind.journey.journeyThumbnailFrame
-import com.yunjue.echo.mind.journey.journeyWeekGroups
 import com.yunjue.echo.mind.journey.journeyWindowDays
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
@@ -252,27 +252,6 @@ internal fun journeySeed(preferences: AppPreferences): Long =
     preferences.userId.fold(0L) { acc, c -> acc * 31L + c.code }
 
 /**
- * v3 §23 过渡：旧 TrendScreen 委托到 JourneyScreen；所有 route 迁移完成后删除。
- */
-@Deprecated("use JourneyScreen", level = DeprecationLevel.WARNING)
-@Composable
-fun TrendScreen(
-    portraitRepository: PortraitRepository,
-    syncStateRepository: SyncStateRepository,
-    featureFlagRepository: FeatureFlagRepository,
-    memoryRepository: MemoryRepository,
-    aiNarrativeService: AiNarrativeService,
-    contextRetriever: EchoContextRetriever,
-    preferences: AppPreferences,
-    onGoToSupport: () -> Unit = {},
-) {
-    JourneyScreen(
-        portraitRepository, syncStateRepository, featureFlagRepository,
-        memoryRepository, aiNarrativeService, contextRetriever, preferences, onGoToSupport,
-    )
-}
-
-/**
  * v3 §26 — Journey 主体：视觉记忆河流（第一视觉）→ 长期叙事（AI → 确定性综述 fallback）→
  * 「查看依据」Evidence Layer（定量图表降级到第二层，不在第一视觉）。
  */
@@ -289,9 +268,11 @@ private fun JourneyContent(
     portraitFeedback: (String) -> Boolean?,
 ) {
     val portraits = timeline.portraits
+    // v3.1 §26：领域装配一次（JourneyDay + 视觉参数），UI 只渲染
+    val days = buildJourneyDays(portraits)
 
     // 1. 视觉记忆河流（第一视觉）
-    VisualMemoryRiver(scale = scale, portraits = portraits, seed = seed, portraitFeedback = portraitFeedback)
+    VisualMemoryRiver(scale = scale, days = days, seed = seed, portraitFeedback = portraitFeedback)
 
     // 2. 长期叙事（变化发生在叙事里，图表只是依据）
     narrative?.let { n ->
@@ -334,21 +315,21 @@ private fun dataSourceLabelForJourney(category: com.yunjue.echo.mind.intelligenc
 @Composable
 private fun VisualMemoryRiver(
     scale: JourneyScale,
-    portraits: List<DailyPortraitDto>,
+    days: List<JourneyDay>,
     seed: Long,
     portraitFeedback: (String) -> Boolean?,
 ) {
     when (scale) {
         JourneyScale.DAY -> {
-            val days = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
+            val lastDays = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             ) {
-                days.forEach { day ->
-                    val portrait = portraits.firstOrNull { it.date == day.toString() }
+                lastDays.forEach { day ->
+                    val journeyDay = days.firstOrNull { it.date == day.toString() }
                     JourneyThumbCell(
-                        portrait = portrait,
+                        journeyDay = journeyDay,
                         seed = seed,
                         label = "${day.monthValue}/${day.dayOfMonth}",
                         mark = portraitFeedback(day.toString())?.let { if (it) "✓" else "✗" } ?: " ",
@@ -358,14 +339,14 @@ private fun VisualMemoryRiver(
             Text("✓ 你觉得像 · ✗ 你觉得不太像", style = MaterialTheme.typography.labelSmall)
         }
         JourneyScale.WEEK -> {
-            val groups = journeyWeekGroups(portraits)
+            val periods = buildJourneyPeriods(days, 7)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             ) {
-                groups.forEachIndexed { index, group ->
+                periods.forEachIndexed { index, period ->
                     JourneyAggregateCell(
-                        portraits = group,
+                        period = period,
                         seed = seed,
                         label = "第 ${index + 1} 周",
                     )
@@ -373,19 +354,19 @@ private fun VisualMemoryRiver(
             }
         }
         JourneyScale.MONTH, JourneyScale.SEASON, JourneyScale.YEAR -> {
-            val groups = journeyGroups(portraits, journeyChunkDays(scale))
+            val periods = buildJourneyPeriods(days, journeyChunkDays(scale))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             ) {
-                groups.forEachIndexed { index, group ->
-                    val span = group.firstOrNull()?.date?.take(7) ?: ""
-                    val last = group.lastOrNull()?.date?.take(7) ?: ""
+                periods.forEachIndexed { index, period ->
+                    val span = period.days.firstOrNull()?.date?.take(7) ?: ""
+                    val last = period.days.lastOrNull()?.date?.take(7) ?: ""
                     JourneyAggregateCell(
-                        portraits = group,
+                        period = period,
                         seed = seed,
                         label = if (span.isNotBlank()) "${span}…${last}" else "第 ${index + 1} 段",
-                        large = scale == JourneyScale.MONTH && groups.size == 1,
+                        large = scale == JourneyScale.MONTH && periods.size == 1,
                     )
                 }
             }
@@ -396,7 +377,7 @@ private fun VisualMemoryRiver(
 /** 单日视觉记忆单元（CANONICAL_SNAPSHOT；无数据日 = 弥散占位，不编造）。 */
 @Composable
 private fun JourneyThumbCell(
-    portrait: DailyPortraitDto?,
+    journeyDay: JourneyDay?,
     seed: Long,
     label: String,
     mark: String,
@@ -404,7 +385,9 @@ private fun JourneyThumbCell(
     val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(Modifier.size(52.dp)) {
-            val frame = journeyThumbnailFrame(portrait, seed, this.size.width, this.size.height)
+            val frame = journeyDay?.visualParams?.let {
+                computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
+            }
             if (frame != null) {
                 drawEchoFrame(frame)
             } else {
@@ -420,10 +403,10 @@ private fun JourneyThumbCell(
     }
 }
 
-/** 周/月聚合帧（视觉逐渐聚合，不是折线图）。 */
+/** 周/月聚合帧（视觉逐渐聚合，不是折线图；参数由 JourneyPeriod 预装配）。 */
 @Composable
 private fun JourneyAggregateCell(
-    portraits: List<DailyPortraitDto>,
+    period: JourneyPeriod,
     seed: Long,
     label: String,
     large: Boolean = false,
@@ -432,8 +415,7 @@ private fun JourneyAggregateCell(
     val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(Modifier.size(cellSize)) {
-            val params = journeyAggregateParams(portraits)
-            val frame = params?.let {
+            val frame = period.aggregateParams?.let {
                 computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
             }
             if (frame != null) {

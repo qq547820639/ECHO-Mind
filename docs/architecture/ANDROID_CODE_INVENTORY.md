@@ -13,13 +13,13 @@
 | `ui/EchoSceneUiState.kt`（ui/echo/） | 单一 UI 状态 + 纯函数装配 | 扩展为 §12 结构（headline/why/conversation/actions/intelligence 子状态） | echo | NEW_CORE | — |
 | `ui/EchoSceneRenderers.kt` | 帧模型渲染适配（Compose + Canvas） | 并入 ui/echo/components/EchoVisualSurface 或独立 renderer 文件 | presence | NEW_CORE | — |
 | `ui/EchoActionOverlay.kt` | Scene 内呼吸/暂停覆盖层 | ui/echo/actions/EchoActionHost + EchoActionRuntime | actions | MIGRATING | 本轮迁入 actions runtime |
-| `ui/TrendScreen.kt`（689 行） | Journey 世界（视觉记忆河流 + 叙事） | `ui/journey/JourneyScreen.kt` + JourneyUiState；旧 TrendScreen 变 @Deprecated 委托后删除 | journey | MIGRATING | **本轮迁移**；TrendScreen 删除条件 = 所有 route 指向 JourneyScreen |
-| `ui/SupportScreen.kt`（982 行） | Me 世界全部内容 | `ui/me/MeScreen.kt` + 子领域（Intelligence/Presence/WhatEchoKnows/DataAndSensing/Support 各独立文件）；SupportScreen 只剩真正支持内容后更名 | me | MIGRATING | **下轮拆分**；SupportScreen 删除条件 = 各子领域迁出完成 |
+| ~~`ui/TrendScreen.kt`~~ | — | `ui/journey/JourneyScreen.kt`（唯一实现）+ `ui/JourneyState.kt`（纯状态函数） | journey | **DELETED** | ✅ ERA 12 已删除（含 @Deprecated 委托）；JourneyDomain 独立装配 |
+| ~~`ui/SupportScreen.kt`~~ | — | `ui/me/MeScreen.kt`（根页面）+ 六子领域（Subscription/Support/DataAndSensing/Presence/Intelligence/WhatEchoKnows）；真正支持内容 = `ui/me/SupportSection.kt` | me | **DELETED** | ✅ ERA 12 已删除；测试锚点函数迁 `ui/MeSupportHelpers.kt` |
 | `ui/OnboardingScreen.kt` | 三步 onboarding + Awakening | 保持（app 领域） | app | NEW_CORE | — |
 | `ui/SkillCardHost.kt` | Skill 卡片 + rememberSkillList（Scene「更多能力（订阅）」分区用） | 订阅能力宿主；SkillListScreen 已删除 | actions/me | LEGACY | 移除条件 = 订阅能力迁移到 Actions runtime 或保留为 Me 子领域（ADR 裁决） |
 | `ui/SkillActionRenderers.kt` | Skill 动作渲染器 | 同上 | actions | LEGACY | 随 SkillCardHost 一并处置 |
 | `ui/SafetyScreen.kt` | 危机入口页 | 全局安全入口（不属于任何 tab） | app | NEW_CORE | — |
-| `ui/LegacyScreens.kt` | 3 个停用文案常量（单测锚点） | 保持常量锚点 | infra | LEGACY | 移除条件 = DeprecatedInputRemovalTest 更新后删除 |
+| ~~`ui/LegacyScreens.kt`~~ | — | `DeprecatedInputRemovalTest` source-scan 断言（写路径/定位词不存在） | infra | **DELETED** | ✅ ERA 12 已删除 |
 
 ## 2. 领域层
 

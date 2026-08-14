@@ -5,8 +5,8 @@
 
 ## Current Era
 
-**ERA 12 — Consolidation 完成 ✅**（批次 1 + 批次 2 全部落地）
-下一步：ERA 13 — Architectural Modularity（依赖图已收口，可开始 Gradle 物理模块化）。
+**ERA 12 — Consolidation 完成 ✅（v3.1 收尾核查通过）**
+下一步：ERA 13 — Physical Modularization（ANDROID_DEPENDENCY_GRAPH 已输出，第一个拆分候选 :feature:presence）。
 
 ## Current Product Surface
 
@@ -31,14 +31,14 @@
 
 | 模块 | 分类 | 处置 |
 |---|---|---|
-| `ui/journey/JourneyScreen.kt` 内 `@Deprecated TrendScreen` 委托 | DELETE_CANDIDATE | 无任何 route 调用（EchoMindApp 已指向 JourneyScreen）→ 下一轮删除 |
-| `ui/SkillCardHost.kt` + `SkillActionRenderers.kt` | LEGACY | ECHO Scene「更多能力（订阅）」分区使用；去留随订阅能力演进裁决 |
-| `ui/LegacyScreens.kt`（3 常量） | LEGACY | DeprecatedInputRemovalTest 锚点；随测试更新删除 |
+| ~~TrendScreen @Deprecated 委托~~ | **deleted** | ✅ v3.1 收尾已删除（无调用方） |
+| `ui/SkillCardHost.kt` + `SkillActionRenderers.kt` | KEEP_AS_CONTENT | 订阅能力内容（SKILLS_TO_ACTIONS.md 已裁决）；不再增长新逻辑 |
+| ~~LegacyScreens.kt~~ | **deleted** | ✅ 已删除；DeprecatedInputRemovalTest 改 source-scan 断言 |
 | backend 410 存根 | keep | 机构历史只读（最终决策） |
 
 ## Tests / Build
 
-- Android：**454 tests 全绿**（含 5 项架构边界测试）；assembleDebug/lint/detekt 全 PASS
+- Android：**458 tests 全绿**（含 5 项架构边界 + JourneyDomain 4 + DeprecatedInputRemoval 3 source-scan）；assembleDebug/lint/detekt 全 PASS
 - backend：1070 passed + 1 skipped（本轮未动 backend）
 
 ## Next Highest-Value Task
