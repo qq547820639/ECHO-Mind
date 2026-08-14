@@ -136,25 +136,10 @@ data class EchoPresenceState(
  * ERA 1：内存态 + publish/clear；ERA 2：挂接 AmbientEngine 写入，
  * 并落盘最近一版快照（进程死亡后 Wallpaper 恢复用）。
  */
-class EchoStateStore : com.yunjue.echo.mind.ports.PresenceSnapshotStore {
-    private val _state = MutableStateFlow<EchoPresenceState?>(null)
-
-    /** 当前状态流；null = 尚未发布过任何状态（消费者显示中性占位，禁止编造）。 */
-    override val state: StateFlow<EchoPresenceState?> = _state
-
-    override fun publish(state: EchoPresenceState) {
-        _state.value = state
-    }
-
-    override fun clear() {
-        _state.value = null
-    }
-}
-
 // ===== Day-0 SEED 文案（单测锚点；UI 层不得另行硬编码） =====
 
-internal const val PRESENCE_COPY_SEED_TITLE = "初见"
-internal const val PRESENCE_COPY_SEED_BODY = "今天是 ECHO 开始了解你的第一天。"
+const val PRESENCE_COPY_SEED_TITLE = "初见"
+const val PRESENCE_COPY_SEED_BODY = "今天是 ECHO 开始了解你的第一天。"
 
 /**
  * Day-0 存在性状态句（「已观察 N 分钟」，分钟数 clamp ≥ 0）。

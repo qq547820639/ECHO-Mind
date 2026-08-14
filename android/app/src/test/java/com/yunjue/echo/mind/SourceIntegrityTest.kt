@@ -28,6 +28,9 @@ class SourceIntegrityTest {
         File("../core/model/src/main/java/com/yunjue/echo/mind"),
         File("../feature/memory/src/main/java/com/yunjue/echo/mind"),
         File("../feature/observation/src/main/java/com/yunjue/echo/mind"),
+        File("../feature/presence/src/main/java/com/yunjue/echo/mind"),
+        File("../core/ports/src/main/java/com/yunjue/echo/mind"),
+        File("../feature/intelligence/src/main/java/com/yunjue/echo/mind"),
     )
 
     private fun allKotlinFiles(): List<File> =

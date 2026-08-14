@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model + :feature:memory + :feature:observation）→ 下一轮 :feature:intelligence（依赖 :core:model + ports 迁移）**
+**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（8/9：剩 :feature:journey）→ 完成后进入 ERA 14（ECHO Long-term Identity）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**488 unit tests 全绿**（Journey 13 + Me 7 + 边界 3）；lintDebug / detekt / assembleRelease PASS（多模块聚合：app + :feature:actions + :core:security；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**488 unit tests 全绿**；lintDebug / detekt / assembleRelease PASS（多模块聚合：app + 八模块；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -47,11 +47,12 @@
 - **ERA 13.5 第一批模块**：:feature:actions + :core:security（零依赖叶子）；扫描器四件套多根化；detekt 共享配置
 - **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）
 - **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）
-- **ERA 13.5 第四批模块**：:feature:observation（16 文件：sensing 纯逻辑 11 + localportrait 引擎 5，依赖仅 :core:model + coroutines + androidx.core）；PassiveSensingService/MicCollector 留 :app（平台组件）；MicDerivedFeatureSource 契约下沉模块；Ground Truth API 公开化（internal → public ×11 文件 + 成员级）；Manifest 组件检查多根化；488 tests 全绿（app + 五模块聚合构建）
+- **ERA 13.5 第四批模块**：:feature:observation（16 文件）；平台组件留 :app；MicDerivedFeatureSource 契约下沉；Ground Truth API 公开化；Manifest 组件检查多根化
+- **ERA 13.5 第五批模块**（依赖序一次拆解 ×3）：:feature:presence（5 文件 + compose；EchoStateStore 抽出留 :app；Wallpaper/Dream 服务留 :app）+ :core:ports（3 端口文件，契约层）+ :feature:intelligence（13 文件，无 ui/data 依赖）；488 tests 全绿（app + 八模块聚合构建）
 
 ## In Progress
 
-- ERA 13.5 Physical Gradle Modularization：第五批 :feature:intelligence（依赖 :core:model；ports 迁移需同步）→ 之后 :feature:presence / :feature:journey
+- ERA 13.5 Physical Gradle Modularization：最后一批 :feature:journey（journey 域 + 应用层 JourneyRepository 归属裁决）→ 之后 ERA 14 ECHO Long-term Identity（§52-§61）
 
 ## Blocked
 

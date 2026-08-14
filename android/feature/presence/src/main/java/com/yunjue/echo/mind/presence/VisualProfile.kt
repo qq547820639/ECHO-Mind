@@ -36,7 +36,7 @@ data class EchoVisualParameters(
 )
 
 /** 成熟度 → 核心开放度（SEED 闭合的芽 → MATURE 完整开放）。 */
-internal fun maturityOpenness(maturity: EchoMaturity): Float = when (maturity) {
+fun maturityOpenness(maturity: EchoMaturity): Float = when (maturity) {
     EchoMaturity.SEED -> 0.15f
     EchoMaturity.DISCOVERING -> 0.3f
     EchoMaturity.EMERGING -> 0.5f
@@ -142,7 +142,7 @@ data class EchoSceneFrame(
 )
 
 /** 确定性伪随机（LCG，seed + 序号 → 0..1；保证同一 identity/day/state 画面可复现）。 */
-internal fun sceneRandom(seed: Long, index: Int): Float {
+fun sceneRandom(seed: Long, index: Int): Float {
     var x = (seed xor (index.toLong() shl 32)) and 0x7FFFFFFF
     if (x == 0L) x = 1L
     x = (x * 48271L) % 2147483647L
@@ -150,7 +150,7 @@ internal fun sceneRandom(seed: Long, index: Int): Float {
 }
 
 /** hue(0..1)/sat/value → ARGB Int（视觉主色由 Identity Genome 决定，非状态决定）。 */
-internal fun hsvToArgb(hue: Float, saturation: Float, value: Float, alpha: Float = 1f): Int {
+fun hsvToArgb(hue: Float, saturation: Float, value: Float, alpha: Float = 1f): Int {
     val h = ((hue % 1f) + 1f) % 1f
     val s = saturation.coerceIn(0f, 1f)
     val v = value.coerceIn(0f, 1f)

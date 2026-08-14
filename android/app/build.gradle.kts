@@ -102,6 +102,9 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":feature:memory"))
     implementation(project(":feature:observation"))
+    implementation(project(":feature:presence"))
+    implementation(project(":core:ports"))
+    implementation(project(":feature:intelligence"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

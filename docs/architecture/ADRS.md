@@ -281,3 +281,13 @@
   5. 扫描器四件套登记 :feature:observation 模块根。
 - **理由**：observation 是 §51 边界核心（Ground Truth 独立）；物理化后 :app 无法再让 Ground Truth 反向依赖 data/intelligence。
 - **后果**：:feature:observation 不含任何 data/intelligence/ui 依赖（编译器强制）；下一批 :feature:intelligence（依赖 :core:model + ports 迁移）。
+
+## ADR-034：ERA 13.5 第五批模块（:feature:presence + :core:ports + :feature:intelligence 依赖链一次拆解）
+
+- **决策**（§50 每次一个；本批因 ports 环依赖按依赖序三个连续拆解，各自 move→compile→fix）：
+  1. **:feature:presence**：presence 纯域（EchoPresenceState/AmbientEngine/EchoPresenceCodec/EchoSceneRenderers/VisualProfile）；依赖 :feature:observation + compose（runtime/foundation/ui + BOM）；EchoStateStore 类自 EchoPresenceState.kt 抽出留 :app（进程级快照存储 = Application 基础设施，实现 ports.PresenceSnapshotStore）；EchoWallpaperService/EchoDreamService 留 :app（依赖 root AppPreferences 的平台服务）；
+  2. **:core:ports**：三个端口文件迁入；依赖 :core:model + :feature:memory + :feature:presence（契约层引用领域词表，无实现循环）；
+  3. **:feature:intelligence**：13 文件全迁；依赖 :core:model + :core:security + :core:ports + :feature:memory + coroutines（org.json/HttpURLConnection 为 Android SDK 提供）；
+  4. 扫描器四件套登记三模块根；presence API internal → public（AmbientEngine/maturityOpenness/PRESENCE_COPY_*）。
+- **理由**：ports 引用 presence 类型、intelligence 引用 ports——依赖序 presence → ports → intelligence 是唯一无环拆解顺序。
+- **后果**：§51 边界物理化：intelligence 模块内无 ui/data 依赖（编译器强制）；模块版图 8/9（剩 :feature:journey）；ERA 13.5 完成后进入 ERA 14（ECHO Long-term Identity）。

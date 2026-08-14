@@ -56,7 +56,7 @@ data class AmbientResult(
     val coverage: Float,
 )
 
-internal object AmbientEngine {
+object AmbientEngine {
 
     /** UNKNOWN 门槛：当日覆盖度低于此值不判断。 */
     const val MIN_COVERAGE_FOR_STATE = 0.1f
@@ -168,7 +168,7 @@ internal object AmbientEngine {
     }
 
     /** 圆周差：结果在 [-720, 720)（分钟），跨午夜正确。 */
-    internal fun circularDiff(valueMinutes: Double, referenceMinutes: Double): Double {
+    fun circularDiff(valueMinutes: Double, referenceMinutes: Double): Double {
         val diff = ((valueMinutes - referenceMinutes + 720.0) % 1440.0 + 1440.0) % 1440.0 - 720.0
         return if (diff <= -720.0) diff + 1440.0 else diff
     }
