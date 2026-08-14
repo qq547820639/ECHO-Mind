@@ -23,6 +23,11 @@ CI 无 git 时 `unknown`）、`BUILD_TIMESTAMP`（HEAD 提交时间 ISO；发布
 `-PECHO_BUILD_TIMESTAMP` 显式注入）。Me → About 展示三要素（`BuildInfoTest` 断言
 格式与无敏感 CI 信息）。
 
+**绑定不变式（ERA 18 实测）**：APK 内嵌 `GIT_COMMIT` == `BUILD_PROVENANCE.git_commit`。
+因此 release 构建必须发生在 feat 提交之后、provenance chore 提交之前（本仓库固定流程：
+feat 提交 → 全量 gate（含 assembleRelease）→ 签名 → provenance → package → chore 提交）。
+在 feat 提交前构建会产生「APK 内嵌旧 commit ≠ provenance」的漂移，属发布阻断项。
+
 ## 3. 复现步骤（clean checkout → 产物链）
 
 ```bash
