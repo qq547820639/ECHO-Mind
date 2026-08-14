@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**CI 锁定执行轮完成 ✅（backend-ci/release-closure 改 uv --frozen 锁定安装执行 + workflow YAML 门禁 + §22 文档真值对齐）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
+**Runtime 六态收尾轮完成 ✅（§101 六态矩阵测试 + 首帧基准 + dependabot uv 生态）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -64,6 +64,7 @@
 - **收尾轮**：backend 测试时长优化（`_seed_history` 每日窗口 120→80，覆盖 0.28 安全边际；全量 2:52 → **1:52**，e2e+messages 17 用例 2:18 → 1:36，断言语义不变）；osv-scanner 本地化尝试（GitHub release-assets 网络超时——本地如实 NOT RUN 豁免，security-ci 强制执行不变）
 - **性能基线补齐轮**：PerformanceBaselineTest 增 Presence 装配全链（200 次 <2s）与 Context 编译（500 证据 ×20 次 <2s，含禁止数据剔除路径）——PART PERFORMANCE 的 JVM 可代表项全部有防退化预算；PERFORMANCE_BASELINES.md 六行预算表
 - **CI 锁定执行轮**：backend-ci/release-closure 全部 backend 步骤改 uv --frozen 锁定安装 + uv run 执行（安装即漂移门禁，替代 uv lock --check；本地同路径预演通过）；verify_workflow_pins.py 增 YAML 结构校验；§22 文档真值（ADR 计数 047、Android 单测 617 与 main 对齐）
+- **Runtime 六态收尾轮**：§101 computeEchoRuntimeHealth 纯函数化（sensing 六态 → 组件聚合 / presence / intelligence / memory）+ EchoRuntimeHealthTest 5 用例；PerformanceBaselineTest 增首帧计算 1000 次 <2s（七行预算表）；dependabot backend 生态 pip → uv（升级 PR 自动更新 pyproject + uv.lock）；osv-scanner 第五次下载仍被网络阻断（exit 16，CI 强制）
 
 ## In Progress
 

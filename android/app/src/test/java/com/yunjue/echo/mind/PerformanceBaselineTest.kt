@@ -191,4 +191,30 @@ class PerformanceBaselineTest {
         }
         assertTrue("上下文编译 20 次耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
     }
+
+    /** PART PERFORMANCE：ECHO Scene 首帧（确定性帧计算；渲染器只画帧）。 */
+    @Test
+    fun sceneFrameComputationStaysUnderBudget() {
+        val params = com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+            state = EchoPresenceState(
+                updatedAt = java.time.Instant.EPOCH,
+                maturity = echoMaturity(30),
+                identityGenome = deriveIdentityGenome(42L, 0.6f, PresenceMotionLevel.DEFAULT),
+            ),
+            hourOfDay = 14f,
+            surface = com.yunjue.echo.mind.presence.SurfaceMode.APP,
+        )
+        val ms = measureMs(3) {
+            repeat(1000) {
+                com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                    params = params,
+                    seed = 42L,
+                    timeSeconds = com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS,
+                    width = 1080f,
+                    height = 2340f,
+                )
+            }
+        }
+        assertTrue("场景帧计算 1000 次耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
+    }
 }

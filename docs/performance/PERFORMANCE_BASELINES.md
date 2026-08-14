@@ -15,6 +15,7 @@
 | 空/单条边界组合 | empty | < 200 ms | 边界不退化 |
 | Presence 装配全链（Identity + LifeSeason + Daily + Moment + 平滑） | 200 次（60 天窗口） | < 2000 ms | PART PERFORMANCE「Presence assembly」 |
 | Context 编译（§68 排序 + §69 三重预算 + token 截断；含禁止数据剔除路径） | 500 条证据 × 20 次 | < 2000 ms | PART PERFORMANCE「Context retrieval」纯函数段 |
+| ECHO Scene 帧计算（VisualMapper → 确定性帧；渲染器只画帧） | 1000 帧 | < 2000 ms | PART PERFORMANCE「first meaningful frame」JVM 代表项 |
 
 ## 长历史策略（§108/§109 已落地）
 

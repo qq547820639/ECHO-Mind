@@ -438,3 +438,13 @@
   3. 文档真值（§22）：README/权威文档的 ADR 计数（020/023/024 → 047）与 Android 单测计数（613 → 617）与当前 main 对齐；历史条目（v1/v2 时代的 ADR-001~024）保留为史实不做伪更新。
 - **理由**：§96 的「dependency lock state」只有在 CI 与本地都从锁执行时才成立；文档真值必须与当前可交付 main 一致（§110 禁文档完成主义）。
 - **后果**：CI 不再从版本范围安装（锁定执行）；未来升级依赖 = 改 pyproject → `uv lock` → 提交 → CI --frozen 验证。
+
+## ADR-049：§101 Runtime 六态矩阵测试 + 首帧基准 + dependabot uv（收尾）
+
+- **决策**：
+  1. **§101 Runtime Tests**：将 coordinator 内嵌 health 推导提取为纯函数 `computeEchoRuntimeHealth`（sensing 六态映射 / presence 已组装 READY 否则 DEGRADED / intelligence Provider 映射 / memory 常驻 READY）；新增 EchoRuntimeHealthTest 5 用例（六态全矩阵 + ProviderStatus 全枚举 + 四组件聚合 + presence 空/有 + 确定性）。
+  2. **首帧基准**：PerformanceBaselineTest 增 ECHO Scene 帧计算 1000 次 <2s（EchoVisualMapper.map → computeEchoSceneFrame 确定性路径）——PART PERFORMANCE「first meaningful frame」的 JVM 代表项；预算表扩为七行。
+  3. **dependabot backend 生态切 uv**（uv.lock 为事实源；原 pip 生态改 uv 后升级 PR 会同时更新 pyproject + uv.lock）。
+  4. osv-scanner 第五次下载仍 exit 16（GitHub release CDN 不可达）——本地豁免维持，security-ci 强制执行。
+- **理由**：§101 要求六态有测试；§110 禁止「字段存在=实现完成」——health 推导纯函数化即证据。
+- **后果**：623 unit tests 全绿；dependabot uv 升级 PR 需过 uv --frozen CI 门禁。

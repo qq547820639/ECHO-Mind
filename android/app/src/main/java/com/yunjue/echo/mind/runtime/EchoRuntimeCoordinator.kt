@@ -61,6 +61,24 @@ fun providerComponentHealth(provider: ProviderStatus): RuntimeComponentStatus = 
 }
 
 /**
+ * v3.2 §3/§101 — Runtime health 聚合（纯函数，六态矩阵单测锚点）：
+ * - sensing ← 六态映射（NOT_AUTHORIZED/STARTING/ACTIVE/DEGRADED/SYSTEM_PAUSED/USER_PAUSED）；
+ * - presence ← 已组装 READY / 未组装 DEGRADED（无状态不编造）；
+ * - intelligence ← Provider 状态映射；
+ * - memory ← 本地 Room 常驻 READY（不可用仅在 DB fail-closed 启动失败 = 进程级）。
+ */
+fun computeEchoRuntimeHealth(
+    sensing: SensingRuntimeStatus,
+    presence: EchoPresenceState?,
+    provider: ProviderStatus,
+): EchoRuntimeHealth = EchoRuntimeHealth(
+    sensing = sensingComponentHealth(sensing),
+    presence = if (presence != null) RuntimeComponentStatus.READY else RuntimeComponentStatus.DEGRADED,
+    intelligence = providerComponentHealth(provider),
+    memory = RuntimeComponentStatus.READY,
+)
+
+/**
  * EchoRuntimeCoordinator —— 运行时协调器（v2 §13）。
  *
  * 职责：
@@ -98,13 +116,7 @@ class EchoRuntimeCoordinator(
     /** v3.2 §3：Runtime health（组件级统一状态，UI 不拼 Boolean）。 */
     val health: kotlinx.coroutines.flow.Flow<EchoRuntimeHealth> =
         kotlinx.coroutines.flow.combine(sensing, presence, provider) { s, p, pr ->
-            EchoRuntimeHealth(
-                sensing = sensingComponentHealth(s),
-                presence = if (p != null) RuntimeComponentStatus.READY else RuntimeComponentStatus.DEGRADED,
-                intelligence = providerComponentHealth(pr),
-                // Memory 本地 Room 常驻；不可用仅在数据库 fail-closed 启动失败（进程级）
-                memory = RuntimeComponentStatus.READY,
-            )
+            computeEchoRuntimeHealth(sensing = s, presence = p, provider = pr)
         }
 
     /**
