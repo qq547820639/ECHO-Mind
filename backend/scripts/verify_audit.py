@@ -5,7 +5,8 @@ from app.database import SessionLocal
 from app.services.audit import verify_audit_chain
 
 if __name__ == "__main__":
-    import argparse, json
+    import argparse
+    import json
     parser = argparse.ArgumentParser()
     parser.add_argument("tenant_id")
     args = parser.parse_args()

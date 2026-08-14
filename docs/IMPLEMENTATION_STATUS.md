@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Android lint 硬门禁轮完成 ✅（warningsAsErrors + 97 告警清零 + 备份规则补全）→ 下一轮：剩余冻结项复核 / Affective 评审等待**
+**Compose UI smoke tests 轮完成 ✅（UI 层首个渲染测试基建 + Journey 状态提升 + 13 用例）→ 下一轮：MeScreen 分区状态提升 + Me smoke tests**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,8 +30,8 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**615 unit tests 全绿**（Affective 预备轮 +2 契约冻结守卫）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
-- backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
+- Android：**636 unit tests 全绿**（ERA 32 Compose UI smoke tests +13：JourneyScreen 9 用例 + SupportSection 3 用例——Robolectric + compose-ui-test-junit4 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0（本轮附带修复 backend/scripts/verify_audit.py E401 多行 import，`ruff check .` 全树 0）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
 ## Completed
@@ -69,6 +69,7 @@
 - **backend 类型收紧轮**：mypy `disallow_untyped_defs=true`（84 → 0，22 文件全标注：路由真实契约类型 + 410 路由 -> None + 辅助参数）；过程中契约测试抓获 Pydantic 响应校验 bool→int 强转（list_escalations chain_broken/delivery_confirmed 0/1 化）——联合并入 bool 修复（教训：路由注解改变序列化语义，须跑契约测试）；backend 1070 passed + 1 skipped / ruff 0 / mypy 0
 - **Android SAST 扩围轮**：detekt 5 → 14 规则（coroutines 2 + potential-bugs 5 + style 4 候选规则探测轮全模块零告警后固化，maxIssues=0 不变；RedundantVisibilityModifier 因 detekt 1.23 移除不启用）——未来新增代码命中即 CI 红
 - **Android lint 硬门禁轮**：`warningsAsErrors = true` + lint.xml（97 告警全部处置：13 项真实修复含 ApplySharedPref/ObsoleteSdkInt/mipmap-anydpi 归一/备份双规则全域排除（隐私契约）/14 条真未用 string 删除/Autoboxing 3 处/版本目录 2 处；4 类豁免内联理由 UseKtx/dependabot 升级类/Aligned16KB SQLCipher 上游）——未来任何新 lint 告警 = CI 红
+- **Compose UI smoke tests 轮**：UI 层首个真渲染测试基建——compose-ui-test-junit4 + ui-test-manifest（BOM 管理版本）入版本目录 + :app；JourneyScreen 状态提升为薄包装 + `JourneyScreenContent`（state-in / event-out，纯 JourneyUiState 渲染，架构 §27 不变）；JourneyScreenSmokeTest 9 用例（免责声明/六态分支/尺度选择事件/单日历史重建事件/Evidence 折叠事件——含 merged semantics 与 performScrollTo 视口外点击两项真实发现）+ SupportSectionSmokeTest 3 用例（回调/空清单/状态行/未知回退）；app gradle.lockfile 重写同步（espresso 传递闭包）；backend/scripts/verify_audit.py E401 顺手修复（`ruff check .` 全树 0）——UI 层从此有渲染防回归基线
 
 ## In Progress
 
@@ -113,4 +114,4 @@
 
 ## Next Highest-value Task
 
-剩余冻结项复核（Affective §8/§9/§10 评审等待中，评估框架与冻结测试已就绪）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+MeScreen 分区状态提升（DataAndSensing/Presence/Intelligence/WhatEchoKnows 各区段 state-in/event-out 化）+ Me smoke tests（根页组合渲染矩阵）；随后 backend `ignore_missing_imports` 收窄（mypy 类型盲区消除）与 detekt/lint 下一轮 probe→clear→freeze 扩围。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

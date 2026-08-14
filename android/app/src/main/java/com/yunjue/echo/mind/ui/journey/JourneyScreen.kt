@@ -39,14 +39,37 @@ import java.time.LocalDate
  *
  * 无 Repository / AI / Preferences / ContextRetriever 直接持有；无 LaunchedEffect 业务编排；
  * 全部经 JourneyViewModel（uiState + onEvent）。
+ *
+ * ERA 32：状态提升 —— JourneyScreen 只做 collect + 路由 ViewModel；
+ * 纯渲染在 JourneyScreenContent（state-in / event-out），Compose smoke test 直接注入状态。
  */
 @Composable
 fun JourneyScreen(
     viewModel: JourneyViewModel,
     onGoToSupport: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    JourneyScreenContent(
+        state = state,
+        onEvent = viewModel::onEvent,
+        feedback = viewModel::feedback,
+        onGoToSupport = onGoToSupport,
+    )
+}
+
+/**
+ * ERA 32 — JourneyScreen 纯状态内容（state-in / event-out）。
+ * 只消费 [JourneyUiState]，交互以 [JourneyEvent] 与回调输出；
+ * 不持有 ViewModel / Repository / Context 业务编排（Context 仅用于系统设置深链按钮）。
+ */
+@Composable
+fun JourneyScreenContent(
+    state: JourneyUiState,
+    onEvent: (JourneyEvent) -> Unit,
+    feedback: (String) -> Boolean?,
+    onGoToSupport: () -> Unit = {},
+) {
+    val context = LocalContext.current
 
     Page("旅程 · 我的时间") {
         // 契约点 2 固定免责文案（单测锚点）
@@ -61,7 +84,7 @@ fun JourneyScreen(
             JourneyScale.entries.forEach { s ->
                 FilterChip(
                     selected = state.selectedScale == s,
-                    onClick = { viewModel.onEvent(JourneyEvent.SelectScale(s)) },
+                    onClick = { onEvent(JourneyEvent.SelectScale(s)) },
                     label = { Text(scaleLabel(s)) }
                 )
             }
@@ -80,17 +103,17 @@ fun JourneyScreen(
             }
             TrendUiState.ERROR -> {
                 Text("旅程加载失败")
-                Button(onClick = { viewModel.onEvent(JourneyEvent.Refresh) }) { Text("重试") }
+                Button(onClick = { onEvent(JourneyEvent.Refresh) }) { Text("重试") }
             }
             TrendUiState.NO_DATA -> {
                 NoDataContent(state = state, onGoToSupport = onGoToSupport)
             }
             TrendUiState.OFFLINE_CACHED -> {
                 Text("当前离线，以下为缓存的旅程。")
-                JourneyContent(state = state, viewModel = viewModel)
+                JourneyContent(state = state, onEvent = onEvent, feedback = feedback)
             }
             TrendUiState.FRESH, TrendUiState.PARTIAL ->
-                JourneyContent(state = state, viewModel = viewModel)
+                JourneyContent(state = state, onEvent = onEvent, feedback = feedback)
         }
     }
 }
@@ -119,15 +142,19 @@ private fun NoDataContent(state: JourneyUiState, onGoToSupport: () -> Unit) {
  * 「查看依据」Evidence Layer（定量图表降级到第二层，不在第一视觉）。
  */
 @Composable
-private fun JourneyContent(state: JourneyUiState, viewModel: JourneyViewModel) {
+private fun JourneyContent(
+    state: JourneyUiState,
+    onEvent: (JourneyEvent) -> Unit,
+    feedback: (String) -> Boolean?,
+) {
     // 1. 视觉记忆河流（第一视觉）
     VisualMemoryRiver(
         scale = state.selectedScale,
         days = state.visualDays,
         periods = state.visualPeriods,
         seed = state.journeySeed,
-        feedback = viewModel::feedback,
-        onSelectDay = { date -> viewModel.onEvent(JourneyEvent.SelectDay(date)) },
+        feedback = feedback,
+        onSelectDay = { date -> onEvent(JourneyEvent.SelectDay(date)) },
     )
 
     // 2. 长期叙事（变化发生在叙事里，图表只是依据）
@@ -167,7 +194,7 @@ private fun JourneyContent(state: JourneyUiState, viewModel: JourneyViewModel) {
 
     // 4. Evidence Layer：查看依据（定量证据，非第一视觉）
     HorizontalDivider()
-    TextButton(onClick = { viewModel.onEvent(JourneyEvent.ToggleEvidence) }) {
+    TextButton(onClick = { onEvent(JourneyEvent.ToggleEvidence) }) {
         Text(if (state.showEvidence) "收起依据" else "查看依据")
     }
     if (state.showEvidence) {
@@ -175,7 +202,7 @@ private fun JourneyContent(state: JourneyUiState, viewModel: JourneyViewModel) {
             timeline = state.timeline,
             lastCollectionTs = state.syncStatus.lastCollectedAt,
             lastSyncTs = state.syncStatus.lastSyncedAt,
-            feedback = viewModel::feedback,
+            feedback = feedback,
         )
     }
 }

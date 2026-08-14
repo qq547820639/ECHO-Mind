@@ -61,7 +61,7 @@ def main() -> int:
     scheduler_test = _read("android/app/src/test/java/com/yunjue/echo/mind/SensingWindowSchedulerTest.kt")
     active_session_test = _read("android/app/src/test/java/com/yunjue/echo/mind/ActiveSkillSessionTest.kt")
     consent_lifecycle = _read("android/app/src/test/java/com/yunjue/echo/mind/ConsentLifecycleTest.kt")
-    hub = _read("android/app/src/main/java/com/yunjue/echo/mind/sensing/SensingEventHub.kt")
+    hub = _read("android/feature/observation/src/main/java/com/yunjue/echo/mind/sensing/SensingEventHub.kt")
     onboarding_test = _read("android/app/src/test/java/com/yunjue/echo/mind/OnboardingVerifyFlowTest.kt")
     gap_finder = _read("backend/app/services/sandbox/gap_finder.py")
 
@@ -145,7 +145,7 @@ def main() -> int:
     # 15 窗口持久化失败 → saveDerivedFeatures=false → bounded retry ≤3 + 可观测
     results.append(_check(
         "15 window persist failure",
-        "MAX_WINDOW_RETRY" in _read("android/app/src/main/java/com/yunjue/echo/mind/sensing/SensingWindowScheduler.kt")
+        "MAX_WINDOW_RETRY" in _read("android/feature/observation/src/main/java/com/yunjue/echo/mind/sensing/SensingWindowScheduler.kt")
         and "flushFailureKeepsBuffersAndMarksRetryable" in scheduler_test
         and "roomFailureReturnsFalseAndRecordsPersistenceFailure" in window_ack_test,
         "scheduler bounded retry=3 + repository 失败计数；测试覆盖",

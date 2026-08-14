@@ -570,6 +570,24 @@
       "supplier": "NOASSERTION"
     },
     {
+      "SPDXID": "SPDXRef-Android-androidx-compose-ui-test-junit4",
+      "name": "androidx.compose.ui:ui-test-junit4",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Android-androidx-compose-ui-test-manifest",
+      "name": "androidx.compose.ui:ui-test-manifest",
+      "versionInfo": "BOM-managed",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
       "SPDXID": "SPDXRef-Android-androidx-compose-material3",
       "name": "androidx.compose.material3:material3",
       "versionInfo": "BOM-managed",

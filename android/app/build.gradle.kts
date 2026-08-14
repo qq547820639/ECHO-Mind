@@ -144,6 +144,10 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // ERA 32：Compose UI smoke tests（Robolectric 渲染状态纯内容，无 DB/Keystore 依赖）
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // ui-test-manifest 为 debug 变体注册 androidx.activity.ComponentActivity（createComposeRule 宿主）
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     // Phase 1.2（跨端契约测试）：纯 JVM 单测使用真实 org.json（android.jar stub 在
     // 非 Robolectric 路径下方法抛异常/返回默认值，无法解析 JSONObject）。org.json:json
     // 是 android.jar 中 org.json 的官方镜像实现，API 兼容；Robolectric 测试类加载时

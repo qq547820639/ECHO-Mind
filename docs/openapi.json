@@ -43,7 +43,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Tenant V1 Tenants Post"
+                }
               }
             }
           },
@@ -79,7 +83,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create User V1 Users Post"
+                }
               }
             }
           },
@@ -120,7 +128,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create L0 V1 Onboarding L0 Post"
+                }
               }
             }
           },
@@ -161,7 +173,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Emergency Contact V1 Onboarding Emergency Contact Post"
+                }
               }
             }
           },
@@ -241,7 +257,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Consent V1 Onboarding Consents Post"
+                }
               }
             }
           },
@@ -288,7 +308,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Latest Consents V1 Onboarding Consents Latest Get"
+                }
               }
             }
           },
@@ -324,7 +348,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ingest Derived Feature V1 Features Ingest Post"
+                }
               }
             }
           },
@@ -423,7 +451,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Daily Narrative V1 Narratives Get"
+                }
               }
             }
           },
@@ -466,7 +498,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitOut"
+                }
               }
             }
           },
@@ -605,7 +639,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitOut"
+                }
               }
             }
           },
@@ -637,7 +673,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitOut"
+                }
               }
             }
           }
@@ -741,7 +779,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PortraitOut"
+                }
               }
             }
           },
@@ -783,7 +823,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Record Me Portrait Feedback V1 Me Portraits Feedback Post"
+                }
               }
             }
           },
@@ -814,7 +858,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Me Messages V1 Me Messages Get"
+                }
               }
             }
           }
@@ -835,7 +883,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Me Subscription V1 Me Subscription Get"
+                }
               }
             }
           }
@@ -873,7 +925,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Profile V1 Profile  User Id  Get"
+                }
               }
             }
           },
@@ -916,7 +972,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rebuild User Profile V1 Profile  User Id  Rebuild Post"
+                }
               }
             }
           },
@@ -958,7 +1018,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Escalation V1 Escalations Post"
+                }
               }
             }
           },
@@ -1068,7 +1132,33 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "title": "Response List Escalations V1 Escalations Get"
+                }
               }
             }
           },
@@ -1095,7 +1185,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Escalation Metrics V1 Escalations Metrics Get"
+                }
               }
             }
           }
@@ -1117,7 +1211,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Sla Scan V1 Escalations Sla Scan Post"
+                }
               }
             }
           }
@@ -1154,7 +1252,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Escalation Detail V1 Escalations  Escalation Id  Get"
+                }
               }
             }
           },
@@ -1277,7 +1379,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Escalation User Status V1 Escalations  Escalation Id  User Status Get"
+                }
               }
             }
           },
@@ -1320,7 +1426,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Escalation Case Review V1 Escalations  Escalation Id  Case Review Get"
+                }
               }
             }
           },
@@ -1362,7 +1472,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ack Escalation V1 Escalations  Escalation Id  Ack Post"
+                }
               }
             }
           },
@@ -1404,7 +1518,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Takeover V1 Escalations  Escalation Id  Takeover Post"
+                }
               }
             }
           },
@@ -1456,7 +1574,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Close Escalation V1 Escalations  Escalation Id  Close Post"
+                }
               }
             }
           },
@@ -1508,7 +1630,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Review Escalation V1 Escalations  Escalation Id  Review Post"
+                }
               }
             }
           },
@@ -1549,7 +1675,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Dsr V1 Data Subject Requests Post"
+                }
               }
             }
           },
@@ -1596,7 +1726,27 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "title": "Response List Dsr V1 Data Subject Requests Get"
+                }
               }
             }
           },
@@ -1648,7 +1798,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Dsr V1 Data Subject Requests  Request Id  Complete Post"
+                }
               }
             }
           },
@@ -1698,7 +1852,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Skills V1 Skills Get"
+                }
               }
             }
           },
@@ -1780,7 +1938,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Skill Completion V1 Skills Completions Post"
+                }
               }
             }
           },
@@ -1838,7 +2000,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Transition Skill V1 Skills  Skill Id  Transition Post"
+                }
               }
             }
           },
@@ -1875,7 +2041,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxRunOut"
+                }
               }
             }
           },
@@ -1923,7 +2091,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxRunOut"
+                }
               }
             }
           },
@@ -1968,7 +2138,27 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "title": "Response Audit Events V1 Audit Events Get"
+                }
               }
             }
           },
@@ -1994,7 +2184,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Audit Verify V1 Audit Verify Get"
+                }
               }
             }
           }
@@ -2016,7 +2210,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Config Flags V1 Config Flags Get"
+                }
               }
             }
           }
@@ -2048,7 +2246,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Update Tenant Flags V1 Tenant Flags Put"
+                }
               }
             }
           },
@@ -2224,7 +2426,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Revoke Activation Code V1 Admin Activation Codes  Code Id  Revoke Post"
+                }
               }
             }
           },
@@ -2261,7 +2467,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Batch Retire Skills V1 Skills Batch Retire Post"
+                }
               }
             }
           },
@@ -2302,7 +2512,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Checkin V1 Checkins Post"
+                }
               }
             }
           },
@@ -2348,7 +2562,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Journal V1 Journals Post"
+                }
               }
             }
           },
@@ -2401,7 +2619,14 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Journals V1 Journals Get"
+                }
               }
             }
           },
@@ -2453,7 +2678,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Revise Journal V1 Journals  Logical Id  Revisions Post"
+                }
               }
             }
           },
@@ -2495,7 +2724,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Journal V1 Journals  Logical Id  Delete"
+                }
               }
             }
           },
@@ -2531,7 +2764,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Safety Check V1 Safety Check Post"
+                }
               }
             }
           },
@@ -2588,7 +2825,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Questionnaire V1 Questionnaires  Code  Responses Post"
+                }
               }
             }
           },
@@ -2624,7 +2865,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Practice Completion V1 Practices Completions Post"
+                }
               }
             }
           },
@@ -2819,7 +3064,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
               }
             }
           }
@@ -2835,7 +3084,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ready Ready Get"
+                }
               }
             }
           }
@@ -4182,6 +4435,93 @@
         ],
         "title": "SandboxRunCreate",
         "description": "触发沙箱运行的入参。run_date 缺省为当天（UTC）。"
+      },
+      "SandboxRunOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "run_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Run Date"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "gaps_found": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Gaps Found"
+          },
+          "tools_generated": {
+            "type": "integer",
+            "title": "Tools Generated",
+            "default": 0
+          },
+          "tools_validated": {
+            "type": "integer",
+            "title": "Tools Validated",
+            "default": 0
+          },
+          "skills_inducted": {
+            "type": "integer",
+            "title": "Skills Inducted",
+            "default": 0
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "run_date",
+          "status"
+        ],
+        "title": "SandboxRunOut",
+        "description": "沙箱运行记录输出。"
       },
       "SkillBatchRetire": {
         "properties": {
