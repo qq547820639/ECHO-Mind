@@ -12,6 +12,7 @@
 - `com.yunjue.echo.mind.memory`
 - `com.yunjue.echo.mind.presence`
 - `com.yunjue.echo.mind.runtime`
+- `com.yunjue.echo.mind.security`
 - `com.yunjue.echo.mind.sensing`
 - `com.yunjue.echo.mind.ui`
 - `com.yunjue.echo.mind.ui.echo`
@@ -28,7 +29,7 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：145
+- Kotlin 文件：151
 - Python 文件：68
 - Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）

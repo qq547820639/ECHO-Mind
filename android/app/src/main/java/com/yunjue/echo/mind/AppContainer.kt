@@ -330,15 +330,17 @@ class AppContainer(context: Context) {
 }
 
 /**
- * SQLCipher 加密库打开（v0.7.2 双 alias 兼容）：
- * 1. 用 v2 派生口令打开（正常路径）；
- * 2. v2 打开失败（SQLiteException，如旧库口令不匹配）→ 若 v1 密钥可派生旧口令，
- *    以 v1 口令解锁并把库 rekey 到 v2（PRAGMA rekey），下次启动走正常路径；
- * 3. 两者皆不可用 → 抛原异常（fail-closed，绝不回退明文）。
+ * SQLCipher 加密库打开（ERA 17 §88-§91 KDF 正式迁移）：
  *
- * 说明：v0.7 预修复版在真机首启即崩、从未建成加密库，现实设备基本不存在 v1 库；
- * 该回退为防御性兜底（v1 密钥存在但 randomizedEncryptionRequired=true 时派生会失败，
- * 此时同样 fail-closed 抛原异常）。
+ * 1. 新路径：HKDF-SHA256(每安装随机 256-bit 秘密，Keystore 包装) —— §89 标准 KDF，
+ *    无固定 IV、无 SHA-256-of-ciphertext；
+ * 2. 旧库（v0.8/0.9 固定 IV 派生口令）：legacy 派生 → 打开 → 生成/存储新受保护秘密
+ *    → PRAGMA rekey → verify → 标记迁移 → 退役 ancient v1 alias（§91 全链）；
+ * 3. 已迁移库：legacy 派生退役（fail-closed，绝不回退）；
+ * 4. Keystore 不可用 / 口令全部不可用 → 抛原异常（fail-closed，绝不回退明文）。
+ *
+ * 编排逻辑（纯决策，JVM 可测）在 :core:security [DatabaseOpenOrchestrator]；
+ * 本函数只做 Room/SQLCipher 适配。
  */
 internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
     fun build(passphrase: ByteArray): EchoDatabase =
@@ -350,18 +352,31 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
             .openHelperFactory(SupportFactory(passphrase))
             .build()
 
-    return try {
-        build(cipher.deriveDatabasePassphrase())
-    } catch (primary: android.database.sqlite.SQLiteException) {
-        val legacy = cipher.deriveLegacyDatabasePassphrase() ?: throw primary
-        try {
-            build(legacy).also { db ->
-                db.openHelper.writableDatabase.execSQL(
-                    AndroidKeystoreFieldCipher.rekeyPragma(cipher.deriveDatabasePassphrase())
-                )
-            }
-        } catch (legacyFailure: Exception) {
-            throw primary
-        }
-    }
+    return com.yunjue.echo.mind.security.DatabaseOpenOrchestrator.open(
+        inputs = com.yunjue.echo.mind.security.DatabaseOpenInputs(
+            deriveNew = { cipher.deriveDatabasePassphrase() },
+            deriveLegacy = {
+                cipher.deriveLegacyDatabasePassphrase()
+                    ?: cipher.deriveAncientDatabasePassphrase()
+            },
+            isMigrated = { cipher.isDatabaseSecretMigrated() },
+            isWrongKey = { it is android.database.sqlite.SQLiteException },
+        ),
+        actions = com.yunjue.echo.mind.security.DatabaseMigrationActions(
+            rotateSecret = { cipher.rotateDatabaseSecret() },
+            markMigrated = { cipher.markDatabaseSecretMigrated() },
+            retireAncient = { cipher.retireAncientAlias() },
+        ),
+        io = com.yunjue.echo.mind.security.DatabaseIo(
+            build = { passphrase -> build(passphrase) },
+            rekey = { db, fresh ->
+                db.openHelper.writableDatabase.execSQL(AndroidKeystoreFieldCipher.rekeyPragma(fresh))
+            },
+            verify = { db ->
+                db.openHelper.writableDatabase
+                    .query("SELECT count(*) FROM sqlite_master")
+                    .use { cursor -> cursor.moveToFirst() }
+            },
+        ),
+    )
 }

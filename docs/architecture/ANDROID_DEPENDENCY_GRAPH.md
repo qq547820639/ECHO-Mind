@@ -17,6 +17,7 @@ observation ──► root
 ports ──► memory, observation, presence
 presence ──► observation, root
 runtime ──► data, intelligence, observation, presence, root
+security ──► root
 ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root
 ```
 
@@ -35,7 +36,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | ports | 3 |
 | presence | 10 |
 | runtime | 1 |
-| security | 2 |
+| security | 8 |
 | ui | 35 |
 
 ## 3. 跨领域边清单
@@ -75,6 +76,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - runtime → observation
 - runtime → presence
 - runtime → root
+- security → root
 - ui → actions
 - ui → data
 - ui → intelligence

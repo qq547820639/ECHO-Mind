@@ -358,3 +358,14 @@
   7. **§78 上下文例外时间定位**：CONTEXT 记忆内容携带可选日期（`特殊时期：kind（note）@yyyy-MM-dd`，`contextExceptionContent/Info` 纯函数 + fail-closed 解析）；Me 页新增特殊时期默认带今天日期；Journey 河流 SPECIAL 段/年视图 contextPeriods 由带日期例外驱动；无日期的旧记忆仍可检索但不进入时间线。
 - **理由**：Journey 最终不是 Trend，而是 Personal Visual Memory System（§81-§87）；§110 禁止字段存在=实现完成——每一条 § 都有真实数据流（写/存/读/渲染/解释）。
 - **后果**：JourneyCanonicalTest/RiverTest/YearViewTest/SeasonNarrativeTest/LayerTest/ContextExceptionsTest + DatabaseMigrationTest v10 + JourneyUiStateAssemblyTest/ViewModelTest 增补；下一轮 ERA 17 Security Hardening（§88-§92 KDF 迁移/密钥分离/迁移测试）。
+
+## ADR-041：ERA 17 Security Hardening 第一轮（KDF 审计/标准 KDF 迁移/密钥分离/旧库迁移链）
+
+- **决策**：
+  1. **§88 审计结论**：确认旧实现为 fixed IV(全零 12B) + AES-GCM + SHA-256 的非标准派生，且字段加密与 DB 口令共用同一 alias（`echo_mind_sensitive_fields_v2`）——正式迁移。
+  2. **§89 标准 KDF**：DB 口令 = HKDF-SHA256(ikm=每安装 256-bit SecureRandom 秘密, 公开域分离盐, info="echo-mind:sqlcipher-passphrase:v1")，32 字节；`HkdfSha256` 为 RFC 5869 标准实现，**测试用 RFC 官方 Test Case 1/2/3 向量验证**（不发明 Crypto）。秘密经 Keystore AES-GCM **随机 IV** 包装持久化（`DatabaseSecretFormat` v1，fail-closed 解析）。
+  3. **§90 密钥分离**：字段加密沿用 field alias（v2）；DB 秘密包装使用**全新独立 alias** `echo_mind_db_secret_v1`（randomizedEncryptionRequired=true 标准随机 IV）+ 独立 HKDF context/info——轮换 DB 秘密不影响字段密文（测试断言）。
+  4. **§91 旧库迁移链**：`DatabaseOpenOrchestrator`（:core:security 纯决策，JVM 可测）——derive new → 打开失败且为错钥 → 已迁移标记则 fail-closed（legacy 退役）→ derive legacy（v0.8/0.9 固定 IV 派生，field key）→ open → rotateSecret（生成/存储新受保护秘密）→ PRAGMA rekey → verify → markMigrated → retireAncient（删除 v0.7 v1 alias）。失败任一步抛原始异常，旧库仍以旧口令可用、下次启动重试（自愈）。AppContainer.openDatabase 退化为 Room/SQLCipher 适配器。
+  5. **§92 Crypto 测试**：fresh install（秘密自动 provision + 跨实例稳定）/ 旧库 legacy 派生稳定 / 轮换持久 / 字段加密不受 DB 轮换影响 / 损坏存储 fail-closed 重建 / ancient 退役 / 迁移标记 round-trip（JCEKS 替身纯 JVM，10 用例）；orchestrator 迁移链决策矩阵 9 用例；RFC 向量 4 用例；真机路径（HKDF 稳定/legacy 可用/轮换跨实例）由 CI 模拟器 instrumentation 执行。
+- **理由**：Crypto 不发明、不共享、不静默降级；旧用户无损迁移优先于算法洁癖（禁止改 Crypto 却不迁移已有 DB）。
+- **后果**：旧库首次启动自动 rekey 到新 KDF；field/DB 密钥独立；下一轮 ERA 18 Reproducible Release（§93-§96：Actions SHA pinning / release set / in-app build info / clean-room 复现）。

@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 16 — JOURNEY LONG-TERM MEMORY 第一轮完成 ✅ → 下一轮 ERA 17 Security Hardening（§88-§92）**
+**ERA 17 — SECURITY HARDENING 第一轮完成 ✅ → 下一轮 ERA 18 Reproducible Release（§93-§96）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**575 unit tests 全绿**（ERA 16 第一轮 +57 journey long-term memory）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**603 unit tests 全绿**（ERA 17 第一轮 +28 security hardening）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -55,10 +55,11 @@
 - **ERA 15 第一轮**：QuestionClassifier 六分类；ContextRanker 排序；Context Budget 三重上限；EchoEvidence schema；GroundingValidator + EchoAnswer
 - **ERA 15.5 第一轮**：rankMemories 检索排序（§75）；生命周期确认 + derivePatterns 入 Worker（§76）；Derived Pattern Memory（§77，幂等 upsert）；特殊时期用户入口（§78/§79）；What ECHO Knows 七分类展示（§80）；MemoryMaturityTest 8 用例
 - **ERA 16 第一轮**：Canonical Daily State（§83，Room v10 `journey_canonical_days`，只存参数不存 bitmap，Worker+Journey 双写点幂等）；历史重建（§84，Canonical 优先 → 画像 fallback → 不编造，SelectDay 交互）；Visual Memory River（§85，平稳/密集/漂移/特殊/转变分类+合并）；Year View（§86，四季聚合+转变+上下文时期+身份演化）；Life Season × Journey 解释（§87，禁词测试强制）；五尺度六层装配（§81/§82）；上下文例外时间定位（§78 带日期）；新增 57 用例
+- **ERA 17 第一轮**：§88 审计（fixed IV+AES-GCM+SHA-256 非标准 KDF 确认 + 字段/DB 共用 alias 确认）；§89 HKDF-SHA256 标准 KDF（RFC 5869 官方向量测试）+ 受保护随机秘密（Keystore 随机 IV 包装）；§90 密钥分离（field alias / db_secret alias + 独立 HKDF context）；§91 旧库迁移链（DatabaseOpenOrchestrator：derive old → open → rotate → rekey → verify → retire；失败自愈重试；已迁移 fail-closed）；§92 crypto 测试矩阵（23 用例 + 真机 instrumentation 3 用例）
 
 ## In Progress
 
-- ERA 17 Security Hardening（§88-§92）：SQLCipher KDF 审计/标准 KDF 迁移（HKDF/HMAC）、密钥分离、旧库迁移链（derive old → open → rekey → verify → retire）、crypto 迁移测试
+- ERA 18 Reproducible Release（§93-§96）：GitHub Actions SHA pinning、release set 终态、in-app build info（Me → About）、clean-room 复现文档化
 
 ## Blocked
 
@@ -79,8 +80,8 @@
 
 ## Security Debt
 
-- SQLCipher passphrase KDF（Keystore 派生 + 固定 IV 域）→ ERA 17 用 HKDF/HMAC 标准方案迁移（需迁移测试，禁止直接换算法）
-- GitHub Actions actions 仍 pin major tag（TODO(ERA17)：pin commit SHA）
+- ~~SQLCipher passphrase KDF（Keystore 派生 + 固定 IV 域）~~ → ERA 17 已迁移：HKDF-SHA256（RFC 5869 向量验证）+ 受保护随机秘密 + 字段/DB 密钥分离 + 旧库自动 rekey 迁移链（迁移测试覆盖）
+- GitHub Actions actions 仍 pin major tag（TODO(ERA17)：pin commit SHA）→ ERA 18 §93 执行
 
 ## Performance Debt
 
@@ -97,4 +98,4 @@
 
 ## Next Highest-value Task
 
-ERA 17 Security Hardening（§88-§92）：KDF 审计 → 标准 KDF 迁移（HKDF-SHA256/HMAC domain separation）→ 密钥分离 → 旧库迁移链 → crypto 测试（fresh install / old DB / migration / failure recovery / backup restore）。
+ERA 18 Reproducible Release（§93-§96）：重要 Actions pin immutable SHA（checkout/artifact/security/release/dependency-review 优先）→ release set 终态核对 → in-app build info → clean-room 复现文档（JDK/Gradle/Python/依赖锁定）。

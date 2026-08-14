@@ -28,6 +28,8 @@ import com.yunjue.echo.mind.journey.JourneyRepository
 import com.yunjue.echo.mind.openDatabase
 import com.yunjue.echo.mind.presence.EchoStateStore
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
+import com.yunjue.echo.mind.security.AndroidKeystoreKeyProvider
+import com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage
 
 /**
  * ERA 13.3 §43/§44 — 子容器自持构造职责（Real DI Ownership）。
@@ -46,8 +48,16 @@ import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 class CoreContainer(context: Context) {
     val applicationContext: Context = context.applicationContext
 
-    /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。 */
-    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher()
+    /**
+     * 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
+     * ERA 17 §89/§90：DB 口令 = HKDF(受保护随机 secret)；字段/DB 密钥分离（独立 alias）。
+     */
+    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher(
+        keys = AndroidKeystoreKeyProvider(),
+        secretStorage = PreferencesDatabaseSecretStorage(
+            context.getSharedPreferences(AppPreferences.PREFS_FILE, Context.MODE_PRIVATE)
+        ),
+    )
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
 
