@@ -4,22 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.yunjue.echo.mind.data.ApiClient
-import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
-import com.yunjue.echo.mind.data.EscalationRepository
-import com.yunjue.echo.mind.data.FeatureFlagRepository
-import com.yunjue.echo.mind.data.LocalDataRights
-import com.yunjue.echo.mind.data.LocalPortraitDataSource
-import com.yunjue.echo.mind.data.MemoryRepository
-import com.yunjue.echo.mind.data.MessageRepository
-import com.yunjue.echo.mind.data.OnboardingRepository
-import com.yunjue.echo.mind.data.PortraitRepository
-import com.yunjue.echo.mind.data.PresenceRepository
-import com.yunjue.echo.mind.data.SensingRepository
-import com.yunjue.echo.mind.data.SkillRepository
-import com.yunjue.echo.mind.data.SyncStateRepository
-import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.sensing.AppActivityCollector
 import com.yunjue.echo.mind.sensing.MicCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
@@ -27,7 +12,6 @@ import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
 import com.yunjue.echo.mind.sensing.SensorCollector
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
-import com.yunjue.echo.mind.security.FieldCipher
 import net.sqlcipher.database.SupportFactory
 
 internal val MIGRATION_1_2 = object : Migration(1, 2) {

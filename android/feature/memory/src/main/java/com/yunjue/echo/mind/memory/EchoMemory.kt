@@ -80,7 +80,7 @@ fun shouldForget(memory: EchoMemory, now: Long): Boolean {
 fun memoryDecayScore(memory: EchoMemory, now: Long): Float {
     if (memory.deleted) return 0f
     val total = retentionDaysFor(memory.retentionClass)
-    val elapsedDays = ((now - memory.lastConfirmedAt).coerceAtLeast(0L)).toDouble() / 86_400_000.0
+    val elapsedDays = (now - memory.lastConfirmedAt).coerceAtLeast(0L).toDouble() / 86_400_000.0
     val remaining = (1.0 - elapsedDays / total.toDouble()).coerceIn(0.0, 1.0)
     return (memory.importance.toFloat() * remaining.toFloat()).coerceIn(0f, 100f)
 }

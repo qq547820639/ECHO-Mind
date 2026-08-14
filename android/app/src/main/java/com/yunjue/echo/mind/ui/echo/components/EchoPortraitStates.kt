@@ -94,7 +94,7 @@ fun CoverageRow(coverage: Map<String, Any>?) {
 /** 基线解锁仪式（首次 READY 只出现一次）。 */
 @Composable
 fun UnlockBanner(consumeUnlocked: () -> Boolean, state: PortraitUiState) {
-    if ((state.portrait?.baselineDays ?: 0) < 7) return
+    if (state.portrait?.baselineDays ?: 0 < 7) return
     var show by remember { mutableStateOf(false) }
     LaunchedEffect(state.status) {
         if (state.status == PortraitStatus.READY && consumeUnlocked()) {

@@ -64,7 +64,7 @@ class PerformanceBaselineTest {
     fun journey365DayAssemblyStaysUnderBudget() {
         val start = LocalDate.of(2026, 1, 1)
         val portraits = (0 until 365).map { i ->
-            portrait(start.plusDays(i.toLong()).toString(), baselineDays = (i % 120))
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 120)
         }
         val days: List<JourneyDay> = portraits.map { dto ->
             JourneyDay(
@@ -87,7 +87,7 @@ class PerformanceBaselineTest {
     fun lifeSeason365WindowStaysUnderBudget() {
         val start = LocalDate.of(2026, 1, 1)
         val portraits = (0 until 365).map { i ->
-            portrait(start.plusDays(i.toLong()).toString(), baselineDays = (i % 120))
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 120)
         }
         val ms = measureMs(3) { computeLifeSeason(portraits) }
         assertTrue("Life Season 365 窗口耗时 ${"%.1f".format(ms)}ms 超出预算 1000ms", ms < 1000.0)
@@ -104,9 +104,9 @@ class PerformanceBaselineTest {
                 type = MemoryType.entries[i % MemoryType.entries.size],
                 content = "内容 $i",
                 source = "observation-core",
-                confidence = (i % 100) / 100f,
+                confidence = i % 100 / 100f,
                 createdAt = now - i * 3600_000L,
-                lastConfirmedAt = now - (i % 30) * 86_400_000L,
+                lastConfirmedAt = now - i % 30 * 86_400_000L,
                 importance = i % 100,
                 retentionClass = RetentionClass.LONG_TERM,
                 provenance = "observation:v1",
@@ -133,7 +133,7 @@ class PerformanceBaselineTest {
     fun presenceAssemblyStaysUnderBudget() {
         val start = LocalDate.of(2026, 1, 1)
         val portraits = (0 until 60).map { i ->
-            portrait(start.plusDays(i.toLong()).toString(), baselineDays = (i % 30) + 3)
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 30 + 3)
         }
         val vector = AmbientVector(
             activation = 0.5f, regularity = 0.6f, density = 0.4f, deviation = 0.3f, confidence = 0.7f,
@@ -177,7 +177,7 @@ class PerformanceBaselineTest {
                 text = "这是第 $i 条个人节律证据，内容用于上下文编译预算测试。",
                 id = "e$i",
                 type = if (i % 5 == 0) "memory" else "observation",
-                confidence = (i % 100) / 100f,
+                confidence = i % 100 / 100f,
             )
         }
         val ms = measureMs(3) {

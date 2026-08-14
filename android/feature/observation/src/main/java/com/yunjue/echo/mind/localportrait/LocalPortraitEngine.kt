@@ -89,17 +89,17 @@ object LocalPortraitEngine {
     )
 
     val HEADLINE_MAP: Map<Pair<String, String>, String> = mapOf(
-        ("RHYTHM" to "LATER") to "偏晚",
-        ("RHYTHM" to "EARLIER") to "偏早",
+        "RHYTHM" to "LATER" to "偏晚",
+        "RHYTHM" to "EARLIER" to "偏早",
         // Phase 6.2（Psychology Review）：行为观察措辞
-        ("MOVEMENT" to "LESS") to "移动较少",
-        ("MOVEMENT" to "MORE") to "移动较多",
-        ("SCREEN_AMOUNT" to "MORE") to "多屏",
-        ("SCREEN_AMOUNT" to "LESS") to "少屏",
-        ("SCREEN_TIMING" to "LATER") to "晚屏",
-        ("STABILITY" to "VERY_SIMILAR") to "接近",
-        ("STABILITY" to "SLIGHTLY_DIFFERENT") to "小变化",
-        ("STABILITY" to "CLEARLY_DIFFERENT") to "变化明显"
+        "MOVEMENT" to "LESS" to "移动较少",
+        "MOVEMENT" to "MORE" to "移动较多",
+        "SCREEN_AMOUNT" to "MORE" to "多屏",
+        "SCREEN_AMOUNT" to "LESS" to "少屏",
+        "SCREEN_TIMING" to "LATER" to "晚屏",
+        "STABILITY" to "VERY_SIMILAR" to "接近",
+        "STABILITY" to "SLIGHTLY_DIFFERENT" to "小变化",
+        "STABILITY" to "CLEARLY_DIFFERENT" to "变化明显"
     )
 
     val DIMENSION_ORDER: List<String> = listOf(
@@ -404,7 +404,7 @@ object LocalPortraitEngine {
         if (absDelta < threshold) return "和近期水平接近"
         val z = (value - med) / scaleOf(stats)
         val direction = if (value < med) "少" else "多"
-        if (kotlin.math.abs(med) < (COARSE_BASELINE_THRESHOLDS[metric] ?: 0.0)) {
+        if (kotlin.math.abs(med) < COARSE_BASELINE_THRESHOLDS[metric] ?: 0.0) {
             // 近零基线：百分比无意义（如 +900%），用粗粒度措辞
             return coarseDelta(z, direction)
         }

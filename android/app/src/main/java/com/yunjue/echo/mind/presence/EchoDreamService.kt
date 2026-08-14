@@ -8,7 +8,6 @@ import android.graphics.Paint
 import android.service.dreams.DreamService
 import android.view.View
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter

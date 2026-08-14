@@ -49,13 +49,13 @@ fun maturityOpenness(maturity: EchoMaturity): Float = when (maturity) {
  * 22-6 夜 / 6-10 晨 / 10-17 昼 / 17-22 暮。
  */
 fun dayBrightnessCurve(hourOfDay: Float): Float {
-    val h = ((hourOfDay % 24f) + 24f) % 24f
+    val h = (hourOfDay % 24f + 24f) % 24f
     return when {
-        h < 6f -> 0.35f + (h / 6f) * 0.05f            // 0..6 深夜→微亮
-        h < 10f -> 0.4f + ((h - 6f) / 4f) * 0.45f     // 晨：0.4→0.85
+        h < 6f -> 0.35f + h / 6f * 0.05f            // 0..6 深夜→微亮
+        h < 10f -> 0.4f + (h - 6f) / 4f * 0.45f     // 晨：0.4→0.85
         h < 17f -> 0.85f                              // 昼
-        h < 22f -> 0.85f - ((h - 17f) / 5f) * 0.4f    // 暮：0.85→0.45
-        else -> 0.45f - ((h - 22f) / 2f) * 0.1f       // 22-24：0.45→0.35
+        h < 22f -> 0.85f - (h - 17f) / 5f * 0.4f    // 暮：0.85→0.45
+        else -> 0.45f - (h - 22f) / 2f * 0.1f       // 22-24：0.45→0.35
     }
 }
 
@@ -107,7 +107,7 @@ fun computeVisualParameters(
     val identityMotion = state.identityGenome.motionPersonality
     val identitySymmetry = state.identityGenome.symmetryTendency
 
-    val baseFlow = if (hasDaily) daily.flowSpeed else (v.activityLevel * 0.6f + b.density * 0.4f)
+    val baseFlow = if (hasDaily) daily.flowSpeed else v.activityLevel * 0.6f + b.density * 0.4f
     val flow = baseFlow * surfaceFlow * motionFactor * nightFactor *
         (0.85f + 0.3f * identityMotion) // 运动人格长效调制（§53）
     val baseCoherence = if (hasDaily) daily.coherence else state.confidence.coerceIn(0f, 1f)
@@ -115,7 +115,7 @@ fun computeVisualParameters(
     // 人生阶段漂移 → 慢湍流下限（§56：节律漂移进入视觉，但不突变）
     val baseTurbulence = if (hasDaily) daily.turbulence else b.deviation
     val turbulence = (baseTurbulence + state.lifeSeason.drift * 0.25f).coerceIn(0f, 1f)
-    val baseDensity = if (hasDaily) daily.particleDensity else (b.density * 0.9f + 0.1f)
+    val baseDensity = if (hasDaily) daily.particleDensity else b.density * 0.9f + 0.1f
     val textureFactor = 0.9f + state.identityGenome.textureFamily * 0.05f
     val brightness = (dayFactor * (0.55f + v.activityLevel * 0.45f) * nightFactor).coerceIn(0.15f, 1f)
 
@@ -129,7 +129,7 @@ fun computeVisualParameters(
         // 分钟级调制：呼吸周期优先（§59）；日级 pulse 次之；旧推导兜底
         pulsePeriodSeconds = state.momentState.breathingPeriod.takeIf { it > 0f }
             ?: daily.pulsePeriod.takeIf { it > 0f }
-            ?: (5.6f - v.activityLevel * 1.8f),
+            ?: 5.6f - v.activityLevel * 1.8f,
         depth = if (hasDaily) daily.depth else (0.3f + v.regularity * 0.7f).coerceIn(0.3f, 1f),
         brightness = brightness,
         contrast = if (hasDaily) daily.contrast else (0.4f + b.deviation * 0.6f).coerceIn(0f, 1f),
@@ -179,19 +179,19 @@ data class EchoSceneFrame(
 
 /** 确定性伪随机（LCG，seed + 序号 → 0..1；保证同一 identity/day/state 画面可复现）。 */
 fun sceneRandom(seed: Long, index: Int): Float {
-    var x = (seed xor (index.toLong() shl 32)) and 0x7FFFFFFF
+    var x = seed xor (index.toLong() shl 32) and 0x7FFFFFFF
     if (x == 0L) x = 1L
-    x = (x * 48271L) % 2147483647L
+    x = x * 48271L % 2147483647L
     return (x and 0xFFFFFF).toFloat() / 16777215f
 }
 
 /** hue(0..1)/sat/value → ARGB Int（视觉主色由 Identity Genome 决定，非状态决定）。 */
 fun hsvToArgb(hue: Float, saturation: Float, value: Float, alpha: Float = 1f): Int {
-    val h = ((hue % 1f) + 1f) % 1f
+    val h = (hue % 1f + 1f) % 1f
     val s = saturation.coerceIn(0f, 1f)
     val v = value.coerceIn(0f, 1f)
     val c = v * s
-    val x = c * (1f - kotlin.math.abs((h * 6f) % 2f - 1f))
+    val x = c * (1f - kotlin.math.abs(h * 6f % 2f - 1f))
     val m = v - c
     val (r, g, b) = when {
         h < 1f / 6f -> Triple(c, x, 0f)
@@ -205,7 +205,7 @@ fun hsvToArgb(hue: Float, saturation: Float, value: Float, alpha: Float = 1f): I
     val rr = ((r + m) * 255f).toInt().coerceIn(0, 255)
     val gg = ((g + m) * 255f).toInt().coerceIn(0, 255)
     val bb = ((b + m) * 255f).toInt().coerceIn(0, 255)
-    return (a shl 24) or (rr shl 16) or (gg shl 8) or bb
+    return a shl 24 or (rr shl 16) or (gg shl 8) or bb
 }
 
 /**
@@ -224,7 +224,7 @@ fun computeEchoSceneFrame(
     val minDim = min(width, height)
     // Identity 色相：Knuth 乘法散列把 seed 均匀展开到 [0.45, 0.75]（青蓝→紫区间）。
     // 色相属于 Identity Genome（数月恒定），不随状态变化——因此不构成情绪色彩联想。
-    val golden = (seed * 2654435761L) and 0x7FFFFFFF
+    val golden = seed * 2654435761L and 0x7FFFFFFF
     val frac = (golden and 0xFFFFFF).toFloat() / 16777215f
     val hue = 0.45f + frac * 0.3f
 
@@ -234,7 +234,7 @@ fun computeEchoSceneFrame(
 
     // 呼吸相位：pulsePeriod 驱动核心缩放
     val period = params.pulsePeriodSeconds.coerceAtLeast(1f)
-    val breathe = sin((timeSeconds % period) / period * 2f * PI.toFloat())
+    val breathe = sin(timeSeconds % period / period * 2f * PI.toFloat())
     val coreRadius = 0.10f + params.coreOpenness * 0.06f + breathe * 0.02f * (1f - params.turbulence * 0.5f)
     val ringRadius = coreRadius * 1.9f + params.dispersion * 0.35f +
         sin(timeSeconds * 0.3f) * params.turbulence * 0.04f

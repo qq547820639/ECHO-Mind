@@ -101,7 +101,7 @@ data class ActiveSkillSession(
 ) {
     /** 当前活动时长（ms）。暂停时不计入暂停段。 */
     fun activeDurationMs(now: Long): Long = when (status) {
-        SkillSessionStatus.RUNNING -> accumulatedActiveMs + ((now - (segmentStartedAtMs ?: startedAt)).coerceAtLeast(0L))
+        SkillSessionStatus.RUNNING -> accumulatedActiveMs + (now - (segmentStartedAtMs ?: startedAt)).coerceAtLeast(0L)
         SkillSessionStatus.PAUSED -> accumulatedActiveMs
     }
 }

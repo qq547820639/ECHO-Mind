@@ -94,7 +94,7 @@ class PortraitContractParseTest {
         assertEquals("平常 07:30 起床", dto.facts[0].baselineText)
         assertEquals("比平常晚 42 分钟", dto.facts[0].deltaText)
         // coverage 保留数值
-        assertEquals(0.92, (dto.coverage?.get("coverage_score") as? Double) ?: -1.0, 1e-9)
+        assertEquals(0.92, dto.coverage?.get("coverage_score") as? Double ?: -1.0, 1e-9)
     }
 
     // ===== 状态机各态 =====

@@ -1,8 +1,6 @@
 package com.yunjue.echo.mind
 
-import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.SkillFetchResult
-import com.yunjue.echo.mind.model.SkillDisplay
 import com.yunjue.echo.mind.ui.SkillRunSession
 import com.yunjue.echo.mind.ui.SkillRunStatus
 import com.yunjue.echo.mind.ui.coldStartHint

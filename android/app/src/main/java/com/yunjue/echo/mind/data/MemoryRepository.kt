@@ -5,7 +5,6 @@ import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.memory.RetentionClass
 import com.yunjue.echo.mind.memory.defaultRetentionFor
-import com.yunjue.echo.mind.memory.DerivedPattern
 import com.yunjue.echo.mind.memory.contextExceptionContent
 import com.yunjue.echo.mind.memory.contextExceptionInfo
 import com.yunjue.echo.mind.memory.derivePatterns

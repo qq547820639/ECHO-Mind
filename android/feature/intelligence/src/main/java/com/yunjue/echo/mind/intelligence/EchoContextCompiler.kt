@@ -77,7 +77,7 @@ object EchoContextCompiler {
         val ranked = ContextRanker.rank(task, kept).map { it.item }
         val memoryItems = ranked.filter { it.type == "memory" || it.type == "correction" || it.type == "context_exception" }
         val nonMemoryItems = ranked.filter { it !in memoryItems }
-        val budgeted = (nonMemoryItems.take(policy.maxEvidenceItems) + memoryItems.take(policy.maxMemories))
+        val budgeted = nonMemoryItems.take(policy.maxEvidenceItems) + memoryItems.take(policy.maxMemories)
         // token 预算：保守 3 字符/token；超限截断文本
         var tokens = 0
         val capped = budgeted.mapNotNull { item ->

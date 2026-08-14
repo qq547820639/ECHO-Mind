@@ -112,7 +112,7 @@ private fun BreathingContent(
     Text("呼吸练习", style = MaterialTheme.typography.titleSmall)
     Text("跟随节奏：吸气 4 秒 → 屏息 4 秒 → 呼气 6 秒。可按自己的节奏暂停或停止。")
     if (session.isRunning) {
-        val phase = ((uiDuration / 4) % 3)
+        val phase = uiDuration / 4 % 3
         val phaseText = when (phase) {
             0 -> "吸气"
             1 -> "屏息"
@@ -148,7 +148,7 @@ private fun ChecklistContent(
             val done = index < session.currentStep || session.status == SkillRunStatus.COMPLETED
             Text("${if (done) "☑" else "☐"} ${index + 1}. $step")
         }
-        Text("进度：${(session.currentStep.coerceAtMost(skill.steps.size))}/${skill.steps.size}", style = MaterialTheme.typography.labelSmall)
+        Text("进度：${session.currentStep.coerceAtMost(skill.steps.size)}/${skill.steps.size}", style = MaterialTheme.typography.labelSmall)
     }
     ExecutionControls(session, skill.steps.size, uiStatus, uiDuration = 0, onStatusChanged = onStatusChanged, onStart = onStart, onNext = onNext, onPause = onPause, onResume = onResume, onFinish = onFinish)
 }

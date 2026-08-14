@@ -1,7 +1,5 @@
 package com.yunjue.echo.mind.model
 
-import com.yunjue.echo.mind.model.CapabilityState
-import com.yunjue.echo.mind.model.SensingCapability
 
 /**
  * Phase 6.5.2：画像可用性模型（PM 规格 §5.2，内部字段）。

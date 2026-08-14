@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind
 
 import android.hardware.Sensor
-import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.sensing.AppActivityCollector
 import com.yunjue.echo.mind.sensing.FeatureExtractor
 import com.yunjue.echo.mind.sensing.NotificationCollector

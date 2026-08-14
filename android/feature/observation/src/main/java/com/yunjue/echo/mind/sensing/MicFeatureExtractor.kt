@@ -57,12 +57,12 @@ class MicFeatureExtractor {
         if (samples.isEmpty()) return emptyFeature()
 
         val n = samples.size
-        val durationMs = (n.toLong() * 1000L) / sampleRate.toLong()
+        val durationMs = n.toLong() * 1000L / sampleRate.toLong()
 
         // 1. RMS dB（音量包络）
         val rms = computeRms(samples)
         val rmsDb = if (rms > 0.0) {
-            (20f * log10((rms / Short.MAX_VALUE.toDouble())).toFloat()).coerceIn(MIN_DB, MAX_DB)
+            (20f * log10(rms / Short.MAX_VALUE.toDouble()).toFloat()).coerceIn(MIN_DB, MAX_DB)
         } else MIN_DB
 
         // 2. 短时能量包络 + 过零率（按帧分析，20ms 帧）
@@ -142,7 +142,7 @@ class MicFeatureExtractor {
         for (i in 1 until frame.size) {
             val prev = frame[i - 1]
             val curr = frame[i]
-            if ((prev >= 0 && curr < 0) || (prev < 0 && curr >= 0)) zc++
+            if (prev >= 0 && curr < 0 || prev < 0 && curr >= 0) zc++
         }
         return zc.toFloat() / (frame.size - 1)
     }
@@ -221,7 +221,7 @@ class MicFeatureExtractor {
         var mean = 0.0
         for (i in start until end) mean += samples[i].toDouble()
         mean /= len
-        val normalized = FloatArray(len) { (samples[start + it].toFloat() - mean.toFloat()) }
+        val normalized = FloatArray(len) { samples[start + it].toFloat() - mean.toFloat() }
 
         var energy = 0.0
         for (v in normalized) energy += (v * v).toDouble()
@@ -304,7 +304,7 @@ class MicFeatureExtractor {
         val range = (max - min).coerceAtLeast(1e-6f)
         val bins = end - start
         for (value in source) {
-            val bin = (((value - min) / range) * (bins - 1)).toInt().coerceIn(0, bins - 1)
+            val bin = ((value - min) / range * (bins - 1)).toInt().coerceIn(0, bins - 1)
             target[start + bin] += 1f
         }
         val sum = (0 until bins).sumOf { target[start + it].toDouble() }.toFloat()

@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.ui.me
 
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement

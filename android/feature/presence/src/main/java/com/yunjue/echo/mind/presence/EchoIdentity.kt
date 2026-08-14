@@ -16,9 +16,9 @@ import kotlin.math.abs
 
 /** 确定性伪随机（LCG；与 sceneRandom 同族但独立序列空间）。 */
 private fun identityRandom(seed: Long, index: Int): Float {
-    var x = (seed xor (index.toLong() shl 32)) and 0x7FFFFFFF
+    var x = seed xor (index.toLong() shl 32) and 0x7FFFFFFF
     if (x == 0L) x = 1L
-    x = (x * 48271L) % 2147483647L
+    x = x * 48271L % 2147483647L
     return (x and 0xFFFFFF).toFloat() / 16777215f
 }
 

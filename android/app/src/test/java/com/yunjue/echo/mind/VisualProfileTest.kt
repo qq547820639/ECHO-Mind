@@ -4,7 +4,6 @@ import com.yunjue.echo.mind.presence.BehaviorState
 import com.yunjue.echo.mind.presence.EchoIdentityGenome
 import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.RhythmState
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
@@ -120,6 +119,6 @@ class VisualProfileTest {
         val c1 = hsvToArgb(0.6f, 0.7f, 0.75f)
         val c2 = hsvToArgb(0.6f, 0.7f, 0.75f)
         assertEquals(c1, c2)
-        assertEquals(0xFF, (c1 ushr 24) and 0xFF)
+        assertEquals(0xFF, c1 ushr 24 and 0xFF)
     }
 }

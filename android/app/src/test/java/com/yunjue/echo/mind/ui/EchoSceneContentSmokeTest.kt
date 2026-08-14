@@ -11,8 +11,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.yunjue.echo.mind.actions.EchoActionKind
 import com.yunjue.echo.mind.intelligence.ConversationPhase
-import com.yunjue.echo.mind.intelligence.ConversationTurn
-import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.memory.CORRECTION_REASONS
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.MessageDisplay

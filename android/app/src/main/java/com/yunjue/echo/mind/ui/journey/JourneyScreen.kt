@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyDay

@@ -80,7 +80,7 @@ class SensorBufferPressureTest {
         val base = windowStart.toEpochMilli()
         // 1500 样本 @ 200ms = 300s = 5 分钟窗口（一窗满采样），容量 4096 充足
         repeat(1500) { i ->
-            hub.onAccelSample(accelSample(base + i * 200L, x = (i % 100) * 0.01f))
+            hub.onAccelSample(accelSample(base + i * 200L, x = i % 100 * 0.01f))
         }
         val snapshot = hub.snapshotAccel()
         assertTrue("1500 条窗口样本不应被容量丢弃", snapshot.size >= 1500)

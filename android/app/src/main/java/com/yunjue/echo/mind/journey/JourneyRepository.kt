@@ -55,7 +55,7 @@ open class JourneyRepository(
     /** consent + 租户 flag 联合判定（任一关闭 → permission_disabled 态；§28 由 ViewModel 注入 UI state）。 */
     override val permissionEnabledFlow: Flow<Boolean> =
         combine(consentFlow, featureFlagRepository.featureFlagsFlow) { consent, flags ->
-            consent && (flags["passive_sensing_enabled"] ?: false)
+            consent && flags["passive_sensing_enabled"] ?: false
         }
 
     /** 画像时间线（窗口天数由 ViewModel 按尺度决定）。 */

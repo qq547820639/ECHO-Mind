@@ -85,7 +85,7 @@ fun EchoActionOverlay(
 
     // 吸/呼相位：elapsed 在 8s 周期前半 = 吸气（核心扩大），后半 = 呼气
     val elapsed = (ACTION_DURATION_SECONDS - remaining).toFloat()
-    val inhale = (elapsed % BREATHING_CYCLE_SECONDS) < BREATHING_CYCLE_SECONDS / 2f
+    val inhale = elapsed % BREATHING_CYCLE_SECONDS < BREATHING_CYCLE_SECONDS / 2f
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

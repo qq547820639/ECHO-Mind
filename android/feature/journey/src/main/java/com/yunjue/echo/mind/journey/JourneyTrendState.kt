@@ -107,7 +107,7 @@ val SOURCE_CAPABILITY: Map<String, SensingCapability> = mapOf(
 fun missingSourcesFromCapabilities(capabilities: Map<SensingCapability, CapabilityState>): List<String> =
     EXPECTED_CORE_SOURCES.toList().filter { code ->
         val capability = SOURCE_CAPABILITY[code] ?: return@filter false
-        (capabilities[capability] ?: CapabilityState.UNAVAILABLE) != CapabilityState.AVAILABLE
+        capabilities[capability] ?: CapabilityState.UNAVAILABLE != CapabilityState.AVAILABLE
     }
 
 /** NO_DATA 原因 → 用户可读文案（不暴露工程术语/HTTP 码）。 */

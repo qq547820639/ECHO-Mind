@@ -14,13 +14,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.presence.EchoSceneFrame
-import com.yunjue.echo.mind.presence.EchoVisualParameters
-import com.yunjue.echo.mind.presence.PresenceMotionLevel
-import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.computeVisualParameters
 import java.time.LocalTime
 import kotlin.math.min
 
@@ -191,4 +184,4 @@ fun renderEchoFrameToCanvas(
     canvas.drawCircle(cx, cy, frame.coreRadiusFraction * minDim * 2.4f, corePaint)
 }
 
-private fun Int.withAlpha(alpha: Int): Int = (this and 0x00FFFFFF) or (alpha shl 24)
+private fun Int.withAlpha(alpha: Int): Int = this and 0x00FFFFFF or (alpha shl 24)

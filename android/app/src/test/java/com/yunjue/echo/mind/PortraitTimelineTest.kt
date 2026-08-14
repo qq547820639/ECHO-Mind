@@ -118,8 +118,8 @@ class PortraitTimelineTest {
             portrait(
                 date = "2026-08-0$d",
                 dims = mapOf(
-                    "RHYTHM" to (if (d % 2 == 0) "EARLIER" else "LATER"),
-                    "MOVEMENT" to (if (d % 2 == 0) "LESS" else "MORE"),
+                    "RHYTHM" to if (d % 2 == 0) "EARLIER" else "LATER",
+                    "MOVEMENT" to if (d % 2 == 0) "LESS" else "MORE",
                     "SCREEN_AMOUNT" to "SIMILAR"
                 )
             )

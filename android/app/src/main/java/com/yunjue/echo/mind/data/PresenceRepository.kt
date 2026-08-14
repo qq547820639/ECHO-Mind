@@ -5,7 +5,6 @@ import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.presence.AmbientEngine
 import com.yunjue.echo.mind.presence.BehaviorState
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.buildMomentState

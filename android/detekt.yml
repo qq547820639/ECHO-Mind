@@ -9,6 +9,14 @@
 #   UnnecessarySafeCall/UselessPostfixExpression）、style（UnnecessaryAbstractClass/
 #   NewLineAtEndOfFile/ProtectedMemberInFinalClass/ExplicitItLambdaParameter）。
 #   （RedundantVisibilityModifier 已从 detekt 1.23 移除，不启用。）
+# - ERA 37 扩集（探测→清除→固化）：style（UnusedImports/MayBeConst/
+#   UnnecessaryParentheses）、potential-bugs（CastToNullableType/
+#   DontDowncastCollectionTypes/LateinitUsage/UnusedUnaryOperator）、
+#   coroutines（SleepInsteadOfDelay）、performance（ForEachOnRange/
+#   UnnecessaryTemporaryInstantiation）。探测清除 60+ 处未用 import/多余括号
+#   （全模块迭代）；LateinitUsage 主源集强制、测试源集豁免（JUnit 惯例）。
+#   探测淘汰：CollapsibleIf 不存在于 1.23；MissingWhenCase/RedundantElseInWhen
+#   已由编译器默认检查。
 
 build:
   maxIssues: 0
@@ -37,6 +45,12 @@ style:
     active: true
   ExplicitItLambdaParameter:
     active: true
+  UnusedImports:
+    active: true
+  MayBeConst:
+    active: true
+  UnnecessaryParentheses:
+    active: true
 
 complexity:
   LongParameterList:
@@ -59,11 +73,27 @@ potential-bugs:
     active: true
   UselessPostfixExpression:
     active: true
-
+  CastToNullableType:
+    active: true
+  DontDowncastCollectionTypes:
+    active: true
+  LateinitUsage:
+    active: true
+    # JUnit 惯例：测试替身 lateinit 于 setUp 初始化（33 处全在测试源集）；主源集强制禁止。
+    excludes: ['**/src/test/**', '**/src/androidTest/**']
+  UnusedUnaryOperator:
+    active: true
 
 coroutines:
   GlobalCoroutineUsage:
     active: true
   RedundantSuspendModifier:
     active: true
+  SleepInsteadOfDelay:
+    active: true
 
+performance:
+  ForEachOnRange:
+    active: true
+  UnnecessaryTemporaryInstantiation:
+    active: true

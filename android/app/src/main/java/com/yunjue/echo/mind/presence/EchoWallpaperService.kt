@@ -6,8 +6,6 @@ import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.presence.WallpaperRenderController
-import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
 import java.time.LocalTime
 
 /**

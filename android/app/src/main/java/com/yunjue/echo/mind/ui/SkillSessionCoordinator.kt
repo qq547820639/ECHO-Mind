@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.ui
 
-import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.model.SkillCompletionInput
 import com.yunjue.echo.mind.model.SkillDisplay

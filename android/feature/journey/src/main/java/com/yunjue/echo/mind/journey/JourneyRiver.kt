@@ -125,7 +125,7 @@ fun buildVisualMemoryRiver(
             RiverSegmentKind.TRANSITION -> maxOf(stepIn, stepOut).coerceIn(0f, 1f)
             RiverSegmentKind.DRIFT -> (stepIn + stepOut).coerceIn(0f, 1f)
             RiverSegmentKind.DENSE -> chunk.activity.coerceIn(0f, 1f)
-            RiverSegmentKind.STABLE -> (1f - ((stepIn + stepOut) / 2f)).coerceIn(0f, 1f)
+            RiverSegmentKind.STABLE -> (1f - (stepIn + stepOut) / 2f).coerceIn(0f, 1f)
         }
         ClassifiedChunk(chunk = chunk, kind = kind, intensity = intensity)
     }
