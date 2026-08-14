@@ -80,6 +80,19 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    @Test
+    fun journeyApplicationLayerDoesNotDependOnUi() {
+        // ERA 13 §27：journey 应用层（JourneyRepository/JourneyPort/装配器）不得依赖 UI；
+        // 方向恒为 ui → journey（Screen/ViewModel 消费应用层状态）。
+        for (f in filesUnder("journey")) {
+            val t = textOf(f)
+            assertTrue(
+                "journey/${f.name} 不得依赖 ui 包",
+                "com.yunjue.echo.mind.ui" !in t
+            )
+        }
+    }
+
     private fun offendingLines(text: String, needles: List<String>): String =
         text.lines().filter { line -> needles.any { it in line } }.take(3).joinToString("\n")
 }

@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 12.8 — FINAL DISTRIBUTION CLOSURE 完成 ✅ → 下一轮 ERA 12.9 收尾 + ERA 13（Journey Application Layer）**
+**ERA 13 — JOURNEY APPLICATION LAYER 完成 ✅ → 下一轮 ERA 13.1（Me Application Layer）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,19 +30,21 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**465 unit tests 全绿**；lintDebug / detekt / assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**478 unit tests 全绿**（Journey 新增 13：装配矩阵 8 + ViewModel 4 + 边界 1）；lintDebug / detekt PASS；assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
-- Distribution：SOURCE_MANIFEST（479 文件）verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**（runtime 文件在 git、manifest 一致、archive 二次验证）
+- Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
 ## Completed
 
 - v1 ERA 1-10 / v2 两轮 / ERA 12（批次 1+2+v3.1 收尾）——见 RELEASE_NOTES 与 ADR-001~024
 - **ERA 12.6/12.7 Source Closure**：交付元数据重建、provenance、BuildConfig、SourceIntegrityTest、CI gate、文档归档
-- **ERA 12.8 Distribution Closure（本 ERA 目标）**：runtime 入库、manifest=git、确定性归档、终态验证门禁、root APK provenance 绑定、release-closure CI
+- **ERA 12.8 Distribution Closure**：runtime 入库、manifest=git、确定性归档、终态验证门禁、root APK provenance 绑定、release-closure CI
+- **ERA 12.9 Document/Status Truth**：IMPLEMENTATION_STATUS 只描述可交付 main；架构清单 LOC 实测修正（888→314）；Source Reality Report CI drift gate（§21）
+- **ERA 13 Journey Application Layer**：JourneyScreen（555→293 行）去编排；JourneyViewModel（168 行）+ JourneyUiState/JourneyEvent（§24/§25 全字段）+ JourneyRepository/JourneyPort（§26）；趋势七态纯逻辑迁 journey 包；ArchitectureBoundaryTest 新增 journey 不依赖 ui 断言；JourneyUiStateAssemblyTest（§102 矩阵：empty/partial/7d/28d/90d/365d/missing days/context exceptions/AI unavailable）+ JourneyViewModelTest（4 用例）
 
 ## In Progress
 
-- ERA 12.9 收尾（文档真值已随 12.8 更新；§20 架构清单自动化下轮并入）→ **ERA 13 JourneyViewModel / JourneyUiState / Journey 应用服务 + JourneyScreen 去编排**（本轮后立即执行）
+- ERA 13.1 Me Application Layer：MeViewModel + DataAndSensingViewModel + Intelligence/Presence Settings ViewModel + MeScreen 去编排（本轮后立即执行）
 
 ## Blocked
 
@@ -59,7 +61,6 @@
 
 ## Architecture Debt
 
-- `ui/journey/JourneyScreen.kt` 仍直接编排 7 个依赖（repository/AI/memory/flags/sync）——**ERA 13 JourneyViewModel 化**
 - `ui/me/MeScreen.kt` 仍持有共享状态编排（六子领域已拆，但 root 状态提升未 ViewModel 化）——**ERA 13.1 MeViewModel**
 - AppContainer 子容器为组合式分组（构造仍在 root）——ERA 13.3 抽 ports + 真拥有
 

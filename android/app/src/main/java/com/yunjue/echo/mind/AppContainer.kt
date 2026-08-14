@@ -318,6 +318,17 @@ class AppContainer(context: Context) {
         memoryRepository = memoryRepository,
         preferences = preferences,
     )
+    // ERA 13 §26：Journey Application Layer（JourneyScreen → JourneyViewModel → JourneyRepository）
+    val journeyRepository = com.yunjue.echo.mind.journey.JourneyRepository(
+        portraitRepository = portraitRepository,
+        syncStateRepository = syncStateRepository,
+        featureFlagRepository = featureFlagRepository,
+        aiNarrativeService = aiNarrativeService,
+        contextRetriever = contextRetriever,
+        preferences = preferences,
+        appContext = context.applicationContext,
+        hasIntelligence = { aiProviderManager.hasProvider() },
+    )
 
     // ===== v3 §40：子容器分组（所有权拆分；同一实例，按领域暴露，新代码走领域入口） =====
     val core = com.yunjue.echo.mind.di.CoreContainer(

@@ -26,8 +26,8 @@ import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
 import com.yunjue.echo.mind.ui.SkillSessionCoordinator
 import com.yunjue.echo.mind.ui.SkillTerminal
-import com.yunjue.echo.mind.ui.TrendNoDataReason
-import com.yunjue.echo.mind.ui.resolveTrendNoDataReason
+import com.yunjue.echo.mind.journey.TrendNoDataReason
+import com.yunjue.echo.mind.journey.resolveTrendNoDataReason
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After

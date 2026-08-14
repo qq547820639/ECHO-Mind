@@ -32,13 +32,13 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：108
+- Kotlin 文件：115
 - Python 文件：68
 - Manifest Components：5（缺失源类：0）
 - Worker：5（缺失实现：0）
-- Repository：11
+- Repository：12
 - Runtime/Coordinator：4
-- ViewModel：1
+- ViewModel：2
 - Gradle modules：['app']
 
 ## Manifest Components
@@ -56,9 +56,9 @@
 - `SyncWorker`
 
 ## Repository / Runtime / ViewModel
-- Repository：ConsentRepository, EscalationRepository, FeatureFlagRepository, MemoryRepository, MessageRepository, OnboardingRepository, PortraitRepository, PresenceRepository, SensingRepository, SkillRepository, SyncStateRepository
+- Repository：ConsentRepository, EscalationRepository, FeatureFlagRepository, JourneyRepository, MemoryRepository, MessageRepository, OnboardingRepository, PortraitRepository, PresenceRepository, SensingRepository, SkillRepository, SyncStateRepository
 - Runtime：EchoActionRuntime, EchoRuntimeCoordinator, SensingRuntimeStatus, SkillSessionCoordinator
-- ViewModel：EchoSceneViewModel
+- ViewModel：EchoSceneViewModel, JourneyViewModel
 
 ## Domain packages（必须存在）
 - `sensing` ✅

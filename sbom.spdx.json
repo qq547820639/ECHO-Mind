@@ -5,7 +5,7 @@
   "name": "ECHO-Mind-PortraitCore-v0.9.0-source-SBOM",
   "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.9.0/sbom",
   "creationInfo": {
-    "created": "2026-08-14T12:28:48Z",
+    "created": "2026-08-14T12:54:36Z",
     "creators": [
       "Tool: scripts/generate_sbom.py"
     ]
@@ -358,7 +358,7 @@
     {
       "annotationType": "OTHER",
       "annotator": "Tool: scripts/generate_sbom.py",
-      "annotationDate": "2026-08-14T12:28:48Z",
+      "annotationDate": "2026-08-14T12:54:36Z",
       "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
     }
   ]

@@ -9,7 +9,7 @@ import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.dimensionTrendSymbol
 import com.yunjue.echo.mind.model.dimensionValueText
 import com.yunjue.echo.mind.model.portraitStabilitySummary
-import com.yunjue.echo.mind.ui.coveragePercent
+import com.yunjue.echo.mind.journey.coveragePercent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

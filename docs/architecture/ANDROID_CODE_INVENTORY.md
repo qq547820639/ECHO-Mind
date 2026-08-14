@@ -31,7 +31,8 @@
 | intelligence | `intelligence/*` | NEW_CORE | 依赖 observation 接口（EvidenceAssembler），不反向 |
 | memory | `memory/*`、`data/MemoryRepository.kt` | NEW_CORE | 不依赖具体 Provider |
 | actions | `actions/*`（EchoActionRuntime 60 行，ERA 12 已建立）、`ui/EchoActionOverlay.kt` | NEW_CORE | Overlay 状态经 Runtime 注入；ERA 13 actions 收口 |
-| journey | `journey/*`（纯视觉）、`ui/journey/JourneyScreen.kt`（555 行，实测） | MIGRATING | JourneyScreen 仍直接编排 7 依赖 → ERA 13 JourneyViewModel/JourneyRepository 化 |
+| journey 应用层 | `journey/JourneyRepository.kt`（应用服务）+ `journey/JourneyPort.kt`（数据端口）+ `journey/JourneyUiState.kt`（状态+纯函数装配）+ `journey/JourneyEvent.kt` + `journey/JourneyTrendState.kt`（七态纯逻辑） | NEW_CORE | ERA 13：Screen → ViewModel → Repository → 数据实现；ArchitectureBoundaryTest 断言 journey 不依赖 ui |
+| journey UI | `ui/journey/JourneyScreen.kt`（293 行，实测）+ `ui/journey/JourneyViewModel.kt`（168 行）+ `ui/journey/JourneyEvidenceView.kt`（142 行） | NEW_CORE | Screen 只组合：Scale selector / Visual Memory River / Narrative / Evidence；无 LaunchedEffect 编排 |
 
 ## 3. 基础设施
 

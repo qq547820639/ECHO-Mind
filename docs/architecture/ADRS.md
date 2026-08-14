@@ -183,3 +183,16 @@
   9. **根目录 APK/idsig 移出 git**（交付物而非源码；`.gitignore` 泛化 `ECHO_Mind_v*.apk*`）。
 - **理由**：上一轮 source-integrity 只验证 git checkout，最终分发 ZIP 与 checkout 不是同一道 Gate；manifest 描述打包前 worktree 而非最终 ZIP。
 - **后果**：Git source = SOURCE_MANIFEST = source ZIP/tar.gz = extracted verified source = tested/built source = signed APK = BUILD_PROVENANCE = RELEASE_ARTIFACT_MANIFEST = final package（clean checkout 实测全 PASS）；ERA 12.8 完成后进入 ERA 12.9（文档/状态真值）→ ERA 13（Journey Application Layer）。
+
+## ADR-026：ERA 13 Journey Application Layer（Screen → ViewModel → Application Service → 数据实现）
+
+- **决策**：
+  1. **JourneyScreen 去编排**（555 → 293 行）：Screen 只保留 Scale selector / Visual Memory River / Narrative / Evidence；删除 7 个直接依赖（Portrait/SyncState/FeatureFlag/Memory Repository、AiNarrativeService、EchoContextRetriever、AppPreferences）与全部业务 LaunchedEffect；Evidence Layer（图表/综述）拆至 `ui/journey/JourneyEvidenceView.kt`（142 行）。
+  2. **JourneyViewModel**（168 行，AndroidViewModel + viewModelFactory）：唯一业务持有者；`uiState = StateFlow<JourneyUiState>`（combine 装配）；事件面 `JourneyEvent`（SelectScale/Refresh/ToggleEvidence/AskAboutPeriod/RetryNarrative；SelectDay/SelectPeriod 属 ERA 16 周期选择交互，不预置死事件）。
+  3. **JourneyUiState**（§24 全字段）：selectedScale/timeline/selectedPeriod/visualDays+visualPeriods（预装配视觉记忆）/narrative/evidence/exceptions（上下文例外）/intelligenceAvailability/syncStatus/loading/error/journeySeed；纯函数装配器 `assembleJourneyUiState`（与 EchoSceneUiState 同模式）。
+  4. **JourneyRepository（应用服务）+ JourneyPort（数据端口）**：timeline/refresh/runtimeSnapshot/narrativeFor（FIND_LONGITUDINAL_PATTERN 证据检索 + AI 叙事 → 确定性综述 fallback + CONTEXT_EXCEPTIONS 抽取）/feedback/journeySeed；Feature Flag 经 ViewModel 注入 UI state（§28），Screen 不再直读。
+  5. **七态纯逻辑迁入 journey 包**：TrendUiState/TrendNoDataReason/resolveTrendState/resolveTrendNoDataReason/coveragePercent 等自 ui/JourneyState.kt 迁至 journey/JourneyTrendState.kt（ui/JourneyState.kt 仅留 TREND_DISCLAIMER + 系统设置 intents + formatTimestamp，formatTimestamp 因 Me/DataAndSensing 共用而保留在 ui）。
+  6. **边界断言**：ArchitectureBoundaryTest 新增 `journey 应用层不依赖 ui`（方向恒为 ui → journey）。
+  7. **测试（§102 矩阵）**：JourneyUiStateAssemblyTest 8 用例（empty/partial/7d/28d/90d/365d/missing days/context exceptions/AI unavailable/seed 稳定）+ JourneyViewModelTest 4 用例（fake JourneyPort；Robolectric sdk=35）。
+- **理由**：Journey 是当前最大 UI/Application debt（555 行 Screen 直接编排 7 依赖）；§23-§30 要求 Screen 1–2 分钟可读。
+- **后果**：Journey Application Layer 完成（§110：Screen 不再直接 orchestrate repositories）；ERA 13.1（Me Application Layer）开始；JourneyPort 成为 ERA 13.2 全局 ports 的先行样本。

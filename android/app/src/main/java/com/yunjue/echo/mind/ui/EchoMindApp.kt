@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 
 /**
@@ -89,16 +90,14 @@ fun EchoMindApp(container: AppContainer) {
                     onGoToMe = { tabName = Tab.ME.name },
                     onEmergency = { tabName = Tab.ME.name },
                 )
-                Tab.JOURNEY -> com.yunjue.echo.mind.ui.journey.JourneyScreen(
-                    container.portraitRepository,
-                    container.syncStateRepository,
-                    container.featureFlagRepository,
-                    container.memoryRepository,
-                    container.aiNarrativeService,
-                    container.contextRetriever,
-                    container.preferences,
-                    onGoToSupport = { tabName = Tab.ME.name }
-                )
+                Tab.JOURNEY -> {
+                    val journeyViewModel: com.yunjue.echo.mind.ui.journey.JourneyViewModel =
+                        viewModel(factory = com.yunjue.echo.mind.ui.journey.JourneyViewModel.factory(container))
+                    com.yunjue.echo.mind.ui.journey.JourneyScreen(
+                        viewModel = journeyViewModel,
+                        onGoToSupport = { tabName = Tab.ME.name }
+                    )
+                }
                 Tab.ME -> com.yunjue.echo.mind.ui.me.MeScreen(container)
             }
         }

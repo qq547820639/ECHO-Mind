@@ -25,6 +25,10 @@ jobs:
         run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py scripts/distribution.py scripts/build_source_archive.py scripts/verify_source_archive.py scripts/build_final_package.py scripts/verify_final_package.py
       - name: verify SOURCE_MANIFEST matches this checkout（git 受控文件集）
         run: python3 scripts/verify_source_manifest.py
+      - name: source reality report drift gate（ERA 12.9 §21：脚本重生成 + git diff）
+        run: |
+          python3 scripts/generate_source_reality.py
+          git diff --exit-code docs/architecture/SOURCE_REALITY_REPORT.md
       - name: build deterministic source archive
         run: python3 scripts/build_source_archive.py --out-dir dist
       - name: verify extracted source archive（zip）
