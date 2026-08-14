@@ -328,9 +328,10 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         /**
          * derived_feature 上传速率限制：滑动 1 分钟窗口，最多 [DF_MAX_PER_WINDOW] 条。
          * 超限返回 false，调用方应 Result.retry() 延迟发送。
+         * ERA 48：internal（原 private）——outbox 生命周期矩阵测试锚点。
          */
         @Synchronized
-        private fun acquireDerivedFeatureSlot(context: Context): Boolean {
+        internal fun acquireDerivedFeatureSlot(context: Context): Boolean {
             val prefs = context.getSharedPreferences(RATE_LIMIT_PREFS, Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
             val windowStart = prefs.getLong(KEY_DF_WINDOW_START, 0L)

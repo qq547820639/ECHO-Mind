@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**数据权利导出覆盖复核轮完成 ✅（本地导出 3 域 → 5 域——记忆与 Journey Canonical 快照纳入，与删除域一一对齐）→ 下一轮：SyncWorker outbox 生命周期复核 / Affective 评审等待**
+**SyncWorker outbox 生命周期复核轮完成 ✅（状态矩阵五维对照 PASS + derived_feature 速率槽位测试锚点 3 用例）→ 下一轮：Room 12 预研 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**760 unit tests 全绿**（ERA 40 Provider 私网边界 +1：RFC 1918 172.16/12 放行 / 公网 172.x 拒绝——API Key 明文出网洞修复）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**763 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1075 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -85,6 +85,7 @@
 - **迁移链收官轮**：Room 迁移链 instrumentation 覆盖补齐——此前 2→8 全链 + 7→8 单步，v9（echo_memories）/v10（journey_canonical_days）/v11（复合索引）迁移无测试；新增 8→11 全链（v10 表+索引可写读 / v11 复合索引存在 / 旧特征行保留锚）+ 10→11 索引单步（PRAGMA index_list 校验）；激活码 TTL 毫秒边界契约（expires_at == now → 拒绝，锁定 `_is_expired` 的 <= 语义）——迁移链 2→11 自此无断档，android-ci 注释同步
 - **数据库维护 Worker 复核轮**：§76 全语义逐条对照——decay（memoryDecayScore 检索相关性衰减，MemoryMaturityTest.decayScoreDecreasesOverTime）、expiry（shouldForget + purgeExpired 软删，expiryBasedOnRetention）、reinforce（confirm 提升 importance + 刷新确认时间）、derivePatterns（幂等哈希 id upsert）均有实现与测试；Worker 注册（echo-presence-refresh 15min KEEP unique）+ onboarding 门禁 + 四步顺序 + fail-closed 复核 PASS；**落地测试锚点**：抽取 `PresenceMaintenanceScript`（纯 JVM 可测维护序列），3 用例锁定固定顺序 / 中途异常不阻断后续步骤 / 全步异常仍完成（worker 恒 success 语义）
 - **数据权利导出覆盖复核轮**：导出/删除域对照发现**真实缺口**——deleteLocalData 覆盖五域（特征/画像/同意/记忆/Canonical 快照）而 exportLocalData 仅三域，用户无法导出自己的记忆与 Journey 视觉快照；修复：MemoryDao 增 `allByUser`（导出专用全量查询，含软删记录与 deleted 标记——完整记录不留盲区；UI 热路径仍走 LIMIT 截断不变）+ JourneyCanonicalDao.range 纳入，导出 JSON 增 `memories` / `journey_canonical_days` 两节；LocalModeTest 扩域断言五域导出内容与删除后五域清零；云端路径复核（backend DSR 矩阵依法保留分类/幂等重放）与 device-first 分工一致（后端不持有设备记忆）
+- **SyncWorker outbox 生命周期复核轮**：五维矩阵逐条对照——重试退避（批内 429 Retry-After 聚合取最小 + clamp[1,MAX] + 无 429 时清除持久化值回落 30s 指数退避，backoffDelayConsumesRetryAfterAndFallsBackToDefault）、死信（410 非 deprecated 永久 DEAD_LETTER / 毒丸 max attempts 保护 / 412-422 超限）、幂等重放（2xx/409 DELETE、410+deprecated DELETE_AND_MIGRATE）、本地模式静默（Outbox.enqueue 静默不积压）、auth 暂停不阻塞队列（SyncWorkerAuthPauseTest）全部 PASS；**补测缺口**：derived_feature 上传速率槽位（acquireDerivedFeatureSlot 滑动 60s 窗口 / 上限 20）此前无测试——internal 化 + 3 用例（新窗口精确 20 槽 / 计数持久化 / 窗口过期重置计数，无 sleep 全确定性）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -130,4 +131,4 @@
 
 ## Next Highest-value Task
 
-SyncWorker outbox 生命周期复核（重试退避 / 死信 / 幂等重放 / 本地模式静默的端到端状态矩阵与清理边界）；随后 Room 12 预研（如需新表）与数据权利删除的云端撤回证据链复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+数据权利删除的云端撤回证据链复核（backend DSR delete 完成后 evidence/audit 保留矩阵与用户端回执一致性）+ Room 12 预研（当前无新表需求则记录结论）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
