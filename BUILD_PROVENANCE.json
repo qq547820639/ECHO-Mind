@@ -1,18 +1,18 @@
 {
   "schema_version": "echo-build-provenance-v2",
   "release_version": "0.9.0",
-  "git_commit": "3951743608dd3704adcd32f613b221cea7908fb2",
+  "git_commit": "f96f86cd20bdf7386626f4f269f1ea021fdf75c2",
   "git_dirty": false,
   "release_type": "release",
-  "source_tree_sha256": "580470d457969571692bf107f06d2916a2384aa530fd5f89af5ccd9f9440333a",
-  "source_manifest_sha256": "f14c831328aa4d7074340c5e2ae17f7923f410bb4833a72eb1bcaf7c7310876e",
+  "source_tree_sha256": "607efde8044778763ddd3eadb8b50b406aaeda674b2892ba5f47302a26a94cc0",
+  "source_manifest_sha256": "e3fe83d642d7ee39e49ca0d1bf9c279307e53e7658dc32dfe50fabcdddfe0f04",
   "android_version_name": "0.9.0",
   "android_version_code": 6,
   "backend_version": "0.9.0",
   "jdk_version": "17.0.20",
   "gradle_version": "8.13",
   "python_version": "3.9.6",
-  "build_timestamp_utc": "2026-08-14T12:28:25Z",
+  "build_timestamp_utc": "2026-08-14T12:28:48Z",
   "ci_run_id": "",
   "builder_environment": "local-dev",
   "unsigned_apk_path": "android/app/build/outputs/apk/release/app-release-unsigned.apk",
@@ -22,9 +22,9 @@
   "release_apk_idsig_sha256": "b27ee7be9d483daa424ad6f157f94467b95cc5a6fdff600793d0ef00565c95df",
   "signing_stage": "signed",
   "signature_scheme": "v2,v3",
-  "sbom_sha256": "d5e099ffad659e019710cfcbde8ef8e8a85155ac81e467efed9f948108251d52",
+  "sbom_sha256": "341c5301f857ad4d3ba837aa0ef27fcba728ae46fa762ecafd38a4563f967210",
   "source_archive_sha256": {
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "78a1a97071a9ec32d646bbee3811a711f8c94e2ee36cfe624b11c3b7b3296258",
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "091793700639cd814473efad7495f4db8bf158ab0d5e28eda64fc8ab48d3dfbf"
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "cd7a09d784bd675567b8a9794bdc35a15d40640a87eb3afb4b31543fa7fa2cb6",
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "a586b3e2d1eb5a712a75baaaf81f14d9f34eda2902af57581e9007cc06de39f3"
   }
 }
