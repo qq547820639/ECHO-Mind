@@ -30,6 +30,9 @@ import com.yunjue.echo.mind.data.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.syncStateText
+import com.yunjue.echo.mind.intelligence.overall
+import com.yunjue.echo.mind.intelligence.testConnectionDetail
+import com.yunjue.echo.mind.intelligence.providerStatusText
 import com.yunjue.echo.mind.model.subscriptionStatusText
 import com.yunjue.echo.mind.sensing.CapabilityState
 import com.yunjue.echo.mind.sensing.SensingCapability
@@ -255,7 +258,7 @@ fun SupportScreen(container: AppContainer) {
         )
     }
 
-    Page("支持与设置") {
+    Page("Me · 我的控制权") {
         // 危机按钮 accessibility 文案：在组合作用域解析资源（lint：不在 semantics lambda 内查询资源）
         val crisis12356Desc = stringResource(R.string.crisis_call_12356_desc)
         val crisis110Desc = stringResource(R.string.crisis_call_110_desc)
@@ -604,13 +607,15 @@ fun SupportScreen(container: AppContainer) {
             }
         }
 
-        // ===== ERA 4：AI Intelligence（Me → Intelligence → AI Provider；BYOM 一等公民） =====
+        // ===== v2 §34/§39：AI Intelligence（Me → Intelligence；BYOM 一等公民） =====
         val storedConfig = remember { container.aiProviderManager.stored() }
         var baseUrl by remember { mutableStateOf(storedConfig?.baseUrl ?: "") }
         var modelName by remember { mutableStateOf(storedConfig?.model ?: "") }
         var apiKey by remember { mutableStateOf(storedConfig?.apiKey ?: "") }
         var aiStatus by remember { mutableStateOf<com.yunjue.echo.mind.intelligence.ProviderStatus?>(null) }
         var aiBusy by remember { mutableStateOf(false) }
+        var changeExpanded by remember { mutableStateOf(false) }
+        var testDetail by remember { mutableStateOf<String?>(null) }
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("AI Intelligence", style = MaterialTheme.typography.titleMedium)
@@ -619,10 +624,17 @@ fun SupportScreen(container: AppContainer) {
                         "ECHO 的记忆与人格不会因换模型而改变。API Key 仅加密保存在本机，不会上传。",
                     style = MaterialTheme.typography.bodySmall
                 )
+                // 当前 Provider 概览（普通用户视图：无工程术语）
+                val configured = container.aiProviderManager.stored()
+                if (configured != null) {
+                    Text("Current provider：OpenAI Compatible", style = MaterialTheme.typography.titleSmall)
+                    Text("Model：${configured.model}", style = MaterialTheme.typography.bodySmall)
+                    Text("Base URL：${configured.baseUrl}", style = MaterialTheme.typography.bodySmall)
+                }
                 val currentStatus = aiStatus ?: if (storedConfig != null) com.yunjue.echo.mind.intelligence.ProviderStatus.READY else null
                 if (currentStatus != null) {
                     Text(
-                        com.yunjue.echo.mind.intelligence.providerStatusText(currentStatus),
+                        "Status：${com.yunjue.echo.mind.intelligence.providerStatusText(currentStatus)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (currentStatus == com.yunjue.echo.mind.intelligence.ProviderStatus.READY)
                             MaterialTheme.colorScheme.primary
@@ -630,29 +642,66 @@ fun SupportScreen(container: AppContainer) {
                             MaterialTheme.colorScheme.error
                     )
                 }
-                OutlinedTextField(
-                    value = baseUrl,
-                    onValueChange = { baseUrl = it },
-                    label = { Text("Base URL（如 https://api.openai.com）") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = modelName,
-                    onValueChange = { modelName = it },
-                    label = { Text("模型名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    label = { Text("API Key") },
-                    singleLine = true,
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                testDetail?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                aiBusy = true
+                                aiStatus = com.yunjue.echo.mind.intelligence.ProviderStatus.VALIDATING
+                                // v2 §39：四步测试（认证 → 模型 → 结构化输出 → 基础请求）
+                                val result = container.aiProviderManager.testConnection(
+                                    if (changeExpanded) com.yunjue.echo.mind.intelligence.ProviderConfigDraft(
+                                        providerType = com.yunjue.echo.mind.intelligence.ProviderType.OPENAI_COMPATIBLE,
+                                        baseUrl = baseUrl,
+                                        model = modelName,
+                                        apiKey = apiKey,
+                                    ) else null
+                                )
+                                aiStatus = result.overall
+                                testDetail = com.yunjue.echo.mind.intelligence.testConnectionDetail(result)
+                                aiBusy = false
+                            }
+                        },
+                        enabled = !aiBusy
+                    ) { Text(if (aiBusy) "正在测试…" else "测试连接") }
+                    OutlinedButton(onClick = { changeExpanded = !changeExpanded }) {
+                        Text(if (changeExpanded) "收起设置" else "更换 Provider")
+                    }
+                    if (container.aiProviderManager.hasProvider()) {
+                        OutlinedButton(onClick = {
+                            container.aiProviderManager.clear()
+                            apiKey = ""
+                            aiStatus = com.yunjue.echo.mind.intelligence.ProviderStatus.NOT_CONFIGURED
+                            testDetail = null
+                        }) { Text("断开连接") }
+                    }
+                }
+                if (changeExpanded) {
+                    OutlinedTextField(
+                        value = baseUrl,
+                        onValueChange = { baseUrl = it },
+                        label = { Text("Base URL（如 https://api.openai.com）") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = modelName,
+                        onValueChange = { modelName = it },
+                        label = { Text("模型名") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        label = { Text("API Key") },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Button(
                         onClick = {
                             scope.launch {
@@ -679,17 +728,11 @@ fun SupportScreen(container: AppContainer) {
                                     )
                                 }
                                 aiBusy = false
+                                changeExpanded = false
                             }
                         },
                         enabled = !aiBusy
-                    ) { Text(if (aiBusy) "正在验证…" else "验证并连接") }
-                    if (container.aiProviderManager.hasProvider()) {
-                        OutlinedButton(onClick = {
-                            container.aiProviderManager.clear()
-                            apiKey = ""
-                            aiStatus = com.yunjue.echo.mind.intelligence.ProviderStatus.NOT_CONFIGURED
-                        }) { Text("断开连接") }
-                    }
+                    ) { Text(if (aiBusy) "正在验证…" else "保存并连接") }
                 }
                 Text(
                     "使用自定义 AI 服务时，ECHO 为完成请求而选择的数据会发送给该服务商，其数据处理规则由该服务商决定。",

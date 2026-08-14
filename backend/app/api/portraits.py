@@ -241,7 +241,7 @@ def list_portraits(
     user_id: str,
     db: DB,
     principal: PRINCIPAL,
-    days: int = Query(default=7, ge=1, le=90),
+    days: int = Query(default=7, ge=1, le=365),
 ) -> PortraitListOut:
     """只读：最近 N 天画像列表（按 local_date 升序，含 coverage）。"""
     return _list_portraits(db, principal, user_id, days)
@@ -272,7 +272,7 @@ def get_me_today_portrait(db: DB, principal: PRINCIPAL):
 def list_me_portraits(
     db: DB,
     principal: PRINCIPAL,
-    days: int = Query(default=7, ge=1, le=90),
+    days: int = Query(default=7, ge=1, le=365),
 ) -> PortraitListOut:
     """只读：当前用户（principal.subject）最近 N 天画像列表。"""
     return _list_portraits(db, principal, principal.subject, days)

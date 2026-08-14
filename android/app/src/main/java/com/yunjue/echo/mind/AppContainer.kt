@@ -301,6 +301,20 @@ class AppContainer(context: Context) {
         hasProvider = { aiProviderManager.hasProvider() },
         reason = { request -> aiProviderManager.reason(request) },
     )
+    // v2 §13：Echo Runtime 协调器（UI 不再各自拼状态；六态/Presence/Provider 统一广播）
+    val echoRuntimeCoordinator = com.yunjue.echo.mind.runtime.EchoRuntimeCoordinator(
+        appContext = context.applicationContext,
+        preferences = preferences,
+        passiveSensingPrefs = passiveSensingPrefs,
+        presenceRepository = presenceRepository,
+        aiProviderManager = aiProviderManager,
+    )
+    // v2 §42：Context Compiler 真实数据检索（Task → 画像/基线/记忆 实际取证据）
+    val contextRetriever = com.yunjue.echo.mind.intelligence.EchoContextRetriever(
+        dataSource = localPortraitDataSource,
+        memoryRepository = memoryRepository,
+        preferences = preferences,
+    )
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */
     val skillSessionCoordinator = com.yunjue.echo.mind.ui.SkillSessionCoordinator(skillRepository)

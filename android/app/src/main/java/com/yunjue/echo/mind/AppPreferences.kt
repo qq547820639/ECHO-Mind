@@ -411,6 +411,11 @@ class AppPreferences(
         get() = prefs.getBoolean("presence_suggestions_enabled", true)
         set(value) = prefs.edit().putBoolean("presence_suggestions_enabled", value).apply()
 
+    /** v2 §35：初次 AI 提示是否已关闭（「以后再说」；非阻塞、只出现一次）。 */
+    var aiPromptDismissed: Boolean
+        get() = prefs.getBoolean("ai_prompt_dismissed", false)
+        set(value) = prefs.edit().putBoolean("ai_prompt_dismissed", value).apply()
+
     companion object {
         /** 应用状态 SharedPreferences 文件名（Wallpaper/Dream 进程直读快照用）。 */
         const val PREFS_FILE = "echo_mind_app_state"

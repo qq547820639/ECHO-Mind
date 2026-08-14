@@ -43,28 +43,21 @@ import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.MemoryRepository
 import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.MessageRepository
-import com.yunjue.echo.mind.data.PresenceRepository
 import com.yunjue.echo.mind.data.SkillRepository
 import com.yunjue.echo.mind.data.isNetworkAvailable
-import com.yunjue.echo.mind.actions.InterventionInputs
-import com.yunjue.echo.mind.actions.InterventionLevel
-import com.yunjue.echo.mind.actions.InterventionPolicy
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.DataSourceCategory
-import com.yunjue.echo.mind.intelligence.EvidenceAssembler
 import com.yunjue.echo.mind.intelligence.EvidenceItem
 import com.yunjue.echo.mind.intelligence.NarrativeFallbackLevel
+import com.yunjue.echo.mind.intelligence.ReasoningTaskId
 import com.yunjue.echo.mind.memory.CORRECTION_REASONS
 import com.yunjue.echo.mind.memory.EchoMemory
-import com.yunjue.echo.mind.model.DailyPortraitDto
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_DIMENSIONS_TITLE
+import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_BASELINE_UNLOCKED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_SAVED
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_SKILLS
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_GO_TREND
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOAD_FAILED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
@@ -74,13 +67,11 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_ACTION
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_WHY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
-import com.yunjue.echo.mind.model.PORTRAIT_DIMENSIONS
+import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.baselineProgressText
-import com.yunjue.echo.mind.model.dimensionDisplayName
 import com.yunjue.echo.mind.model.todayCoveragePercent
-import com.yunjue.echo.mind.model.dimensionValueText
 import com.yunjue.echo.mind.model.todayPortraitStateText
 import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_BODY
@@ -89,35 +80,36 @@ import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.presence.presenceSeedRuntimeText
+import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.sensing.sensingRuntimeStatusText
+import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
+import com.yunjue.echo.mind.ui.echo.assembleEchoSceneUiState
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * 「今天」主界面（Milestone F：Portrait first）。
+ * v2 §4/§15：ECHO Scene —— 应用主空间（含义：现在）。
  *
- * 布局（spec）：日期标题（今天 + M月d日）→「今天的你」headline chips → summary 段落 →
- * 「和你的平常相比」dimensions 对照表 →「为什么这么说？」可展开区（facts）→
- * 「过去 7 天 →」入口（切 Trend tab）→ 底部「想做点什么？」（Skill 降级：默认只显示
- * 跳转「能力」Tab 按钮，点开才渲染 Skill 卡片列表）→ 底部用户反馈（仅 READY/PARTIAL_DATA）。
+ * 布局：ECHO 生命场（60%+ 主体）→ 一句话（Layer 1）→ 为什么？（Layer 2 证据展开，
+ * Layer 3 去 Journey）→ 想做点什么（Scene 内行动 + 订阅能力分区）→ 问 ECHO →
+ * 用户反馈（→ Correction Memory）。
  *
- * 九态状态机（[PortraitStatus]）：文案统一来自 [todayPortraitStateText]（单测锚点），
- * 禁止在本文件另行硬编码状态文案；禁止统一显示「暂无数据」。
- *
- * Skill 不再占据主体（降级为「想做点什么？」可展开区），「开始」按钮仍走
- * [SkillCardHost] + [SkillSessionCoordinator]（真实执行行为保留）。
+ * 状态装配：画像九态 + Presence + 感知六态 + 叙事结果 → [EchoSceneUiState]
+ * （[assembleEchoSceneUiState] 纯函数）；UI 只负责渲染，不在 Composable 内拼 repository。
+ * 九态文案仍来自 [todayPortraitStateText]（单测锚点）。
  */
 @Composable
-fun TodayScreen(
+fun EchoSceneScreen(
     container: AppContainer,
-    onGoToSkills: () -> Unit,
-    onGoToTrend: () -> Unit,
+    onGoToJourney: () -> Unit,
+    onGoToMe: () -> Unit,
     onEmergency: () -> Unit,
     onReEnableSensing: () -> Unit
 ) {
     val portraitRepository = container.portraitRepository
     val preferences = container.preferences
-    val presenceRepository = container.presenceRepository
+    val runtimeCoordinator = container.echoRuntimeCoordinator
     val memoryRepository = container.memoryRepository
     val aiNarrativeService = container.aiNarrativeService
     val skillRepository = container.skillRepository
@@ -127,7 +119,8 @@ fun TodayScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by portraitRepository.observeTodayPortrait().collectAsStateWithLifecycle()
-    val presence by presenceRepository.state.collectAsStateWithLifecycle()
+    val presence by runtimeCoordinator.presence.collectAsStateWithLifecycle()
+    val sensing by runtimeCoordinator.sensing.collectAsStateWithLifecycle()
     val message by messageRepository.message.collectAsStateWithLifecycle()
     var retryKey by remember { mutableStateOf(0) }
 
@@ -140,26 +133,25 @@ fun TodayScreen(
     // ERA 7：Ask ECHO 对话层（会话内状态；Memory ≠ 聊天记录，不做跨会话历史）
     var askExpanded by remember { mutableStateOf(false) }
     var question by remember { mutableStateOf("") }
-    var exchanges by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+    var exchanges by remember { mutableStateOf(listOf<AskExchange>()) }
     var askBusy by remember { mutableStateOf(false) }
 
-    // 缓存优先 → 后台刷新 → 平滑替换；每次进入 Today tab 触发一次
-    // （画像 + 周小结 + Presence 状态组装；Presence 是分钟级低频，与渲染帧率无关）
+    // 缓存优先 → 后台刷新 → 平滑替换；每次进入 ECHO 世界触发一次
+    // （画像 + 周小结 + 运行时协调器全量刷新：权限真值 → 六态 + Presence 组装）
     LaunchedEffect(retryKey) {
         portraitRepository.refreshTodayPortrait(networkAvailable = isNetworkAvailable(context))
         messageRepository.refresh()
-        presenceRepository.refresh()
+        runtimeCoordinator.refreshAll()
     }
 
-    // 画像就绪后：读取记忆 + 尝试 AI 一句话（失败自动降级，见 AiNarrativeService）
+    // 画像就绪后：读取记忆 + 尝试 AI 一句话（v2 §42：证据由 Context Retriever 按任务策略真实检索）
     LaunchedEffect(state.portrait, state.status) {
         cachedMemories = memoryRepository.topMemories(10)
         if (state.status == PortraitStatus.READY || state.status == PortraitStatus.PARTIAL_DATA ||
             state.status == PortraitStatus.OFFLINE_CACHED || state.status == PortraitStatus.EARLY_BASELINE ||
             state.status == PortraitStatus.LOW_CONFIDENCE
         ) {
-            val evidence = EvidenceAssembler.fromPortrait(state.portrait) +
-                EvidenceAssembler.fromMemories(cachedMemories)
+            val evidence = container.contextRetriever.retrieve(ReasoningTaskId.GENERATE_NOW_INTERPRETATION)
             val headline = state.portrait?.headline?.joinToString(" · ").orEmpty()
             val summary = state.portrait?.summary.orEmpty()
             val facts = state.portrait?.facts?.firstOrNull()?.let {
@@ -173,10 +165,20 @@ fun TodayScreen(
         }
     }
 
+    // v2 §16：单一 UI 状态（纯函数装配；UI 层只消费）
+    val sceneState = assembleEchoSceneUiState(
+        portraitState = state,
+        presence = presence,
+        sensing = sensing,
+        narrative = aiLine,
+        intelligenceAvailable = container.aiProviderManager.hasProvider(),
+        suggestionsEnabled = preferences.presenceSuggestionsEnabled,
+    )
+
     // 日期标题：今天 + M月d日（设备本地时区）
     val todayMd = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
 
-    // 「想做点什么？」展开状态（Skill 降级：点开才显示卡片列表）
+    // 「更多能力（订阅）」展开状态（订阅 Skill 卡片列表，默认收起）
     var actionExpanded by remember { mutableStateOf(false) }
 
     // ERA 9：Scene 内行动（呼吸 / 暂停；覆盖层执行，结束回 Ambient Scene）
@@ -206,7 +208,34 @@ fun TodayScreen(
 
         item { Text("今天 · $todayMd", style = MaterialTheme.typography.headlineMedium) }
 
-        // ERA 1：同步 chip / 本地生成横幅等工程噪音已移出主视觉（收敛至「支持 → 数据与感知」）。
+        // v2 §35：初次 AI 非阻塞提示（未配置 Provider + 未关闭 → 轻量卡片；不阻塞主界面）
+        if (!sceneState.intelligenceAvailable && !preferences.aiPromptDismissed) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("连接一个 AI，让 ECHO 更深入地理解你的变化。", style = MaterialTheme.typography.bodyMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onGoToMe) { Text("连接 AI") }
+                            OutlinedButton(onClick = { preferences.aiPromptDismissed = true }) { Text("以后再说") }
+                        }
+                    }
+                }
+            }
+        }
+
+        // v2 §12：感知六态是唯一真相——仅非 ACTIVE 需要被看见（信任透明，非工程噪音）
+        when (sensing) {
+            SensingRuntimeStatus.STARTING -> item {
+                Text(sensingRuntimeStatusText(SensingRuntimeStatus.STARTING), style = MaterialTheme.typography.bodySmall)
+            }
+            SensingRuntimeStatus.SYSTEM_PAUSED -> item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(sensingRuntimeStatusText(SensingRuntimeStatus.SYSTEM_PAUSED), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onEmergency) { Text("查看原因") }
+                }
+            }
+            else -> Unit
+        }
 
         // 分析消息（周小结：订阅模式来自服务端 / 本地模式由端侧引擎生成）
         message?.let { msg ->
@@ -256,19 +285,19 @@ fun TodayScreen(
 
             PortraitStatus.READY -> item {
                 UnlockBanner(portraitRepository, state)
-                PortraitFullBody(state, aiLine)
+                PortraitFullBody(sceneState, onGoToJourney)
             }
 
             PortraitStatus.PARTIAL_DATA -> {
                 item { Text(PORTRAIT_COPY_PARTIAL_BANNER, Modifier.padding(top = 12.dp)) }
-                item { PortraitFullBody(state, aiLine) }
+                item { PortraitFullBody(sceneState, onGoToJourney) }
             }
 
             PortraitStatus.OFFLINE_CACHED -> {
                 if (state.offline) {
                     item { Text(PORTRAIT_COPY_OFFLINE_BANNER, Modifier.padding(top = 12.dp)) }
                 }
-                item { PortraitFullBody(state, aiLine) }
+                item { PortraitFullBody(sceneState, onGoToJourney) }
             }
 
             PortraitStatus.SENSING_DISABLED -> item {
@@ -301,10 +330,10 @@ fun TodayScreen(
             }
         }
 
-        // 「过去 7 天 →」入口：切 Trend tab
+        // Journey 入口（Layer 3：完整证据/趋势去 Journey 世界）
         item {
-            OutlinedButton(onClick = onGoToTrend, modifier = Modifier.fillMaxWidth()) {
-                Text(PORTRAIT_COPY_GO_TREND)
+            OutlinedButton(onClick = onGoToJourney, modifier = Modifier.fillMaxWidth()) {
+                Text("Journey · 我的时间 →")
             }
         }
 
@@ -312,17 +341,8 @@ fun TodayScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(PORTRAIT_COPY_SECTION_ACTION, style = MaterialTheme.typography.titleMedium)
-                // Intervention Policy L2：打开时建议（opt-in + 高置信才出现；L0/L1 不打扰）
-                val presenceNow = presence
-                val intervention = InterventionPolicy.resolve(
-                    InterventionInputs(
-                        confidence = presenceNow?.confidence ?: 0f,
-                        ambientKnown = presenceNow != null && presenceNow.maturity != EchoMaturity.SEED,
-                        suggestionsEnabled = preferences.presenceSuggestionsEnabled,
-                        nowMs = System.currentTimeMillis(),
-                    )
-                )
-                if (intervention == InterventionLevel.L2_SUGGEST_WHEN_OPENED) {
+                // Intervention Policy L2：打开时建议（由 EchoSceneUiState 统一装配；L0/L1 不打扰）
+                if (sceneState.suggestedAction) {
                     Text(
                         "从今天的数据看，让自己慢一点可能有帮助。",
                         style = MaterialTheme.typography.bodySmall,
@@ -345,15 +365,12 @@ fun TodayScreen(
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) { Text("什么也不做") }
                 HorizontalDivider()
-                Text("更多能力（订阅）", style = MaterialTheme.typography.labelMedium)
-                OutlinedButton(onClick = onGoToSkills, modifier = Modifier.fillMaxWidth()) {
-                    Text(PORTRAIT_COPY_GO_SKILLS)
-                }
+                // v2：订阅能力不再占一级 Tab——在此分区展开，或在 Me 访问
                 TextButton(
                     onClick = { actionExpanded = !actionExpanded },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
-                    Text(if (actionExpanded) "收起能力卡片" else "展开能力卡片")
+                    Text(if (actionExpanded) "收起更多能力（订阅）" else "更多能力（订阅）")
                 }
             }
         }
@@ -386,22 +403,27 @@ fun TodayScreen(
                         onQuestionChange = { question = it },
                         exchanges = exchanges,
                         busy = askBusy,
+                        memoryRepository = memoryRepository,
                         onSend = {
                             scope.launch {
                                 if (question.isBlank()) return@launch
                                 val q = question.trim()
                                 question = ""
                                 askBusy = true
-                                val evidence = EvidenceAssembler.fromPortrait(state.portrait) +
-                                    EvidenceAssembler.fromMemories(cachedMemories)
-                                val history = exchanges.takeLast(4).flatMap { (qa, aa) ->
+                                // v2 §42：证据按 ANSWER_PERSONAL_QUESTION 策略真实检索（画像/基线/记忆）
+                                val evidence = container.contextRetriever.retrieve(ReasoningTaskId.ANSWER_PERSONAL_QUESTION)
+                                val history = exchanges.takeLast(4).flatMap { e ->
                                     listOf(
-                                        EvidenceItem(DataSourceCategory.CONVERSATION_HISTORY, "我们的对话", "问：$qa"),
-                                        EvidenceItem(DataSourceCategory.CONVERSATION_HISTORY, "我们的对话", "答：$aa"),
+                                        EvidenceItem(DataSourceCategory.CONVERSATION_HISTORY, "我们的对话", "问：${e.question}"),
+                                        EvidenceItem(DataSourceCategory.CONVERSATION_HISTORY, "我们的对话", "答：${e.answer}"),
                                     )
                                 }
                                 val result = aiNarrativeService.answerQuestion(q, evidence, history)
-                                exchanges = exchanges + (q to result.text)
+                                exchanges = exchanges + AskExchange(
+                                    question = q,
+                                    answer = result.text,
+                                    sources = result.usedSources,
+                                )
                                 askBusy = false
                             }
                         },
@@ -424,18 +446,29 @@ fun TodayScreen(
     }
 }
 
+/** v2 §51/§52：一次问答（问题 + 回答 + 依据来源；回答可反馈 → Correction Memory）。 */
+internal data class AskExchange(
+    val question: String,
+    val answer: String,
+    val sources: List<DataSourceCategory>,
+)
+
 /**
- * ERA 7 — Ask ECHO 对话层（Master Prompt PART 41/42）：
+ * ERA 7 — Ask ECHO 对话层（Master Prompt PART 41/42/48）：
  * 从 ECHO Scene 展开，ECHO 保持可见；价值来自「它知道我的时间上下文」，
  * 不是通用聊天框。会话仅存于内存（Memory ≠ 聊天记录）。
+ *
+ * v2 §51：每条回答附「依据」——参考了什么 + 没有使用什么（隐私透明度）；
+ * v2 §52：每条回答可反馈（像我/不太像 + 原因 → Correction Memory）。
  */
 @Composable
 private fun AskEchoPanel(
     question: String,
     onQuestionChange: (String) -> Unit,
-    exchanges: List<Pair<String, String>>,
+    exchanges: List<AskExchange>,
     busy: Boolean,
     onSend: () -> Unit,
+    memoryRepository: MemoryRepository,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -444,9 +477,11 @@ private fun AskEchoPanel(
                 "适合问：「最近我是不是越来越晚？」「为什么今天 ECHO 看起来不一样？」ECHO 的回答基于你的节律数据，会说明参考了什么。",
                 style = MaterialTheme.typography.bodySmall
             )
-            exchanges.forEach { (q, a) ->
-                Text("你：$q", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                Text("ECHO：$a", style = MaterialTheme.typography.bodyMedium)
+            exchanges.forEach { exchange ->
+                AskExchangeRow(
+                    exchange = exchange,
+                    memoryRepository = memoryRepository,
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -463,6 +498,87 @@ private fun AskEchoPanel(
                 }
             }
         }
+    }
+}
+
+/** 单条问答：问题 + 回答 + 依据（参考了/没有使用）+ 反馈（像我/不太像 → Correction Memory）。 */
+@Composable
+private fun AskExchangeRow(
+    exchange: AskExchange,
+    memoryRepository: MemoryRepository,
+) {
+    val scope = rememberCoroutineScope()
+    var basisExpanded by remember { mutableStateOf(false) }
+    var feedback by remember(exchange) { mutableStateOf<Boolean?>(null) }
+    var reasonPicked by remember(exchange) { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("你：${exchange.question}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        Text("ECHO：${exchange.answer}", style = MaterialTheme.typography.bodyMedium)
+        // 依据（v2 §51：参考了 / 没有使用 双清单）
+        TextButton(onClick = { basisExpanded = !basisExpanded }) {
+            Text(if (basisExpanded) "收起依据" else "依据")
+        }
+        if (basisExpanded) {
+            Text(
+                "参考了：" + if (exchange.sources.isEmpty()) "（无可追溯来源——请谨慎看待）"
+                else exchange.sources.map { dataSourceLabel(it) }.joinToString("、"),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                "没有使用：麦克风、通知正文、精确位置",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        // 反馈（v2 §52：写入 Correction Memory，不只 analytics）
+        if (feedback == null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = {
+                    feedback = true
+                    scope.launch {
+                        memoryRepository.record(
+                            type = MemoryType.CORRECTION,
+                            content = "问答反馈：像我（问：${exchange.question.take(40)}）",
+                            source = "user-feedback",
+                            provenance = "conversation-feedback:v1",
+                            confidence = 1f,
+                            importance = 60,
+                        )
+                    }
+                }) { Text("像我") }
+                TextButton(onClick = {
+                    feedback = false
+                    reasonPicked = false
+                }) { Text("不太像") }
+            }
+        } else if (feedback == true) {
+            Text("已记录，感谢反馈。", style = MaterialTheme.typography.bodySmall)
+        } else if (!reasonPicked) {
+            Text("哪里不太对？", style = MaterialTheme.typography.bodySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CORRECTION_REASONS.chunked(4).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { reason ->
+                            androidx.compose.material3.AssistChip(
+                                onClick = {
+                                    reasonPicked = true
+                                    scope.launch {
+                                        memoryRepository.recordCorrection(
+                                            date = LocalDate.now().toString(),
+                                            reason = reason,
+                                            originalStatement = exchange.answer,
+                                        )
+                                    }
+                                },
+                                label = { Text(reason) }
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Text("知道了，我会少一点依赖这种判断。", style = MaterialTheme.typography.bodySmall)
+        }
+        HorizontalDivider()
     }
 }
 
@@ -566,69 +682,49 @@ private fun UnlockBanner(portraitRepository: PortraitRepository, state: Portrait
 }
 
 /**
- * 完整画像主体：
- * 「今天的你」headline chips → summary →「和你的平常相比」dimensions 对照表 →
- * 「为什么这么说？」可展开区（facts）。
+ * v2 §46/§47：完整画像主体 —— Progressive Explanation 三层。
+ *
+ * Layer 1：一句话（由 [EchoSceneUiState.headline] 统一装配：AI 叙事 → 确定性 → 观察事实）；
+ * Layer 2：点「为什么？」→ Scene 内展开人类可读 facts（今天/平常/变化对照）；
+ * Layer 3：「查看更多」→ Journey（完整趋势与定量证据；不在此暴露 z_score/coverage 等工程值）。
  */
 @Composable
-private fun PortraitFullBody(state: PortraitUiState, aiLine: AiNarrativeService.NarrativeResult?) {
-    val portrait = state.portrait ?: return
+private fun PortraitFullBody(sceneState: EchoSceneUiState, onGoToJourney: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // 1. 一句话：AI 叙事（过词表校验）优先，否则确定性 headline（fallback 链）
-        val line = aiLine?.takeIf { it.level == NarrativeFallbackLevel.AI_NARRATIVE && it.text.isNotBlank() }?.text
-        if (line != null) {
+        // Layer 1：一句话（装配结果；AI 层附依据行）
+        Text(
+            sceneState.headline,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        if (sceneState.headlineLevel == NarrativeFallbackLevel.AI_NARRATIVE &&
+            sceneState.headlineSources.isNotEmpty()
+        ) {
             Text(
-                line,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            // 依据（Explainable Personal AI：AI 说法的来源可展开，见 FactsSection）
-            if (!aiLine.usedSources.isNullOrEmpty()) {
-                Text(
-                    "依据：${aiLine.usedSources.map { dataSourceLabel(it) }.joinToString("、")}（详见「为什么这么说？」）",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        } else if (portrait.headline.isNotEmpty()) {
-            Text(
-                portrait.headline.joinToString(" · "),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary
+                "依据：${sceneState.headlineSources.map { dataSourceLabel(it) }.joinToString("、")}（点「为什么？」看事实）",
+                style = MaterialTheme.typography.bodySmall
             )
         }
-        // 2. summary 段落
-        if (portrait.summary.isNotBlank()) {
-            Text(portrait.summary, style = MaterialTheme.typography.bodyLarge)
+        if (!sceneState.intelligenceAvailable) {
+            Text(
+                "连接 AI 后可获得更深入的解释。",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
-        // 3. dimensions 对照表（固定维度顺序 + 未知维度追加）
-        if (portrait.dimensions.isNotEmpty()) {
-            HorizontalDivider()
-            Text(PORTRAIT_COPY_DIMENSIONS_TITLE, style = MaterialTheme.typography.titleMedium)
-            val orderedKeys = PORTRAIT_DIMENSIONS.filter { it in portrait.dimensions } +
-                portrait.dimensions.keys.filter { it !in PORTRAIT_DIMENSIONS }
-            orderedKeys.forEach { key ->
-                val dim = portrait.dimensions[key] ?: return@forEach
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(dimensionDisplayName(key), style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        dimensionValueText(key, dim.value),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+
+        // Layer 2：为什么？（Scene 内展开，不切详情页）
+        FactsSection(sceneState.facts)
+
+        // Layer 3：查看更多 → Journey（定量证据与长期趋势）
+        OutlinedButton(onClick = onGoToJourney, modifier = Modifier.fillMaxWidth()) {
+            Text("查看更多 → Journey")
         }
-        // 4. 「为什么这么说？」可展开区（facts）
-        FactsSection(portrait)
     }
 }
 
-/** 「为什么这么说？」可展开区：facts 列表（label + 今天/平常/变化对照）。 */
+/** 「为什么？」可展开区：facts 列表（label + 今天/平常/变化对照；Layer 2）。 */
 @Composable
-private fun FactsSection(portrait: DailyPortraitDto) {
+private fun FactsSection(facts: List<PortraitFactDto>) {
     var expanded by remember { mutableStateOf(false) }
     HorizontalDivider()
     Row(
@@ -642,10 +738,10 @@ private fun FactsSection(portrait: DailyPortraitDto) {
         }
     }
     if (expanded) {
-        if (portrait.facts.isEmpty()) {
+        if (facts.isEmpty()) {
             Text("暂无更多细节。", style = MaterialTheme.typography.bodySmall)
         }
-        portrait.facts.forEach { fact ->
+        facts.forEach { fact ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (fact.label.isNotBlank()) {

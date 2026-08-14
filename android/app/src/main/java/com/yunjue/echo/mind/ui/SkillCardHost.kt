@@ -390,7 +390,7 @@ internal fun coldStartHint(stage: String, days: Int): Int = when (stage) {
  * - 拉取完成：由 [SkillRepository.fetchSkills] 决定成功/失败/空态
  * - 重试：调用方调返回的 lambda 触发重新拉取（retryKey 自增驱动 [LaunchedEffect]）
  *
- * 复用于 [TodayScreen] 与 [SkillListScreen]，避免两处重复拉取逻辑。
+ * 复用于 ECHO Scene「更多能力（订阅）」分区，避免多处重复拉取逻辑。
  */
 @Composable
 internal fun rememberSkillList(skillRepository: SkillRepository): Pair<SkillFetchResult, () -> Unit> {
@@ -404,102 +404,3 @@ internal fun rememberSkillList(skillRepository: SkillRepository): Pair<SkillFetc
     return result to { retryKey++ }
 }
 
-/**
- * 「能力」Tab 全页 Skill 列表：拉取已下发 Skill，区分三态。
- *
- * - 加载中（skills==null + 未失败）→ CircularProgressIndicator
- * - 加载失败（loadFailed）→「加载失败」+ 重试按钮
- * - 空列表（冷启动）→ 按 [SkillFetchResult.coldStartHint] 分阶段文案
- * - 非空 → Skill 卡片列表（每个「开始」按钮绑定真实执行行为；白名单外 fail closed）
- *
- * 危机入口由全局紧急 FAB 常驻，此页不重复放置。
- */
-@Composable
-fun SkillListScreen(
-    skillRepository: SkillRepository,
-    featureFlagRepository: FeatureFlagRepository,
-    coordinator: SkillSessionCoordinator,
-    localMode: Boolean = false,
-    subscriptionExpired: Boolean = false,
-    onGoToSupport: () -> Unit = {}
-) {
-    val (skillState, retry) = rememberSkillList(skillRepository)
-
-    // P5 灰度回滚：拉取 feature flags 缓存 + 观察 skills_delivery_enabled。
-    // flag 关闭时隐藏 Skill 卡片区，显示「能力下发已暂停」。
-    LaunchedEffect(Unit) {
-        runCatching { featureFlagRepository.fetchFeatureFlags() }
-    }
-    val featureFlags by featureFlagRepository.featureFlagsFlow.collectAsStateWithLifecycle(
-        initialValue = mapOf("skills_delivery_enabled" to true)
-    )
-    val skillsDeliveryEnabled = featureFlags["skills_delivery_enabled"] ?: true
-
-    LazyColumn(
-        Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item { Text("能力", style = MaterialTheme.typography.headlineMedium) }
-        when {
-            !skillsDeliveryEnabled -> item {
-                // P5 灰度回滚：skills_delivery_enabled=false 时隐藏 Skill 卡片区
-                Text(
-                    stringResource(R.string.skills_delivery_paused),
-                    Modifier.padding(top = 40.dp)
-                )
-            }
-            // v0.7 本地优先：本地模式（未订阅）能力练习不可用——订阅空态替代「加载失败」
-            localMode && skillState.loadFailed -> item {
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(stringResource(R.string.skills_subscription_hint))
-                    Button(onClick = onGoToSupport, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.skills_subscribe_button))
-                    }
-                }
-            }
-            // v0.7 订阅生命周期：已订阅但显式到期 → 续订提示
-            subscriptionExpired && skillState.loadFailed -> item {
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(stringResource(R.string.skills_subscription_expired_hint))
-                    Button(onClick = onGoToSupport, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.skills_subscribe_button))
-                    }
-                }
-            }
-            skillState.loadFailed -> item {
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(stringResource(R.string.cold_start_load_failed))
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = retry) { Text(stringResource(R.string.cold_start_retry)) }
-                }
-            }
-            skillState.skills == null -> item {
-                Column(Modifier.fillMaxWidth().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                }
-            }
-            skillState.skills.isEmpty() -> item {
-                val stage = skillState.coldStartHint ?: "stage_0"
-                val resId = coldStartHint(stage, skillState.observationDays)
-                Text(
-                    if (stage == "stage_1_3") stringResource(resId, skillState.observationDays)
-                    else stringResource(resId),
-                    Modifier.padding(top = 40.dp)
-                )
-            }
-            else -> items(skillState.skills) { skill -> SkillCardHost(skill, coordinator) }
-        }
-        item { Spacer(Modifier.height(96.dp)) }
-    }
-}

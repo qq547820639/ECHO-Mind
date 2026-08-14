@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,46 +22,50 @@ import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
 import kotlinx.coroutines.launch
 
 /**
- * 底部导航 4 Tab（PRD v0.6 契约点 7）：今天 / 能力 / 趋势 / 支持。
- * 移除「练习」空壳 Tab；「我的练习」记录由「能力」页 Skill 执行反馈承载。
+ * v2 §3：最终一级信息架构 —— 三个世界。
  *
- * v0.6.2（Batch A，A3 无障碍）：符号不再作为唯一语义——
- * - FAB 用 material 图标 + contentDescription="紧急支持"（TalkBack 可准确朗读）
- * - 每个 tab 用 material-icons-core 图标（Home/Star/DateRange/Info，BOM 管理版本；
- *   注：TrendingUp 属 material-icons-extended，core 集以 DateRange 表达"数据覆盖时间线"）
- * - 导航态用 rememberSaveable（enum 存 name 字符串），进程重建/配置变更不丢失
+ * ```text
+ * ECHO    现在（ECHO Scene：Why / 问 ECHO / 行动）
+ * Journey 我的时间（视觉记忆河流）
+ * Me      我的控制权（Presence / AI Intelligence / What ECHO Knows / 数据与感知）
+ * ```
+ *
+ * 旧「能力」Tab 已移除：基础行动在 ECHO Scene 内执行；
+ * 订阅能力在 ECHO Scene「更多能力（订阅）」分区 + Me 中访问。
+ * 危机入口（紧急 FAB）常驻：IA 精简绝不隐藏安全资源。
+ *
+ * v0.6.2（A3）无障碍不变量保持：导航态 rememberSaveable、图标 + contentDescription 双语义。
  */
 private enum class Tab(val label: String, val icon: ImageVector) {
-    TODAY("今天", Icons.Filled.Home),
-    SKILLS("能力", Icons.Filled.Star),
-    TREND("旅程", Icons.Filled.DateRange),
-    SUPPORT("我的", Icons.Filled.Info)
+    ECHO("ECHO", Icons.Filled.Home),
+    JOURNEY("Journey", Icons.Filled.DateRange),
+    ME("Me", Icons.Filled.Info)
 }
 
 /**
- * 紧急支持 FAB 可见性：除 SUPPORT tab 外始终可见（危机入口常驻，T11.5）。
- * 抽成纯函数便于单测断言该不变量。
+ * 紧急支持 FAB 可见性：除 Me tab 外始终可见（危机入口常驻，T11.5）。
+ * 纯函数便于单测断言该不变量。
  */
 internal fun shouldShowEmergencyFab(isSupportTab: Boolean): Boolean = !isSupportTab
 
 @Composable
 fun EchoMindApp(container: AppContainer) {
-    // v0.6.2（A3）：rememberSaveable 在进程重建/配置变更后保留导航态；enum 存 name 字符串（不引入 Navigation Compose）
+    // 导航态 rememberSaveable：进程重建/配置变更不丢失；Onboarding 完成即进入 ECHO 世界
     var onboardingDone by rememberSaveable { mutableStateOf(container.preferences.onboardingCompleted) }
     if (!onboardingDone) {
         OnboardingScreen(container) { onboardingDone = true }
         return
     }
-    var tabName by rememberSaveable { mutableStateOf(Tab.TODAY.name) }
-    val tab = runCatching { Tab.valueOf(tabName) }.getOrDefault(Tab.TODAY)
+    var tabName by rememberSaveable { mutableStateOf(Tab.ECHO.name) }
+    val tab = runCatching { Tab.valueOf(tabName) }.getOrDefault(Tab.ECHO)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     Scaffold(
         floatingActionButton = {
-            // 紧急支持入口常驻：红色 FAB，任何非 SUPPORT tab 下可见，点击直达 SUPPORT
-            if (shouldShowEmergencyFab(tab == Tab.SUPPORT)) {
+            // 紧急支持入口常驻：红色 FAB，任何非 Me tab 下可见，点击直达 Me（支持区块）
+            if (shouldShowEmergencyFab(tab == Tab.ME)) {
                 FloatingActionButton(
-                    onClick = { tabName = Tab.SUPPORT.name },
+                    onClick = { tabName = Tab.ME.name },
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ) {
@@ -85,13 +88,13 @@ fun EchoMindApp(container: AppContainer) {
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
-                Tab.TODAY -> TodayScreen(
+                Tab.ECHO -> EchoSceneScreen(
                     container = container,
-                    onGoToSkills = { tabName = Tab.SKILLS.name },
-                    onGoToTrend = { tabName = Tab.TREND.name },
-                    onEmergency = { tabName = Tab.SUPPORT.name },
+                    onGoToJourney = { tabName = Tab.JOURNEY.name },
+                    onGoToMe = { tabName = Tab.ME.name },
+                    onEmergency = { tabName = Tab.ME.name },
                     onReEnableSensing = {
-                        // SENSING_DISABLED 态「重新开启」：与支持页开关同一领域路径
+                        // SENSING_DISABLED 态「重新开启」：与 Me 页开关同一领域路径
                         // （先产生 granted 证据再启动服务；证据优先级高于新特征）
                         scope.launch {
                             ServiceRevocationCoordinator.reEnablePassiveSensing(
@@ -100,24 +103,17 @@ fun EchoMindApp(container: AppContainer) {
                         }
                     }
                 )
-                Tab.SKILLS -> SkillListScreen(
-                    container.skillRepository,
-                    container.featureFlagRepository,
-                    container.skillSessionCoordinator,
-                    localMode = container.preferences.localMode,
-                    subscriptionExpired = container.preferences.subscriptionExpired,
-                    onGoToSupport = { tabName = Tab.SUPPORT.name }
-                )
-                Tab.TREND -> TrendScreen(
+                Tab.JOURNEY -> TrendScreen(
                     container.portraitRepository,
                     container.syncStateRepository,
                     container.featureFlagRepository,
                     container.memoryRepository,
                     container.aiNarrativeService,
+                    container.contextRetriever,
                     container.preferences,
-                    onGoToSupport = { tabName = Tab.SUPPORT.name }
+                    onGoToSupport = { tabName = Tab.ME.name }
                 )
-                Tab.SUPPORT -> SupportScreen(container)
+                Tab.ME -> SupportScreen(container)
             }
         }
     }

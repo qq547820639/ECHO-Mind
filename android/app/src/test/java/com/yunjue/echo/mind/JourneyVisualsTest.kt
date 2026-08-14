@@ -3,7 +3,9 @@ package com.yunjue.echo.mind
 import com.yunjue.echo.mind.journey.JourneyScale
 import com.yunjue.echo.mind.journey.growthScore
 import com.yunjue.echo.mind.journey.journeyAggregateParams
+import com.yunjue.echo.mind.journey.journeyChunkDays
 import com.yunjue.echo.mind.journey.journeyDayParams
+import com.yunjue.echo.mind.journey.journeyGroups
 import com.yunjue.echo.mind.journey.journeyRepresentativeIndex
 import com.yunjue.echo.mind.journey.journeyThumbnailFrame
 import com.yunjue.echo.mind.journey.journeyWeekGroups
@@ -116,5 +118,18 @@ class JourneyVisualsTest {
         assertEquals(7, journeyWindowDays(JourneyScale.DAY))
         assertEquals(28, journeyWindowDays(JourneyScale.WEEK))
         assertEquals(28, journeyWindowDays(JourneyScale.MONTH))
+        assertEquals(90, journeyWindowDays(JourneyScale.SEASON))
+        assertEquals(365, journeyWindowDays(JourneyScale.YEAR))
+    }
+
+    @Test
+    fun seasonAndYearGroupByThirtyDays() {
+        assertEquals(30, journeyChunkDays(JourneyScale.SEASON))
+        assertEquals(30, journeyChunkDays(JourneyScale.YEAR))
+        val portraits = (1..65).map { i -> portrait("2026-07-${(i % 28 + 1).toString().padStart(2, '0')}", 10) }
+        val groups = journeyGroups(portraits, 30)
+        assertEquals(3, groups.size)
+        assertTrue(journeyGroups(emptyList(), 30).isEmpty())
+        assertTrue(journeyGroups(portraits, 0).isEmpty())
     }
 }

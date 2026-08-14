@@ -126,5 +126,32 @@
 - **理由**：用户要求交付最终成品、不留预留事项——把「未决」转为「已决」：以上三项均为有边界的最终决策，而非悬而未决的工程债。
 - **后果**：IMPLEMENTATION_STATUS 的「预留事项」清单清零。
 
+## ADR-021：一级导航收敛为三世界（ECHO / Journey / Me）+ EchoRuntimeCoordinator 统一运行时（v2 应用壳接管）
+
+- **决策**：
+  1. 一级导航从「今天/能力/旅程/我的」收敛为 **ECHO / Journey / Me**；「能力」Tab 删除——基础行动在 ECHO Scene 内执行，订阅能力在 Scene「更多能力（订阅）」分区展开；危机入口（紧急 FAB）常驻不因 IA 精简而隐藏。
+  2. `EchoRuntimeCoordinator` 成为运行时唯一协调者：以系统真实权限计算六态、触发 Presence 组装、广播 Provider 轻量状态；UI 不再各自拼状态。
+  3. `EchoSceneUiState` + `assembleEchoSceneUiState` 纯函数：一句话 fallback 链、Why 三层（一句话 → Scene 内 facts → Journey 证据）、L2 建议门槛全部集中在装配层，UI 只渲染。
+  4. Legacy 处置：`SkillListScreen`（旧「能力」Tab 全页）无调用方无测试 → **删除**；`rememberSkillList/coldStartHint/SkillCardHost` 保留（Scene 订阅分区复用）。
+- **理由**：v2 的核心判断——新内核已长出但旧壳仍在；接管必须发生在一级入口，而不是继续堆底层。职责优先于文件名；不为框架而框架（不引入 ViewModel/DI 依赖，用纯函数装配器 + 协调器）。
+- **后果**：`EchoSceneScreen.kt`（原 TodayScreen 重构）成为 ECHO 世界主路径；`TrendScreen`（旅程）与 `SupportScreen`（Me）保持文件结构；物理模块化延后到 domain boundary 完全清晰之后（v2 §80）。
+
+## ADR-022：Context Retriever 是 Context Compiler 的真实数据检索层（v2 §42）
+
+- **决策**：`EchoContextRetriever` 按任务策略（timeWindowDays + allowedMemoryTypes）从端侧画像引擎/时间线/记忆**实际检索**证据；检索失败 → 空证据 + fallback 链（不抛异常）；EvidenceAssembler 只做脱敏映射。
+- **理由**：策略表（ReasoningTasks）若无真实检索实现就是摆设；端侧检索保证离线可用、数据最小化（原始通知/音频/麦克风永不出现在检索层）。
+- **后果**：EchoSceneScreen / TrendScreen 不再手工拼 EvidenceItem；新任务接入 = 策略 + 检索器自动生效。
+
+## ADR-023：Provider 测试连接四步 + 对话依据/反馈闭环（v2 §39/§51/§52 最终收口）
+
+- **决策**：
+  1. 「测试连接」= 认证（GET /models）→ 模型可用性（/models 含配置模型；不暴露列表则「无法确认」而非失败）→ 结构化输出（json_object 最小探测，**不含任何个人数据**）→ 基础请求；结论 overall 纯函数映射人话。
+  2. Ask ECHO 每条回答附「依据」双清单（参考了哪些数据源 + 没有使用：麦克风/通知正文/精确位置）；每条回答可反馈「像我/不太像 + 原因」→ Correction Memory。
+  3. Journey 全尺度天/周/月/季/年（backend 画像窗口 90 → 365，openapi 重新导出）。
+- **理由**：可信 AI 的最后一公里 = 可测试（Provider）+ 可追溯（依据）+ 可纠正（反馈）；「无法确认」与「失败」必须诚实区分。
+- **后果**：v2 第一/二轮全部闭环；IMPLEMENTATION_STATUS 预留事项清零，产品进入纯优化周期。
+
+
+
 
 

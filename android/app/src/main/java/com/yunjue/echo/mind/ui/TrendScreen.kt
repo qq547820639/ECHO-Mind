@@ -22,14 +22,16 @@ import com.yunjue.echo.mind.data.MemoryRepository
 import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.SyncStateRepository
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
-import com.yunjue.echo.mind.intelligence.EvidenceAssembler
+import com.yunjue.echo.mind.intelligence.EchoContextRetriever
+import com.yunjue.echo.mind.intelligence.ReasoningTaskId
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyScale
 import com.yunjue.echo.mind.journey.journeyAggregateParams
+import com.yunjue.echo.mind.journey.journeyChunkDays
+import com.yunjue.echo.mind.journey.journeyGroups
 import com.yunjue.echo.mind.journey.journeyThumbnailFrame
 import com.yunjue.echo.mind.journey.journeyWeekGroups
 import com.yunjue.echo.mind.journey.journeyWindowDays
-import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
 import com.yunjue.echo.mind.model.PortraitAvailability
@@ -200,6 +202,7 @@ fun TrendScreen(
     featureFlagRepository: FeatureFlagRepository,
     memoryRepository: MemoryRepository,
     aiNarrativeService: AiNarrativeService,
+    contextRetriever: EchoContextRetriever,
     preferences: AppPreferences,
     onGoToSupport: () -> Unit = {}
 ) {
@@ -214,9 +217,8 @@ fun TrendScreen(
     var retryKey by remember { mutableStateOf(0) }
     val timeline by portraitRepository.observePortraits(windowDays).collectAsStateWithLifecycle()
 
-    // ERA 8：长期叙事（fallback 链：AI → 确定性综述）+ 记忆证据
+    // ERA 8：长期叙事（v2 §42：证据由 Context Retriever 按 FIND_LONGITUDINAL_PATTERN 策略真实检索）
     var narrative by remember { mutableStateOf<AiNarrativeService.NarrativeResult?>(null) }
-    var memories by remember { mutableStateOf<List<EchoMemory>>(emptyList()) }
     var showEvidence by remember { mutableStateOf(false) }
 
     // 被动感知 consent + 租户 flag：任一关闭 → permission_disabled 态
@@ -267,13 +269,9 @@ fun TrendScreen(
         isPartial = timeline.isPartial
     )
 
-    // ERA 8：长期叙事（画像时间线就绪后组装；记忆证据一次加载）
-    LaunchedEffect(Unit) {
-        memories = memoryRepository.topMemories(5)
-    }
+    // ERA 8：长期叙事（画像时间线就绪后组装）
     LaunchedEffect(timeline.portraits, scale) {
-        val evidence = EvidenceAssembler.fromPortraitHistory(timeline.portraits) +
-            EvidenceAssembler.fromMemories(memories)
+        val evidence = contextRetriever.retrieve(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN)
         narrative = aiNarrativeService.longitudinalNarrative(
             evidence = evidence,
             deterministicText = portraitStabilitySummary(timeline.portraits),
@@ -292,8 +290,8 @@ fun TrendScreen(
         Text(TREND_DISCLAIMER)
         HorizontalDivider()
 
-        // ERA 8：Journey 时间尺度（Day/Week/Month）
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // ERA 8：Journey 时间尺度（Day/Week/Month/Season/Year）
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
             JourneyScale.entries.forEach { s ->
                 FilterChip(
                     selected = scale == s,
@@ -307,6 +305,8 @@ fun TrendScreen(
                                 JourneyScale.DAY -> "天"
                                 JourneyScale.WEEK -> "周"
                                 JourneyScale.MONTH -> "月"
+                                JourneyScale.SEASON -> "季"
+                                JourneyScale.YEAR -> "年"
                             }
                         )
                     }
@@ -438,7 +438,7 @@ private fun dataSourceLabelForJourney(category: com.yunjue.echo.mind.intelligenc
     else -> "其他"
 }
 
-/** 视觉记忆河流：DAY=逐日 7 帧；WEEK=按周聚合 4 帧；MONTH=整月聚合 1 帧。 */
+/** 视觉记忆河流：DAY=逐日 7 帧；WEEK=按周聚合；MONTH=按月聚合；SEASON/YEAR=按 30 天聚合。 */
 @Composable
 private fun VisualMemoryRiver(
     scale: JourneyScale,
@@ -480,13 +480,23 @@ private fun VisualMemoryRiver(
                 }
             }
         }
-        JourneyScale.MONTH -> {
-            JourneyAggregateCell(
-                portraits = portraits,
-                seed = seed,
-                label = "近 28 天",
-                large = true,
-            )
+        JourneyScale.MONTH, JourneyScale.SEASON, JourneyScale.YEAR -> {
+            val groups = journeyGroups(portraits, journeyChunkDays(scale))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                groups.forEachIndexed { index, group ->
+                    val span = group.firstOrNull()?.date?.take(7) ?: ""
+                    val last = group.lastOrNull()?.date?.take(7) ?: ""
+                    JourneyAggregateCell(
+                        portraits = group,
+                        seed = seed,
+                        label = if (span.isNotBlank()) "${span}…${last}" else "第 ${index + 1} 段",
+                        large = scale == JourneyScale.MONTH && groups.size == 1,
+                    )
+                }
+            }
         }
     }
 }

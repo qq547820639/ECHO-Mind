@@ -1,9 +1,9 @@
 {
-  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。所有版本相关检查（CI + update_release_metadata.py + README 同步）以此为准。v0.8.0 = Personal Ambient Intelligence（ERA 1-9 全量落地）。",
-  "release_version": "0.8.0",
-  "backend_package_version": "0.8.0",
-  "android_version_name": "0.8.0",
-  "android_version_code": 5,
+  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。v0.9.0 = v2 应用壳接管（ECHO/Journey/Me 三世界 + Runtime Coordinator + Context Retriever + Provider 测试连接 + 对话依据/反馈闭环）。",
+  "release_version": "0.9.0",
+  "backend_package_version": "0.9.0",
+  "android_version_name": "0.9.0",
+  "android_version_code": 6,
   "contract_manifest_version": "0.7.0",
-  "release_notes_file": "RELEASE_NOTES_v0.8.0.md"
+  "release_notes_file": "RELEASE_NOTES_v0.9.0.md"
 }

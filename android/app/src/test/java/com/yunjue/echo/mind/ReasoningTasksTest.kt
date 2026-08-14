@@ -4,6 +4,7 @@ import com.yunjue.echo.mind.intelligence.ContextPolicy
 import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.intelligence.ReasoningTaskId
 import com.yunjue.echo.mind.intelligence.contextPolicyFor
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,5 +64,30 @@ class ReasoningTasksTest {
         )) {
             assertTrue("任务 $task 应允许历史画像", DataSourceCategory.PORTRAIT_HISTORY in contextPolicyFor(task).allowed)
         }
+    }
+
+    @Test
+    fun timeWindowsAreInstantiatedPerTask() {
+        // v2 §42：EvidencePolicy.TimeWindow 实例化
+        assertEquals(1, contextPolicyFor(ReasoningTaskId.GENERATE_NOW_INTERPRETATION).timeWindowDays)
+        assertEquals(7, contextPolicyFor(ReasoningTaskId.EXPLAIN_CURRENT_STATE).timeWindowDays)
+        assertEquals(28, contextPolicyFor(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN).timeWindowDays)
+        assertEquals(28, contextPolicyFor(ReasoningTaskId.ANSWER_PERSONAL_QUESTION).timeWindowDays)
+        assertEquals(7, contextPolicyFor(ReasoningTaskId.SUMMARIZE_WEEK).timeWindowDays)
+        assertEquals(28, contextPolicyFor(ReasoningTaskId.SUMMARIZE_MONTH).timeWindowDays)
+    }
+
+    @Test
+    fun memoryPoliciesAreInstantiatedPerTask() {
+        // v2 §42：MemoryPolicy 实例化——记忆类型白名单
+        assertTrue(com.yunjue.echo.mind.memory.MemoryType.CORRECTION in
+            contextPolicyFor(ReasoningTaskId.ANSWER_PERSONAL_QUESTION).allowedMemoryTypes)
+        assertTrue(com.yunjue.echo.mind.memory.MemoryType.CONTEXT in
+            contextPolicyFor(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN).allowedMemoryTypes)
+        // NOW 叙事只允许上下文例外，不允许偏好/观察记忆（最小权限）
+        assertEquals(
+            setOf(com.yunjue.echo.mind.memory.MemoryType.CONTEXT),
+            contextPolicyFor(ReasoningTaskId.GENERATE_NOW_INTERPRETATION).allowedMemoryTypes
+        )
     }
 }

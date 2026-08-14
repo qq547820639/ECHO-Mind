@@ -1,10 +1,15 @@
 package com.yunjue.echo.mind.intelligence
 
+import com.yunjue.echo.mind.memory.MemoryType
+
 /**
  * ERA 5 — Reasoning Task System（typed reasoning tasks，Master Prompt PART 29/30）。
  *
  * 不同任务有不同 context policy / privacy budget / output schema / confidence threshold；
  * 逻辑角色分开但**不滥用多 Agent**：同一个模型执行不同 Contract 的 typed task。
+ *
+ * v2 §42：策略实例化 —— 每个任务同时定义 EvidencePolicy（数据源 + 时间窗）
+ * 与 MemoryPolicy（允许进入上下文的记忆类型）。
  */
 
 enum class ReasoningTaskId {
@@ -39,13 +44,17 @@ enum class DataSourceCategory {
  * - allowed：该任务可用的数据类别；
  * - prohibited：硬禁止（即使出现在 evidence 里也会被剔除）；
  * - maxEvidenceItems：最小上下文上限（Relevant context ≠ Maximum context）；
- * - structuredOutput：是否要求 JSON 结构化输出（native 不支持时 validation/repair/fallback）。
+ * - structuredOutput：是否要求 JSON 结构化输出（native 不支持时 validation/repair/fallback）；
+ * - timeWindowDays：PORTRAIT_HISTORY 检索窗口（v2 §42 EvidencePolicy.TimeWindow）；
+ * - allowedMemoryTypes：允许进入上下文的记忆类型（v2 §42 MemoryPolicy）。
  */
 data class ContextPolicy(
     val allowed: Set<DataSourceCategory>,
     val prohibited: Set<DataSourceCategory>,
     val maxEvidenceItems: Int,
     val structuredOutput: Boolean,
+    val timeWindowDays: Int = 7,
+    val allowedMemoryTypes: Set<MemoryType> = emptySet(),
 )
 
 /** 隐私硬边界：原始通知内容 / 原始音频 / 麦克风特征永不进入任何任务。 */
@@ -66,10 +75,14 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
         ReasoningTaskId.GENERATE_NOW_INTERPRETATION -> base.copy(
             allowed = base.allowed + DataSourceCategory.CONTEXT_EXCEPTIONS,
             structuredOutput = true,
+            timeWindowDays = 1,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT),
         )
 
         ReasoningTaskId.EXPLAIN_CURRENT_STATE -> base.copy(
             allowed = base.allowed + DataSourceCategory.CONTEXT_EXCEPTIONS + DataSourceCategory.USER_CORRECTIONS,
+            timeWindowDays = 7,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT, MemoryType.CORRECTION),
         )
 
         ReasoningTaskId.FIND_LONGITUDINAL_PATTERN -> base.copy(
@@ -79,6 +92,8 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
             ),
             maxEvidenceItems = 40,
+            timeWindowDays = 28,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT, MemoryType.CORRECTION),
         )
 
         // 个人问题：允许对话历史（用户自己的话），但原始通知/音频/麦克风仍然硬禁止
@@ -95,9 +110,24 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
             prohibited = NEVER_ALLOWED,
             maxEvidenceItems = 30,
             structuredOutput = false,
+            timeWindowDays = 28,
+            allowedMemoryTypes = setOf(
+                MemoryType.CONTEXT, MemoryType.CORRECTION,
+                MemoryType.USER_CONFIRMED, MemoryType.PREFERENCE,
+            ),
         )
 
-        ReasoningTaskId.SUMMARIZE_WEEK,
+        ReasoningTaskId.SUMMARIZE_WEEK -> base.copy(
+            allowed = setOf(
+                DataSourceCategory.PORTRAIT_HISTORY,
+                DataSourceCategory.BASELINE,
+                DataSourceCategory.CONTEXT_EXCEPTIONS,
+            ),
+            maxEvidenceItems = 40,
+            timeWindowDays = 7,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT, MemoryType.CORRECTION),
+        )
+
         ReasoningTaskId.SUMMARIZE_MONTH -> base.copy(
             allowed = setOf(
                 DataSourceCategory.PORTRAIT_HISTORY,
@@ -105,6 +135,8 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
             ),
             maxEvidenceItems = 40,
+            timeWindowDays = 28,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT, MemoryType.CORRECTION),
         )
 
         ReasoningTaskId.SYNTHESIZE_MEMORY -> base.copy(
@@ -115,11 +147,17 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
             ),
             maxEvidenceItems = 40,
+            timeWindowDays = 28,
+            allowedMemoryTypes = setOf(
+                MemoryType.OBSERVATION, MemoryType.CONTEXT, MemoryType.CORRECTION,
+                MemoryType.USER_CONFIRMED, MemoryType.DERIVED_PATTERN,
+            ),
         )
 
         ReasoningTaskId.CLASSIFY_MEMORY_VALUE -> base.copy(
             allowed = setOf(DataSourceCategory.TODAY_AGGREGATE, DataSourceCategory.CONTEXT_EXCEPTIONS),
             maxEvidenceItems = 6,
+            timeWindowDays = 1,
         )
 
         ReasoningTaskId.PROPOSE_ACTION -> base.copy(
@@ -129,11 +167,15 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.PREFERENCES,
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
             ),
+            timeWindowDays = 7,
+            allowedMemoryTypes = setOf(MemoryType.CONTEXT, MemoryType.PREFERENCE),
         )
 
         ReasoningTaskId.INTERPRET_USER_CORRECTION -> base.copy(
             allowed = setOf(DataSourceCategory.USER_CORRECTIONS, DataSourceCategory.CONTEXT_EXCEPTIONS),
             maxEvidenceItems = 8,
+            timeWindowDays = 7,
+            allowedMemoryTypes = setOf(MemoryType.CORRECTION),
         )
     }
 }

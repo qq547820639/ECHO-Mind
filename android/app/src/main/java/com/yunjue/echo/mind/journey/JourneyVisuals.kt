@@ -115,22 +115,37 @@ fun journeyAggregateParams(portraits: List<DailyPortraitDto>): EchoVisualParamet
     )
 }
 
-/** 时间尺度（Journey 的 Day/Week/Month；PART 69 的 Moment..Year 由窗口内细分承担）。 */
-enum class JourneyScale { DAY, WEEK, MONTH }
+/** 时间尺度（Journey 的 Day/Week/Month/Season/Year；PART 69 的 Moment..Year 全尺度）。 */
+enum class JourneyScale { DAY, WEEK, MONTH, SEASON, YEAR }
 
-/** 每尺度默认窗口天数（与后端 7/28 画像窗口一致）。 */
+/** 每尺度默认窗口天数（backend 画像窗口上限已扩至 365）。 */
 fun journeyWindowDays(scale: JourneyScale): Int = when (scale) {
     JourneyScale.DAY -> 7
     JourneyScale.WEEK -> 28
     JourneyScale.MONTH -> 28
+    JourneyScale.SEASON -> 90
+    JourneyScale.YEAR -> 365
 }
 
-/** 周聚合分组：把 [portraits] 按 7 天一组从旧到新聚合（不足一组也成组）。 */
-fun journeyWeekGroups(portraits: List<DailyPortraitDto>): List<List<DailyPortraitDto>> {
-    if (portraits.isEmpty()) return emptyList()
-    val sorted = portraits.sortedBy { it.date }
-    return sorted.chunked(7)
+/** 视觉聚合分组天数（视觉逐渐聚合，不是折线图）。 */
+fun journeyChunkDays(scale: JourneyScale): Int = when (scale) {
+    JourneyScale.DAY -> 1
+    JourneyScale.WEEK -> 7
+    JourneyScale.MONTH -> 30
+    JourneyScale.SEASON -> 30
+    JourneyScale.YEAR -> 30
 }
+
+/** 按 [chunkDays] 把 [portraits] 从旧到新分组（不足一组也成组）。 */
+fun journeyGroups(portraits: List<DailyPortraitDto>, chunkDays: Int): List<List<DailyPortraitDto>> {
+    if (portraits.isEmpty() || chunkDays <= 0) return emptyList()
+    val sorted = portraits.sortedBy { it.date }
+    return sorted.chunked(chunkDays)
+}
+
+/** 周聚合分组（7 天一组；保留旧函数名兼容既有调用与测试语义）。 */
+fun journeyWeekGroups(portraits: List<DailyPortraitDto>): List<List<DailyPortraitDto>> =
+    journeyGroups(portraits, 7)
 
 /** 视觉成熟度单调性（跨天成长断言用）：SEED→MATURE 阶段索引。 */
 fun maturityStage(maturity: EchoMaturity): Int = maturity.ordinal

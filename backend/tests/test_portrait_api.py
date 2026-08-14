@@ -116,7 +116,7 @@ def test_list_portraits_sorted_ascending(client, user_headers):
 def test_list_portraits_days_validation(client, user_headers):
     assert client.get("/v1/portraits", params={"user_id": "u_demo", "days": 0},
                       headers=user_headers).status_code == 422
-    assert client.get("/v1/portraits", params={"user_id": "u_demo", "days": 91},
+    assert client.get("/v1/portraits", params={"user_id": "u_demo", "days": 366},
                       headers=user_headers).status_code == 422
 
 
@@ -225,7 +225,7 @@ def test_me_list_portraits(client, user_headers):
 def test_me_list_portraits_days_validation(client, user_headers):
     assert client.get("/v1/me/portraits", params={"days": 0},
                       headers=user_headers).status_code == 422
-    assert client.get("/v1/me/portraits", params={"days": 91},
+    assert client.get("/v1/me/portraits", params={"days": 366},
                       headers=user_headers).status_code == 422
 
 
