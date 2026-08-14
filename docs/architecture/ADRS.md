@@ -448,3 +448,12 @@
   4. osv-scanner 第五次下载仍 exit 16（GitHub release CDN 不可达）——本地豁免维持，security-ci 强制执行。
 - **理由**：§101 要求六态有测试；§110 禁止「字段存在=实现完成」——health 推导纯函数化即证据。
 - **后果**：623 unit tests 全绿；dependabot uv 升级 PR 需过 uv --frozen CI 门禁。
+
+## ADR-050：Kotlin SAST 落地 + release 门禁补缺（security-ci/release-closure 修复）
+
+- **决策**：
+  1. **Kotlin SAST（P2 落地）**：security-ci CodeQL 扩为 `languages: python, java-kotlin` + `build-mode: manual`（setup-java 17 + android-actions/setup-android + `./gradlew compileDebugKotlin --no-daemon` 构建提取）；job 超时 40→60 分钟（cold cache + build tracing 余量）。
+  2. **release-closure 门禁补缺**：包内 §94/§8 门禁步骤此前在未安装 pytest 的环境直接 `python3 -m pytest`（潜伏失败）——补 `pip install pytest`，并追加 `scripts/test_affective_eval.py`（Affective 评估框架随发布链路持续绿）。
+  3. README Android 单测计数 617→623（§22 真值随轮更新）。
+- **理由**：security-ci 自评的 P2（Kotlin SAST 缺位）是真实安全覆盖缺口；发布门禁自身必须能在 clean runner 上可执行（§17 原子流程要求同 run 全链可跑）。
+- **后果**：security-ci 首跑时长上升（CodeQL Kotlin 提取）；release 门禁现包含 affective 评估框架 9 用例。
