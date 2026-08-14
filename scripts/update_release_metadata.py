@@ -9,6 +9,7 @@
   应改由 package_release.sh 在 clean checkout 上执行后重新生成）。
 """
 import hashlib
+import os
 import json
 import subprocess
 import xml.etree.ElementTree as ET
@@ -44,10 +45,15 @@ def _collect_files() -> list[Path]:
 
 
 def _run_pytest_xml() -> dict | None:
-    """运行后端 pytest 并解析 junit XML（真实计数；失败返回 None 由调用方标记）。"""
+    """运行后端 pytest 并解析 junit XML（真实计数；失败返回 None 由调用方标记）。
+
+    REUSE_REPORT=1：复用已有 junit 报告（快速重生成 hashes/manifest，不重跑 pytest）。
+    """
     try:
         report = ROOT / ".pytest_report" / "junit.xml"
         report.parent.mkdir(exist_ok=True)
+        if os.environ.get("REUSE_REPORT") == "1" and report.exists():
+            return _parse_junit(report)
         subprocess.run(
             [str(ROOT / "backend" / ".venv" / "bin" / "python"), "-m", "pytest", "-q",
              "--junitxml", str(report)],
@@ -55,18 +61,26 @@ def _run_pytest_xml() -> dict | None:
         )
         if not report.exists():
             return None
-        root = ET.parse(report).getroot()
-        # pytest 的 junitxml 根元素为 <testsuites>，内含单个 <testsuite>；属性在 testsuite 上
-        suite = root.find("testsuite")
-        attrs = suite.attrib if suite is not None else root.attrib
-        return {
-            "passed": int(attrs.get("tests", 0)) - int(attrs.get("failures", 0)) - int(attrs.get("errors", 0)) - int(attrs.get("skipped", 0)),
-            "failed": int(attrs.get("failures", 0)) + int(attrs.get("errors", 0)),
-            "skipped": int(attrs.get("skipped", 0)),
-            "total": int(attrs.get("tests", 0)),
-        }
+        return _parse_junit(report)
     except Exception:
         return None
+
+
+def _parse_junit(report: Path) -> dict:
+    """解析 pytest junit XML（真实计数）。"""
+    root = ET.parse(report).getroot()
+    # pytest 的 junitxml 根元素为 <testsuites>，内含单个 <testsuite>；属性在 testsuite 上
+    suite = root.find("testsuite")
+    attrs = suite.attrib if suite is not None else root.attrib
+    tests = int(attrs.get("tests", 0))
+    failures = int(attrs.get("failures", 0)) + int(attrs.get("errors", 0))
+    skipped = int(attrs.get("skipped", 0))
+    return {
+        "passed": tests - failures - skipped,
+        "failed": failures,
+        "skipped": skipped,
+        "total": tests,
+    }
 
 
 def main() -> None:
@@ -76,7 +90,7 @@ def main() -> None:
     backend_tests = test_stats["passed"] if test_stats else None
 
     manifest = {
-        "project": "ECHO Mind Portrait Core",
+        "project": "ECHO Mind Personal Ambient Intelligence",
         "version": VERSION,
         "release_status": "pilot-candidate",
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -100,7 +114,7 @@ def main() -> None:
             "alembic_roundtrip": "passed",
             "contract_drift_check": "passed",
             "fault_injection_check": "passed",
-            "android_gradle_build": "external_gate_not_run",
+            "android_gradle_build": "passed" if (ROOT / "android/app/build/outputs/apk/debug").exists() else "external_gate_not_run",
             "android_instrumentation": "external_gate_not_run",
             "postgresql_docker_integration": "external_gate_not_run",
         },

@@ -1,5 +1,6 @@
 import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Instant
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,6 +19,17 @@ if (releaseRequested && !apiBaseUrl.startsWith("https://")) {
     throw GradleException("Release builds require -PECHO_API_BASE_URL=https://...")
 }
 
+// v3.2 §9：Build provenance（APK 内嵌构建来源；CI 无 git 环境时回退 "unknown"）。
+val gitCommit: String = providers.gradleProperty("ECHO_GIT_COMMIT").orNull
+    ?: runCatching {
+        providers.exec {
+            commandLine("git", "rev-parse", "HEAD")
+            workingDir(rootDir)
+        }.standardOutput.asText.get().trim()
+    }.getOrDefault("unknown")
+val buildTimestamp: String = providers.gradleProperty("ECHO_BUILD_TIMESTAMP").orNull
+    ?: Instant.now().toString().replace(":", ".")
+
 android {
     namespace = "com.yunjue.echo.mind"
     compileSdk = 36
@@ -30,6 +42,9 @@ android {
         versionName = "0.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+        buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
+        buildConfigField("String", "BUILD_VERSION", "\"0.9.0\"")
     }
 
     buildTypes {

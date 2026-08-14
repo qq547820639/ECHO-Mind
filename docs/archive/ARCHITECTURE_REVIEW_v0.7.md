@@ -1,5 +1,7 @@
 # ECHO Mind 仓库架构系统走读报告
 
+> **状态：SUPERSEDED / HISTORICAL** —— 本文基于 v0.7 Portrait Core 快照；当前架构见 `docs/IMPLEMENTATION_STATUS.md`、`docs/architecture/ANDROID_CODE_INVENTORY.md` 与 `docs/architecture/ADRS.md`。
+
 > 走读对象：`/data/attachments/v1/ECHO Mind`（monorepo）
 > 走读时间：本次会话 · 方式：目录层级系统走读 + 三路并行深读（backend / android / 基建治理）+ 关键发现逐一交叉验证
 > 版本基线：v0.7.0 Portrait Core（pilot-candidate，尚未正式上线）

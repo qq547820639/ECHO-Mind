@@ -1,0 +1,40 @@
+# source-integrity（v3.2 §10）：Source Package Integrity Gate —— release 前置。
+#
+# 目标：禁止「旧 manifest 覆盖源码」/「哈希来自旧快照」。
+# 流程：clean checkout → 源码完整性静态检查（Manifest 组件/Worker/包路径）→
+#       python 冒烟（脚本语法 + 元数据脚本可运行）→ 生成 FILE_HASHES/DELIVERY_MANIFEST/
+#       BUILD_PROVENANCE → 上传为 artifact（同一 source commit 一起分发）。
+#
+# 注意：本 job 不生成最终 APK（由 android-ci/发布 job 承担）；
+# 它保证「清单/哈希/provenance 与源码同快照」。
+name: source-integrity
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+jobs:
+  integrity:
+    name: source integrity + release metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/setup-python@v5 # TODO(ERA17): pin to commit SHA
+        with: {python-version: "3.12"}
+      - name: python syntax check of integrity scripts
+        run: |
+          python3 -m py_compile scripts/generate_provenance.py scripts/update_release_metadata.py scripts/contract_drift_check.py
+      - name: generate release metadata from THIS checkout
+        run: python3 scripts/update_release_metadata.py
+      - name: generate build provenance
+        run: python3 scripts/generate_provenance.py
+      - name: verify hashes cover current tree (spot-check: manifest + version source hashed)
+        run: |
+          sha256sum -c <(grep -E "DELIVERY_MANIFEST.json|scripts/version_source.json" FILE_HASHES.sha256)
+      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+        with:
+          name: release-metadata
+          path: |
+            FILE_HASHES.sha256
+            DELIVERY_MANIFEST.json
+            BUILD_PROVENANCE.json

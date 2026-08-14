@@ -275,6 +275,21 @@ fun MeScreen(container: AppContainer) {
         PresenceSettingsSection(container, context)
         IntelligenceSettingsSection(container, scope)
         WhatEchoKnowsSection(container, scope)
+        AboutCard()
+    }
+}
+
+/** v3.2 §9：About / Diagnostics —— APK 构建来源可追溯（版本/提交/时间）。 */
+@Composable
+private fun AboutCard() {
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("About", style = MaterialTheme.typography.titleMedium)
+            Text("ECHO Mind ${com.yunjue.echo.mind.BuildConfig.BUILD_VERSION}", style = MaterialTheme.typography.bodySmall)
+            Text("构建提交：${com.yunjue.echo.mind.BuildConfig.GIT_COMMIT}", style = MaterialTheme.typography.bodySmall)
+            Text("构建时间：${com.yunjue.echo.mind.BuildConfig.BUILD_TIMESTAMP}", style = MaterialTheme.typography.bodySmall)
+            Text("数据默认只保存在本机；ECHO 是支持性工具，不是医生。", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
