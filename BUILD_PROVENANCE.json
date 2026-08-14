@@ -1,9 +1,9 @@
 {
   "schema_version": "echo-build-provenance-v2",
   "release_version": "0.9.0",
-  "git_commit": "38904ca9ebed2038873d585f9945f5fd69a8d927",
-  "git_dirty": true,
-  "release_type": "development",
+  "git_commit": "b7b060a47621d773b41889cf26391236e60135cd",
+  "git_dirty": false,
+  "release_type": "release",
   "source_tree_sha256": "67714a4c37bc81444210dd6c4f10042b758d6d74839493897f8745f76218c5b6",
   "source_manifest_sha256": "543d39415cbfcd37c154eb66f70836f402235cb695fb4774d3ca1fd74136744a",
   "android_version_name": "0.9.0",
@@ -12,19 +12,19 @@
   "jdk_version": "17.0.20",
   "gradle_version": "8.13",
   "python_version": "3.12.13",
-  "build_timestamp_utc": "2026-08-14T22:51:20Z",
+  "build_timestamp_utc": "2026-08-14T22:53:26Z",
   "ci_run_id": "",
   "builder_environment": "local-dev",
   "unsigned_apk_path": "android/app/build/outputs/apk/release/app-release-unsigned.apk",
-  "unsigned_apk_sha256": "f56eea80234c5df98dcd03a2c232e709bf1ba73752b5c414064065bb4cb68de2",
+  "unsigned_apk_sha256": "320bc01e2fc02b0ffede52bf9346e0c5682ba7ddf531c0bcfdb2db71d1d8e4ae",
   "release_apk_path": "ECHO_Mind_v0.9.0.apk",
-  "release_apk_sha256": "3c32705c46d1cc8d6a63d0a25262c299561bf4a015a39564a26d9e018aefbd99",
-  "release_apk_idsig_sha256": "b889b6b6122742c8982013e558579cfc801363a917e28c4f72d0e5d4aef946d4",
+  "release_apk_sha256": "72211bc3f3c877d293afd2d573133410b8104b9cad3bcf97ec038ab7a8c21010",
+  "release_apk_idsig_sha256": "35b57ea4c6f3b65c4a937cf45e3ea2b87c7dfb0291b1bd8cea83b8cb3a98cd8f",
   "signing_stage": "signed",
   "signature_scheme": "v2,v3",
   "sbom_sha256": "7c6cd7229810048aa834ddb1dbcd3860df38c81b1f75a7f80f43390ac7cf43a0",
   "source_archive_sha256": {
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "33e84fb342f98042f7e9ec610e56f016018e2c11ea7acbd5c51cf90c93db8661",
-    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "1d8395719fd8569e6835b83488ba0345422a0ab8149170f70798b242e352f69f"
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.zip": "93d51e8ab693350f16d0529b6d8331bb065327959679abe810d2b0ff8c30b6ab",
+    "releases/ECHO_Mind_PortraitCore_v0.9.0.tar.gz": "5b44eeb758adb06957b6c6f5f431b8da674171db42b46d26fa8e3f5f958fc4ce"
   }
 }
