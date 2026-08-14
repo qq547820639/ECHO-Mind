@@ -26,6 +26,9 @@ import com.yunjue.echo.mind.ui.echo.components.SkillListSection
  * v3 §9/§18/§19 — EchoActionLayer：想做点什么。
  * 基础行动（呼吸/暂停/什么也不做）由 [com.yunjue.echo.mind.actions.EchoActionRuntime] 执行，
  * Scene 内统一视觉；订阅能力在下方分区展开，不与免费行动混排。
+ *
+ * ERA 38 状态提升：Section 只做装配（订阅能力槽位注入 skillRepository/coordinator）；
+ * 纯渲染在 [EchoActionLayerContent]（state-in / event-out）。
  */
 @Composable
 fun EchoActionLayer(
@@ -33,6 +36,20 @@ fun EchoActionLayer(
     skillRepository: SkillRepository,
     coordinator: SkillSessionCoordinator,
     onStartAction: (EchoActionKind) -> Unit,
+) {
+    EchoActionLayerContent(
+        availability = availability,
+        onStartAction = onStartAction,
+        skillsSection = { SkillListSection(skillRepository, coordinator) },
+    )
+}
+
+/** ERA 38 — EchoActionLayer 纯状态内容（state-in / event-out + 订阅能力槽位）。 */
+@Composable
+fun EchoActionLayerContent(
+    availability: EchoActionAvailability,
+    onStartAction: (EchoActionKind) -> Unit,
+    skillsSection: @Composable () -> Unit,
 ) {
     var skillsExpanded by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -70,6 +87,6 @@ fun EchoActionLayer(
         }
     }
     if (skillsExpanded) {
-        SkillListSection(skillRepository, coordinator)
+        skillsSection()
     }
 }

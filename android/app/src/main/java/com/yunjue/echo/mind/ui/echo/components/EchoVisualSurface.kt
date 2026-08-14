@@ -5,33 +5,53 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.EchoLifeField
 
 /**
+ * ERA 38 — EchoVisualSurface 偏好输入纯函数化：
+ * 渲染参数映射（偏好字符串/开关 → 视觉配置）提取为 [echoVisualSurfaceConfig] 纯函数
+ * （JVM 可测）；组件只消费 [EchoVisualSurfaceConfig]，不再持有 AppPreferences。
+ */
+data class EchoVisualSurfaceConfig(
+    val motionLevel: PresenceMotionLevel,
+    val surface: SurfaceMode,
+    val nightMode: Boolean,
+)
+
+/** 偏好输入 → 视觉配置纯函数（未知动效等级回退 DEFAULT；减少动画 → REDUCED_MOTION）。 */
+fun echoVisualSurfaceConfig(
+    motionLevelPref: String,
+    reduceMotion: Boolean,
+    nightMode: Boolean,
+): EchoVisualSurfaceConfig = EchoVisualSurfaceConfig(
+    motionLevel = when (motionLevelPref) {
+        "QUIET" -> PresenceMotionLevel.QUIET
+        "LIVELY" -> PresenceMotionLevel.LIVELY
+        else -> PresenceMotionLevel.DEFAULT
+    },
+    surface = if (reduceMotion) SurfaceMode.REDUCED_MOTION else SurfaceMode.APP,
+    nightMode = nightMode,
+)
+
+/**
  * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（生命场）。
- * 只渲染 [EchoPresenceState]；不接触 Repository / Provider / DB。
+ * 只渲染 [EchoPresenceState]；不接触 Repository / Provider / DB / Preferences。
+ * 注：EchoLifeField 含无限帧动画，由构造隔离（Robolectric 不适配，设备/CI 覆盖）。
  */
 @Composable
 fun EchoVisualSurface(
     presence: EchoPresenceState?,
-    preferences: AppPreferences,
+    config: EchoVisualSurfaceConfig,
     modifier: Modifier = Modifier,
 ) {
-    val motionLevel = when (preferences.presenceMotionLevel) {
-        "QUIET" -> PresenceMotionLevel.QUIET
-        "LIVELY" -> PresenceMotionLevel.LIVELY
-        else -> PresenceMotionLevel.DEFAULT
-    }
-    val surface = if (preferences.presenceReduceMotion) SurfaceMode.REDUCED_MOTION else SurfaceMode.APP
     EchoLifeField(
         presence = presence,
         modifier = modifier.fillMaxWidth().height(260.dp),
-        surface = surface,
-        motionLevel = motionLevel,
-        nightMode = preferences.presenceNightMode,
+        surface = config.surface,
+        motionLevel = config.motionLevel,
+        nightMode = config.nightMode,
     )
 }

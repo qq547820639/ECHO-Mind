@@ -156,16 +156,85 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         return
     }
 
+    OnboardingStepContent(
+        state = OnboardingStepState(
+            step = step,
+            ageConfirmed = ageConfirmed,
+            boundaryConfirmed = boundaryConfirmed,
+            coreChecks = coreChecks,
+            notifPermAuthorized = notifPermAuthorized,
+            sensorHardwareAvailable = hasCoreSensorHardware(context),
+        ),
+        actions = OnboardingStepActions(
+            onAgeConfirmed = { ageConfirmed = it },
+            onBoundaryConfirmed = { boundaryConfirmed = it },
+            onCoreCheck = { index, value -> coreChecks = coreChecks.withIndexed(value, index) },
+            onContinueToPrivacy = { step = OnboardingStep.PRIVACY_PLEDGE },
+            onContinueToCoreSensing = { step = OnboardingStep.CORE_SENSING },
+            onAwaken = {
+                // 苏醒瞬间锚点（Day-0 SEED 的「已观察 N 分钟」起点）
+                preferences.awakenedAtEpochMs = System.currentTimeMillis()
+                awakening = true
+            },
+            onAbstain = { scope.launch { finishOnboarding(sensingOn = false) } },
+            onRequestNotifPermission = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    notifPermAuthorized = true
+                }
+            },
+            onSkipNotifPermission = { notifPermAuthorized = false },
+            onOpenSafety = { showSafety = true },
+        ),
+    )
+}
+
+/** ERA 1 Onboarding 三步（DONE / BASELINE_WARMING_UP 已删除）。 */
+enum class OnboardingStep { WELCOME, PRIVACY_PLEDGE, CORE_SENSING }
+
+/** ERA 38 — Onboarding 步骤纯状态（渲染输入；编排留在 OnboardingScreen）。 */
+data class OnboardingStepState(
+    val step: OnboardingStep,
+    val ageConfirmed: Boolean,
+    val boundaryConfirmed: Boolean,
+    val coreChecks: List<Boolean>,
+    val notifPermAuthorized: Boolean,
+    val sensorHardwareAvailable: Boolean,
+)
+
+/** ERA 38 — Onboarding 步骤回调（state-in / event-out）。 */
+data class OnboardingStepActions(
+    val onAgeConfirmed: (Boolean) -> Unit,
+    val onBoundaryConfirmed: (Boolean) -> Unit,
+    val onCoreCheck: (Int, Boolean) -> Unit,
+    val onContinueToPrivacy: () -> Unit,
+    val onContinueToCoreSensing: () -> Unit,
+    val onAwaken: () -> Unit,
+    val onAbstain: () -> Unit,
+    val onRequestNotifPermission: () -> Unit,
+    val onSkipNotifPermission: () -> Unit,
+    val onOpenSafety: () -> Unit,
+)
+
+/**
+ * ERA 38 — Onboarding 纯步骤内容（state-in / event-out）。
+ * 三步渲染矩阵 + 门禁判定（18+/边界 → 五同意 → 能力行真实状态）；
+ * 苏醒过渡 / 安全屏 / 权限 launcher / 服务启动全部在 OnboardingScreen 编排层。
+ */
+@Composable
+fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepActions) {
+    val allCoreChecked = state.coreChecks.all { it }
     Page("开始使用") {
-        when (step) {
+        when (state.step) {
             OnboardingStep.WELCOME -> {
                 // ERA 1 定位句（契约锚点保留：「不会判断情绪/不做心理诊断」，单测锁定）。
                 Text(
                     ONBOARDING_WELCOME_CORE_COPY,
                     style = MaterialTheme.typography.bodyLarge
                 )
-                CheckLine(ageConfirmed, { ageConfirmed = it }, "我已年满 18 周岁")
-                CheckLine(boundaryConfirmed, { boundaryConfirmed = it }, "我理解专业判断和危机处置由人工承担")
+                CheckLine(state.ageConfirmed, actions.onAgeConfirmed, "我已年满 18 周岁")
+                CheckLine(state.boundaryConfirmed, actions.onBoundaryConfirmed, "我理解专业判断和危机处置由人工承担")
                 HorizontalDivider()
                 Text("本机使用", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -173,13 +242,13 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall
                 )
                 Button(
-                    onClick = { step = OnboardingStep.PRIVACY_PLEDGE },
-                    enabled = ageConfirmed && boundaryConfirmed,
+                    onClick = actions.onContinueToPrivacy,
+                    enabled = state.ageConfirmed && state.boundaryConfirmed,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("开始")
                 }
-                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true }, copy = EMERGENCY_HINT_COPY)
+                OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety, copy = EMERGENCY_HINT_COPY)
             }
 
             OnboardingStep.PRIVACY_PLEDGE -> {
@@ -195,23 +264,23 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 HorizontalDivider()
                 Text("需要你同意的数据处理", style = MaterialTheme.typography.titleSmall)
                 CheckLine(
-                    coreChecks[0], { coreChecks = coreChecks.withIndexed(it, 0) },
+                    state.coreChecks[0], { actions.onCoreCheck(0, it) },
                     "授权 ECHO 在后台采集加速度 / 陀螺仪等运动传感器数据，用于了解你一天的移动与作息节奏。"
                 )
                 CheckLine(
-                    coreChecks[1], { coreChecks = coreChecks.withIndexed(it, 1) },
+                    state.coreChecks[1], { actions.onCoreCheck(1, it) },
                     "传感器数据只在本机处理成行为摘要（如移动量、屏幕使用时长、应用切换次数），原始传感器数据不落盘、不上传。"
                 )
                 CheckLine(
-                    coreChecks[2], { coreChecks = coreChecks.withIndexed(it, 2) },
+                    state.coreChecks[2], { actions.onCoreCheck(2, it) },
                     "ECHO 会用你过去几天的数据学习「通常的你」，形成个人基线。"
                 )
                 CheckLine(
-                    coreChecks[3], { coreChecks = coreChecks.withIndexed(it, 3) },
+                    state.coreChecks[3], { actions.onCoreCheck(3, it) },
                     "每天生成「今天的你 vs 通常的你」的画像描述，只做行为观察，不做心理诊断。"
                 )
                 CheckLine(
-                    coreChecks[4], { coreChecks = coreChecks.withIndexed(it, 4) },
+                    state.coreChecks[4], { actions.onCoreCheck(4, it) },
                     "你可以随时撤回同意、申请导出或删除数据；撤回后 ECHO 停止学习。"
                 )
                 if (!allCoreChecked) {
@@ -222,11 +291,11 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                     )
                 }
                 Button(
-                    onClick = { step = OnboardingStep.CORE_SENSING },
+                    onClick = actions.onContinueToCoreSensing,
                     enabled = allCoreChecked,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("我理解并继续") }
-                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
+                OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
 
             OnboardingStep.CORE_SENSING -> {
@@ -241,7 +310,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 SensingCapabilityRow(
                     name = "运动传感器（加速度 / 陀螺仪）",
                     description = "用于了解移动与作息节奏。这是 ECHO 的核心，无需系统权限。",
-                    statusText = if (hasCoreSensorHardware(context)) "可用（无需权限）" else "此设备不可用"
+                    statusText = if (state.sensorHardwareAvailable) "可用（无需权限）" else "此设备不可用"
                 )
                 SensingCapabilityRow(
                     name = "屏幕状态",
@@ -251,15 +320,9 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 SensingCapabilityRow(
                     name = "持续运行通知",
                     description = "后台了解期间显示常驻通知，让你随时看到 ECHO 正在工作（Android 13+ 需授权）。拒绝后了解仍会继续，但通知不可见。",
-                    statusText = if (notifPermAuthorized) "已开启" else "未开启（可跳过）",
-                    onAuthorize = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            notifPermAuthorized = true
-                        }
-                    },
-                    onSkip = { notifPermAuthorized = false }
+                    statusText = if (state.notifPermAuthorized) "已开启" else "未开启（可跳过）",
+                    onAuthorize = actions.onRequestNotifPermission,
+                    onSkip = actions.onSkipNotifPermission
                 )
                 HorizontalDivider()
                 Text(
@@ -268,19 +331,15 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 )
                 // ERA 1：主 CTA = 苏醒；不再有 DONE /「进入应用」。
                 Button(
-                    onClick = {
-                        // 苏醒瞬间锚点（Day-0 SEED 的「已观察 N 分钟」起点）
-                        preferences.awakenedAtEpochMs = System.currentTimeMillis()
-                        awakening = true
-                    },
+                    onClick = actions.onAwaken,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("让 ECHO 开始了解我") }
                 // 拒绝 = abstain（不阻断离开）：不启动感知，直接进入应用
                 TextButton(
-                    onClick = { scope.launch { finishOnboarding(sensingOn = false) } },
+                    onClick = actions.onAbstain,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) { Text("暂不开启") }
-                OnboardingEmergencyEntry(onOpenSafety = { showSafety = true })
+                OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
         }
     }
@@ -415,9 +474,6 @@ internal const val ONBOARDING_WELCOME_CORE_COPY =
 
 /** 紧急入口常驻文案（单测锚点）。 */
 internal const val EMERGENCY_HINT_COPY = "存在立即危险时，请直接联系身边可信任的人、110 或 120。"
-
-/** ERA 1 Onboarding 三步（DONE / BASELINE_WARMING_UP 已删除）。 */
-private enum class OnboardingStep { WELCOME, PRIVACY_PLEDGE, CORE_SENSING }
 
 @Composable
 private fun CheckLine(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {

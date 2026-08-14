@@ -57,6 +57,7 @@ import com.yunjue.echo.mind.ui.echo.components.BaselineProgress
 import com.yunjue.echo.mind.ui.echo.components.CoverageRow
 import com.yunjue.echo.mind.ui.echo.components.EchoStatusOverlay
 import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurface
+import com.yunjue.echo.mind.ui.echo.components.echoVisualSurfaceConfig
 import com.yunjue.echo.mind.ui.echo.components.PortraitSummaryOnly
 import com.yunjue.echo.mind.ui.echo.components.SeedPortraitBlock
 import com.yunjue.echo.mind.ui.echo.components.UnlockBanner
@@ -127,7 +128,11 @@ fun EchoSceneScreen(
         visualSurface = {
             EchoVisualSurface(
                 presence = uiState.presence,
-                preferences = container.preferences,
+                config = echoVisualSurfaceConfig(
+                    motionLevelPref = container.preferences.presenceMotionLevel,
+                    reduceMotion = container.preferences.presenceReduceMotion,
+                    nightMode = container.preferences.presenceNightMode,
+                ),
             )
         },
         actionLayer = {
