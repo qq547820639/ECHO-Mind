@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 12.8 — FINAL DISTRIBUTION CLOSURE 进行中 → 完成后进入 ERA 12.9（文档/状态真值）→ ERA 13（Journey Application Layer）**
+**ERA 12.8 — FINAL DISTRIBUTION CLOSURE 完成 ✅ → 下一轮 ERA 12.9 收尾 + ERA 13（Journey Application Layer）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -28,11 +28,11 @@
 - ✅ SourceIntegrityTest（Manifest 组件/Worker/包路径/引用解析/DAO/领域包/五态，7 断言）+ CI `source-integrity.yml`
 - ✅ BuildConfig 内嵌 GIT_COMMIT / BUILD_TIMESTAMP / BUILD_VERSION（Me → About 可见）
 
-## Build Status（本轮实测）
+## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：见本轮实测结果（testDebugUnitTest / lintDebug / detekt / assembleRelease；本机 Corretto-17 + SDK 36 执行，如环境阻塞则如实标注）
-- backend：pytest（本轮实测计数）+ ruff + mypy + alembic roundtrip（CI backend-ci 全量；本机按环境如实标注）
-- Distribution：SOURCE_MANIFEST（479 文件）verify PASS；source archive（zip+tar.gz）verify PASS；final package verify PASS
+- Android：**465 unit tests 全绿**；lintDebug / detekt / assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
+- Distribution：SOURCE_MANIFEST（479 文件）verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**（runtime 文件在 git、manifest 一致、archive 二次验证）
 
 ## Completed
 
@@ -42,7 +42,7 @@
 
 ## In Progress
 
-- ERA 12.8 收尾：本地 Android/backend 基线实测 → 重新生成全部 release metadata → 最终 ZIP 自证
+- ERA 12.9 收尾（文档真值已随 12.8 更新；§20 架构清单自动化下轮并入）→ **ERA 13 JourneyViewModel / JourneyUiState / Journey 应用服务 + JourneyScreen 去编排**（本轮后立即执行）
 
 ## Blocked
 
