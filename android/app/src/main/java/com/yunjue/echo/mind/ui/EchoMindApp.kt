@@ -99,7 +99,7 @@ fun EchoMindApp(container: AppContainer) {
                     container.preferences,
                     onGoToSupport = { tabName = Tab.ME.name }
                 )
-                Tab.ME -> SupportScreen(container)
+                Tab.ME -> com.yunjue.echo.mind.ui.me.MeScreen(container)
             }
         }
     }

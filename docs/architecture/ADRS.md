@@ -151,6 +151,19 @@
 - **理由**：可信 AI 的最后一公里 = 可测试（Provider）+ 可追溯（依据）+ 可纠正（反馈）；「无法确认」与「失败」必须诚实区分。
 - **后果**：v2 第一/二轮全部闭环；IMPLEMENTATION_STATUS 预留事项清零，产品进入纯优化周期。
 
+## ADR-024：ERA 12 Consolidation 收口（ECHO 成为唯一产品架构）
+
+- **决策**：
+  1. **ECHO Scene 拆解**：EchoSceneViewModel（Composable→ViewModel→Coordinator→Repository 分层，viewmodel-compose 既有依赖）+ 组件化（VisualSurface/StatusOverlay/WhyLayer/ConversationLayer/ActionLayer）+ 三独立运行时（EchoConversationController 状态机 / EchoCorrectionService / EchoActionRuntime）；Screen 只组合。
+  2. **Journey/Me 正式迁移**：`ui/journey/JourneyScreen.kt` + `ui/me/MeScreen.kt`（六子领域：Subscription/Support/DataAndSensing/Presence/Intelligence/WhatEchoKnows）；旧 TrendScreen 变 @Deprecated 委托、SupportScreen 删除（测试锚点函数迁 `ui/MeSupportHelpers.kt`）。
+  3. **AppContainer 拆权**：Core/Sensing/Observation/Presence/Intelligence/Memory 子容器（组合式，不引入 DI 框架——v3 §42 不为框架而框架）。
+  4. **依赖方向修正**：渲染器归位 presence 包（presence 不再依赖 ui）；`ArchitectureBoundaryTest` 5 项断言永久边界（presence 不依赖 Room/ui、observation 不依赖 intelligence、memory 不依赖 Provider、intelligence 不依赖 ui）。
+  5. **文档治理**：`README_AUTHORITY.md` 读取优先级 + CURRENT/SUPERSEDED/ARCHIVED 生命周期；旧规格标注 SUPERSEDED。
+  6. **EchoRuntimeHealth**：组件级统一状态（OK/DEGRADED/UNAVAILABLE），UI 不拼 Boolean。
+- **理由**：v3 阶段判断——新内核已长出，任务是让新 ECHO 正式成为唯一产品架构并系统性清理结构债务（Risk A-F）。
+- **后果**：ERA 12 完成；ERA 13（Gradle 物理模块化）前置条件（依赖图清晰 + 边界测试）就绪；SupportScreen/TrendScreen 旧命名退出主路径。
+
+
 
 
 
