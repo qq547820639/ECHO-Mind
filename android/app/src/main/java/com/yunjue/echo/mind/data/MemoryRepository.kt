@@ -5,7 +5,10 @@ import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.memory.RetentionClass
 import com.yunjue.echo.mind.memory.defaultRetentionFor
+import com.yunjue.echo.mind.memory.DerivedPattern
+import com.yunjue.echo.mind.memory.derivePatterns
 import com.yunjue.echo.mind.memory.memoryDecayScore
+import com.yunjue.echo.mind.memory.rankMemories
 import com.yunjue.echo.mind.memory.shouldForget
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -30,8 +33,11 @@ class MemoryRepository(
     fun observeMemories(): Flow<List<EchoMemory>> =
         memoryDao().observeByUser(preferences.userId).map { list -> list.map { it.toDomain() } }
 
-    suspend fun topMemories(limit: Int = 20): List<EchoMemory> =
-        memoryDao().topByUser(preferences.userId, limit).map { it.toDomain() }
+    suspend fun topMemories(limit: Int = 20): List<EchoMemory> {
+        // ERA 15.5 §75：JVM 侧正式排序（类型优先级 × 衰减分 × 重要度）
+        val fetched = memoryDao().topByUser(preferences.userId, limit * 3).map { it.toDomain() }
+        return rankMemories(fetched, System.currentTimeMillis()).take(limit)
+    }
 
     override suspend fun memoriesByType(type: MemoryType): List<EchoMemory> = byType(type)
 
@@ -101,6 +107,54 @@ class MemoryRepository(
     override suspend fun edit(id: String, content: String, now: Long) {
         if (content.isBlank()) return
         memoryDao().edit(id, content.trim(), now)
+    }
+
+    /**
+     * ERA 15.5 §77：派生模式记忆（重复 + 足够 evidence + 稳定 confidence 才形成）。
+     * 幂等：pattern id 由内容哈希派生，重复运行覆盖同一条。
+     */
+    suspend fun derivePatterns(): Int {
+        val observations = byType(MemoryType.OBSERVATION)
+        val patterns = derivePatterns(observations)
+        var created = 0
+        for (pattern in patterns) {
+            val id = "pattern_" + (pattern.content.hashCode().toLong() and 0x7FFFFFFF).toString()
+            memoryDao().upsert(
+                EchoMemoryEntity(
+                    id = id,
+                    userId = preferences.userId,
+                    type = MemoryType.DERIVED_PATTERN.name,
+                    content = "反复出现的模式：${pattern.content}（出现 ${pattern.evidenceCount} 次）",
+                    source = "derived-pattern",
+                    confidence = pattern.confidence,
+                    createdAt = System.currentTimeMillis(),
+                    lastConfirmedAt = System.currentTimeMillis(),
+                    importance = 60,
+                    retentionClass = RetentionClass.LONG_TERM.name,
+                    provenance = "derived-pattern:v1",
+                    deleted = false,
+                )
+            )
+            created++
+        }
+        return created
+    }
+
+    /** ERA 15.5 §78/§79：用户解释优先（Context Exception 用户入口统一写点）。 */
+    suspend fun recordContextException(kind: String, note: String) {
+        val content = buildString {
+            append("特殊时期：")
+            append(kind.ifBlank { "其他" })
+            if (note.isNotBlank()) append("（$note）")
+        }
+        record(
+            type = MemoryType.CONTEXT,
+            content = content,
+            source = "user-stated-context",
+            provenance = "context-exception:v1",
+            confidence = 1f, // 用户自述 = 最高置信来源
+            importance = 70,
+        )
     }
 
     /** 自动过期清理（软删）；返回清理条数。 */

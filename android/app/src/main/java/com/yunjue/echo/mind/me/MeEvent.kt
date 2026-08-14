@@ -80,4 +80,7 @@ sealed interface MemoryManagementEvent {
     data class Confirm(val id: String) : MemoryManagementEvent
     data class Edit(val id: String, val content: String) : MemoryManagementEvent
     data class Forget(val id: String) : MemoryManagementEvent
+
+    /** ERA 15.5 §78/§79：用户解释优先（添加特殊时期，用户自述最高置信）。 */
+    data class AddContextException(val kind: String, val note: String) : MemoryManagementEvent
 }

@@ -23,6 +23,8 @@ class PresenceRefreshWorker(
         if (!container.preferences.onboardingCompleted) return Result.success()
         runCatching { container.presenceRepository.refresh() }
         runCatching { container.memoryRepository.purgeExpired() }
+        // ERA 15.5 §76/§77：生命周期维护（decay/expiry + 派生模式记忆）真正运行
+        runCatching { container.memoryRepository.derivePatterns() }
         return Result.success()
     }
 }

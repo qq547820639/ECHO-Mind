@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,21 +27,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.MemoryManagementEvent
-import com.yunjue.echo.mind.me.groupMemories
 import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
 
 /**
- * ERA 13.1 §36 — Me → What ECHO Knows：Memory 一等页面。
- * 分类展示（你纠正过我的 / 我还不确定的 / 我已确认的）+ 类别过滤，
- * 四权：确认（强化）/ 纠正（编辑）/ 忘记（软删，可审计）。
+ * ERA 15.5 §80 — Me → What ECHO Knows：七分类明确区分
+ * （Observed / User-confirmed / Context / Correction / Preference /
+ * Derived Pattern / Temporary Interpretation）+ §78/§79 特殊时期用户入口。
+ *
  * 业务在 MemoryManagementViewModel；本节只渲染。
  */
 @Composable
 fun WhatEchoKnowsSection(container: AppContainer) {
     val vm: MemoryManagementViewModel = viewModel(factory = MemoryManagementViewModel.factory(container))
     val state by vm.uiState.collectAsStateWithLifecycle()
-    val groups = groupMemories(state.memories, state.filter)
+    val memories = state.memories
 
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -48,6 +50,20 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                 "ECHO 的记忆由你的数据与你告诉它的话形成。你可以确认、纠正或忘记任何一条。",
                 style = MaterialTheme.typography.bodySmall
             )
+            // §78/§79：用户解释优先（特殊时期入口）
+            var showAddDialog by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { showAddDialog = true }) {
+                Text("告诉 ECHO 一个特殊时期（如出差、考试周）")
+            }
+            if (showAddDialog) {
+                ContextExceptionDialog(
+                    onDismiss = { showAddDialog = false },
+                    onConfirm = { kind, note ->
+                        vm.onEvent(MemoryManagementEvent.AddContextException(kind, note))
+                        showAddDialog = false
+                    },
+                )
+            }
             // 类别过滤（§36 filter）
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -56,8 +72,11 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                 listOf<Pair<MemoryType?, String>>(
                     null to "全部",
                     MemoryType.CORRECTION to "你纠正过我的",
-                    MemoryType.USER_CONFIRMED to "我已确认的",
                     MemoryType.CONTEXT to "我告诉你的",
+                    MemoryType.USER_CONFIRMED to "我已确认的",
+                    MemoryType.PREFERENCE to "我的偏好",
+                    MemoryType.DERIVED_PATTERN to "发现的模式",
+                    MemoryType.OBSERVATION to "观察到的事实",
                 ).forEach { (type, label) ->
                     FilterChip(
                         selected = state.filter == type,
@@ -66,14 +85,79 @@ fun WhatEchoKnowsSection(container: AppContainer) {
                     )
                 }
             }
-            if (state.memories.isEmpty()) {
+            if (memories.isEmpty()) {
                 Text("还没有长期记忆。ECHO 正在慢慢认识你。", style = MaterialTheme.typography.bodySmall)
             }
-            groups.corrections.take(3).forEach { m -> MemoryRow("你纠正过我的", m, vm) }
-            groups.uncertain.take(3).forEach { m -> MemoryRow("我还不确定的", m, vm) }
-            groups.confirmed.take(3).forEach { m -> MemoryRow("我已确认的", m, vm) }
+            // §80 七分类分组展示（低置信的临时解释单独标注「我还不确定的」）
+            val visible = if (state.filter == null) memories else memories.filter { it.type == state.filter }
+            typeGroups().forEach { (type, label) ->
+                val group = visible.filter { it.type == type }
+                if (group.isNotEmpty()) {
+                    group.take(4).forEach { m ->
+                        MemoryRow(
+                            label = label + if (m.type == MemoryType.TEMPORARY_INTERPRETATION && m.confidence < 0.5f) "（还不确定）" else "",
+                            memory = m,
+                            vm = vm,
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+/** §80 七分类展示顺序（Observed → User-confirmed → Context → Correction → Preference → Pattern → Temporary）。 */
+private fun typeGroups(): List<Pair<MemoryType, String>> = listOf(
+    MemoryType.OBSERVATION to "观察到的事实",
+    MemoryType.USER_CONFIRMED to "我已确认的",
+    MemoryType.CONTEXT to "我告诉你的",
+    MemoryType.CORRECTION to "你纠正过我的",
+    MemoryType.PREFERENCE to "我的偏好",
+    MemoryType.DERIVED_PATTERN to "发现的模式",
+    MemoryType.TEMPORARY_INTERPRETATION to "临时解释",
+)
+
+/** §78 特殊时期类型（travel/holiday/work crunch/exam/illness/event/user-defined）。 */
+private val CONTEXT_KINDS = listOf(
+    "出差/旅行", "假期", "工作特别忙", "考试周", "生病/恢复期", "重要事件", "其他",
+)
+
+@Composable
+private fun ContextExceptionDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (kind: String, note: String) -> Unit,
+) {
+    var kind by remember { mutableStateOf(CONTEXT_KINDS[0]) }
+    var note by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("告诉 ECHO 一个特殊时期") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("这段时间的节律可能和平时不一样；ECHO 之后判断变化时会优先考虑你的解释。", style = MaterialTheme.typography.bodySmall)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    CONTEXT_KINDS.forEach { k ->
+                        FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(k) })
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("补充说明（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(kind, note.trim()) }) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }
 
 /** 单条记忆行（四权：编辑/确认/忘记；编辑为内联文本框）。 */

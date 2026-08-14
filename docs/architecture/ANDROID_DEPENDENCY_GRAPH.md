@@ -30,7 +30,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | intelligence | 16 |
 | journey | 7 |
 | me | 3 |
-| memory | 2 |
+| memory | 3 |
 | observation | 23 |
 | ports | 3 |
 | presence | 10 |

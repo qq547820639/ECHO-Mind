@@ -334,3 +334,14 @@
   6. **§74 立场**：OpenAI-compatible 保持社区主实现；Provider 数量不是成熟度指标（不新增 Provider）。
 - **理由**：模型不是 ECHO——价值来自正确的个人 Context（Relevant，不是 Maximum）。
 - **后果**：IntelligenceDepthTest 9 用例；对话答案所有出口均过 Grounding；下一轮 ERA 15.5 Memory Maturity（§75-§80：检索排序正式化/生命周期 Worker/派生模式/Context Exceptions 表单/What ECHO Knows 七分类）。
+
+## ADR-039：ERA 15.5 Memory Maturity 第一轮（排序/生命周期/派生模式/用户解释/七分类）
+
+- **决策**：
+  1. **§75 Retrieval Ranking 正式化**：`rankMemories` 纯函数（类型优先级 USER_CONFIRMED/CORRECTION > CONTEXT > PREFERENCE > DERIVED_PATTERN > OBSERVATION > TEMPORARY_INTERPRETATION × 衰减分 × 重要度 × 最近确认）；MemoryRepository.topMemories 改为 JVM 侧重排（取 3 倍候选再截断）。
+  2. **§76 生命周期确认**：purgeExpired 已由 PresenceRefreshWorker（15 分钟周期）执行；confirm 走 DAO 强化（importance +10 上限 100 + lastConfirmedAt 刷新）；PresenceRefreshWorker 增补 derivePatterns 维护步骤。
+  3. **§77 Derived Pattern Memory**：`derivePatterns` 纯函数（重复 ≥3 次同内容 OBSERVATION → DERIVED_PATTERN；confidence 随证据数增长 0.5-0.95）；MemoryRepository.derivePatterns 幂等 upsert（id = 内容哈希）；中文事实 4 字起算。
+  4. **§78/§79 用户解释优先**：WhatEchoKnows 增「告诉 ECHO 一个特殊时期」入口（七类：出差/旅行、假期、工作特别忙、考试周、生病/恢复期、重要事件、其他 + 补充说明）→ MemoryRepository.recordContextException（CONTEXT 类型，confidence=1 用户自述最高置信，importance=70）。
+  5. **§80 七分类展示**：Observed / User-confirmed / Context / Correction / Preference / Derived Pattern / Temporary Interpretation 全部有独立标签分组（低置信临时解释标注「还不确定」）。
+- **理由**：Memory 是长期 Personal Intelligence 的核心资产；§110 禁止字段存在=实现完成。
+- **后果**：MemoryMaturityTest 8 用例；下一轮 ERA 16 Journey Long-term Memory（§81-§87：Canonical Daily State/历史重建/Year View/Life Season × Journey）。

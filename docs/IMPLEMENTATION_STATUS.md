@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 15 — PERSONAL INTELLIGENCE DEPTH 第一轮完成 ✅ → 下一轮 ERA 15.5 Memory Maturity（§75-§80）**
+**ERA 15.5 — MEMORY MATURITY 第一轮完成 ✅ → 下一轮 ERA 16 Journey Long-term Memory（§81-§87）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**510 unit tests 全绿**（ERA 15 第一轮 +9 intelligence depth）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**518 unit tests 全绿**（ERA 15.5 第一轮 +8 memory maturity）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -52,11 +52,12 @@
 - **ERA 13.5 收官**：:feature:journey——**9/9 模块全部完成**；§51 五条边界全部编译器物理强制
 - **ERA 14 第一轮**：IdentityGenome 七维 + identitySeed（§54 合规）；LifeSeason 真实计算（§57 中性词表）；DailyComposition/MomentState 填充；smoothPresenceState 平滑；rhythmDelta placeholder 移除；EchoVisualMapper 冻结（§62）；EchoIdentityTest 7 用例
 - **ERA 14 第二轮**：WallpaperRenderController 纯状态机（§65 不可见零渲染硬指标）+ PRESENCE_BENCHMARKS.md 测量契约 + ECHO_MOTION_LANGUAGE.md 冻结（§66）
-- **ERA 15 第一轮**：QuestionClassifier 六分类驱动对话检索；ContextRanker 优先级排序；Context Budget（证据/记忆/token 三重上限）；EchoEvidence 统一 schema（§70）；GroundingValidator + EchoAnswer（§71/§72，AI 出口强制校验）；IntelligenceDepthTest 9 用例
+- **ERA 15 第一轮**：QuestionClassifier 六分类；ContextRanker 排序；Context Budget 三重上限；EchoEvidence schema；GroundingValidator + EchoAnswer
+- **ERA 15.5 第一轮**：rankMemories 检索排序（§75）；生命周期确认 + derivePatterns 入 Worker（§76）；Derived Pattern Memory（§77，幂等 upsert）；特殊时期用户入口（§78/§79）；What ECHO Knows 七分类展示（§80）；MemoryMaturityTest 8 用例
 
 ## In Progress
 
-- ERA 15.5 Memory Maturity：Retrieval Ranking 正式化（§75）+ decay/expiry/reinforce 生命周期 Worker 真正运行（§76）+ Derived Pattern Memory（§77）+ Context Exceptions 用户表单（§78/§79）+ What ECHO Knows 七分类展示（§80）
+- ERA 16 Journey Long-term Memory：Canonical Daily State（§83）+ 历史重建（§84）+ Visual Memory River 语义（§85）+ Year View season 聚合（§86）+ Life Season × Journey 解释（§87）
 
 ## Blocked
 

@@ -28,7 +28,7 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：135
+- Kotlin 文件：136
 - Python 文件：68
 - Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）

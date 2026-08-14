@@ -51,6 +51,10 @@ class MemoryManagementViewModel(
                 viewModelScope.launch { container.memoryRepository.edit(event.id, event.content) }
             is MemoryManagementEvent.Forget ->
                 viewModelScope.launch { container.memoryRepository.forget(event.id) }
+            is MemoryManagementEvent.AddContextException ->
+                viewModelScope.launch {
+                    container.memoryRepository.recordContextException(event.kind, event.note)
+                }
         }
     }
 
