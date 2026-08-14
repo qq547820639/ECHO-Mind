@@ -8,11 +8,12 @@
 
 | File | 当前职责 | 目标 | 归属领域 | 分类 | 迁移目标 / 移除条件 |
 |---|---|---|---|---|---|
-| `ui/EchoMindApp.kt` | 三世界 Shell（ECHO/Journey/Me）+ 紧急 FAB | EchoAppRoot 精简 Shell（navigation/scaffold/safety/lifecycle only） | app | MIGRATING | 已近目标；移除残留 import（SkillListScreen 等） |
-| `ui/EchoSceneScreen.kt`（888 行） | ECHO Scene 全部逻辑 | 拆为 Screen(组合) + ViewModel + components（visual/headline/status/why/conversation/actions） | echo | MIGRATING | **本轮拆解**；拆分后 Screen ≤ 组件组合 |
-| `ui/EchoSceneUiState.kt`（ui/echo/） | 单一 UI 状态 + 纯函数装配 | 扩展为 §12 结构（headline/why/conversation/actions/intelligence 子状态） | echo | NEW_CORE | — |
-| `ui/EchoSceneRenderers.kt` | 帧模型渲染适配（Compose + Canvas） | 并入 ui/echo/components/EchoVisualSurface 或独立 renderer 文件 | presence | NEW_CORE | — |
-| `ui/EchoActionOverlay.kt` | Scene 内呼吸/暂停覆盖层 | ui/echo/actions/EchoActionHost + EchoActionRuntime | actions | MIGRATING | 本轮迁入 actions runtime |
+| `ui/EchoMindApp.kt`（120 行） | 三世界 Shell（ECHO/Journey/Me）+ 紧急 FAB | EchoAppRoot 精简 Shell（navigation/scaffold/safety/lifecycle only） | app | MIGRATING | 已近目标；移除残留 import（SkillListScreen 等） |
+| `ui/EchoSceneScreen.kt`（314 行，实测） | ECHO Scene 组合层 | 已完成（ADR-024）：Screen 只组合 ViewModel + components | echo | NEW_CORE | ✅ 拆解完成（此前文档误写 888 行；ERA 12.9 修正为实测 LOC） |
+| `ui/echo/EchoSceneViewModel.kt`（164 行）+ `ui/echo/EchoSceneUiState.kt`（109 行） | 单一 UI 状态 + 纯函数装配 + 运行时协调消费 | §12 结构（headline/why/conversation/actions/intelligence 子状态） | echo | NEW_CORE | — |
+| `ui/echo/components/*`（277 行合计：visual/headline/status/why/conversation/actions 组件族） | Scene 组件族 | 保持组件化 | echo | NEW_CORE | — |
+| `presence/EchoSceneRenderers.kt`（194 行） | 帧模型渲染适配（Compose + Canvas） | presence 包（渲染器归位，ADR-024 已完成迁移） | presence | NEW_CORE | — |
+| `ui/EchoActionOverlay.kt`（122 行） | Scene 内呼吸/暂停覆盖层 | actions/EchoActionRuntime 已建立；Overlay 状态经 Runtime 注入 | actions | MIGRATING | 下轮随 ERA 13 actions 收口 |
 | ~~`ui/TrendScreen.kt`~~ | — | `ui/journey/JourneyScreen.kt`（唯一实现）+ `ui/JourneyState.kt`（纯状态函数） | journey | **DELETED** | ✅ ERA 12 已删除（含 @Deprecated 委托）；JourneyDomain 独立装配 |
 | ~~`ui/SupportScreen.kt`~~ | — | `ui/me/MeScreen.kt`（根页面）+ 六子领域（Subscription/Support/DataAndSensing/Presence/Intelligence/WhatEchoKnows）；真正支持内容 = `ui/me/SupportSection.kt` | me | **DELETED** | ✅ ERA 12 已删除；测试锚点函数迁 `ui/MeSupportHelpers.kt` |
 | `ui/OnboardingScreen.kt` | 三步 onboarding + Awakening | 保持（app 领域） | app | NEW_CORE | — |
@@ -29,14 +30,14 @@
 | presence | `presence/*`、`data/PresenceRepository.kt` | NEW_CORE | 渲染器不依赖 Room/API/Provider（架构测试断言） |
 | intelligence | `intelligence/*` | NEW_CORE | 依赖 observation 接口（EvidenceAssembler），不反向 |
 | memory | `memory/*`、`data/MemoryRepository.kt` | NEW_CORE | 不依赖具体 Provider |
-| actions | `actions/*`、`ui/EchoActionOverlay.kt` | NEW_CORE | EchoActionRuntime 本轮建立 |
-| journey | `journey/*`（纯视觉）、`ui/TrendScreen.kt`（迁移中） | MIGRATING | JourneyRepository/BuildJourneyUseCase 待建（批次 2） |
+| actions | `actions/*`（EchoActionRuntime 60 行，ERA 12 已建立）、`ui/EchoActionOverlay.kt` | NEW_CORE | Overlay 状态经 Runtime 注入；ERA 13 actions 收口 |
+| journey | `journey/*`（纯视觉）、`ui/journey/JourneyScreen.kt`（555 行，实测） | MIGRATING | JourneyScreen 仍直接编排 7 依赖 → ERA 13 JourneyViewModel/JourneyRepository 化 |
 
 ## 3. 基础设施
 
 | File | 职责 | 分类 | 处置 |
 |---|---|---|---|
-| `AppContainer.kt`（376 行） | God Container（DB/Security/API/Sensing/Portrait/Presence/AI/Memory/Skills/Sync/Flags） | MIGRATING | **本轮拆子容器**（Core/Sensing/Presence/Intelligence/Memory），AppContainer 变组合门面 |
+| `AppContainer.kt`（417 行，实测） | God Container（DB/Security/API/Sensing/Portrait/Presence/AI/Memory/Skills/Sync/Flags） | MIGRATING | 子容器已拆（Core/Sensing/Presence/Intelligence/Memory，ADR-024）；ERA 13.3 真 DI ownership（子容器自持构造） |
 | `AppPreferences.kt`（437 行） | 全部 SharedPreferences 状态 | INFRASTRUCTURE | keep（拆分优先级低；键已分组注释） |
 | `PassiveSensingPrefs.kt` | DataStore 开关 | INFRASTRUCTURE | keep |
 | `EchoDatabase.kt` + DAOs | Room v9 全实体 | INFRASTRUCTURE | keep；migration audit 批次 3 |
@@ -60,8 +61,8 @@
 
 ## 6. Removal Plan 摘要（v3 §33-35）
 
-1. EchoSceneScreen 拆分（本轮）→ 所有 Portrait 主流程由新组件覆盖；
-2. Trend→Journey（本轮）+ Support→Me（下轮）→ 旧命名删除；
+1. EchoSceneScreen 拆分 ✅ 已完成（ADR-024，314 行组合层）→ 所有 Portrait 主流程由新组件覆盖；
+2. Trend→Journey ✅、Support→Me ✅（旧命名已删除）；
 3. SkillCardHost 订阅能力 → 保留于 Scene 分区或迁 Me 子领域（依赖 ADR 裁决，不永久双轨）；
 4. LegacyScreens 常量 → 随 DeprecatedInputRemovalTest 更新删除；
 5. backend 410 存根 → 机构历史数据只读保留（migration compatibility，最终决策）。
