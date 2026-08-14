@@ -33,3 +33,6 @@ exports/
 
 # 本地演示 APK 交付物（不入库）
 ECHO_Mind_demo*.apk
+
+# ERA 签名调试版 APK（本地产物，不入库）
+ECHO_Mind_v0.8.0*.apk*
