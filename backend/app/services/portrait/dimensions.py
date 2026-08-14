@@ -16,6 +16,7 @@ Phase 5（C4）语义修正：
 维度取值禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL（产品契约）。
 """
 from __future__ import annotations
+from typing import Any
 
 #: 每个指标的最小有意义绝对差（低于该差视为 SIMILAR）。
 #: 分钟类：active_start_minute=10 分钟；活动量：movement_index=0.02；
@@ -36,14 +37,14 @@ MIN_REL_DELTA = 0.05
 Z_SIMILAR = 0.7
 
 
-def _scale(stats: dict) -> float:
+def _scale(stats: dict[str, float]) -> float:
     mad_v = stats.get("mad") or 0.0
     p25 = stats.get("p25") or 0.0
     p75 = stats.get("p75") or 0.0
     return max(mad_v * 1.4826, (p75 - p25) / 2.0, 1e-6)
 
 
-def _below_min_delta(value: float, stats: dict, metric: str) -> bool:
+def _below_min_delta(value: float, stats: dict[str, float], metric: str) -> bool:
     med = stats.get("median")
     if med is None:
         return False
@@ -52,7 +53,7 @@ def _below_min_delta(value: float, stats: dict, metric: str) -> bool:
     return abs_delta < threshold
 
 
-def _z(value: float, stats: dict, metric: str | None = None) -> float | None:
+def _z(value: float, stats: dict[str, float], metric: str | None = None) -> float | None:
     med = stats.get("median")
     if med is None:
         return None
@@ -62,7 +63,7 @@ def _z(value: float, stats: dict, metric: str | None = None) -> float | None:
     return (value - med) / _scale(stats)
 
 
-def _classify(value: float, stats: dict, lower: str, higher: str, metric: str) -> str:
+def _classify(value: float, stats: dict[str, float], lower: str, higher: str, metric: str) -> str:
     z = _z(value, stats, metric)
     if z is None:
         return "SIMILAR"
@@ -71,14 +72,14 @@ def _classify(value: float, stats: dict, lower: str, higher: str, metric: str) -
     return higher if z > 0 else lower
 
 
-def _emit(dims: dict, name: str, value: str, metric: str | None, z: float | None) -> None:
+def _emit(dims: dict[str, Any], name: str, value: str, metric: str | None, z: float | None) -> None:
     """写入一个维度（z 为 None 时输出 None 而非四舍五入）。"""
     dims[name] = {"value": value, "metric": metric, "z": round(z, 4) if z is not None else None}
 
 
-def compute_dimensions(today: dict, baseline_metrics: dict) -> dict:
+def compute_dimensions(today: dict[str, Any], baseline_metrics: dict[str, dict[str, float]]) -> dict[str, Any]:
     """计算画像维度。返回 {DIM: {value, metric, z}}；基线缺失/数据缺失的维度不输出。"""
-    dims: dict = {}
+    dims: dict[str, Any] = {}
     diff_count = 0
 
     # RHYTHM：active_start_minute；数据缺失 → 维度省略（missing != irregular）

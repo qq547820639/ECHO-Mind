@@ -12,6 +12,7 @@ message_id = SHA-256(标题 + 正文 + 窗口) 前 16 位 —— 确定性幂等
 禁止情绪推断词；只陈述行为事实，不做心理状态解释。
 """
 from __future__ import annotations
+from typing import Any
 
 import hashlib
 from datetime import date, timedelta
@@ -53,7 +54,7 @@ def _contains_blocked(text: str) -> bool:
     return any(word in text for word in BLOCKED_VOCABULARY)
 
 
-def build_weekly_digest(portraits: list[DailyPortrait]) -> dict | None:
+def build_weekly_digest(portraits: list[DailyPortrait]) -> dict[str, Any] | None:
     """从画像行确定性生成小结；不足 MIN_PORTRAIT_DAYS 天返回 None。
 
     返回结构：{"id", "title", "body", "generated_at"}（generated_at 由调用方传入时区无关；

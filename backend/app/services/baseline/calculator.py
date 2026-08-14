@@ -6,6 +6,7 @@
 - baseline_version 固定 "base-v1"，同 tenant+user+bucket 幂等 upsert（简化方案）。
 """
 from __future__ import annotations
+from typing import Any
 
 from collections.abc import Sequence
 from datetime import date, timedelta
@@ -54,8 +55,8 @@ def baseline_state(valid_days: int) -> str:
     return "BASELINE_READY"
 
 
-def _stats_for(aggs: Sequence[DailyBehaviorAggregate]) -> dict:
-    metrics: dict = {}
+def _stats_for(aggs: Sequence[DailyBehaviorAggregate]) -> dict[str, Any]:
+    metrics: dict[str, Any] = {}
     for name in BASELINE_METRICS:
         values = [float(getattr(a, name)) for a in aggs if getattr(a, name) is not None]
         metrics[name] = compute_stats(values, circular=(name in CIRCULAR_METRICS))

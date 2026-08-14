@@ -8,6 +8,7 @@
   线性意义，且 _scale 的 (p75-p25)/2 在 None 时按 0 处理，退化为 mad 驱动）。
 """
 from __future__ import annotations
+from typing import Any
 
 from statistics import median as _median
 
@@ -41,7 +42,7 @@ def percentile(values: list[float], p: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (k - lower)
 
 
-def compute_stats(values: list[float], *, circular: bool = False) -> dict:
+def compute_stats(values: list[float], *, circular: bool = False) -> dict[str, Any]:
     """计算指标的 robust 统计量；空输入返回全 None + valid_days=0。
 
     circular=True 时：median/mad 使用圆周统计（见模块 docstring），

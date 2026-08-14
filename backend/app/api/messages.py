@@ -6,6 +6,7 @@
 - 幂等：同窗口同内容 → 同 message.id（客户端据此去重、只对新小结发通知）。
 """
 from __future__ import annotations
+from typing import Any
 
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/me/messages")
-def me_messages(db: DB, principal: PRINCIPAL) -> dict:
+def me_messages(db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     user: User = ensure_user(db, principal, principal.subject)
     tz_name = user.timezone or "Asia/Shanghai"
     today = datetime.now(UTC).astimezone(ZoneInfo(tz_name)).date()

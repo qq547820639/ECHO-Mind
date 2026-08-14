@@ -72,9 +72,9 @@ DSR_RETAINED_REASONS: dict[str, str] = {
 }
 
 
-def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, dict]:
+def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, dict[str, Any]]:
     """执行 DSR delete 分类矩阵删除，返回 per_category 摘要。"""
-    per_category: dict[str, dict] = {}
+    per_category: dict[str, dict[str, Any]] = {}
     for category, model in DSR_DELETE_MODELS.items():
         deleted = db.query(model).filter(
             model.tenant_id == tenant_id,
@@ -138,7 +138,7 @@ def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, 
 
 
 @router.post("/data-subject-requests")
-def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     require_write_role(db, principal, object_type="data_subject_request")
     ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(DataSubjectRequest).where(
@@ -192,7 +192,7 @@ def complete_dsr(
     payload: DataSubjectRequestComplete,
     db: DB,
     principal: Annotated[Principal, Depends(require_roles("admin"))],
-) -> dict:
+) -> dict[str, Any]:
     row = db.get(DataSubjectRequest, request_id)
     if not row or row.tenant_id != principal.tenant_id:
         raise HTTPException(status_code=404, detail="not found")
@@ -211,7 +211,7 @@ def complete_dsr(
             "idempotent_replay": True,
         }
 
-    per_category: dict[str, dict] = {}
+    per_category: dict[str, dict[str, Any]] = {}
     if row.request_type == "delete":
         per_category = _execute_dsr_delete(db, principal.tenant_id, row.user_id)
     row.status = "completed"

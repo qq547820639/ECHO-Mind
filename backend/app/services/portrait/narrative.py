@@ -11,6 +11,7 @@
 产品契约：所有句子不含被禁止词（焦虑/抑郁/孤独/压力过大/心理异常/风险/精神疾病/社交退缩）。
 """
 from __future__ import annotations
+from typing import Any
 
 RHYTHM_SENTENCES = {
     "EARLIER": "今天开始活跃的时间比你最近的习惯早",
@@ -86,7 +87,7 @@ def sentence_for(dimension: str, value: str) -> str:
     return _SENTENCE_MAP[dimension][value]
 
 
-def build_narrative(dimensions: dict) -> tuple[str, list[str]]:
+def build_narrative(dimensions: dict[str, Any]) -> tuple[str, list[str]]:
     """按固定顺序生成 (summary, headline)。headline 最多 3 个两字标签。"""
     sentences: list[str] = []
     headline: list[str] = []
@@ -103,7 +104,7 @@ def build_narrative(dimensions: dict) -> tuple[str, list[str]]:
     return summary, headline[:3]
 
 
-def fact_sentences(today: dict) -> str:
+def fact_sentences(today: dict[str, Any]) -> str:
     """EARLY_BASELINE 事实句：只用当天 aggregate 值，不输出"比平常"。"""
     parts: list[str] = []
     screen = today.get("screen_on_minutes") or 0.0

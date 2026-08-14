@@ -8,6 +8,7 @@
 - 退役周期：以上 410/405 存根在 v0.8 移除（届时一并清理对应 legacy 模型列）。
 """
 from __future__ import annotations
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
@@ -38,14 +39,14 @@ router = APIRouter(prefix="/v1")
 
 
 @router.post("/checkins")
-def create_checkin(payload: CheckinCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_checkin(payload: CheckinCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 主动签到录入入口已停用：保留路由定义与认证链，有效身份返回 410 Gone。
     ensure_user(db, principal, payload.user_id)
     raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.post("/journals")
-def create_journal(payload: JournalCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_journal(payload: JournalCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 主动日记录入入口已停用：保留认证链，有效身份返回 410 Gone。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
@@ -53,13 +54,13 @@ def create_journal(payload: JournalCreate, db: DB, principal: PRINCIPAL) -> dict
 
 
 @router.post("/journals/{logical_id}/revisions")
-def revise_journal(logical_id: str, payload: JournalRevise, db: DB, principal: PRINCIPAL) -> dict:
+def revise_journal(logical_id: str, payload: JournalRevise, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 日记修订入口已停用：保留路由定义与认证链，有效身份返回 410 Gone。
     raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
 
 @router.delete("/journals/{logical_id}")
-def delete_journal(logical_id: str, db: DB, principal: PRINCIPAL) -> dict:
+def delete_journal(logical_id: str, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 日记删除入口已停用：保留路由定义与认证链，有效身份返回 410 Gone。
     raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")
 
@@ -91,7 +92,7 @@ def list_journals(user_id: str, db: DB, principal: PRINCIPAL, limit: int = Query
 
 
 @router.post("/safety/check")
-def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL) -> dict:
+def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 主动文本安全检查入口已停用：保留认证链，有效身份返回 410。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
@@ -99,7 +100,7 @@ def safety_check(payload: FreeTextSafetyCheck, db: DB, principal: PRINCIPAL) -> 
 
 
 @router.post("/questionnaires/{code}/responses")
-def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PRINCIPAL) -> dict:
+def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 问卷录入入口已停用：保留认证链，有效身份返回 410。
     require_psych_content_role(db, principal, user_id=payload.user_id)
     ensure_user(db, principal, payload.user_id)
@@ -107,7 +108,7 @@ def questionnaire(code: str, payload: QuestionnaireCreate, db: DB, principal: PR
 
 
 @router.post("/practices/completions")
-def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PRINCIPAL) -> dict:
+def practice_completion(payload: PracticeCompletionCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     # T12.1 练习完成录入入口已停用：保留认证链，有效身份返回 410。
     ensure_user(db, principal, payload.user_id)
     raise HTTPException(status_code=410, detail="此录入入口已停用，请使用被动感知范式。")

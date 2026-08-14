@@ -4,6 +4,7 @@
 - 重建为显式动作（POST /rebuild），写入审计。
 """
 from __future__ import annotations
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/profile/{user_id}")
-def get_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict:
+def get_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     """只读画像缓存：绝不 rebuild / version+1 / commit（无任何写副作用）。"""
     ensure_user(db, principal, user_id)
     row = get_profile_cached(db, tenant_id=principal.tenant_id, user_id=user_id)
@@ -27,7 +28,7 @@ def get_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict:
 
 
 @router.post("/profile/{user_id}/rebuild")
-def rebuild_user_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict:
+def rebuild_user_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     """显式重建画像：traits + version+1；仅写路径调用。"""
     ensure_user(db, principal, user_id)
     row = rebuild_profile(db, tenant_id=principal.tenant_id, user_id=user_id)

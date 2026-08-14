@@ -4,6 +4,7 @@
 - 不输出情绪标签（mood_hint 字段废弃，PRD 契约点 2）。
 """
 from __future__ import annotations
+from typing import Any
 
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_cls
@@ -18,7 +19,7 @@ from app.api.deps import DB, PRINCIPAL, ensure_user
 router = APIRouter(prefix="/v1")
 
 
-def _narrative_to_dict(narrative: DailyNarrative, user_id: str) -> dict:
+def _narrative_to_dict(narrative: DailyNarrative, user_id: str) -> dict[str, Any]:
     # PRD 契约点 2：不输出情绪标签（mood_hint 字段废弃）
     return {
         "id": narrative.id,
@@ -37,7 +38,7 @@ def get_daily_narrative(
     date: date_cls | None = Query(default=None),
     from_: date_cls | None = Query(default=None, alias="from"),
     to: date_cls | None = Query(default=None),
-) -> dict:
+) -> dict[str, Any]:
     """只读叙事查询：GET 不写库、不读时生成。
 
     - ``date`` 单日查询（向后兼容），缺失返回 404；

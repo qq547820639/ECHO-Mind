@@ -44,7 +44,7 @@ PORTRAIT_SCHEMA_VERSION = "portrait-v1"
 PARTIAL_COVERAGE_THRESHOLD = 0.4
 
 
-def baseline_digest(metrics: dict) -> str:
+def baseline_digest(metrics: dict[str, Any]) -> str:
     """基线 metrics 的规范化序列化 SHA-256 摘要（确定性可复现）。"""
     canonical = json.dumps(
         metrics,
@@ -56,7 +56,7 @@ def baseline_digest(metrics: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict:
+def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict[str, Any]:
     if agg is None:
         return {
             "coverage_score": 0.0,
@@ -94,7 +94,7 @@ def _agg_to_dict(agg: DailyBehaviorAggregate | None) -> dict:
     }
 
 
-def _coverage_dict(today: dict) -> dict:
+def _coverage_dict(today: dict[str, Any]) -> dict[str, Any]:
     return {
         "coverage_score": today["coverage_score"],
         "valid_window_count": today["valid_window_count"],
@@ -113,11 +113,11 @@ def _upsert_portrait(
     tz_name: str,
     status: str,
     confidence: str,
-    coverage: dict,
-    dimensions: dict,
+    coverage: dict[str, Any],
+    dimensions: dict[str, Any],
     highlights: list[str],
     summary: str,
-    facts: list[dict],
+    facts: list[dict[str, Any]],
     baseline_start: date | None,
     baseline_end: date | None,
     baseline_valid_days: int,

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from statistics import median
-from typing import cast
+from typing import cast, Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models import Checkin
@@ -18,7 +18,7 @@ def _mad(values: list[float]) -> float:
 # 不再暴露为公开 API（GET /v1/trends/summary 已于 v0.6 final 移除），v0.8 后移除。
 # 基于 Checkin 主动签到历史（mood/stress/energy/sleep_recovery）聚合，仅个人趋势回顾，
 # 不构成诊断或治疗建议。
-def build_trend(db: Session, tenant_id: str, user_id: str, days: int) -> dict:
+def build_trend(db: Session, tenant_id: str, user_id: str, days: int) -> dict[str, Any]:
     since = datetime.now(timezone.utc) - timedelta(days=days)
     rows = db.scalars(
         select(Checkin).where(

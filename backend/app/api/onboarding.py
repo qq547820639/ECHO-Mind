@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from sqlalchemy import select
@@ -41,7 +41,7 @@ def create_tenant(
     payload: TenantCreate,
     db: DB,
     x_bootstrap_key: Annotated[str | None, Header()] = None,
-) -> dict:
+) -> dict[str, Any]:
     from app.config import get_settings
 
     if x_bootstrap_key != get_settings().bootstrap_key:
@@ -54,7 +54,7 @@ def create_tenant(
 
 
 @router.post("/users")
-def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     if principal.role not in {"admin", "professional"}:
         raise HTTPException(status_code=403, detail="insufficient role")
     user = User(
@@ -85,7 +85,7 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL) -> dict:
 
 
 @router.post("/onboarding/l0")
-def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     require_write_role(db, principal, object_type="onboarding_screening")
     user = ensure_user(db, principal, payload.user_id)
     existing = db.scalar(select(OnboardingScreening).where(
@@ -137,7 +137,7 @@ def create_l0(payload: L0ScreeningCreate, db: DB, principal: PRINCIPAL) -> dict:
 
 
 @router.post("/onboarding/emergency-contact")
-def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal: PRINCIPAL) -> dict:
+def create_emergency_contact(payload: EmergencyContactCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     require_write_role(db, principal, object_type="emergency_contact")
     ensure_user(db, principal, payload.user_id)
     consent = latest_consent(db, principal.tenant_id, payload.user_id, "emergency_contact")

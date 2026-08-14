@@ -4,6 +4,7 @@
 不泄露 tenant/plan 内部字段之外的任何信息。
 """
 from __future__ import annotations
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -16,6 +17,6 @@ router = APIRouter(prefix="/v1")
 
 
 @router.get("/me/subscription")
-def me_subscription(db: DB, principal: PRINCIPAL) -> dict:
+def me_subscription(db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     user: User = ensure_user(db, principal, principal.subject)
     return subscription_status(user)

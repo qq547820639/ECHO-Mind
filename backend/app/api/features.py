@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
@@ -38,7 +38,7 @@ def ingest_derived_feature(
     db: DB,
     principal: PRINCIPAL,
     _flag: Annotated[None, Depends(require_feature_flag("passive_sensing_enabled"))],
-) -> dict:
+) -> dict[str, Any]:
     from fastapi import HTTPException as _HTTPException
     from app.services.telemetry import log_feature_ingest_reject, count_event
 

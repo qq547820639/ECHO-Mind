@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import re
+from typing import Any
 
 RULE_PACK_VERSION = "safety-rules-2026.07.2"
 
@@ -53,7 +54,7 @@ _RULE_PACKS = {
 }
 
 
-def resolve_rule_ids(rule_ids: list[str]) -> list[dict]:
+def resolve_rule_ids(rule_ids: list[str]) -> list[dict[str, Any]]:
     """Map stored rule identifiers (e.g. "RED-003") back to their pack patterns.
 
     Keeps rule-hit evidence traceable: a reviewer can see exactly which pattern
@@ -75,7 +76,7 @@ def resolve_rule_ids(rule_ids: list[str]) -> list[dict]:
 PASSIVE_RED_TERMS = ("自杀", "自残", "结束生命", "活不下去", "不想活")
 
 
-def evaluate_passive(features: list) -> tuple[str, list[str]]:
+def evaluate_passive(features: list[Any]) -> tuple[str, list[str]]:
     """对派生特征摘要做确定性红色规则匹配。返回 (severity, matched_terms)。"""
     matched = [term for feature in features for term in PASSIVE_RED_TERMS
                if term in _normalize(feature.summary)]

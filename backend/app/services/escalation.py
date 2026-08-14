@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import Escalation
 from app.services.audit import append_audit
+from typing import Any
 
 CLOSED_STATUSES = ("closed", "reviewed")
 
@@ -35,7 +36,7 @@ def scan_sla_breaches(
     tenant_id: str | None = None,
     now: datetime | None = None,
     actor_id: str = "sla_scanner",
-) -> dict:
+) -> dict[str, Any]:
     """Advance the escalation ladder for unacked red escalations.
 
     Returns a summary with the ids that changed tier in this run. Mutations are
@@ -56,7 +57,7 @@ def scan_sla_breaches(
     notified_org_lead: list[str] = []
     chain_broken: list[str] = []
 
-    def record(action: str, row: Escalation, metadata: dict) -> None:
+    def record(action: str, row: Escalation, metadata: dict[str, Any]) -> None:
         append_audit(
             db,
             tenant_id=row.tenant_id,

@@ -21,6 +21,7 @@ Phase 5（C2）语义修正：
 产品契约：本模块绝不产出任何情绪/心理语义字段（PRD 契约点 2）。
 """
 from __future__ import annotations
+from typing import Any
 
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
@@ -91,7 +92,7 @@ def expected_window_count(tz_name: str, local_date: date) -> int:
     return max(seconds // WINDOW_SECONDS, 1)
 
 
-def compute_daily_aggregate(features: list[DerivedFeature], tz_name: str, local_date: date) -> dict:
+def compute_daily_aggregate(features: list[DerivedFeature], tz_name: str, local_date: date) -> dict[str, Any]:
     """把用户本地日窗口内的派生特征聚合力单一指标 dict（确定性）。"""
     tz = ZoneInfo(tz_name)
     eligible = [f for f in features if _is_aggregate_feature(f)]

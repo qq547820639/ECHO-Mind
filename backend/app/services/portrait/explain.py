@@ -8,6 +8,7 @@ delta 语义（Phase 5, C4）：
 - 正常基线 → bounded percentage（超过 PERCENTAGE_CAP=300% 回退 coarse wording）。
 """
 from __future__ import annotations
+from typing import Any
 
 from app.services.portrait.dimensions import (
     MIN_ABS_DELTA,
@@ -41,7 +42,7 @@ def _coarse_delta(z: float, direction: str) -> str:
     return f"比近期略{direction}"
 
 
-def _delta_text(value: float, stats: dict, metric: str) -> str:
+def _delta_text(value: float, stats: dict[str, Any], metric: str) -> str:
     med = stats.get("median")
     if med is None:
         return "暂无基线"
@@ -60,9 +61,9 @@ def _delta_text(value: float, stats: dict, metric: str) -> str:
     return f"比近期中位水平{direction}约 {pct}%"
 
 
-def build_facts(today: dict, baseline_metrics: dict) -> list[dict]:
+def build_facts(today: dict[str, Any], baseline_metrics: dict[str, Any]) -> list[dict[str, Any]]:
     """构建 3 个确定性事实（数据缺失时对应事实省略）。"""
-    facts: list[dict] = []
+    facts: list[dict[str, Any]] = []
 
     start = today.get("active_start_minute")
     start_stats = baseline_metrics.get("active_start_minute") or {}

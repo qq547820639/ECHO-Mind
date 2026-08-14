@@ -9,6 +9,7 @@
 订阅到期只冻结云端能力（专业支持、能力练习、云端分析消息由端侧镜像兜底）。
 """
 from __future__ import annotations
+from typing import Any
 
 from datetime import UTC, datetime
 
@@ -30,7 +31,7 @@ def subscription_active(user: User, now: datetime | None = None) -> bool:
     return expires > reference
 
 
-def subscription_status(user: User, now: datetime | None = None) -> dict:
+def subscription_status(user: User, now: datetime | None = None) -> dict[str, Any]:
     """订阅状态视图（不泄露内部字段）。"""
     reference = now if now is not None else datetime.now(UTC)
     expires = _aware(user.subscription_expires_at)

@@ -42,19 +42,16 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
 
-# mypy 配置（T03 CI）：check_untyped_defs 已收紧为 true，并移除 disable_error_code
-# （原 "type-arg"/"assignment" 放宽项已不需要，`mypy app` 全量 0 error）。
-# 下一步可评估 disallow_untyped_defs=true 与 ignore_missing_imports 的逐步收窄。
+# mypy 配置（T03 CI）：ERA 34 收窄到 strict——
+# ignore_missing_imports=false（全依赖自带类型，零豁免）+ disallow_any_generics 等
+# strict 全家桶实测 0 error（89 处裸 dict/list 已精确化：dimensions stats 为
+# dict[str, float]、baseline_metrics 为 dict[str, dict[str, float]]）。
+# 新增代码裸泛型 / 未标注函数 / 未使用 ignore = CI 红。
 # CI job 跑 `mypy app`（不跑 tests，避免测试桩干扰）。
 [tool.mypy]
 python_version = "3.12"
-ignore_missing_imports = true
-check_untyped_defs = true
-disallow_untyped_defs = true
+strict = true
 no_implicit_optional = true
-warn_redundant_casts = false
-warn_unused_ignores = false
-warn_unused_configs = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

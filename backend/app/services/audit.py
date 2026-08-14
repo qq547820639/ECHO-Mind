@@ -55,7 +55,7 @@ def _is_postgres(db: Session) -> bool:
     return db.get_bind().dialect.name == "postgresql"
 
 
-def _canonical_payload(event: AuditEvent | None = None, **kwargs: Any) -> dict:
+def _canonical_payload(event: AuditEvent | None = None, **kwargs: Any) -> dict[str, Any]:
     if event is not None:
         return {
             "event_id": event.event_id,
@@ -72,7 +72,7 @@ def _canonical_payload(event: AuditEvent | None = None, **kwargs: Any) -> dict:
     return kwargs
 
 
-def _hash_payload(payload: dict) -> str:
+def _hash_payload(payload: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -91,7 +91,7 @@ def _append_audit_unlocked(
     action: str,
     object_type: str,
     object_id: str,
-    metadata: dict | None = None,
+    metadata: dict[str, Any] | None = None,
     request_id: str | None = None,
 ) -> AuditEvent:
     """在调用方已持有 tenant 级串行化锁时执行 read-head→hash→insert。
@@ -151,7 +151,7 @@ def append_audit(
     action: str,
     object_type: str,
     object_id: str,
-    metadata: dict | None = None,
+    metadata: dict[str, Any] | None = None,
     request_id: str | None = None,
 ) -> AuditEvent:
     """追加审计事件（append-only，只增不改）。
@@ -191,14 +191,14 @@ def append_audit(
         )
 
 
-def verify_audit_chain(db: Session, tenant_id: str) -> dict:
+def verify_audit_chain(db: Session, tenant_id: str) -> dict[str, Any]:
     rows = db.scalars(
         select(AuditEvent)
         .where(AuditEvent.tenant_id == tenant_id)
         .order_by(AuditEvent.occurred_at.asc(), AuditEvent.id.asc())
     ).all()
     previous_hash = None
-    failures: list[dict] = []
+    failures: list[dict[str, Any]] = []
     for index, row in enumerate(rows):
         expected_hash = _hash_payload(_canonical_payload(row))
         if row.previous_event_hash != previous_hash:

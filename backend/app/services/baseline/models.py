@@ -1,5 +1,6 @@
 """BaselineSnapshot 数据契约（Milestone C）。"""
 from __future__ import annotations
+from typing import Any
 
 from dataclasses import dataclass
 from datetime import date
@@ -16,5 +17,5 @@ class BaselineSnapshot:
     window_start: date
     window_end: date
     valid_days: int
-    metrics: dict
+    metrics: dict[str, Any]
     version: str

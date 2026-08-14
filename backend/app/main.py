@@ -17,6 +17,7 @@ from app.services import immutability  # noqa: F401  registers the append-only O
 from app.services.telemetry import log_request
 from collections.abc import AsyncIterator
 from starlette.middleware.base import RequestResponseEndpoint
+from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -79,12 +80,12 @@ async def request_context_and_security_headers(request: Request, call_next: Requ
 
 
 @app.get("/health")
-def health() -> dict:
+def health() -> dict[str, Any]:
     return {"status": "ok", "service": "echo-mind-path-a", "version": APP_VERSION, "environment": settings.environment}
 
 
 @app.get("/ready")
-def ready(response: Response) -> dict:
+def ready(response: Response) -> dict[str, Any]:
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))

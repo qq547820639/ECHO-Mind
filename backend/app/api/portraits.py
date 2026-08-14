@@ -6,6 +6,7 @@
   与 /v1/portraits/*?user_id= 复用同一内部 helper（tenant isolation + ensure_user 不变）。
 """
 from __future__ import annotations
+from typing import Any
 
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_cls
@@ -40,7 +41,7 @@ def _local_today(tz_name: str) -> date_cls:
     return datetime.now(UTC).astimezone(ZoneInfo(tz_name)).date()
 
 
-def _portrait_out(row: DailyPortrait) -> dict:
+def _portrait_out(row: DailyPortrait) -> dict[str, Any]:
     return {
         "date": str(row.local_date),
         "status": row.status,
@@ -57,7 +58,7 @@ def _portrait_out(row: DailyPortrait) -> dict:
     }
 
 
-def _lightweight_status(db: Session, *, tenant_id: str, user_id: str, tz_name: str, today: date_cls) -> dict:
+def _lightweight_status(db: Session, *, tenant_id: str, user_id: str, tz_name: str, today: date_cls) -> dict[str, Any]:
     """只读计算轻量状态视图（绝不写库）。
 
     返回 dict（BaselineStatusOut 形状）供 GET /portraits/today 与 GET /baseline/status 使用。
@@ -187,7 +188,7 @@ def _baseline_status(db: Session, principal: Principal, user_id: str) -> Baselin
     )
 
 
-def _record_portrait_feedback(db: Session, principal: Principal, payload: PortraitFeedbackIn) -> dict:
+def _record_portrait_feedback(db: Session, principal: Principal, payload: PortraitFeedbackIn) -> dict[str, Any]:
     """写路径：记录当前用户画像反馈（幂等 tenant+event_id，重复返回 idempotent_replay）。
 
     - user 由 principal.subject 确定（body 里的 user_id 被忽略，绝不信任）；
@@ -293,7 +294,7 @@ def rebuild_me_portrait(payload: MePortraitRebuildIn, db: DB, principal: PRINCIP
 
 
 @router.post("/me/portraits/feedback")
-def record_me_portrait_feedback(payload: PortraitFeedbackIn, db: DB, principal: PRINCIPAL) -> dict:
+def record_me_portrait_feedback(payload: PortraitFeedbackIn, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     """记录当前用户（principal.subject）画像反馈；body 里的 user_id 被忽略。"""
     return _record_portrait_feedback(db, principal, payload)
 
