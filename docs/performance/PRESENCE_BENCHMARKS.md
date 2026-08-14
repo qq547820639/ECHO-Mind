@@ -20,6 +20,9 @@
 | Memory | `dumpsys meminfo` | 壁纸进程 PSS < 80MB 且不可见不增长 | 待 CI 实测 |
 | Wakeups | `dumpsys batterystats`（per-uid wakeups） | 不可见期间 wakeups 增量 = 0 | 待 CI 实测 |
 | Battery | batterystats 1h 前台壁纸耗电占比 | < 1%/h（QUIET 档） | 待 CI 实测 |
+| 首帧计算设备锚点 | `EchoSceneFrameDeviceBenchmarkInstrumentedTest`（computeEchoSceneFrame ×1000 于真实 ART 运行时；info 日志逐次记录） | 模拟器预算 < 10000 ms | **CI connected-test 执行（ERA 43）** |
+| Journey 365 装配设备锚点 | 同测试类（assembleJourneyUiState ×3 最优） | 模拟器预算 < 10000 ms | **CI connected-test 执行（ERA 43）** |
+| §65 硬指标设备烟测 | 同测试类（不可见 renderActive=false / destroy 永久停止） | 断言硬失败 | **CI connected-test 执行（ERA 43）** |
 
 ## 3. 渲染模型（功耗设计的结构前提）
 

@@ -4,6 +4,9 @@
 > CI 硬件波动不误报。真机数字（Cold startup / Room startup / first meaningful frame /
 > Wallpaper CPU/GPU/frame/memory/wakeups/battery / Dream）由 CI connected-test
 > 与真机矩阵执行（见 `docs/performance/PRESENCE_BENCHMARKS.md`）。
+> ERA 43：设备锚点（首帧计算 / Journey 365 装配 / §65 硬指标烟测）已入 androidTest
+> （`EchoSceneFrameDeviceBenchmarkInstrumentedTest`），API 34/36 emulator 矩阵执行、
+> info 日志逐次记录实测数字。
 
 ## 已冻结的 JVM 预算（PerformanceBaselineTest）
 

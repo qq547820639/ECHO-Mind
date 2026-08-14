@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**backend 安全复核轮完成 ✅（审计链/token/激活码三维防护复核 PASS + 支持请求创建频率上限落地（红色信号豁免）+ 4 契约用例）→ 下一轮：性能基准真机补采 / 文档巡检 / Affective 评审等待**
+**性能设备锚点轮完成 ✅（androidTest 设备基准三锚点：§65 硬指标烟测 / 首帧计算 / Journey 365 装配——CI API 34/36 模拟器矩阵执行·日志逐次记录）→ 下一轮：文档巡检 / security-ci 本地预演清单复核 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -80,6 +80,7 @@
 - **§22 文档真值 + Provider 传输安全复核轮**：ADR 补录 055（UI 状态提升 + 槽位组合 smoke test 模式——三大世界根页面收敛与动画宿主构造隔离决策）/ 056（backend mypy strict 冻结：ignore_missing_imports=false + 89 处裸泛型精确化）/ 057（detekt 27 规则 + lint 安全规则 + 性能预算 9 行固化）；docs/current 事实表对齐（ADR 001~057 / 九行预算表 / ERA 30-39 质量门禁深化）；**Provider 传输安全复核**：TLS 路径确认平台默认证书校验（无自定义 TrustManager/hostname 绕过）+ **发现并修复公网 172.x 明文洞**——旧 `http://172.` 前缀误放行公网段（172.217.x）致 API Key 明文出网，改按 RFC 1918 精确判定（172.16/12），+2 用例锁定边界（内网放行/公网拒绝）
 - **CI 工作流参数复核轮**：五 workflow 逐条对照本地门禁——backend-ci / security-ci Python **3.13 → 3.12**（对齐 CLEAN_ROOM_REPRODUCTION.md 与 uv.lock 解析环境，消除 frozen 解析漂移风险）；security-ci 补 sdkmanager 显式安装 platform 36 + build-tools 36.0.0（与 android-ci 同构，不依赖 gradle 自动下载的隐性授权路径）；release-closure 终态门禁补 `test_source_archive.py`（§107 分布完整性负例套件进入同一 atomic run——此前仅 source-integrity 覆盖且 tag push 不触发）；verify_workflow_pins 66 uses 全 SHA 门禁复核 PASS
 - **backend 安全复核轮**：审计链（verify_audit_chain 哈希链 canonical payload + previous_event_hash 双向校验）、token 权限边界（JWT HS256 + iss/aud/iat/exp 60 分钟 TTL + 角色白名单 + step-up + tenant 隔离查询 + require_write_role/订阅/心理内容角色门禁）、激活码防爆破（SHA-256 pepper 哈希存储 / TTL / 一次性原子消费 / code·IP·device 三维 rate limit）逐条复核 PASS；**落地缺口修复**：支持请求创建此前无限流——新增每用户每小时 20 条上限（幂等重放不计入窗口；**红色信号触发（危机/主动求助）豁免——429 永不阻断危机信号**；限流拒绝写审计链），4 契约用例（20 条放行·21 条 429 / 红色信号豁免 / 幂等重放不计数 / 限流审计可检索）
+- **性能设备锚点轮**：`EchoSceneFrameDeviceBenchmarkInstrumentedTest`（androidTest）入 CI connected-test API 34/36 矩阵——三锚点：§65 硬指标设备烟测（不可见 renderActive=false / destroy 永久停止断言）、首帧计算设备锚点（computeEchoSceneFrame ×1000 于真实 ART 运行时，模拟器预算 <10000ms）、Journey 365 装配设备锚点（assembleJourneyUiState 全链 ×3 最优，<10000ms）；实测数字 info 日志逐次记录（PRESENCE_BENCHMARKS §2「逐次记录」落地）——真机严格基线（CPU/GPU/wakeups/battery adb 采样）仍按契约不伪造，由部署侧执行
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -125,4 +126,4 @@
 
 ## Next Highest-value Task
 
-性能基准真机数字由 CI connected-test 补采（androidTest 内嵌 WallpaperRenderController 不可见零渲染/冷启动锚点测量，模拟器矩阵已有 API 34/36）；随后 README/文档一致性巡检与 security-ci 本地预演清单复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+README/文档一致性巡检（README·docs/current·ADRS·性能文档计数与能力描述逐项对照 main 真值）与 security-ci 本地预演清单复核（trufflehog/CodeQL/trivy 本地可执行项预演）；随后 onboarding/订阅生命周期边缘契约补测。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
