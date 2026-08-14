@@ -82,6 +82,36 @@ class PerformanceBaselineTest {
         assertTrue("365 天 Year View 装配耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
     }
 
+    /** ERA 39：Journey 365 天**完整 UI 状态装配**（§108 全量实时计算防退化——纯函数装配器全链）。 */
+    @Test
+    fun journeyUiStateAssembly365StaysUnderBudget() {
+        val start = LocalDate.of(2026, 1, 1)
+        val portraits = (0 until 365).map { i ->
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 120)
+        }
+        val timeline = com.yunjue.echo.mind.model.PortraitTimelineUiState(
+            days = 365, loading = false, portraits = portraits,
+        )
+        val ms = measureMs(3) {
+            com.yunjue.echo.mind.journey.assembleJourneyUiState(
+                scale = com.yunjue.echo.mind.journey.JourneyScale.YEAR,
+                timeline = timeline,
+                permissionEnabled = true,
+                narrative = null,
+                runtimeAvailability = null,
+                runtimeDiagnostics = null,
+                showEvidence = false,
+                intelligenceAvailable = false,
+                syncStatus = com.yunjue.echo.mind.journey.JourneySyncStatus(consent = true, permissionEnabled = true),
+                journeySeed = 42L,
+                memory = com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs(
+                    contextExceptions = mapOf("2026-03-10" to "travel"),
+                ),
+            )
+        }
+        assertTrue("365 天 UI 状态装配耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
+    }
+
     /** §108：Life Season 计算（365 画像窗口）——全量重算预算。 */
     @Test
     fun lifeSeason365WindowStaysUnderBudget() {
@@ -115,6 +145,32 @@ class PerformanceBaselineTest {
         }
         val ms = measureMs(3) { rankMemories(memories, now) }
         assertTrue("1000 条记忆排序耗时 ${"%.1f".format(ms)}ms 超出预算 1000ms", ms < 1000.0)
+    }
+
+    /** ERA 39：§77 Derived Pattern Memory——1000 条观察记忆模式派生（Worker 维护路径预算）。 */
+    @Test
+    fun patternDerivation1000StaysUnderBudget() {
+        val now = System.currentTimeMillis()
+        val observations = (0 until 1000).map { i ->
+            EchoMemory(
+                id = "obs_$i",
+                userId = "u",
+                type = MemoryType.OBSERVATION,
+                content = "你通常在这个时间段${i % 20}使用屏幕。",
+                source = "observation-core",
+                confidence = 0.7f,
+                createdAt = now - i * 3600_000L,
+                lastConfirmedAt = 0L,
+                importance = 50,
+                retentionClass = RetentionClass.LONG_TERM,
+                provenance = "observation:v1",
+                deleted = false,
+            )
+        }
+        val ms = measureMs(3) {
+            com.yunjue.echo.mind.memory.derivePatterns(observations, minOccurrences = 3)
+        }
+        assertTrue("1000 条模式派生耗时 ${"%.1f".format(ms)}ms 超出预算 1000ms", ms < 1000.0)
     }
 
     /** §109：空/单条边界不退化（空输入开销近零）。 */

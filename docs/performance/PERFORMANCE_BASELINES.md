@@ -10,8 +10,10 @@
 | 场景 | 输入规模 | 预算（取最优 3 次） | 关联 |
 |---|---|---|---|
 | Journey 365 天全装配（画像 → JourneyDay → Year View） | 365 天 | < 2000 ms | §108 preaggregation：真实路径读 Canonical 快照 ≤365 行，绝不全量实时计算 |
+| Journey 365 天**完整 UI 状态装配**（assembleJourneyUiState 全链：周期/河流/年视图/解释） | 365 天 + 上下文例外 | < 2000 ms | ERA 39：§108「禁止每次全量实时计算 365 天」的 UI 装配代表项 |
 | Life Season 计算 | 365 画像窗口 | < 1000 ms | §56 数周/月窗口 |
 | Memory 排序（JVM 重排） | 1000 条 | < 1000 ms | §109：SQL 侧已 LIMIT + 复合索引（v11），JVM 只重排候选 |
+| Derived Pattern 派生（Worker 维护路径） | 1000 条观察 | < 1000 ms | ERA 39：§77 重复 + 证据 + 置信才成长期模式 |
 | 空/单条边界组合 | empty | < 200 ms | 边界不退化 |
 | Presence 装配全链（Identity + LifeSeason + Daily + Moment + 平滑） | 200 次（60 天窗口） | < 2000 ms | PART PERFORMANCE「Presence assembly」 |
 | Context 编译（§68 排序 + §69 三重预算 + token 截断；含禁止数据剔除路径） | 500 条证据 × 20 次 | < 2000 ms | PART PERFORMANCE「Context retrieval」纯函数段 |

@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ECHO 组件基线收官轮完成 ✅（EchoVisualSurface 偏好纯函数化 + EchoActionLayer 槽位化 + Onboarding 三步渲染矩阵——UI 组件可测面收官）→ 下一轮：lint.xml 豁免复核 / 性能基准扩项 / Affective 评审等待**
+**lint 复核 + 性能基准扩项轮完成 ✅（UseKtx 豁免复核保留 + 4 条安全/RTL lint 规则探测零命中固化 + 性能预算 7 → 9 行）→ 下一轮：README/文档一致性巡检 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**754 unit tests 全绿**（ERA 38 +17：EchoVisualSurfaceConfig 5（动效/表面/夜间映射矩阵）+ EchoActionLayerContent 5（L2 建议门禁/行动事件/什么也不做折叠/订阅槽位）+ OnboardingStepContent 7（三步渲染矩阵：契约句/18+边界门禁/五同意门禁/能力行真实状态/授权跳过/苏醒·abstain/紧急入口）——Robolectric + Compose 真渲染，无 DB/Keystore 依赖）；lintDebug / detekt 27 规则 / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**756 unit tests 全绿**（ERA 39 性能基准 +2：Journey 365 天完整 UI 状态装配 assembleJourneyUiState 全链 / Derived Pattern 1000 条派生；+ 既有 754）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 新增固化 4 条 error 级规则：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded——探测零命中；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -76,6 +76,7 @@
 - **EchoSceneScreen 状态提升轮**：ECHO 世界根页面六流聚合 + 三槽位——`EchoSceneContent`（state/navigation/coreActions/feedbackActions 四分组 + visualSurface/actionLayer/actionOverlay 三槽位；分组 data class 保持 detekt 阈值）；容器依赖全部留在薄包装（preferences→aiPromptDismissed/awakenedAtEpochMs 状态输入，skillRepository/coordinator→行动槽位）；`SeedPortraitBlock` 去除 AppPreferences 依赖（只收 awakenedAtEpochMs）；`PortraitFeedbackContent` 状态化（反馈查询/四个回调注入，不再持 ViewModel）；行动覆盖层槽位化（真实 EchoActionOverlay 无限帧动画不适配 Robolectric——由构造隔离）；EchoSceneContentSmokeTest 20 用例九态矩阵——**三大世界根页面（Echo/Journey/Me）至此全部 state-in/event-out 可渲染测试**
 - **detekt 扩围轮**：14 → 27 规则（探测→清除→固化）：style +4（UnusedImports/MayBeConst/UnnecessaryParentheses，另 CollapsibleIf 不存在于 1.23 淘汰）、potential-bugs +4（CastToNullableType/DontDowncastCollectionTypes/LateinitUsage/UnusedUnaryOperator，另 MissingWhenCase/RedundantElseInWhen 已由编译器默认检查淘汰）、coroutines +1（SleepInsteadOfDelay）、performance +2（ForEachOnRange/UnnecessaryTemporaryInstantiation）；探测清除 60+ 处（53 未用 import 行删除 + 18 处多余括号按 detekt 建议替换，跨 9 模块迭代三轮）；LateinitUsage 主源集强制 + 测试源集豁免（JUnit setUp 惯例，33 处全在测试）——新增代码未用 import/多余括号/lateinit = CI 红
 - **ECHO 组件基线收官轮**：`EchoVisualSurface` 偏好输入纯函数化（`echoVisualSurfaceConfig` 映射矩阵 5 用例——未知动效等级回退 DEFAULT/减少动画→REDUCED_MOTION；组件只收 config，不再持 AppPreferences；EchoLifeField 无限帧动画由构造隔离）；`EchoActionLayer` 槽位化（`EchoActionLayerContent` 纯内容 + 订阅能力槽位，5 用例含 L2 建议门禁与「什么也不做」折叠语义）；`OnboardingStepContent` 三步渲染矩阵（state/actions 分组 11 回调，7 用例：契约句锚点/18+与边界门禁/五同意门禁/能力行系统真实状态/授权·跳过回调/苏醒 CTA·abstain/紧急入口常驻——编排层保留权限 launcher 与服务启动）——UI 组件可测面收官（含动画宿主类组件的纯映射测试模式）
+- **lint 复核 + 性能基准扩项轮**：lint.xml 豁免逐条复核——UseKtx 仍命中 50 处（含刻意 commit() 同步写路径，KTX edit{} 默认 apply 语义不同，转换有行为风险）豁免保留并更新理由；探测固化 4 条 error 级安全/RTL 规则（UnspecifiedImmutableFlag PendingIntent 可变标志 / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded）——全仓库零命中直接冻结；性能预算 7 → 9 行（Journey 365 天完整 UI 状态装配 assembleJourneyUiState 全链 <2000ms、Derived Pattern 1000 条派生 <1000ms，均取最优 3 次防退化语义不变）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -121,4 +122,4 @@
 
 ## Next Highest-value Task
 
-lint.xml 豁免复核（4 类豁免逐条再验证 + 新 lint 规则探测）；随后性能基准扩项（JVM 可代表项：Journey 365 日装配/内存检索排序大集）与 README/文档一致性巡检。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+README/文档一致性巡检（§22：docs/current 与 README 计数、能力描述逐项对照 main 真值——detekt 27 规则 / lint 规则数 / 性能预算行数等）；随后 provider/网络层安全复核（OpenAI-compatible 请求路径加密与证书校验复核）或 CI 工作流参数复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

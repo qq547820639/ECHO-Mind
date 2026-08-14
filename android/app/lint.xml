@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Android lint 配置（ERA 31 硬门禁：warningsAsErrors = true；仅列豁免 + 理由）。 -->
 <lint>
-    <!-- UseKtx：仓库既有风格为显式 edit().apply()/getSystemService()，转换 50 处无行为收益；保持现状。 -->
+    <!-- UseKtx：ERA 39 复核——仍命中 50 处（43 处 SharedPreferences.edit + 5 处其他 + 2 处 Uri）。
+         部分为刻意 commit() 同步写路径（KTX edit{} 默认 apply，语义不同），全量转换有行为风险无产品收益；保持豁免。 -->
     <issue id="UseKtx" severity="ignore" />
 
     <!-- 版本升级类提示：由 dependabot（github-actions/gradle/uv 生态）负责，不阻塞本地门禁。 -->
@@ -12,4 +13,11 @@
     <!-- Aligned16KB：SQLCipher 4.5.4 第三方 native 库未随 16KB 页对齐（上游依赖，非本仓库可修）；
          待上游发布对齐产物后移除豁免。 -->
     <issue id="Aligned16KB" severity="ignore" />
+
+    <!-- ERA 39 探测固化（error 级，探测轮零命中）：PendingIntent 可变标志 / registerReceiver 标志 /
+         WebView 启用 JS / 硬编码 RTL 方向。新增命中 = CI 红。 -->
+    <issue id="UnspecifiedImmutableFlag" severity="error" />
+    <issue id="UnspecifiedRegisterReceiverFlag" severity="error" />
+    <issue id="SetJavaScriptEnabled" severity="error" />
+    <issue id="RtlHardcoded" severity="error" />
 </lint>
