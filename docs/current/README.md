@@ -19,6 +19,8 @@
 | 架构决策 | `docs/architecture/ADRS.md` | ADR-001~024 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
 | Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |
+| Presence 基准 | `docs/performance/PRESENCE_BENCHMARKS.md` | FROZEN（ERA 14） |
+| Motion Language | `docs/product/ECHO_MOTION_LANGUAGE.md` | FROZEN v1（ERA 14） |
 | DI Ownership | `docs/architecture/DI_OWNERSHIP.md` + `di/EchoContainers.kt` | CURRENT（ERA 13.3：六容器自持构造） |
 | Distribution Closure | `scripts/build_source_archive.py` / `scripts/verify_source_archive.py` / `scripts/verify_final_package.py` + `scripts/test_source_archive.py` | ERA 12.8 门禁（CI 强制） |
 | Release 流程 | `.github/workflows/release-closure.yml` | §17 原子 release（tag v*） |

@@ -313,3 +313,12 @@
   7. **测试（§106）**：EchoIdentityTest 7 用例（determinism/偏好塑形不重置/季节中性词表禁词/phase 桶/日构图范围/时刻调制/平滑无瞬切/多 Surface 一致性 + lock-safe 无 narrative）。
 - **理由**：ECHO 已拥有 Presence，但尚无长期人格；§110 禁止「字段存在=实现完成」。
 - **后果**：Day 1/30/180 同一 ECHO（identity 确定性）；渲染器不再自行推导身份；下一轮 ERA 14 续：Wallpaper 不可见连续渲染=0 基准（§65）+ Motion Language 冻结（§66）。
+
+## ADR-037：ERA 14 续 —— §65 Wallpaper 零渲染硬指标 + §66 Motion Language 冻结
+
+- **决策**：
+  1. **§65 硬指标结构化**：渲染生命周期抽为纯状态机 `WallpaperRenderController`（feature:presence，可单测）；EchoWallpaperService 以其为唯一事实源——不可见 → renderActive=false → Choreographer 回调移除（0 帧率 0 CPU）；destroy 永久停止；不可见触摸不绘制。WallpaperRenderControllerTest 4 用例锚定。
+  2. **设备实测基准契约**：docs/performance/PRESENCE_BENCHMARKS.md——CPU/GPU/frame time/memory/wakeups/battery 测量方式 + 基线目标；本仓库无真机/模拟器时**不伪造数字**，执行点为 CI connected-test（API 34/36 emulator）与真机矩阵。
+  3. **§66 Motion Language 冻结**：docs/product/ECHO_MOTION_LANGUAGE.md v1——11 类语义（ambient/state transitions/unlock/touch/scroll/Why/Conversation/Action/Dream/Reduced Motion/Low Power）逐一映射到当前实现锚点；Unlock/Scroll 如实标注「预留」（§22：不把未实现写成 implemented）。
+- **理由**：不可见零渲染是功耗验收硬指标；运动语义此前散落在实现中无单一契约。
+- **后果**：ERA 14 全部完成 → ERA 15 Personal Intelligence Depth（§67-§74：Question Classification / Context Ranking / Context Budget / Evidence 归一化 / Grounding Validator）。

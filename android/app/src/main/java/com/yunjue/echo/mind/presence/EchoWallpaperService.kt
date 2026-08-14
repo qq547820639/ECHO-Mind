@@ -6,6 +6,7 @@ import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.presence.WallpaperRenderController
 import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
 import java.time.LocalTime
 
@@ -31,7 +32,8 @@ class EchoWallpaperService : WallpaperService() {
     }
 
     inner class EchoEngine : Engine() {
-        private var visible = false
+        /** ERA 14 §65：渲染生命周期唯一事实源（不可见 → 0 帧率，可单测状态机）。 */
+        private val render = WallpaperRenderController()
         private var frameCallback: Choreographer.FrameCallback? = null
         private var startNanos = 0L
 
@@ -58,8 +60,10 @@ class EchoWallpaperService : WallpaperService() {
         override fun onTouchEvent(event: android.view.MotionEvent) {
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    rippleUntilMs = System.currentTimeMillis() + RIPPLE_DURATION_MS
-                    drawFrame()
+                    if (render.onTouch()) {
+                        rippleUntilMs = System.currentTimeMillis() + RIPPLE_DURATION_MS
+                        drawFrame()
+                    }
                 }
                 else -> Unit
             }
@@ -67,18 +71,20 @@ class EchoWallpaperService : WallpaperService() {
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
-            this.visible = visible
-            if (visible) startRendering() else stopRendering()
+            render.onVisibilityChanged(visible)
+            if (render.renderActive) startRendering() else stopRendering()
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
             // 快照可能已更新：每次 surface 变化前重读
+            render.onSurfaceChanged()
             refreshSnapshot()
-            drawFrame()
+            if (render.renderActive) drawFrame()
         }
 
         override fun onDestroy() {
+            render.onDestroy()
             stopRendering()
             super.onDestroy()
         }
@@ -108,7 +114,7 @@ class EchoWallpaperService : WallpaperService() {
         }
 
         private fun drawFrame() {
-            if (!visible) return
+            if (!render.renderActive) return
             val holder = surfaceHolder ?: return
             val canvas = try {
                 holder.lockCanvas()

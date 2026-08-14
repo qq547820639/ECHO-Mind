@@ -33,7 +33,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | memory | 2 |
 | observation | 23 |
 | ports | 3 |
-| presence | 9 |
+| presence | 10 |
 | runtime | 1 |
 | security | 2 |
 | ui | 34 |
