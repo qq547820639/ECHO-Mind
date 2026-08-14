@@ -1,6 +1,5 @@
 import org.gradle.api.GradleException
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.time.Instant
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,8 +26,15 @@ val gitCommit: String = providers.gradleProperty("ECHO_GIT_COMMIT").orNull
             workingDir(rootDir)
         }.standardOutput.asText.get().trim()
     }.getOrDefault("unknown")
+// ERA 18 §96：默认取 HEAD 提交时间（ISO）——同一 commit 构建字节可复现；
+// 发布流水线可用 -PECHO_BUILD_TIMESTAMP 显式注入（须与 provenance.build_timestamp_utc 一致）。
 val buildTimestamp: String = providers.gradleProperty("ECHO_BUILD_TIMESTAMP").orNull
-    ?: Instant.now().toString().replace(":", ".")
+    ?: runCatching {
+        providers.exec {
+            commandLine("git", "log", "-1", "--format=%cI")
+            workingDir(rootDir)
+        }.standardOutput.asText.get().trim().replace(":", ".")
+    }.getOrDefault("unknown")
 
 android {
     namespace = "com.yunjue.echo.mind"
@@ -44,7 +50,7 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         buildConfigField("String", "BUILD_TIMESTAMP", "\"$buildTimestamp\"")
-        buildConfigField("String", "BUILD_VERSION", "\"0.9.0\"")
+        buildConfigField("String", "BUILD_VERSION", "\"$versionName\"")
     }
 
     buildTypes {

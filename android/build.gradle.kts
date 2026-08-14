@@ -8,3 +8,11 @@ plugins {
     // 待 CI 首跑验证：本机无 Gradle，无法本地跑 `./gradlew detekt`。
     alias(libs.plugins.detekt) apply false
 }
+
+// ERA 18 §96：依赖锁定（clean-room 复现：所有模块全部配置解析锁定到
+// gradle.lockfile；升级依赖必须显式 `./gradlew dependencies --update-locks`）。
+subprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+}

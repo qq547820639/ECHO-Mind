@@ -369,3 +369,13 @@
   5. **§92 Crypto 测试**：fresh install（秘密自动 provision + 跨实例稳定）/ 旧库 legacy 派生稳定 / 轮换持久 / 字段加密不受 DB 轮换影响 / 损坏存储 fail-closed 重建 / ancient 退役 / 迁移标记 round-trip（JCEKS 替身纯 JVM，10 用例）；orchestrator 迁移链决策矩阵 9 用例；RFC 向量 4 用例；真机路径（HKDF 稳定/legacy 可用/轮换跨实例）由 CI 模拟器 instrumentation 执行。
 - **理由**：Crypto 不发明、不共享、不静默降级；旧用户无损迁移优先于算法洁癖（禁止改 Crypto 却不迁移已有 DB）。
 - **后果**：旧库首次启动自动 rekey 到新 KDF；field/DB 密钥独立；下一轮 ERA 18 Reproducible Release（§93-§96：Actions SHA pinning / release set / in-app build info / clean-room 复现）。
+
+## ADR-042：ERA 18 Reproducible Release 第一轮（Actions SHA pinning/release set/应用内构建信息/clean-room 复现）
+
+- **决策**：
+  1. **§93 Actions pinning**：全部 5 个 workflow、64 个 `uses:` pin 到 40 位 immutable commit SHA（GitHub API 实时解析 tag → SHA，注释保留原 tag 追溯）；新增 `scripts/verify_workflow_pins.py` 门禁（拒绝 major tag/短 SHA/分支），接入 source-integrity.yml 与 release_preflight。
+  2. **§94 Release Set**：新增 `scripts/test_release_set.py`（5 用例：§94 九要素齐全 + artifact manifest 逐条 hash 一致 + signed APK ↔ provenance 绑定 + source archive ↔ provenance hash + Release Notes 版本声明），接入 release-closure（verify_final_package 之后同 run 执行）。
+  3. **§95 In-app Build Info**：`BUILD_VERSION` 改为派生自 versionName（消除硬编码漂移）；`BUILD_TIMESTAMP` 默认 = HEAD 提交时间（同 commit 构建字节可复现；发布可 -PECHO_BUILD_TIMESTAMP 显式注入）；新增 `BuildInfoTest`（40 位 hex/版本一致/无敏感 CI 信息泄漏）。
+  4. **§96 Clean-room Reproduction**：gradle wrapper 增 `distributionSha256Sum`（官方 8.13-bin.zip 校验和）；启用 Gradle dependency locking（`lockAllConfigurations()` + 10 个 `gradle.lockfile`，升级须显式 `--update-locks`）；`docs/architecture/CLEAN_ROOM_REPRODUCTION.md` 记录 JDK/Gradle/Python/依赖锁定 + 复现步骤 + 可复现性边界（source archive 字节级 / unsigned APK 等价可复现 / signed APK 可验证但非字节恒等——诚实声明）。
+- **理由**：最终社区用户必须能验证「这个 APK 来自这份源码」；可复现性的每一层都给出可执行门禁而不是文档承诺。
+- **后果**：下一轮（ERA 18 收尾/可选 Affective Intelligence）：release 流水线在真实 GitHub Actions 上首跑验证 pins；Affective Intelligence 仅在 opt-in 契约完整后实施。

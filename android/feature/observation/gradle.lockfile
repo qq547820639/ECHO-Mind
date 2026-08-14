@@ -1,0 +1,43 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+androidx.annotation:annotation-experimental:1.4.1=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.annotation:annotation-jvm:1.8.1=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.annotation:annotation:1.8.1=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.arch.core:core-common:2.2.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.arch.core:core-runtime:2.2.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.collection:collection-jvm:1.4.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.collection:collection:1.4.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.concurrent:concurrent-futures:1.1.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.core:core-ktx:1.16.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.core:core-viewtree:1.0.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.core:core:1.16.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.interpolator:interpolator:1.0.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.lifecycle:lifecycle-common:2.6.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.lifecycle:lifecycle-runtime:2.6.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.profileinstaller:profileinstaller:1.3.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.startup:startup-runtime:1.1.1=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.tracing:tracing:1.2.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+androidx.versionedparcelable:versionedparcelable:1.1.1=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+com.google.guava:listenablefuture:1.0=debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jetbrains.kotlin:kotlin-build-tools-api:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-build-tools-compat:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-build-tools-cri-impl:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-build-tools-impl:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-compiler-runner:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-daemon-client:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-daemon-embeddable:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-reflect:1.6.10=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-script-runtime:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-stdlib:2.3.20=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath,kotlinBuildToolsApiClasspath
+org.jetbrains.kotlin:kotlin-tooling-core:2.3.20=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.10.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0=kotlinBuildToolsApiClasspath
+org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jetbrains:annotations:13.0=kotlinBuildToolsApiClasspath
+org.jetbrains:annotations:23.0.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+org.jspecify:jspecify:1.0.0=debugCompileClasspath,debugRuntimeClasspath,debugUnitTestRuntimeClasspath
+empty=androidApis,debugAnnotationProcessorClasspath,kotlinCompilerPluginClasspathDebug
