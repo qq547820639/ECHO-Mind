@@ -15,7 +15,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 # ---------- 1. Python 编译 ----------
-python -m compileall -q backend/app backend/scripts backend/tests scripts
+python3 -m compileall -q backend/app backend/scripts backend/tests scripts
 echo "[preflight] compileall: PASS"
 
 # ---------- 2. Backend 测试与静态检查 ----------
@@ -26,7 +26,7 @@ if [ -x "$BACKEND_VENV/bin/python" ]; then
 elif [ -x "$BACKEND_VENV/python" ]; then
   PY="$BACKEND_VENV/python"
 else
-  PY=python
+  PY="$(command -v python3 || command -v python)"
 fi
 echo "[preflight] backend python: $PY"
 (cd backend && "$ROOT/$PY" -m pytest -q)
@@ -54,13 +54,13 @@ else
   echo "[preflight] mypy: NOT RUN — mypy 未安装（ENVIRONMENT BLOCKED）"
 fi
 
-# ---------- 3. 发布脚本 ----------
-python scripts/validate_content_packs.py
-python scripts/claim_scan.py
-python scripts/check_dynamic_code.py
-python scripts/safety_eval.py
-python scripts/contract_drift_check.py
-python scripts/fault_injection_check.py
+# ---------- 3. 发布脚本（backend app 依赖 3.12 语法 → 用 venv python） ----------
+"$ROOT/$PY" scripts/validate_content_packs.py
+"$ROOT/$PY" scripts/claim_scan.py
+"$ROOT/$PY" scripts/check_dynamic_code.py
+"$ROOT/$PY" scripts/safety_eval.py
+"$ROOT/$PY" scripts/contract_drift_check.py
+"$ROOT/$PY" scripts/fault_injection_check.py
 echo "[preflight] content packs / claim scan / dynamic code / safety / contract drift / fault injection: PASS"
 
 # ---------- 4. OpenAPI 导出（漂移由 git diff 检查） ----------
@@ -75,7 +75,7 @@ rm -f /tmp/echo-migration.db
 echo "[preflight] alembic roundtrip: PASS"
 
 # ---------- 6. SBOM JSON 有效性 ----------
-python - <<'PY'
+python3 - <<'PY'
 import json
 from pathlib import Path
 json.loads(Path("sbom.spdx.json").read_text(encoding="utf-8"))
