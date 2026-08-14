@@ -38,6 +38,9 @@ def test_subscription_active_semantics():
         assert subscription_active(user, now) is True
         user.subscription_expires_at = now - timedelta(seconds=1)
         assert subscription_active(user, now) is False
+        # ERA 44 边缘契约：到期时间 == 现在（毫秒级边界）→ 无效（expires > reference 语义）
+        user.subscription_expires_at = now
+        assert subscription_active(user, now) is False
 
 
 def test_subscription_status_shape():

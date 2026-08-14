@@ -3,7 +3,7 @@
 > 本目录是**当前状态**的唯一事实源索引；历史 v0.2 / v0.6 / v0.7 / Path A 文档已全部归档于 `docs/archive/`。
 > 文档权威顺序见 `docs/DOCUMENT_AUTHORITY.md` / `docs/README_AUTHORITY.md`。
 
-## 当前事实（v0.9.0，2026-08，ERA 12.8-18 全部完成 + ERA 30-39 质量门禁深化 + Affective 预备冻结）
+## 当前事实（v0.9.0，2026-08，ERA 12.8-18 全部完成 + ERA 30-43 质量门禁深化（detekt 27 规则 / lint 安全规则 / mypy strict / UI smoke tests / CI 复核 / 设备锚点）+ Affective 预备冻结）
 
 | 事实 | 位置 | 状态 |
 |---|---|---|

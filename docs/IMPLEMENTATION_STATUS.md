@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**性能设备锚点轮完成 ✅（androidTest 设备基准三锚点：§65 硬指标烟测 / 首帧计算 / Journey 365 装配——CI API 34/36 模拟器矩阵执行·日志逐次记录）→ 下一轮：文档巡检 / security-ci 本地预演清单复核 / Affective 评审等待**
+**文档真值 + security 预演轮完成 ✅（文档权威双文件 ADR 计数对齐 + docs/current 时代描述更新 + 订阅到期毫秒边界契约 + security-ci 本地可执行步预演零漏洞）→ 下一轮：onboarding/订阅生命周期剩余边缘补测 / Affective 评审等待**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -81,6 +81,7 @@
 - **CI 工作流参数复核轮**：五 workflow 逐条对照本地门禁——backend-ci / security-ci Python **3.13 → 3.12**（对齐 CLEAN_ROOM_REPRODUCTION.md 与 uv.lock 解析环境，消除 frozen 解析漂移风险）；security-ci 补 sdkmanager 显式安装 platform 36 + build-tools 36.0.0（与 android-ci 同构，不依赖 gradle 自动下载的隐性授权路径）；release-closure 终态门禁补 `test_source_archive.py`（§107 分布完整性负例套件进入同一 atomic run——此前仅 source-integrity 覆盖且 tag push 不触发）；verify_workflow_pins 66 uses 全 SHA 门禁复核 PASS
 - **backend 安全复核轮**：审计链（verify_audit_chain 哈希链 canonical payload + previous_event_hash 双向校验）、token 权限边界（JWT HS256 + iss/aud/iat/exp 60 分钟 TTL + 角色白名单 + step-up + tenant 隔离查询 + require_write_role/订阅/心理内容角色门禁）、激活码防爆破（SHA-256 pepper 哈希存储 / TTL / 一次性原子消费 / code·IP·device 三维 rate limit）逐条复核 PASS；**落地缺口修复**：支持请求创建此前无限流——新增每用户每小时 20 条上限（幂等重放不计入窗口；**红色信号触发（危机/主动求助）豁免——429 永不阻断危机信号**；限流拒绝写审计链），4 契约用例（20 条放行·21 条 429 / 红色信号豁免 / 幂等重放不计数 / 限流审计可检索）
 - **性能设备锚点轮**：`EchoSceneFrameDeviceBenchmarkInstrumentedTest`（androidTest）入 CI connected-test API 34/36 矩阵——三锚点：§65 硬指标设备烟测（不可见 renderActive=false / destroy 永久停止断言）、首帧计算设备锚点（computeEchoSceneFrame ×1000 于真实 ART 运行时，模拟器预算 <10000ms）、Journey 365 装配设备锚点（assembleJourneyUiState 全链 ×3 最优，<10000ms）；实测数字 info 日志逐次记录（PRESENCE_BENCHMARKS §2「逐次记录」落地）——真机严格基线（CPU/GPU/wakeups/battery adb 采样）仍按契约不伪造，由部署侧执行
+- **文档真值 + security 预演轮**：文档权威双文件 ADR 计数对齐（README_AUTHORITY/DOCUMENT_AUTHORITY 的「ADR-001~047+」→ 057）；docs/current 时代描述更新（ERA 30-43 质量门禁深化：detekt 27 规则 / lint 安全规则 / mypy strict / UI smoke tests / CI 复核 / 设备锚点）；**订阅到期毫秒边界契约补测**（expires_at == now → 无效，锁定 `expires > reference` 语义）；**security-ci 本地预演**：`audit_dependencies.py`（uv.lock → pip-audit）CI 同构执行「No known vulnerabilities found」；trivy/trufflehog/osv-scanner 本地未安装如实记录（security-ci 强制执行不变）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -126,4 +127,4 @@
 
 ## Next Highest-value Task
 
-README/文档一致性巡检（README·docs/current·ADRS·性能文档计数与能力描述逐项对照 main 真值）与 security-ci 本地预演清单复核（trufflehog/CodeQL/trivy 本地可执行项预演）；随后 onboarding/订阅生命周期边缘契约补测。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+onboarding/订阅生命周期剩余边缘补测（激活码 TTL 边界/attempt_count 上限/订阅续期叠加与 verify-code 订阅字段组合矩阵）；随后 Room 迁移链新版本预演与数据库维护 Worker 复核。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

@@ -19,7 +19,7 @@
 2. **Version Source** — `scripts/version_source.json`（版本唯一事实源）
 3. **Implementation Status** — `docs/IMPLEMENTATION_STATUS.md`（每轮状态锚点）
 4. **Current Contracts** — `PORTRAIT_CONTRACT.md`、`docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md`、`AFFECTIVE_CONTRACT.md`、`docs/providers/AI_PROVIDER_SPEC.md`、`docs/presence/ECHO_PRESENCE_ARCHITECTURE.md`
-5. **ADR** — `docs/architecture/ADRS.md`（ADR-001~047+）
+5. **ADR** — `docs/architecture/ADRS.md`（ADR-001~057）
 6. **Architecture Inventory** — `docs/architecture/ANDROID_CODE_INVENTORY.md`（文件分类与迁移目标）
 7. **README** — 当前用户可见产品（与 Version Source 强制一致）
 9. **Historical specs** — `docs/archive/`、`.trae/specs`、`.workbuddy/`、`.codebuddy/`（仅考古）
