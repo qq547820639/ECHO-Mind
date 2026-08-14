@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 18 收尾轮完成 ✅（APK↔provenance 绑定闭环 / §109 记忆索引 / JVM 性能防退化门禁）→ 下一轮：Affective Intelligence 预备（AFFECTIVE_CONTRACT §8/§9/§10 评审门槛冻结中，affectiveState 恒 null）**
+**Affective 预备轮完成 ✅（§8 离线评估框架 + 契约冻结测试；affectiveState 恒 null）→ 下一轮：继续收尾（backend 依赖锁定 / 其他冻结项）或等待 §8/§9/§10 评审推进 Affective 激活**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -58,10 +58,11 @@
 - **ERA 17 第一轮**：§88 审计（fixed IV+AES-GCM+SHA-256 非标准 KDF 确认 + 字段/DB 共用 alias 确认）；§89 HKDF-SHA256 标准 KDF（RFC 5869 官方向量测试）+ 受保护随机秘密（Keystore 随机 IV 包装）；§90 密钥分离（field alias / db_secret alias + 独立 HKDF context）；§91 旧库迁移链（DatabaseOpenOrchestrator：derive old → open → rotate → rekey → verify → retire；失败自愈重试；已迁移 fail-closed）；§92 crypto 测试矩阵（23 用例 + 真机 instrumentation 3 用例）
 - **ERA 18 第一轮**：§93 Actions pinning（64 uses → immutable SHA + verify_workflow_pins.py CI 门禁）；§94 Release Set 完整性测试（test_release_set.py 5 用例入 release-closure）；§95 应用内构建信息（BUILD_VERSION 派生自 versionName、BUILD_TIMESTAMP 默认提交时间、BuildInfoTest）；§96 clean-room 复现（wrapper distributionSha256Sum + Gradle dependency locking 10 lockfiles + CLEAN_ROOM_REPRODUCTION.md 复现步骤与可复现性边界）
 - **ERA 18 收尾轮**：APK↔provenance 绑定闭环（test_release_set 增 APK dex 内嵌 commit == provenance.git_commit 断言，6/6）；§109 Memory Long History（Room v11 echo_memories 复合索引 + 迁移测试）；JVM 性能防退化门禁（PerformanceBaselineTest 4 预算 + PERFORMANCE_BASELINES.md）
+- **Affective 预备轮**：§8 离线评估框架（scripts/affective_eval.py：grounding/overreach/calibration 三指标 + 阈值 gate + 本地回放/真 Provider 双模式；8 场景合成验证集禁标签词；test_affective_eval.py 9 用例）；AffectiveContractFreezeTest（全 main 源码扫描：非空 AffectiveState 构造/非 null 赋值 = 发布阻断——affectiveState 恒 null 由测试强制）；docs/intelligence/AI_EVAL.md 复跑协议 + 激活前置清单
 
 ## In Progress
 
-- Affective Intelligence（可选时代）：AFFECTIVE_CONTRACT v1.0 §8/§9/§10 实现前置（离线模型验证 / PIPIA 隐私审计 / 错误恢复）需要临床/安全评审与人工审批——**门槛冻结中，affectiveState 恒 null**，不偷偷激活
+- Affective Intelligence（可选时代）：§8 评估框架已就绪；§8 阈值定稿 + 试点脱敏验证集、§9 PIPIA、§10 错误恢复为激活前置（人工评审门槛）——**affectiveState 恒 null（测试强制）**
 
 ## Blocked
 
@@ -102,4 +103,4 @@
 
 ## Next Highest-value Task
 
-Affective Intelligence 预备：AFFECTIVE_CONTRACT §8 离线验证集与评估框架（合成 fixture + grounding/overreach/calibration 三指标）可在不激活 `affectiveState` 的前提下先行建设；激活本身等待 §8/§9/§10 评审门槛。
+后端依赖锁定（backend lockfile/pip-audit 本地化）与剩余收尾项；Affective 激活等待 §8/§9/§10 评审（评估框架已备好，评审时直接复跑）。

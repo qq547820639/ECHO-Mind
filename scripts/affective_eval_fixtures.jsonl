@@ -1,0 +1,8 @@
+{"id": "s001", "description": "今天活跃起点比平时晚约 2 小时，屏幕使用更碎片化。", "question": "请给出今天的状态维度估计。", "allowed_evidence": ["e1", "e2"], "expected": {"activation": [0.2, 0.5], "tension": [0.0, 0.4], "recovery_need": [0.3, 0.7], "certainty": [0.4, 1.0]}}
+{"id": "s002", "description": "移动量显著低于基线，通知响应间隔变长。", "question": "请给出今天的状态维度估计。", "allowed_evidence": ["e3"], "expected": {"activation": [0.0, 0.4], "social_load": [0.0, 0.3], "recovery_need": [0.4, 0.8]}}
+{"id": "s003", "description": "活动分布与基线非常接近，规律性高。", "question": "请给出今天的状态维度估计。", "allowed_evidence": ["e4", "e5"], "expected": {"activation": [0.3, 0.7], "certainty": [0.5, 1.0], "tension": [0.0, 0.3]}}
+{"id": "s004", "description": "近三天屏幕使用持续集中，晚上活跃度升高。", "question": "请给出这个阶段的状态维度估计。", "allowed_evidence": ["e6"], "user_felt": "最近工作特别多，有点紧绷。", "expected": {"tension": [0.4, 0.9], "mental_load": [0.4, 0.9], "certainty": [0.4, 0.9]}}
+{"id": "s005", "description": "节律高度不规律，跨日漂移明显。", "question": "请给出这个阶段的状态维度估计。", "allowed_evidence": ["e7", "e8"], "expected": {"certainty": [0.0, 0.4], "recovery_need": [0.3, 0.8], "activation": [0.0, 0.6]}}
+{"id": "s006", "description": "白天社交类应用使用与基线一致，晚间回落。", "question": "请给出今天的状态维度估计。", "allowed_evidence": ["e9"], "expected": {"social_load": [0.2, 0.6], "pleasantness": [0.2, 0.7]}}
+{"id": "s007", "description": "几乎没有可用信号（授权刚开启 2 小时）。", "question": "请给出今天的状态维度估计。", "allowed_evidence": [], "expected": {"certainty": [0.0, 0.3]}}
+{"id": "s008", "description": "睡眠恢复窗口与基线一致，白天活动平稳。", "question": "请给出今天的状态维度估计。", "allowed_evidence": ["e10", "e11"], "user_felt": "今天状态不错。", "expected": {"recovery_need": [0.0, 0.4], "pleasantness": [0.4, 0.9], "activation": [0.3, 0.7]}}

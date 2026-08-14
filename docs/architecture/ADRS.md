@@ -388,3 +388,20 @@
   3. **JVM 性能防退化门禁**：`PerformanceBaselineTest`（365 天 Year View <2s / LifeSeason 365 窗口 <1s / 1000 条记忆排序 <1s / 空输入 <200ms，最优 3 次）；`docs/performance/PERFORMANCE_BASELINES.md` 记录预算语义与扩展规则；真机数字仍由 CI connected-test 矩阵执行。
 - **理由**：FINAL ENGINEERING ACCEPTANCE 的「任何社区开发者都能够验证：这个 APK 确实来自这一份源码」需要可执行的绑定测试而不是文档承诺；性能防退化与正确性同为发布门。
 - **后果**：可选 Affective Intelligence 仍被 AFFECTIVE_CONTRACT §8/§9/§10（临床/安全评审 + PIPIA + 错误恢复前置）冻结，`affectiveState` 保持恒 null，待人工评审门槛完成后实施。
+
+## ADR-044：Affective Intelligence 预备（§8 离线评估框架，不激活）
+
+- **决策**：
+  1. 在不越过 AFFECTIVE_CONTRACT §8/§9/§10 评审门槛的前提下，先行建设 §8 前置设施：
+     `scripts/affective_eval.py`（grounding/overreach/calibration 三指标 + 阈值 gate，
+     本地回放模式零第三方依赖；endpoint 模式支持同一 fixture 在不同 OpenAI-compatible
+     Provider 上复跑）+ 8 场景合成验证集（七维连续表示、中性描述、禁标签词）+
+     9 用例测试套件（幻觉引用/越界词/校准/解析/确定性）。
+  2. **冻结执行**：新增 `AffectiveContractFreezeTest`（扫描全部 main 源码：任何非空
+     `AffectiveState(` 构造或非 null `affectiveState =` 赋值 = 发布阻断）——评审门槛
+     完成前 `affectiveState` 恒 null 由测试强制，不是注释承诺。
+  3. 阈值诚实标注为**示例值**（评审定稿前不视为满足 §8）；试点脱敏数据验证集待 §9 评审补充。
+- **理由**：可选时代的激活被契约的人工评审门槛冻结；预备工作（评估框架 + 冻结测试）是
+  不触碰门槛的合法工程推进，且让未来的激活评审有可复跑的证据基础设施。
+- **后果**：`docs/intelligence/AI_EVAL.md` 复跑协议 + 激活前置清单；下一轮继续收尾
+  （如后端 pip-audit/lockfile 等）或等待评审推进 Affective 激活。
