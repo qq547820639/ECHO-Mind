@@ -19,7 +19,7 @@ import java.security.MessageDigest
  *
  * 纯 Kotlin 无 Android 依赖。
  */
-internal object LocalPortraitDigest {
+object LocalPortraitDigest {
 
     const val MIN_PORTRAIT_DAYS = 3
 

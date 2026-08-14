@@ -22,14 +22,6 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * SensingWindowScheduler 使用非破坏 [snapshot] + 成功持久化后 [clearConsumed]，
  * 与 Hub 的 ACK 语义一致（先持久化、后清 consumed，失败不丢）。
  */
-interface MicDerivedFeatureSource {
-    /** 非破坏快照当前全部派生特征。 */
-    fun snapshot(): List<MicFeatureExtractor.MicDerivedFeature>
-
-    /** 只清快照内已消费项（引用相等；快照后新到项保留）。 */
-    fun clearConsumed(consumed: List<MicFeatureExtractor.MicDerivedFeature>)
-}
-
 /**
  * 麦克风采集器（T03.1）：
  *

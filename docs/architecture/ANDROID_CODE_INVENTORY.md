@@ -60,7 +60,7 @@
 | `:core:security` | security/*（AndroidKeystoreFieldCipher/FieldCipher） | Android 框架（零项目依赖） | ✅ 第一批 |
 | `:core:model` | model/*（Models/PortraitCore/PortraitAvailability/SensingCapability） | 零项目依赖（java.time/UUID） | ✅ 第二批 |
 | `:feature:memory` | memory/EchoMemory.kt（领域模型） | 零项目依赖 | ✅ 第三批（EchoCorrectionService 留 :app 为应用层服务） |
-| `:feature:observation` | sensing/* + localportrait/* | :core:model | 第四批 |
+| `:feature:observation` | sensing 纯逻辑（11）+ localportrait 引擎（5） | :core:model + coroutines + androidx.core | ✅ 第四批（PassiveSensingService/MicCollector 留 :app 平台组件） |
 
 ## 5. 所有权 Scope（v3 §41）
 

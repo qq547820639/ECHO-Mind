@@ -27,6 +27,7 @@ class SourceIntegrityTest {
         File("../core/security/src/main/java/com/yunjue/echo/mind"),
         File("../core/model/src/main/java/com/yunjue/echo/mind"),
         File("../feature/memory/src/main/java/com/yunjue/echo/mind"),
+        File("../feature/observation/src/main/java/com/yunjue/echo/mind"),
     )
 
     private fun allKotlinFiles(): List<File> =
@@ -48,7 +49,8 @@ class SourceIntegrityTest {
         while (matcher.find()) {
             count++
             val path = matcher.group(2).replace('.', '/') + ".kt"
-            assertTrue("Manifest 组件缺少源类：.${matcher.group(2)}", File(srcRoot, path).exists())
+            val found = moduleRoots.any { File(it, path).exists() }
+            assertTrue("Manifest 组件缺少源类：.${matcher.group(2)}", found)
         }
         assertTrue("Manifest 应至少注册若干组件", count >= 3)
     }

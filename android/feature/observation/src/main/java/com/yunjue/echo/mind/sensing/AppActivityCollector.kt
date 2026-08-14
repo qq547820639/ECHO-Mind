@@ -63,8 +63,8 @@ class AppActivityCollector(context: Context, private val hub: SensingEventHub) {
         foregroundSinceMs = 0L
     }
 
-    /** 单次轮询逻辑（internal 便于单测调用）。 */
-    internal fun pollOnce() {
+    /** 单次轮询逻辑（便于单测调用）。 */
+    fun pollOnce() {
         val usm = usageStatsManager ?: return
         val now = System.currentTimeMillis()
         val stats = runCatching {
@@ -99,8 +99,8 @@ class AppActivityCollector(context: Context, private val hub: SensingEventHub) {
     data class AppForegroundState(val packageName: String, val foregroundSinceMs: Long)
 
     companion object {
-        internal const val POLL_INTERVAL_MS = 30_000L
-        internal const val INTERVAL_WINDOW_MS = 60_000L
+        const val POLL_INTERVAL_MS = 30_000L
+        const val INTERVAL_WINDOW_MS = 60_000L
         /** hub 对 App 活跃事件缓冲的容量上限。 */
         const val MAX_BUFFER_SIZE = 256
 
@@ -109,10 +109,10 @@ class AppActivityCollector(context: Context, private val hub: SensingEventHub) {
         private var sharedForeground: AppForegroundState? = null
 
         /** 供 FeatureExtractor 读取全局 foreground 状态。 */
-        internal fun foregroundState(): AppForegroundState? = sharedForeground
+        fun foregroundState(): AppForegroundState? = sharedForeground
 
         /** 仅测试使用：重置 foreground 状态。 */
-        internal fun resetForegroundForTest() {
+        fun resetForegroundForTest() {
             sharedForeground = null
         }
     }

@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model + :feature:memory）→ 下一轮 :feature:observation（sensing + localportrait 迁入）**
+**ERA 13.5 — PHYSICAL GRADLE MODULARIZATION 进行中 ✅（:feature:actions + :core:security + :core:model + :feature:memory + :feature:observation）→ 下一轮 :feature:intelligence（依赖 :core:model + ports 迁移）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -46,11 +46,12 @@
 - **ERA 13.3 Real DI Ownership**：AppContainer 缩减为 composition root（六容器自持构造 + 跨域编排 + Transient 工厂）；DI_OWNERSHIP.md 生命周期所有权（§45）；DI 裁决继续 structured manual DI（§47）；ArchitectureBoundaryTest +1（Root 禁止直接构造 17 类领域对象）
 - **ERA 13.5 第一批模块**：:feature:actions + :core:security（零依赖叶子）；扫描器四件套多根化；detekt 共享配置
 - **ERA 13.5 第二批模块**：:core:model（4 文件）；SensingCapability/CapabilityState 纯枚举自 sensing 迁入 model（Ground Truth 内依赖消除）；模块 internal API 不可见触发 22 处声明 public 化（编译器强制边界首次生效）
-- **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）；488 tests 全绿（app + 四模块聚合构建）
+- **ERA 13.5 第三批模块**：:feature:memory（EchoMemory 领域模型，零项目依赖）；EchoCorrectionService 留 :app（应用层 ports 消费者，split-package 语义）
+- **ERA 13.5 第四批模块**：:feature:observation（16 文件：sensing 纯逻辑 11 + localportrait 引擎 5，依赖仅 :core:model + coroutines + androidx.core）；PassiveSensingService/MicCollector 留 :app（平台组件）；MicDerivedFeatureSource 契约下沉模块；Ground Truth API 公开化（internal → public ×11 文件 + 成员级）；Manifest 组件检查多根化；488 tests 全绿（app + 五模块聚合构建）
 
 ## In Progress
 
-- ERA 13.5 Physical Gradle Modularization：第四批 :feature:observation（sensing + localportrait 迁入；需先处理 data 实现类对其引用方向）→ 之后 :feature:intelligence / :feature:presence / :feature:journey
+- ERA 13.5 Physical Gradle Modularization：第五批 :feature:intelligence（依赖 :core:model；ports 迁移需同步）→ 之后 :feature:presence / :feature:journey
 
 ## Blocked
 

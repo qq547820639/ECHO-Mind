@@ -37,7 +37,7 @@ import com.yunjue.echo.mind.model.SensingCapability
  * @param sensingEnabled 被动感知总开关（PassiveSensingPrefs.passiveSensingEnabled）；
  *   关闭时所有能力一律 DISABLED（用户关闭 consent/开关，PM 规格 DISABLED 语义）。
  */
-internal fun capabilityState(
+fun capabilityState(
     context: Context,
     capability: SensingCapability,
     sensingEnabled: Boolean = true
@@ -60,7 +60,7 @@ internal fun capabilityState(
 }
 
 /** 核心传感器硬件是否存在（加速度计或陀螺仪任一存在）。 */
-internal fun hasCoreSensorHardware(context: Context): Boolean {
+fun hasCoreSensorHardware(context: Context): Boolean {
     val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return false
     return sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null ||
         sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null
@@ -72,7 +72,7 @@ internal fun hasCoreSensorHardware(context: Context): Boolean {
  * 命名带 Granted 后缀，避免与 [PassiveSensingService.hasUsageAccess]（companion member）
  * 在包作用域产生重名歧义。
  */
-internal fun hasUsageAccessGranted(context: Context): Boolean {
+fun hasUsageAccessGranted(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
     return try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -95,14 +95,14 @@ internal fun hasUsageAccessGranted(context: Context): Boolean {
 }
 
 /** 通知使用权（NotificationListenerService）是否已授权。 */
-internal fun hasNotificationAccessGranted(context: Context): Boolean = runCatching {
+fun hasNotificationAccessGranted(context: Context): Boolean = runCatching {
     NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 }.getOrDefault(false)
 
 /** 麦克风硬件是否存在（无硬件 → UNAVAILABLE）。 */
-internal fun hasMicHardware(context: Context): Boolean =
+fun hasMicHardware(context: Context): Boolean =
     context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
 
 /** RECORD_AUDIO 运行时权限是否已授予。 */
-internal fun hasMicPermissionGranted(context: Context): Boolean =
+fun hasMicPermissionGranted(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED

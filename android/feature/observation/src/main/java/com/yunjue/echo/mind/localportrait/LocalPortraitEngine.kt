@@ -28,7 +28,7 @@ import java.time.LocalDate
  *
  * 纯 Kotlin 无 Android 依赖。
  */
-internal object LocalPortraitEngine {
+object LocalPortraitEngine {
 
     const val PORTRAIT_SCHEMA_VERSION = "portrait-v1"
     const val PARTIAL_COVERAGE_THRESHOLD = 0.4
@@ -220,7 +220,7 @@ internal object LocalPortraitEngine {
     }
 
     /** 镜像 confidence.confidence_for。 */
-    internal fun confidenceFor(todayCoverage: Double, baselineValidDays: Int, missingSources: List<String>): String {
+    fun confidenceFor(todayCoverage: Double, baselineValidDays: Int, missingSources: List<String>): String {
         val missing = missingSources.toSet()
         if (todayCoverage >= 0.7 && baselineValidDays >= 7 && missing.isEmpty()) return "HIGH"
         if (todayCoverage >= 0.3 && baselineValidDays >= 3) return "MEDIUM"
@@ -228,7 +228,7 @@ internal object LocalPortraitEngine {
     }
 
     /** z 的 scale（镜像 dimensions._scale）。 */
-    internal fun scaleOf(stats: LocalMetricStats): Double {
+    fun scaleOf(stats: LocalMetricStats): Double {
         val madV = stats.mad ?: 0.0
         val p25 = stats.p25 ?: 0.0
         val p75 = stats.p75 ?: 0.0
@@ -236,7 +236,7 @@ internal object LocalPortraitEngine {
     }
 
     /** 最小有意义绝对差判定（镜像 dimensions._below_min_delta）。 */
-    internal fun belowMinDelta(value: Double, stats: LocalMetricStats, metric: String): Boolean {
+    fun belowMinDelta(value: Double, stats: LocalMetricStats, metric: String): Boolean {
         val med = stats.median ?: return false
         val absDelta = kotlin.math.abs(value - med)
         val threshold = maxOf(MIN_ABS_DELTA[metric] ?: 0.0, kotlin.math.abs(med) * MIN_REL_DELTA)
@@ -244,14 +244,14 @@ internal object LocalPortraitEngine {
     }
 
     /** 标准化 z（镜像 dimensions._z；最小差内返回 0.0）。 */
-    internal fun zOf(value: Double, stats: LocalMetricStats, metric: String? = null): Double? {
+    fun zOf(value: Double, stats: LocalMetricStats, metric: String? = null): Double? {
         val med = stats.median ?: return null
         if (metric != null && belowMinDelta(value, stats, metric)) return 0.0
         return (value - med) / scaleOf(stats)
     }
 
     /** 方向分类（镜像 dimensions._classify）。 */
-    internal fun classify(value: Double, stats: LocalMetricStats, lower: String, higher: String, metric: String): String {
+    fun classify(value: Double, stats: LocalMetricStats, lower: String, higher: String, metric: String): String {
         val z = zOf(value, stats, metric) ?: return "SIMILAR"
         if (kotlin.math.abs(z) <= Z_SIMILAR) return "SIMILAR"
         return if (z > 0) higher else lower
@@ -267,7 +267,7 @@ internal object LocalPortraitEngine {
     }
 
     /** 维度计算（镜像 dimensions.compute_dimensions）。 */
-    internal fun computeDimensions(
+    fun computeDimensions(
         today: LocalDayAggregate,
         baselineMetrics: Map<String, LocalMetricStats>
     ): Map<String, PortraitDimensionDto> {
@@ -359,7 +359,7 @@ internal object LocalPortraitEngine {
     }
 
     /** 叙事 + headline（镜像 narrative.build_narrative；headline 最多 3 个）。 */
-    internal fun buildNarrative(dimensions: Map<String, PortraitDimensionDto>): Pair<String, List<String>> {
+    fun buildNarrative(dimensions: Map<String, PortraitDimensionDto>): Pair<String, List<String>> {
         val sentences = mutableListOf<String>()
         val headline = mutableListOf<String>()
         for (dim in DIMENSION_ORDER) {
@@ -374,7 +374,7 @@ internal object LocalPortraitEngine {
     }
 
     /** EARLY_BASELINE 事实句（镜像 narrative.fact_sentences；today 为 null 返回空串）。 */
-    internal fun factSentences(today: LocalDayAggregate?): String {
+    fun factSentences(today: LocalDayAggregate?): String {
         if (today == null) return ""
         val parts = mutableListOf<String>()
         val screen = today.screenOnMinutes
@@ -387,17 +387,17 @@ internal object LocalPortraitEngine {
     }
 
     /** 时间格式化为 HH:MM（镜像 explain._hhmm）。 */
-    internal fun hhmm(minute: Double): String {
+    fun hhmm(minute: Double): String {
         val m = kotlin.math.round(minute).toInt()
         return "%02d:%02d".format(m / 60, m % 60)
     }
 
     /** 粗粒度措辞（镜像 explain._coarse_delta）。 */
-    internal fun coarseDelta(z: Double, direction: String): String =
+    fun coarseDelta(z: Double, direction: String): String =
         if (kotlin.math.abs(z) > 2 * Z_SIMILAR) "比近期明显更$direction" else "比近期略$direction"
 
     /** delta 文案（镜像 explain._delta_text）。 */
-    internal fun deltaText(value: Double, stats: LocalMetricStats, metric: String): String {
+    fun deltaText(value: Double, stats: LocalMetricStats, metric: String): String {
         val med = stats.median ?: return "暂无基线"
         val absDelta = kotlin.math.abs(value - med)
         val threshold = maxOf(MIN_ABS_DELTA[metric] ?: 0.0, kotlin.math.abs(med) * MIN_REL_DELTA)
@@ -414,7 +414,7 @@ internal object LocalPortraitEngine {
     }
 
     /** 事实清单（镜像 explain.build_facts）。 */
-    internal fun buildFacts(today: LocalDayAggregate, baselineMetrics: Map<String, LocalMetricStats>): List<PortraitFactDto> {
+    fun buildFacts(today: LocalDayAggregate, baselineMetrics: Map<String, LocalMetricStats>): List<PortraitFactDto> {
         val facts = mutableListOf<PortraitFactDto>()
 
         val start = today.activeStartMinute

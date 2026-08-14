@@ -9,7 +9,6 @@
 - `com.yunjue.echo.mind.di`
 - `com.yunjue.echo.mind.intelligence`
 - `com.yunjue.echo.mind.journey`
-- `com.yunjue.echo.mind.localportrait`
 - `com.yunjue.echo.mind.me`
 - `com.yunjue.echo.mind.memory`
 - `com.yunjue.echo.mind.ports`
@@ -31,19 +30,19 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：128
+- Kotlin 文件：129
 - Python 文件：68
-- Manifest Components：5（缺失源类：0）
+- Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）
 - Repository：12
 - Runtime/Coordinator：4
 - ViewModel：7
-- Gradle modules：['app', 'feature:actions', 'feature:memory', 'core:security', 'core:model']
+- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'core:security', 'core:model']
 
 ## Manifest Components
 - `.main.MainActivity` ✅
 - `.main.sensing.PassiveSensingService` ✅
-- `.main.sensing.NotificationCollector` ✅
+- `.main.sensing.NotificationCollector` ❌ 缺源类
 - `.main.presence.EchoWallpaperService` ✅
 - `.main.presence.EchoDreamService` ✅
 

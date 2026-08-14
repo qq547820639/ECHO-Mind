@@ -9,5 +9,6 @@ rootProject.name = "EchoMindAndroid"
 include(":app")
 include(":feature:actions")
 include(":feature:memory")
+include(":feature:observation")
 include(":core:security")
 include(":core:model")

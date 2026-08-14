@@ -99,10 +99,10 @@ class ScreenCollector(context: Context, private val hub: SensingEventHub) {
         private var sharedCarry: ScreenStateCarry? = null
 
         /** 供 FeatureExtractor 读取全局 carry 状态。 */
-        internal fun carryState(): ScreenStateCarry? = sharedCarry
+        fun carryState(): ScreenStateCarry? = sharedCarry
 
         /** 仅测试使用：重置 carry 状态。 */
-        internal fun resetCarryForTest() {
+        fun resetCarryForTest() {
             sharedCarry = null
         }
     }

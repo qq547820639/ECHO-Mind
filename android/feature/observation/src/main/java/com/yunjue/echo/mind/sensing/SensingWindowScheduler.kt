@@ -97,16 +97,16 @@ class SensingWindowScheduler(
     }
 
     /** 丢弃一个失败重试中的窗口（超限后调用，保证不无限重试）。 */
-    internal fun dropPendingWindow(startMs: Long) {
+    fun dropPendingWindow(startMs: Long) {
         pendingRetries.remove(startMs)
         // 窗口不再重试；不进入 flushed 集（数据已不可恢复，但失败已被记录/可观测）
     }
 
     /** 指定 windowStart 的当前失败次数（单测断言）。 */
-    internal fun retryCount(windowStartMs: Long): Int = pendingRetries[windowStartMs] ?: 0
+    fun retryCount(windowStartMs: Long): Int = pendingRetries[windowStartMs] ?: 0
 
     /**
-     * flush 单个窗口（internal 便于单测直接调用）。
+     * flush 单个窗口（便于单测直接调用）。
      *
      * Phase 4（Immutable Window）：
      * - 非破坏快照 [SensingEventHub.snapshotAll] **一次取定**，传给
@@ -121,7 +121,7 @@ class SensingWindowScheduler(
      * - [onWindowReady] 返回 true → 清 consumed + 进 flushed 集 + 清 retry；
      *   false/异常 → 保留缓冲，进 bounded retry。
      */
-    internal suspend fun flushWindow(
+    suspend fun flushWindow(
         windowStart: Instant,
         windowEnd: Instant,
         onWindowReady: suspend (List<DerivedFeatureInput>) -> Boolean
@@ -199,17 +199,17 @@ class SensingWindowScheduler(
     }
 
     /** 是否已 flush 过指定 windowStart（单测断言去重）。 */
-    internal fun hasFlushed(windowStartMs: Long): Boolean = windowStartMs in flushedWindowStarts
+    fun hasFlushed(windowStartMs: Long): Boolean = windowStartMs in flushedWindowStarts
 
     /**
      * 对齐到固定窗口边界（epoch 毫秒）。
      *
      * 例如 windowDurationMs=300000 时，任意时刻对齐到最近的 :00/:05/:10 边界。
      */
-    internal fun alignWindowStartMs(nowMs: Long): Long = nowMs - positiveMod(nowMs, windowDurationMs)
+    fun alignWindowStartMs(nowMs: Long): Long = nowMs - positiveMod(nowMs, windowDurationMs)
 
     /** 计算下一次窗口开始时间（重启恢复：从当前时刻对齐到下一边界）。 */
-    internal fun nextWindowStartMs(nowMs: Long): Long = alignWindowStartMs(nowMs) + windowDurationMs
+    fun nextWindowStartMs(nowMs: Long): Long = alignWindowStartMs(nowMs) + windowDurationMs
 
     private fun positiveMod(value: Long, mod: Long): Long {
         val r = value % mod

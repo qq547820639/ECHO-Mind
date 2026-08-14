@@ -15,7 +15,7 @@ import java.time.LocalDate
  *
  * 纯 Kotlin 无 Android 依赖。
  */
-internal object LocalBaselineCalculator {
+object LocalBaselineCalculator {
 
     /** 基线统计窗口：近 28 天。 */
     const val WINDOW_DAYS = 28L
@@ -53,7 +53,7 @@ internal object LocalBaselineCalculator {
 }
 
 /** 基线快照（镜像 backend baseline/models.py BaselineSnapshot）。 */
-internal data class LocalBaselineSnapshot(
+data class LocalBaselineSnapshot(
     val bucket: String,
     val windowStart: LocalDate,
     val windowEnd: LocalDate,
@@ -62,13 +62,13 @@ internal data class LocalBaselineSnapshot(
     val version: String = LocalBaselineCalculator.BASELINE_VERSION
 )
 
-internal fun isWeekendLocal(date: LocalDate): Boolean =
+fun isWeekendLocal(date: LocalDate): Boolean =
     date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
 
-internal fun bucketForDateLocal(date: LocalDate): String =
+fun bucketForDateLocal(date: LocalDate): String =
     if (isWeekendLocal(date)) "weekend" else "weekday"
 
-internal fun LocalDayAggregate.metricValue(metric: String): Double? = when (metric) {
+fun LocalDayAggregate.metricValue(metric: String): Double? = when (metric) {
     "movement_index" -> movementIndex
     "screen_on_minutes" -> screenOnMinutes
     "screen_open_count" -> screenOpenCount.toDouble()
@@ -87,7 +87,7 @@ internal fun LocalDayAggregate.metricValue(metric: String): Double? = when (metr
  * @param pastAggregates 该用户 [today-28, today-1] 窗口内的聚合行（含 coverage 过滤前的全量；
  *                       函数内部按 MIN_COVERAGE 过滤，与后端 SQL 过滤语义一致）。
  */
-internal fun buildLocalBaseline(
+fun buildLocalBaseline(
     todayLocal: LocalDate,
     pastAggregates: List<LocalDayAggregate>
 ): LocalBaselineSnapshot {

@@ -165,7 +165,7 @@ class SensingEventHub {
             }
 
         /** 仅测试使用：重置单例，避免跨测试状态泄漏。 */
-        internal fun resetForTest() {
+        fun resetForTest() {
             synchronized(this) { instance = null }
         }
     }

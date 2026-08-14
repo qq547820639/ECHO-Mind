@@ -18,6 +18,7 @@ MODULE_JAVA_ROOTS = [
     ROOT / "android" / "core" / "security" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
     ROOT / "android" / "core" / "model" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
     ROOT / "android" / "feature" / "memory" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
+    ROOT / "android" / "feature" / "observation" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
 ]
 MANIFEST = ANDROID_SRC / "AndroidManifest.xml"
 BACKEND = ROOT / "backend" / "app"

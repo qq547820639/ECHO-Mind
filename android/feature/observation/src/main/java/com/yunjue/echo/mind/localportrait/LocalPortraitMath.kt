@@ -11,7 +11,7 @@ package com.yunjue.echo.mind.localportrait
  *
  * 纯 Kotlin 无 Android 依赖，可被 JVM 单测直接覆盖。
  */
-internal object LocalPortraitMath {
+object LocalPortraitMath {
 
     const val MINUTES_PER_DAY = 1440
 
@@ -68,7 +68,7 @@ internal object LocalPortraitMath {
 }
 
 /** 单指标 robust 统计量（镜像后端 metrics.compute_stats 输出结构）。 */
-internal data class LocalMetricStats(
+data class LocalMetricStats(
     val median: Double?,
     val mad: Double?,
     val p10: Double?,
@@ -79,7 +79,7 @@ internal data class LocalMetricStats(
 )
 
 /** 指标 robust 统计（circular=True 时 p10..p90 恒为 null）。 */
-internal fun computeLocalStats(values: List<Double>, circular: Boolean = false): LocalMetricStats {
+fun computeLocalStats(values: List<Double>, circular: Boolean = false): LocalMetricStats {
     if (values.isEmpty()) {
         return LocalMetricStats(null, null, null, null, null, null, 0)
     }

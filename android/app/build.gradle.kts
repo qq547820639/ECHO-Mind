@@ -101,6 +101,7 @@ dependencies {
     implementation(project(":core:security"))
     implementation(project(":core:model"))
     implementation(project(":feature:memory"))
+    implementation(project(":feature:observation"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

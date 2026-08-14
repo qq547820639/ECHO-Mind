@@ -270,3 +270,14 @@
   4. 扫描器四件套登记 :feature:memory 模块根。
 - **理由**：memory 是依赖最少的领域模型；split-package 是模块边界 ≠ 包重命名的自然结果（服务在应用层，模型在领域模块）。
 - **后果**：下一批 :feature:observation（sensing + localportrait 迁入；需先处理 data 实现类对其的引用方向）。
+
+## ADR-033：ERA 13.5 第四批模块 :feature:observation（Ground Truth 物理化）
+
+- **决策**（§50 每次一个；本批一个，16 文件）：
+  1. **:feature:observation**：sensing 纯逻辑（11 文件：Collectors×5 / FeatureExtractor / SensingCapabilities / SensingEventHub / SensingRuntimeStatus / SensingWatchdog / SensingWindowScheduler）+ localportrait 全量（5 文件：Ground Truth 画像引擎）；依赖仅 :core:model + kotlinx-coroutines + androidx.core；
+  2. **平台组件留 :app**（split-package）：PassiveSensingService（Android Service，依赖 root AppPreferences/EchoMindApplication/PassiveSensingPrefs）+ MicCollector（依赖 root PassiveSensingPrefs）；
+  3. **契约下沉**：`MicDerivedFeatureSource` 接口自 MicCollector 抽出置于 :feature:observation（SensingWindowScheduler 消费契约；MicCollector 为实现）——契约在领域模块、实现在应用层；
+  4. **Ground Truth API 公开化**：11 文件 internal 声明改 public（localportrait 引擎/LocalPortraitDataSource 适配面、sensing 六态/能力判定为模块 API）；
+  5. 扫描器四件套登记 :feature:observation 模块根。
+- **理由**：observation 是 §51 边界核心（Ground Truth 独立）；物理化后 :app 无法再让 Ground Truth 反向依赖 data/intelligence。
+- **后果**：:feature:observation 不含任何 data/intelligence/ui 依赖（编译器强制）；下一批 :feature:intelligence（依赖 :core:model + ports 迁移）。

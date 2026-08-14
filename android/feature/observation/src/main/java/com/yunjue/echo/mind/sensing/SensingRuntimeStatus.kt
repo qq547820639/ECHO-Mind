@@ -72,12 +72,12 @@ fun resolveSensingRuntimeStatus(inputs: SensingRuntimeInputs): SensingRuntimeSta
 
 // ===== 六态用户文案（单测锚点；UI 层不得另行硬编码） =====
 
-internal const val RUNTIME_COPY_NOT_AUTHORIZED = "ECHO 还没有开始了解你。"
-internal const val RUNTIME_COPY_STARTING = "ECHO 正在开始了解你"
-internal const val RUNTIME_COPY_ACTIVE = "ECHO 正在了解今天"
-internal const val RUNTIME_COPY_DEGRADED = "ECHO 正常运行中，部分信息暂时不可用"
-internal const val RUNTIME_COPY_SYSTEM_PAUSED = "ECHO 暂时休息了"
-internal const val RUNTIME_COPY_USER_PAUSED = "ECHO 已暂停（由你关闭）"
+const val RUNTIME_COPY_NOT_AUTHORIZED = "ECHO 还没有开始了解你。"
+const val RUNTIME_COPY_STARTING = "ECHO 正在开始了解你"
+const val RUNTIME_COPY_ACTIVE = "ECHO 正在了解今天"
+const val RUNTIME_COPY_DEGRADED = "ECHO 正常运行中，部分信息暂时不可用"
+const val RUNTIME_COPY_SYSTEM_PAUSED = "ECHO 暂时休息了"
+const val RUNTIME_COPY_USER_PAUSED = "ECHO 已暂停（由你关闭）"
 
 /** 状态 → 用户文案（纯函数）。 */
 fun sensingRuntimeStatusText(status: SensingRuntimeStatus): String = when (status) {
