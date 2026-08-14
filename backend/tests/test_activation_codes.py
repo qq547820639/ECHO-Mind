@@ -114,6 +114,19 @@ def test_redeem_expired_code_returns_none():
         db.commit()
 
 
+def test_redeem_expired_code_exact_boundary_rejected():
+    """ERA 45 边缘契约：TTL 到期时间 == 现在（毫秒级边界）→ 拒绝（_is_expired 用 <=）。"""
+    from datetime import UTC, datetime
+
+    _, raw = _issue(ttl_seconds=60)
+    with SessionLocal() as db:
+        row = db.scalar(__import__("sqlalchemy").select(ActivationCode).where(ActivationCode.code_hash == hash_code(raw)))
+        row.expires_at = datetime.now(UTC)
+        db.commit()
+        assert redeem_code(db, code=raw, actor_ip="9.9.9.9", device_id="d")[0] is None
+        db.commit()
+
+
 def test_redeem_restricted_user_returns_none():
     _seed_user("u_restricted", "EXT-RESTR-1", status="restricted")
     _, raw = _issue(user_id="u_restricted")

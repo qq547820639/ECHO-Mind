@@ -3,9 +3,11 @@
 # 说明：
 # - unit-lint job 为当前主验证（testDebugUnitTest + assembleDebug + lintDebug）；
 # - connected-test job 在 API 34/36 模拟器执行 androidTest（v0.7.2 已补首批用例）：
-#     EchoDatabaseMigrationInstrumentedTest（2→8 全链 + 7→8 单步，MigrationTestHelper 校验）
+#     EchoDatabaseMigrationInstrumentedTest（2→8 全链 + 7→8 单步 + ERA 45 补 8→11 全链与 10→11 索引单步，
+#     MigrationTestHelper 校验）
 #     EchoKeystoreInstrumentedTest（真机 Keystore 固定 IV 派生路径——曾致首启闪退的盲区）
 #     LocalPortraitEngineInstrumentedTest（golden 场景设备烟测）
+#     EchoSceneFrameDeviceBenchmarkInstrumentedTest（ERA 43 设备锚点：§65 硬指标 / 首帧计算 / Journey 365 装配）
 #   后续可补：ProcessRecreation / WorkManagerSync / OnboardingFlow / PermissionPaths / SkillRecovery。
 # - actions 全部 pin 到 immutable commit SHA（ERA 18 §93；`scripts/verify_workflow_pins.py` CI 门禁防漂移）。
 name: android-ci

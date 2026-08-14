@@ -72,8 +72,62 @@ class EchoDatabaseMigrationInstrumentedTest {
         db.close()
     }
 
+    @Test
+    fun migrateFrom8To11AppliesChainAndPreservesData() {
+        helper.createDatabase(TEST_DB_8_11, 8).apply {
+            // v8 时代已有记忆行：8→9 创建 echo_memories 前不存在；用 feature_vectors 做保留锚
+            execSQL(
+                "INSERT INTO feature_vectors (id, userId, schemaVersion, source, windowStart, windowEnd, summaryCiphertext, vector, synced, createdAt, sourcesPresentJson) " +
+                    "VALUES ('fv_chain', 'u_test', 'passive-core-v1', 'screen', 0, 300000, 'enc', '[]', 0, 0, '[\"screen\"]')"
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB_8_11, 11, true,
+            MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+        )
+        // v10：journey_canonical_days 表 + 索引存在且可读写
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='journey_canonical_days'").use { c ->
+            assertTrue("9→10 应创建 journey_canonical_days", c.moveToFirst())
+        }
+        db.execSQL(
+            "INSERT INTO journey_canonical_days (id, userId, localDate, payload, createdAtEpochMs) " +
+                "VALUES ('cd_1', 'u_test', '2026-08-15', '{}', 0)"
+        )
+        db.query("SELECT payload FROM journey_canonical_days WHERE id='cd_1'").use { c ->
+            assertTrue("canonical day 应可写读", c.moveToFirst())
+        }
+        // v11：echo_memories 复合索引存在（§109 防全表扫描退化）
+        db.query("PRAGMA index_list(echo_memories)").use { c ->
+            val names = mutableSetOf<String>()
+            while (c.moveToNext()) names.add(c.getString(c.getColumnIndexOrThrow("name")))
+            assertTrue("10→11 应建 userId_deleted_importance 索引", names.contains("index_echo_memories_userId_deleted_importance"))
+            assertTrue("10→11 应建 userId_type_deleted 索引", names.contains("index_echo_memories_userId_type_deleted"))
+        }
+        // 旧数据保留锚
+        db.query("SELECT id FROM feature_vectors WHERE id='fv_chain'").use { c ->
+            assertTrue("8→11 后旧特征行应保留", c.moveToFirst())
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrateFrom10To11AddsMemoryIndicesOnly() {
+        helper.createDatabase(TEST_DB_10_11, 10).apply { close() }
+        val db = helper.runMigrationsAndValidate(TEST_DB_10_11, 11, true, MIGRATION_10_11)
+        db.query("PRAGMA index_list(echo_memories)").use { c ->
+            val names = mutableSetOf<String>()
+            while (c.moveToNext()) names.add(c.getString(c.getColumnIndexOrThrow("name")))
+            assertTrue(names.contains("index_echo_memories_userId_deleted_importance"))
+            assertTrue(names.contains("index_echo_memories_userId_type_deleted"))
+        }
+        db.close()
+    }
+
     companion object {
         private const val TEST_DB_2_8 = "migration-test-2-8"
         private const val TEST_DB_7_8 = "migration-test-7-8"
+        private const val TEST_DB_8_11 = "migration-test-8-11"
+        private const val TEST_DB_10_11 = "migration-test-10-11"
     }
 }
