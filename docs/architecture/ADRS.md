@@ -410,6 +410,6 @@
 
 - **决策**：
   1. backend 依赖锁定：venv 由 uv 管理 → 采用官方 `backend/uv.lock`（51 包精确版本 + 完整传递闭包，跨平台 universal 解析）；本地 `uv sync --check` 校验环境一致；CI backend-ci lint job 增 `uv lock --project backend --check` 漂移门禁（pip install uv 后执行）；release_preflight 在 uv 可用时同检查。
-  2. SBOM 升级：`generate_sbom.py` 的 backend 段改读 uv.lock 精确版本（无锁回退 pyproject 范围）；时间戳改为 HEAD 提交时间（确定性——同 commit 同 SBOM 字节，§96 复现闭环的一部分）。
+  2. SBOM 升级：`generate_sbom.py` 的 backend 段改读 uv.lock 精确版本（无锁回退 pyproject 范围）；时间戳锚定 version_source.json 的 `sbom_created_utc`（版本冻结，commit 无关——首版尝试锚定 HEAD 提交时间因「SBOM 在 manifest 内 + 依赖 commit SHA」循环依赖被 clean-room 门禁否决后修正；任意 checkout 重生成字节一致，含 provenance chore 提交之后）。
 - **理由**：§96「dependency lock state」必须可验证（Android 已有 gradle.lockfile；backend 补齐 uv.lock 后双侧锁定闭环）；SBOM 非确定性时间戳破坏同 commit 字节复现。
-- **后果**：SBOM 包数 41→76（backend 51 锁定 + Android 25）；uv.lock 变更（依赖升级）需要显式 `uv lock` 重生成并通过 CI 门禁。
+- **后果**：SBOM 包数 41→76（backend 51 锁定 + Android 25）；uv.lock 变更（依赖升级）需要显式 `uv lock` 重生成并通过 CI 门禁；SBOM 字节级确定性由 clean-room 门禁验证（版本升级时更新 sbom_created_utc）。
