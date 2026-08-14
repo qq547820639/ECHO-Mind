@@ -87,6 +87,26 @@ def test_signed_apk_bound_to_provenance(package_files):
     assert provenance["release_type"] == "release" and not provenance["git_dirty"]
 
 
+def test_apk_embeds_provenance_commit(package_files):
+    """ERA 18 §95/§96 绑定闭环：APK 内嵌 BuildConfig.GIT_COMMIT == provenance.git_commit。
+
+    任何 community 开发者无需反编译工具即可验证「这个 APK 构建自这份源码」：
+    40 位 commit SHA 是 BuildConfig 常量，直接存在于 classes.dex 字节流中。
+    """
+    apk = read_in_pkg(package_files, f"ECHO_Mind_v{VERSION}.apk")
+    provenance = json.loads(read_in_pkg(package_files, "BUILD_PROVENANCE.json").decode("utf-8"))
+    commit = provenance["git_commit"].encode("utf-8")
+    with zipfile.ZipFile(__import__("io").BytesIO(apk)) as zf:
+        dex_hits = [
+            name for name in zf.namelist()
+            if name.startswith("classes") and name.endswith(".dex") and commit in zf.read(name)
+        ]
+    assert dex_hits, (
+        f"APK 内嵌提交 {commit.decode()} 与 provenance.git_commit 不一致"
+        "（release 构建必须发生在 feat 提交之后，见 CLEAN_ROOM_REPRODUCTION.md）"
+    )
+
+
 def test_source_archive_hashes_match_provenance(package_files):
     provenance = json.loads(read_in_pkg(package_files, "BUILD_PROVENANCE.json").decode("utf-8"))
     for rel, digest in provenance["source_archive_sha256"].items():

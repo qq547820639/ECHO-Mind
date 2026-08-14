@@ -479,6 +479,75 @@ class DatabaseMigrationTest {
         assertTrue("journey_canonical_days 应存在于 v10 schema", tableNames().contains("journey_canonical_days"))
     }
 
+    // ===== §109 Memory Long History：v10 → v11（echo_memories 复合索引） =====
+
+    @Test
+    fun migration1011CreatesEchoMemoriesIndexes() {
+        // 用 v10 库（echo_memories 无复合索引）执行 MIGRATION_10_11，验证建索引成功且幂等
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-1011-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(10) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) {
+                        sqLiteDatabase.execSQL(
+                            """CREATE TABLE echo_memories (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                userId TEXT NOT NULL,
+                                type TEXT NOT NULL,
+                                content TEXT NOT NULL,
+                                source TEXT NOT NULL,
+                                confidence REAL NOT NULL,
+                                createdAt INTEGER NOT NULL,
+                                lastConfirmedAt INTEGER NOT NULL,
+                                importance INTEGER NOT NULL,
+                                retentionClass TEXT NOT NULL,
+                                provenance TEXT NOT NULL,
+                                deleted INTEGER NOT NULL DEFAULT 0
+                            )"""
+                        )
+                    }
+
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            assertFalse("迁移前无复合索引", hasIndex(rawDb, "index_echo_memories_userId_deleted_importance"))
+            MIGRATION_10_11.migrate(rawDb)
+            assertTrue("MIGRATION_10_11 应创建 userId/deleted/importance 索引", hasIndex(rawDb, "index_echo_memories_userId_deleted_importance"))
+            assertTrue("MIGRATION_10_11 应创建 userId/type/deleted 索引", hasIndex(rawDb, "index_echo_memories_userId_type_deleted"))
+            // 幂等：重复执行不报错
+            MIGRATION_10_11.migrate(rawDb)
+            assertTrue("重复迁移应幂等", hasIndex(rawDb, "index_echo_memories_userId_deleted_importance"))
+        } finally {
+            rawDb.close()
+        }
+    }
+
+    @Test
+    fun v11InMemoryDatabaseHasMemoryIndexes() {
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val indexes = db!!.openHelper.writableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='echo_memories'"
+        ).use { cursor ->
+            val names = mutableListOf<String>()
+            while (cursor.moveToNext()) names.add(cursor.getString(0))
+            names
+        }
+        assertTrue(indexes.contains("index_echo_memories_userId_deleted_importance"))
+        assertTrue(indexes.contains("index_echo_memories_userId_type_deleted"))
+    }
+
+    private fun hasIndex(db: SupportSQLiteDatabase, name: String): Boolean {
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+            arrayOf<Any>(name)
+        ).use { cursor -> return cursor.moveToFirst() }
+    }
+
     @Test
     fun migration910CreatesJourneyCanonicalDaysTable() {
         // 用 v9 库（无 journey_canonical_days）执行 MIGRATION_9_10，验证建表成功且幂等

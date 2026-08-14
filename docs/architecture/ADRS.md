@@ -379,3 +379,12 @@
   4. **§96 Clean-room Reproduction**：gradle wrapper 增 `distributionSha256Sum`（官方 8.13-bin.zip 校验和）；启用 Gradle dependency locking（`lockAllConfigurations()` + 10 个 `gradle.lockfile`，升级须显式 `--update-locks`）；`docs/architecture/CLEAN_ROOM_REPRODUCTION.md` 记录 JDK/Gradle/Python/依赖锁定 + 复现步骤 + 可复现性边界（source archive 字节级 / unsigned APK 等价可复现 / signed APK 可验证但非字节恒等——诚实声明）。
 - **理由**：最终社区用户必须能验证「这个 APK 来自这份源码」；可复现性的每一层都给出可执行门禁而不是文档承诺。
 - **后果**：下一轮（ERA 18 收尾/可选 Affective Intelligence）：release 流水线在真实 GitHub Actions 上首跑验证 pins；Affective Intelligence 仅在 opt-in 契约完整后实施。
+
+## ADR-043：ERA 18 收尾（APK↔provenance 绑定闭环 / §109 记忆索引 / JVM 性能防退化门禁）
+
+- **决策**：
+  1. **APK↔provenance 绑定闭环**：`test_release_set.py` 新增 `test_apk_embeds_provenance_commit`——40 位 commit SHA 是 BuildConfig 常量、直接存在于 classes.dex 字节流，任何社区开发者无需反编译工具即可验证「这个 APK 构建自 provenance 记录的这份源码」（release 构建必须发生在 feat 提交之后，漂移 = 发布阻断）。
+  2. **§109 Memory Long History**：Room v10→v11 为 echo_memories 增复合索引 `(userId, deleted, importance)` + `(userId, type, deleted)`（覆盖 top/observe/byType 热路径；MIGRATION_10_11 幂等建索引 + 迁移测试）；配合既有 LIMIT 3 倍候选截断，避免「SELECT everything → JVM sort」退化。
+  3. **JVM 性能防退化门禁**：`PerformanceBaselineTest`（365 天 Year View <2s / LifeSeason 365 窗口 <1s / 1000 条记忆排序 <1s / 空输入 <200ms，最优 3 次）；`docs/performance/PERFORMANCE_BASELINES.md` 记录预算语义与扩展规则；真机数字仍由 CI connected-test 矩阵执行。
+- **理由**：FINAL ENGINEERING ACCEPTANCE 的「任何社区开发者都能够验证：这个 APK 确实来自这一份源码」需要可执行的绑定测试而不是文档承诺；性能防退化与正确性同为发布门。
+- **后果**：可选 Affective Intelligence 仍被 AFFECTIVE_CONTRACT §8/§9/§10（临床/安全评审 + PIPIA + 错误恢复前置）冻结，`affectiveState` 保持恒 null，待人工评审门槛完成后实施。

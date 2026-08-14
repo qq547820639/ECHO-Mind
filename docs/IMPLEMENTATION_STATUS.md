@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 18 — REPRODUCIBLE RELEASE 第一轮完成 ✅ → 下一轮：ERA 18 收尾（release 流水线真实 Actions 首跑验证）→ 可选 Affective Intelligence（显式 opt-in，绝不默认）**
+**ERA 18 收尾轮完成 ✅（APK↔provenance 绑定闭环 / §109 记忆索引 / JVM 性能防退化门禁）→ 下一轮：Affective Intelligence 预备（AFFECTIVE_CONTRACT §8/§9/§10 评审门槛冻结中，affectiveState 恒 null）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**607 unit tests 全绿**（ERA 18 第一轮 +4 build info）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，**Gradle dependency locking 生效**；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**613 unit tests 全绿**（ERA 18 收尾轮 +6：性能预算 4 + 记忆索引迁移 2）；lintDebug / detekt / assembleRelease PASS（app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -57,15 +57,16 @@
 - **ERA 16 第一轮**：Canonical Daily State（§83，Room v10 `journey_canonical_days`，只存参数不存 bitmap，Worker+Journey 双写点幂等）；历史重建（§84，Canonical 优先 → 画像 fallback → 不编造，SelectDay 交互）；Visual Memory River（§85，平稳/密集/漂移/特殊/转变分类+合并）；Year View（§86，四季聚合+转变+上下文时期+身份演化）；Life Season × Journey 解释（§87，禁词测试强制）；五尺度六层装配（§81/§82）；上下文例外时间定位（§78 带日期）；新增 57 用例
 - **ERA 17 第一轮**：§88 审计（fixed IV+AES-GCM+SHA-256 非标准 KDF 确认 + 字段/DB 共用 alias 确认）；§89 HKDF-SHA256 标准 KDF（RFC 5869 官方向量测试）+ 受保护随机秘密（Keystore 随机 IV 包装）；§90 密钥分离（field alias / db_secret alias + 独立 HKDF context）；§91 旧库迁移链（DatabaseOpenOrchestrator：derive old → open → rotate → rekey → verify → retire；失败自愈重试；已迁移 fail-closed）；§92 crypto 测试矩阵（23 用例 + 真机 instrumentation 3 用例）
 - **ERA 18 第一轮**：§93 Actions pinning（64 uses → immutable SHA + verify_workflow_pins.py CI 门禁）；§94 Release Set 完整性测试（test_release_set.py 5 用例入 release-closure）；§95 应用内构建信息（BUILD_VERSION 派生自 versionName、BUILD_TIMESTAMP 默认提交时间、BuildInfoTest）；§96 clean-room 复现（wrapper distributionSha256Sum + Gradle dependency locking 10 lockfiles + CLEAN_ROOM_REPRODUCTION.md 复现步骤与可复现性边界）
+- **ERA 18 收尾轮**：APK↔provenance 绑定闭环（test_release_set 增 APK dex 内嵌 commit == provenance.git_commit 断言，6/6）；§109 Memory Long History（Room v11 echo_memories 复合索引 + 迁移测试）；JVM 性能防退化门禁（PerformanceBaselineTest 4 预算 + PERFORMANCE_BASELINES.md）
 
 ## In Progress
 
-- ERA 18 收尾：release 流水线在真实 GitHub Actions 上首跑验证 pinned actions + release set 门禁（本地已全部预演通过）
-- 可选 Affective Intelligence（仅在显式 opt-in + Observed/Interpreted/Felt 分离 + 干预阈值契约完整后实施，绝不默认开启）
+- Affective Intelligence（可选时代）：AFFECTIVE_CONTRACT v1.0 §8/§9/§10 实现前置（离线模型验证 / PIPIA 隐私审计 / 错误恢复）需要临床/安全评审与人工审批——**门槛冻结中，affectiveState 恒 null**，不偷偷激活
 
 ## Blocked
 
-- 无（Android 本机构建依赖 /tmp/echo-build JDK+SDK；缺失时由 CI android-ci/release-closure 兜底，如实标注不伪造）
+- Affective Intelligence 激活：被冻结契约 AFFECTIVE_CONTRACT §8（临床/安全评审定稿）/§9（PIPIA 审计）/§10（错误恢复前置）阻断——属主提示明确的人工审批门槛，如实冻结不绕过
+- 无其余阻塞（Android 本机构建依赖 /tmp/echo-build JDK+SDK；缺失时由 CI android-ci/release-closure 兜底）
 
 ## Legacy Remaining
 
@@ -88,6 +89,7 @@
 ## Performance Debt
 
 - ~~Journey 365d 全量 Compose 渲染风险（当前按 30 天聚合；未做 lazy 优化）~~ → ERA 16 解决：Canonical Daily State 预聚合快照（§108），年视图只读 ≤365 行参数行 + 河段/月度聚合，无全量实时计算
+- ~~Memory Long History（SELECT everything → JVM sort 风险）~~ → ERA 18 收尾：Room v11 复合索引 + LIMIT 截断 + JVM 防退化预算（§109）
 - Wallpaper 设备实测数字（CPU/frame/memory/wakeups/battery）由 CI connected-test/真机矩阵执行（基准已冻结）
 - EchoLifeField 帧渲染依赖 draw-phase 状态读取（当前可用；未做 profile）
 
@@ -100,4 +102,4 @@
 
 ## Next Highest-value Task
 
-ERA 18 收尾：release 流水线真实 Actions 首跑（pins + release set 门禁已在本地预演）；之后可选 Affective Intelligence（显式 opt-in，绝不默认）。
+Affective Intelligence 预备：AFFECTIVE_CONTRACT §8 离线验证集与评估框架（合成 fixture + grounding/overreach/calibration 三指标）可在不激活 `affectiveState` 的前提下先行建设；激活本身等待 §8/§9/§10 评审门槛。

@@ -252,6 +252,24 @@ internal val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+/**
+ * v10 → v11 迁移（§109 Memory Long History）：echo_memories 复合索引
+ * （避免全表扫描 + JVM 排序随记忆规模增长而退化；索引名与 Room 生成命名一致）。
+ * 纯增量 CREATE INDEX IF NOT EXISTS（幂等），无数据改写。
+ */
+internal val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_echo_memories_userId_deleted_importance " +
+                "ON echo_memories (userId, deleted, importance)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_echo_memories_userId_type_deleted " +
+                "ON echo_memories (userId, type, deleted)"
+        )
+    }
+}
+
 class AppContainer(context: Context) {
     /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
     val applicationContext: Context = context.applicationContext
@@ -347,7 +365,7 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
+                MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
             )
             .openHelperFactory(SupportFactory(passphrase))
             .build()

@@ -317,7 +317,13 @@ interface PortraitDao {
  * - provenance 记录来源（observation-core / user-statement / ai-inference-v1…）；
  * - deleted 为软删除（用户 forget / 自动过期后打标，历史可审计）。
  */
-@Entity(tableName = "echo_memories")
+@Entity(
+    tableName = "echo_memories",
+    indices = [
+        Index(value = ["userId", "deleted", "importance"]),
+        Index(value = ["userId", "type", "deleted"])
+    ]
+)
 data class EchoMemoryEntity(
     @PrimaryKey val id: String,
     val userId: String,
@@ -431,7 +437,7 @@ interface JourneyCanonicalDao {
         EchoMemoryEntity::class,
         JourneyCanonicalDayEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {
