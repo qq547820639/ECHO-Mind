@@ -517,3 +517,9 @@
   3. 性能防退化预算 7 → 9 行（Journey 365 天完整 UI 状态装配 <2000ms、Derived Pattern 1000 条派生 <1000ms）。
 - **理由**：Android 静态分析深度与 backend mypy strict 对齐的收官；豁免必须有复核后的活理由。
 - **后果**：新增代码未用 import/多余括号/主源集 lateinit/PendingIntent 可变标志等 = CI 红；性能预算随产品路径扩展。
+
+## ADR-058：下一长阶段选型——Identity/LifeSeason 真值审计深化（ERA 50）
+
+- **决策**：质量/安全/数据权利复核阶段（ERA 30-49）收官后，下一长阶段选定 **ERA 14 §52/§61 真值审计与深化**——逐条验证 IdentityGenome / LifeSeason / DailyComposition / MomentState 是否真实流入 PresenceRepository → EchoVisualMapper → Renderer → Journey Canonical 快照（§52：未进入数据流则算未实现；§61：无意义 placeholder 字段必须真实现或删除），并以端到端测试锚定「Day 1 / Day 30 / Day 180 同一个 ECHO」的连续性。不选 Provider 生态扩展（宪法明确非优先级）、不选 Journey Year 视图重做（ERA 16 五尺度已交付）。
+- **理由**：FINAL PRODUCT ACCEPTANCE 的核心验收（「半年以后形成只有这个用户才拥有的 Identity」）依赖长期身份链路的真实性；审计发现比新增功能价值更高，且符合「禁止文档完成主义」§110。
+- **后果**：审计发现任何死字段/断链即以测试固定后修复；每轮维持全门禁 + 发布链纪律；Affective 冻结不受影响。

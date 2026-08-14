@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**云端撤回证据链复核轮完成 ✅（DSR 回执-审计证据绑定契约 +1 / 保留矩阵逐类复核 PASS / Room 12 预研结论：无新表需求）→ 下一轮：文档终检与下阶段选型 / Affective 评审等待**
+**文档终检 + 下阶段选型轮完成 ✅（全仓计数/版本/覆盖率巡检零陈旧 + 覆盖率 93.8%→94% 实测更新 + ADR-058 选定 Identity/LifeSeason 真值审计深化为下一长阶段）→ 下一轮：ERA 14 §52 真值审计（Identity 全链路数据流逐段验证）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -87,6 +87,7 @@
 - **数据权利导出覆盖复核轮**：导出/删除域对照发现**真实缺口**——deleteLocalData 覆盖五域（特征/画像/同意/记忆/Canonical 快照）而 exportLocalData 仅三域，用户无法导出自己的记忆与 Journey 视觉快照；修复：MemoryDao 增 `allByUser`（导出专用全量查询，含软删记录与 deleted 标记——完整记录不留盲区；UI 热路径仍走 LIMIT 截断不变）+ JourneyCanonicalDao.range 纳入，导出 JSON 增 `memories` / `journey_canonical_days` 两节；LocalModeTest 扩域断言五域导出内容与删除后五域清零；云端路径复核（backend DSR 矩阵依法保留分类/幂等重放）与 device-first 分工一致（后端不持有设备记忆）
 - **SyncWorker outbox 生命周期复核轮**：五维矩阵逐条对照——重试退避（批内 429 Retry-After 聚合取最小 + clamp[1,MAX] + 无 429 时清除持久化值回落 30s 指数退避，backoffDelayConsumesRetryAfterAndFallsBackToDefault）、死信（410 非 deprecated 永久 DEAD_LETTER / 毒丸 max attempts 保护 / 412-422 超限）、幂等重放（2xx/409 DELETE、410+deprecated DELETE_AND_MIGRATE）、本地模式静默（Outbox.enqueue 静默不积压）、auth 暂停不阻塞队列（SyncWorkerAuthPauseTest）全部 PASS；**补测缺口**：derived_feature 上传速率槽位（acquireDerivedFeatureSlot 滑动 60s 窗口 / 上限 20）此前无测试——internal 化 + 3 用例（新窗口精确 20 槽 / 计数持久化 / 窗口过期重置计数，无 sleep 全确定性）
 - **云端撤回证据链复核轮**：DSR delete 全链复核——11 类派生/主动内容删除、5 类依法保留（consents 同意证据链 / risk_signals / escalations 危机处置 + 用户去标识（external_ref→dsr_哈希 / city 清空 / timezone UTC）/ audit_events 哈希链 / dsr 记录）逐类复核 PASS；**补契约**：回执-证据链绑定测试（返回回执 per_category 与 dsr.complete 审计事件 metadata 逐类一致；幂等重放结果相等已在册）——用户拿到的回执就是审计链里的事实；**Room 12 预研结论**：当前全部领域已有表覆盖（v11 为最新），无新表需求——不预建 Room 12，维持「需要才迁移」纪律
+- **文档终检 + 下阶段选型轮**：全仓文档巡检（README/docs/current/ADRS/性能与安全文档）——测试计数（1077/763）、instrumentation 4 组、ADR 计数、版本 0.9.0/versionCode 6、Room v11、detekt 27 全部零陈旧（ADR 内历史条目保留其时代真值）；**覆盖率实测更新**：93.8% → **94%**（3642 行 / 205 未覆盖，全量 pytest --cov 实测）；**ADR-058 下阶段选型**：质量/安全/数据权利复核阶段收官，下一长阶段 = ERA 14 §52/§61 Identity/LifeSeason 真值审计深化（不选 Provider 扩展/Journey Year 重做）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -132,4 +133,4 @@
 
 ## Next Highest-value Task
 
-全仓文档终检（README/docs/current/ADRS/性能与安全文档计数与能力描述最后一致性巡检）+ 下一长阶段选型（在 Identity/LifeSeason、Provider 生态、Journey Year 视图等已冻结方向中选取下一个最高价值工程段）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+ERA 14 §52 真值审计开跑：IdentityGenome → PresenceRepository → EchoVisualMapper → Renderer → Journey Canonical 快照逐段验证（死字段/断链以测试固定后修复；§61 placeholder 复查）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
