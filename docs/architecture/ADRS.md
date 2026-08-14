@@ -473,3 +473,11 @@
   2. 过程暴露 1 个真实行为差异：`list_escalations` 加 `-> list[dict[str, int | str | datetime | None]]` 后，Pydantic 响应校验把 dict 值中的 bool 沿 int 分支强转为 0/1（`chain_broken`/`delivery_confirmed` 契约破坏，workbench 契约测试抓获）→ 联合类型并入 `bool` 修复。**教训：给路由加响应注解会改变序列化语义，必须跑契约测试而非只跑 mypy。**
 - **理由**：全量类型标注让未标注函数成为 CI 阻断项；响应注解 = 响应契约的运行时强制。
 - **后果**：backend mypy 门禁更严；未来新函数未标注即 CI 红。
+
+## ADR-053：detekt 规则集扩围（5 → 14 规则，探测轮全绿后固化）
+
+- **决策**：
+  1. detekt 基线扩集：coroutines（GlobalCoroutineUsage / RedundantSuspendModifier）、potential-bugs（ImplicitDefaultLocale / ExplicitGarbageCollectionCall / MapGetWithNotNullAssertionOperator / UnnecessarySafeCall / UselessPostfixExpression）、style（UnnecessaryAbstractClass / NewLineAtEndOfFile / ProtectedMemberInFinalClass / ExplicitItLambdaParameter）——全部经探测轮在全模块（10 个 Gradle 模块）零告警后固化，maxIssues=0 门禁不变。
+  2. RedundantVisibilityModifier 不启用（detekt 1.23 已移除该规则）；naming/WildcardImport/MagicNumber 维持关闭（既有风格契约，与策略注释一致）。
+- **理由**：Android 侧静态分析深度与 backend mypy 收紧对齐（本轮为第 30 轮的对偶举措）；只固化「全绿通过」的规则，不引入需要批量修复的噪音。
+- **后果**：未来新增代码命中上述 9 条新规则即 CI 红；规则集后续继续按「探测→清零→固化」流程扩围。

@@ -2,9 +2,13 @@
 #
 # 策略：
 # - buildUponDefaultConfig=false：只应用本文件显式声明的规则，不叠加 detekt 全量默认；
-# - 从少数高信号、低误报规则起步（v0.7.2 增补 UnusedPrivateMember /
-#   RedundantVisibilityModifier 两条低误报规则），maxIssues 保持 0；
-# - 告警清零后逐步再扩规则集。
+# - maxIssues 保持 0（零告警门禁）；
+# - ERA 30 扩集（探测轮全绿后固化）：coroutines（GlobalCoroutineUsage/
+#   RedundantSuspendModifier）、potential-bugs（ImplicitDefaultLocale/
+#   ExplicitGarbageCollectionCall/MapGetWithNotNullAssertionOperator/
+#   UnnecessarySafeCall/UselessPostfixExpression）、style（UnnecessaryAbstractClass/
+#   NewLineAtEndOfFile/ProtectedMemberInFinalClass/ExplicitItLambdaParameter）。
+#   （RedundantVisibilityModifier 已从 detekt 1.23 移除，不启用。）
 
 build:
   maxIssues: 0
@@ -25,6 +29,14 @@ style:
   UnusedPrivateMember:
     active: true
     allowedNames: "(_|ignored|expected|serialVersionUID)"
+  UnnecessaryAbstractClass:
+    active: true
+  NewLineAtEndOfFile:
+    active: true
+  ProtectedMemberInFinalClass:
+    active: true
+  ExplicitItLambdaParameter:
+    active: true
 
 complexity:
   LongParameterList:
@@ -37,3 +49,21 @@ potential-bugs:
     active: true
   UnreachableCode:
     active: true
+  ImplicitDefaultLocale:
+    active: true
+  ExplicitGarbageCollectionCall:
+    active: true
+  MapGetWithNotNullAssertionOperator:
+    active: true
+  UnnecessarySafeCall:
+    active: true
+  UselessPostfixExpression:
+    active: true
+
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  RedundantSuspendModifier:
+    active: true
+
