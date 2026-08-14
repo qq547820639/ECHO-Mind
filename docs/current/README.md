@@ -3,7 +3,7 @@
 > 本目录是**当前状态**的唯一事实源索引；历史 v0.2 / v0.6 / v0.7 / Path A 文档已全部归档于 `docs/archive/`。
 > 文档权威顺序见 `docs/DOCUMENT_AUTHORITY.md` / `docs/README_AUTHORITY.md`。
 
-## 当前事实（v0.9.0，2026-08，ERA 12 收口）
+## 当前事实（v0.9.0，2026-08，ERA 12.8-18 全部完成 + Affective 预备冻结）
 
 | 事实 | 位置 | 状态 |
 |---|---|---|
@@ -16,7 +16,7 @@
 | 版本事实源 | `scripts/version_source.json` | 0.9.0（Android versionCode 6） |
 | 产品 README | `README.md` | v0.9.0 |
 | 发布说明 | `RELEASE_NOTES_v0.9.0.md` | 本版本 |
-| 架构决策 | `docs/architecture/ADRS.md` | ADR-001~024 |
+| 架构决策 | `docs/architecture/ADRS.md` | ADR-001~050 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
 | Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |
 | Presence 基准 | `docs/performance/PRESENCE_BENCHMARKS.md` | FROZEN（ERA 14） |
@@ -26,6 +26,15 @@
 | Release 流程 | `.github/workflows/release-closure.yml` | §17 原子 release（tag v*） |
 | 代码架构清单 | `docs/architecture/ANDROID_CODE_INVENTORY.md` | CURRENT（ERA 12） |
 | 依赖图 | `docs/architecture/ANDROID_DEPENDENCY_GRAPH.md` | CURRENT（ERA 13 前置） |
+| Identity/Presence 长程身份 | `android/feature/presence/.../EchoIdentity.kt`（§53-§61）+ `docs/performance/PRESENCE_BENCHMARKS.md` | ERA 14 完成（§62 Mapper 冻结） |
+| 个人智能深度 | `android/feature/intelligence/.../QuestionClassifier.kt` + `ContextRanking.kt` + `GroundingValidator.kt` | ERA 15 完成（§67-§74） |
+| Memory Maturity | `android/feature/memory/.../MemoryMaturity.kt` + `MemoryRepository.derivePatterns` | ERA 15.5 完成（§75-§80） |
+| Journey 长期记忆 | `android/feature/journey/.../JourneyCanonical.kt`（Room v10）+ River/YearView | ERA 16 完成（§81-§87） |
+| Security Hardening | `android/core/security/.../HkdfSha256.kt` + `DatabaseOpenOrchestrator.kt`（Room v11） | ERA 17 完成（§88-§92：HKDF + 旧库迁移链） |
+| Reproducible Release | `docs/architecture/CLEAN_ROOM_REPRODUCTION.md` + `scripts/verify_workflow_pins.py` + `scripts/test_release_set.py`（64+ actions pin SHA / Gradle+uv 双锁） | ERA 18 完成（§93-§96） |
+| 性能防退化预算 | `docs/performance/PERFORMANCE_BASELINES.md`（七行预算表） | CURRENT（JVM 可代表项） |
+| Affective 评估框架（预备） | `scripts/affective_eval.py` + `docs/intelligence/AI_EVAL.md`（mock/回放/真 Provider 三模式） | 预备完成；激活被 §8/§9/§10 评审冻结（affectiveState 恒 null 测试强制） |
+| 依赖锁定 | `backend/uv.lock` + `android/**/gradle.lockfile`（uv --frozen / dependency locking） | CURRENT（CI 锁定执行） |
 | Legacy 移除计划 | `docs/migrations/LEGACY_REMOVAL_PLAN.md` | CURRENT |
 | Skills→Actions | `docs/migrations/SKILLS_TO_ACTIONS.md` | CURRENT |
 | 文档权威 | `docs/DOCUMENT_AUTHORITY.md` | CURRENT |

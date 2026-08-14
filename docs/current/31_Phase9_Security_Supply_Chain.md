@@ -1,6 +1,6 @@
 # Phase 9.3 — Security Supply Chain 现状与补充计划
 
-> 生成：2026-08-12 · 说明：不抢占 P0/P1 Portrait Closure；补充项为 v0.8 计划。
+> 生成：2026-08-12 · 更新：2026-08-15（ERA 27：Kotlin SAST/锁定审计回填） · 说明：不抢占 P0/P1 Portrait Closure；补充项为 v0.8 计划。
 
 ## 现有（保留）
 
@@ -8,8 +8,8 @@
 |---|---|---|
 | TruffleHog | .github/workflows/security-ci | 已配置 |
 | SBOM | `sbom.spdx.json` + scripts/generate_sbom.py | 已配置 |
-| Python CodeQL | .github/workflows | 已配置 |
-| pip-audit | security CI | 已配置 |
+| CodeQL（python + java-kotlin） | .github/workflows/security-ci | 已配置（ERA 27 Kotlin SAST 落地） |
+| pip-audit（锁定依赖）+ osv-scanner + 本地 audit_dependencies.py | security CI + scripts | 已配置（§96 锁定审计） |
 | OSV | security CI | 已配置 |
 | Trivy | security CI（容器镜像扫描） | 已配置 |
 

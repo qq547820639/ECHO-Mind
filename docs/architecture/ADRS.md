@@ -457,3 +457,11 @@
   3. README Android 单测计数 617→623（§22 真值随轮更新）。
 - **理由**：security-ci 自评的 P2（Kotlin SAST 缺位）是真实安全覆盖缺口；发布门禁自身必须能在 clean runner 上可执行（§17 原子流程要求同 run 全链可跑）。
 - **后果**：security-ci 首跑时长上升（CodeQL Kotlin 提取）；release 门禁现包含 affective 评估框架 9 用例。
+
+## ADR-051：Affective 评估 mock provider 自检 + docs/current 真值（§8 复跑协议 / §22）
+
+- **决策**：
+  1. `scripts/affective_eval.py` 增 `--mock-provider`（确定性：期望区间中值 + 置信 0.8 + 首条合法证据 + 中性叙事）——完整评估链路（prompt 构建 → 解析 → 三指标 → gate）在无第三方账号/Key 下可闭环自检；`test_affective_eval.py` 12 用例（含 mock 通过全部阈值 = fixture 自洽哨兵 + 无证据场景 abstain 不计 coverage 分母——首跑暴露的 coverage 语义 bug 已修）。
+  2. docs/current/README.md 真值对齐（ERA 12.8-18 完成 + Affective 预备冻结、ADR-001~050、新架构文档/CLEAN_ROOM/PERFORMANCE_BASELINES/AI_EVAL/双锁回填）；Phase9 安全供应链文档回填 Kotlin SAST 与锁定审计。
+- **理由**：§8 复跑协议需要一个零外部依赖的自检入口；§22 文档只描述当前 main 已存在能力。
+- **后果**：release-closure 的 affective 9 用例随每次发布链路运行；mock 自检可在任何 clean runner 复跑。

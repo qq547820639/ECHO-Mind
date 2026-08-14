@@ -75,6 +75,7 @@ def score_grounding(scenarios: list[dict], responses: list[dict]) -> dict:
     total_citations = 0
     hallucinated = 0
     covered = 0
+    eligible = 0
     for resp in responses:
         scenario = by_id.get(resp.get("scenario_id"))
         if scenario is None:
@@ -87,12 +88,15 @@ def score_grounding(scenarios: list[dict], responses: list[dict]) -> dict:
                 total_citations += 1
                 if e not in allowed:
                     hallucinated += 1
-        if allowed and cited & allowed:
-            covered += 1
-    total = len(responses)
+        # 无证据场景（如授权刚开启）正确行为 = abstain（不引用任何证据）；
+        # coverage 分母只计「有证据可引」的场景，abstain 不因此被惩罚。
+        if allowed:
+            eligible += 1
+            if cited & allowed:
+                covered += 1
     return {
         "hallucination_rate": hallucinated / total_citations if total_citations else 0.0,
-        "coverage": covered / total if total else 0.0,
+        "coverage": covered / eligible if eligible else 0.0,
         "total_citations": total_citations,
         "hallucinated_citations": hallucinated,
     }
@@ -223,16 +227,45 @@ def parse_model_output(content: str) -> dict:
     return {"dimensions": [], "narrative": ""}
 
 
+def run_mock_provider() -> list[dict]:
+    """确定性 mock provider（§8 复跑协议的自检模式，无需第三方账号/Key）。
+
+    行为：期望区间中值 + 固定置信度 0.8 + 首条合法证据 + 中性叙事——
+    使完整评估链路（prompt 构建 → 响应解析 → 三指标 → gate）在 CI/本地可闭环验证；
+    同时是「fixture 自洽性」哨兵：mock 响应必须能通过全部阈值。
+    """
+    responses = []
+    for scenario in load_fixtures(FIXTURES):
+        dims = []
+        for dim, (lo, hi) in (scenario.get("expected") or {}).items():
+            evidence = scenario.get("allowed_evidence") or []
+            dims.append({
+                "dim": dim,
+                "value": round((lo + hi) / 2, 3),
+                "confidence": 0.8,
+                "evidence": evidence[:1],
+            })
+        responses.append({
+            "scenario_id": scenario["id"],
+            "dimensions": dims,
+            "narrative": "基于给定证据的中性描述。",
+        })
+    return responses
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Affective 离线评估（AFFECTIVE_CONTRACT §8 预备）")
     ap.add_argument("--responses", help="本地响应 JSONL（回放模式；默认）")
     ap.add_argument("--endpoint", help="OpenAI-compatible endpoint（真 Provider 复跑模式）")
     ap.add_argument("--model", default="", help="Provider 模型名（endpoint 模式）")
     ap.add_argument("--fixtures", default=str(FIXTURES), help="fixture JSONL 路径")
+    ap.add_argument("--mock-provider", action="store_true", help="确定性 mock provider（自检模式）")
     args = ap.parse_args()
 
     scenarios = load_fixtures(Path(args.fixtures))
-    if args.endpoint:
+    if args.mock_provider:
+        responses = run_mock_provider()
+    elif args.endpoint:
         api_key = os.environ.get("AFFECTIVE_EVAL_API_KEY", "")
         if not api_key:
             print("FAIL：endpoint 模式需要 AFFECTIVE_EVAL_API_KEY（用户自备 Provider Key）")
@@ -241,7 +274,7 @@ def main() -> int:
     elif args.responses:
         responses = [json.loads(line) for line in Path(args.responses).read_text(encoding="utf-8").splitlines() if line.strip()]
     else:
-        print("FAIL：需要 --responses（回放）或 --endpoint（真 Provider）")
+        print("FAIL：需要 --responses（回放）或 --endpoint（真 Provider）或 --mock-provider（自检）")
         return 2
 
     metrics = {

@@ -127,3 +127,27 @@ def test_eval_is_deterministic():
         "calibration": ev.score_calibration(scenarios(), passing_responses()),
     }
     assert a == b
+
+
+def test_mock_provider_passes_all_gates():
+    """自检哨兵：确定性 mock provider 响应必须通过全部阈值（fixture 自洽性）。"""
+    responses = ev.run_mock_provider()
+    assert len(responses) == len(scenarios())
+    metrics = {
+        "grounding": ev.score_grounding(scenarios(), responses),
+        "overreach": ev.score_overreach(responses),
+        "calibration": ev.score_calibration(scenarios(), responses),
+    }
+    assert ev.gate(metrics, ev.DEFAULT_THRESHOLDS) == [], f"mock 自检失败：{metrics}"
+
+
+def test_mock_provider_is_deterministic():
+    assert ev.run_mock_provider() == ev.run_mock_provider()
+
+
+def test_no_evidence_scenario_abstains_without_penalty():
+    """无证据场景正确 abstain → 不引用任何证据，coverage 分母不含该场景。"""
+    responses = ev.run_mock_provider()
+    metrics = ev.score_grounding(scenarios(), responses)
+    assert metrics["coverage"] == 1.0
+    assert metrics["hallucination_rate"] == 0.0
