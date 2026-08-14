@@ -148,8 +148,9 @@ def main() -> None:
     lines.append(f"- Runtime：{', '.join(runtimes) or '（无）'}")
     lines.append(f"- ViewModel：{', '.join(viewmodels) or '（无）'}")
     lines.append("\n## Domain packages（必须存在）")
+    domain_roots = [JAVA] + [r for r in MODULE_JAVA_ROOTS if r.is_dir()]
     for d in domains:
-        exists = (JAVA / d).is_dir()
+        exists = any((root / d).is_dir() for root in domain_roots)
         lines.append(f"- `{d}` {'✅' if exists else '❌ 缺失'}")
     lines.append("\n## unresolved project symbol 候选（自动发现；人工复核）")
     if unresolved:
