@@ -31,11 +31,11 @@ jobs:
       - run: cd android && ./gradlew detekt --stacktrace
       # v3.3 §13：build status 与本次 pipeline run 绑定（供 release-metadata job 消费）
       - run: echo "passed" > android-build-status.txt
-      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/upload-artifact@v7 # TODO(T03): pin to commit SHA
         with:
           name: android-build-status
           path: android-build-status.txt
-      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/upload-artifact@v7 # TODO(T03): pin to commit SHA
         with:
           name: echo-mind-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
@@ -61,7 +61,7 @@ jobs:
           python3 scripts/update_release_metadata.py
       - name: generate provenance + artifact manifest
         run: python3 scripts/generate_provenance.py
-      - uses: actions/upload-artifact@v4 # TODO(ERA17): pin to commit SHA
+      - uses: actions/upload-artifact@v7 # TODO(ERA17): pin to commit SHA
         with:
           name: release-metadata
           path: |
@@ -90,7 +90,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: cd android && ./gradlew connectedDebugAndroidTest --stacktrace
-      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/upload-artifact@v7 # TODO(T03): pin to commit SHA
         if: always()
         with:
           name: connected-test-results-api${{ matrix.api-level }}

@@ -103,7 +103,7 @@ jobs:
       - run: python scripts/claim_scan.py
       - run: python scripts/check_dynamic_code.py
       - run: python scripts/safety_eval.py
-      - uses: actions/upload-artifact@v4 # TODO(T03): pin to commit SHA
+      - uses: actions/upload-artifact@v7 # TODO(T03): pin to commit SHA
         with:
           name: api-and-safety-reports
           path: |
