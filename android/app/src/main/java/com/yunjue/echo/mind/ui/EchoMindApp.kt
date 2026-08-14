@@ -15,11 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.AppContainer
-import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
-import kotlinx.coroutines.launch
 
 /**
  * v2 §3：最终一级信息架构 —— 三个世界。
@@ -58,8 +55,6 @@ fun EchoMindApp(container: AppContainer) {
     }
     var tabName by rememberSaveable { mutableStateOf(Tab.ECHO.name) }
     val tab = runCatching { Tab.valueOf(tabName) }.getOrDefault(Tab.ECHO)
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     Scaffold(
         floatingActionButton = {
             // 紧急支持入口常驻：红色 FAB，任何非 Me tab 下可见，点击直达 Me（支持区块）
@@ -93,17 +88,8 @@ fun EchoMindApp(container: AppContainer) {
                     onGoToJourney = { tabName = Tab.JOURNEY.name },
                     onGoToMe = { tabName = Tab.ME.name },
                     onEmergency = { tabName = Tab.ME.name },
-                    onReEnableSensing = {
-                        // SENSING_DISABLED 态「重新开启」：与 Me 页开关同一领域路径
-                        // （先产生 granted 证据再启动服务；证据优先级高于新特征）
-                        scope.launch {
-                            ServiceRevocationCoordinator.reEnablePassiveSensing(
-                                context, container.preferences, container.consentRepository, container.featureFlagRepository
-                            )
-                        }
-                    }
                 )
-                Tab.JOURNEY -> TrendScreen(
+                Tab.JOURNEY -> com.yunjue.echo.mind.ui.journey.JourneyScreen(
                     container.portraitRepository,
                     container.syncStateRepository,
                     container.featureFlagRepository,

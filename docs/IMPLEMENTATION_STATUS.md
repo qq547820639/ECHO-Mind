@@ -5,60 +5,48 @@
 
 ## Current Era
 
-**v2 第一/二轮全部完成 → 产品进入纯优化周期（v0.9.0）✅**
-预留事项清单：**清零**（Known Boundaries 均为最终产品边界决策，非遗留工程项）。
+**ERA 12 — Consolidation（进行中：批次 1 完成 ✅ / 批次 2 进行中）**
+目标：新 ECHO 正式成为唯一产品架构；系统性清理结构债务。
 
 ## Current Product Surface
 
-- 一级导航：**ECHO（EchoSceneScreen）/ Journey（TrendScreen）/ Me（SupportScreen）**（v2 §3）
-- ECHO Scene：生命场 + 一句话（fallback 链）+ 为什么？（Layer 2）+ 查看更多 → Journey（Layer 3）+ 问 ECHO（依据双清单 + 反馈纠错）+ 行动（Scene 内 + 订阅分区）+ 初次 AI 非阻塞提示
-- Journey：天/周/月/**季（90d）/年（365d）** 五尺度视觉记忆河流 + 长期叙事（Context Retriever 真实检索）
-- Me：AI Intelligence（Current provider / **测试连接四步** / 更换 / 断开）+ ECHO Presence + What ECHO Knows（编辑/确认/忘记）+ 数据与感知
-- 运行时：`EchoRuntimeCoordinator`（六态/Presence/Provider 统一广播）+ `EchoSceneUiState` 纯函数装配 + `EchoContextRetriever` 真实检索
+- 一级导航：**ECHO（EchoSceneScreen）/ Journey（JourneyScreen）/ Me（SupportScreen→MeScreen 迁移中）**
+- ECHO Scene：**已组件化**（EchoVisualSurface/EchoStatusOverlay/EchoWhyLayer/EchoConversationLayer/EchoActionLayer）+ **EchoSceneViewModel**（Composable→ViewModel→Coordinator→Repository 分层）
+- 对话：EchoConversationController 状态机（IDLE/COMPILING/WAITING/COMPLETE/FAILED/FALLBACK）+ EchoCorrectionService + EchoActionRuntime
+- Journey：`ui/journey/JourneyScreen.kt`（纯状态函数留在 `ui/JourneyState.kt` 保测试锚点；旧 TrendScreen 变 @Deprecated 委托）
+- 渲染器：`presence/EchoSceneRenderers.kt`（presence 不再依赖 ui；架构测试断言）
 
 ## Completed Vertical Slices
 
-- v1 ERA 1-10（宪法/Scene/Presence/BYOM/ContextCompiler/Memory/Conversation/Journey/Actions/Affective 契约）——`RELEASE_NOTES_v0.8.0.md`
-- **v2-1 应用壳接管**：三世界导航；EchoRuntimeCoordinator；EchoSceneUiState；Progressive Why 三层；SkillListScreen 删除
-- **v2-2 AI 链路收口**：Provider 测试连接四步；初次 AI 提示；Context Retriever（timeWindow/memoryPolicy 实例化）；对话依据双清单 + 反馈 → Correction Memory；Journey 季/年尺度（backend 窗口 365）；版本 v0.9.0
+- v1 ERA 1-10 / v2 第一二轮（v0.8.0/v0.9.0）——见对应 RELEASE_NOTES
+- **ERA 12 批次 1**：ANDROID_CODE_INVENTORY；EchoSceneScreen 拆解 + ViewModel + 三 Controller/Service/Runtime；Journey 正式迁移（ui/journey）；AppContainer 子容器（Core/Sensing/Observation/Presence/Intelligence/Memory）；渲染器归位 presence；架构依赖方向测试（5 项）；README_AUTHORITY + 文档生命周期治理
 
-## In Progress
+## In Progress（ERA 12 批次 2）
 
-- 无。
+- Support→Me 正式迁移（ui/me/ 子领域：IntelligenceSettings/PresenceSettings/WhatEchoKnows/DataAndSensing/Support；SupportScreen 只剩支持内容）
+- Legacy 移除清单执行（SkillCardHost 订阅能力去留 ADR 裁决；LegacyScreens 常量随测试更新删除）
+- Runtime Coordinator hardening（EchoRuntimeHealth 模型）+ 依赖图收口（ERA 13 前置）
 
 ## Architecture Decisions
 
-- ADR-001~023（最新：ADR-022 Context Retriever 真实检索 / ADR-023 Provider 测试连接 + 对话依据反馈闭环）
+- ADR-001~023（本轮未新增 ADR 号：拆分/迁移决策记录于 ANDROID_CODE_INVENTORY + README_AUTHORITY；批次 2 完成时补 ADR-024 ERA12 收口）
 
-## Legacy Remaining（全部已处置：keep=最终决策，delete 已完成）
+## Legacy Remaining（全部有 owner + removal condition）
 
 | 模块 | 分类 | 处置 |
 |---|---|---|
-| `SkillListScreen`（旧「能力」Tab 全页） | **deleted** | v2-1 已删除 |
-| `rememberSkillList / coldStartHint / SkillCardHost` | keep | ECHO Scene「更多能力（订阅）」分区使用 |
-| `TrendScreen` 七态/NO_DATA 纯函数 | keep | Journey 世界复用 |
-| `SupportScreen`「同步」区块与时间戳 | keep | Me → 数据与感知（信任控制中心） |
-| backend legacy 410 存根 | keep | migration compatibility（机构历史数据只读） |
-| `LegacyScreens.kt`（3 个停用文案常量） | keep | 单测不变量锚点（DeprecatedInputRemovalTest） |
+| `ui/TrendScreen`（@Deprecated 委托） | MIGRATING | route 全部指向 JourneyScreen 后删除 |
+| `ui/SupportScreen.kt`（982 行） | MIGRATING | 批次 2 拆 ui/me 后只剩支持内容 |
+| `ui/SkillCardHost.kt` + `SkillActionRenderers.kt` | LEGACY | Scene 订阅分区使用；去留随订阅能力 ADR 裁决 |
+| `ui/LegacyScreens.kt`（3 常量） | LEGACY | 随 DeprecatedInputRemovalTest 更新删除 |
+| backend 410 存根 | keep | 机构历史只读（最终决策） |
 
-## Known Bugs
+## Tests / Build
 
-- 无已知阻塞 bug。
+- Android：**454 tests 全绿**（新增 5 架构边界测试）；assembleDebug/lint/detekt 全 PASS
+- backend：1070 passed + 1 skipped（本轮未动 backend）
 
-## Tests
+## Next Highest-Value Task
 
-- Android：**449 tests 全绿**；assembleDebug / lintDebug（0 errors）/ detekt 全 PASS
-- backend：**1070 passed + 1 skipped（1071 收集全绿）**；days 窗口 365 + openapi 一致性 PASS
-
-## Performance / Security
-
-- 生命场 draw-phase 渲染（无每帧 recomposition）；Wallpaper 不可见 0 CPU；Secret Keystore 隔离；Provider 探测请求不含个人数据。
-
-## Next Highest-Value Slice（纯优化周期，v2 §110）
-
-1. 真机矩阵验收：Wallpaper/Dream 能耗与帧率、Awakening 动画、Provider 真实服务连通；
-2. 视觉质量：Identity Genome 长期演化、Life Season 拓扑漂移；
-3. 推理质量：AI Evaluation fixtures（grounding/幻觉/纠错尊重）；
-4. 物理模块化：domain boundary 清晰后拆 Gradle module；
-5. 多设备架构（下一产品周期，ADR-020 已裁决）。
+ERA 12 批次 2：Support→Me 子领域拆分（§27-32）+ Provider/Memory/Data&Sensing 独立页 + Legacy 移除清单收口。
 

@@ -7,7 +7,7 @@ import android.graphics.Paint
 import android.service.dreams.DreamService
 import android.view.View
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.ui.renderEchoFrameToCanvas
+import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -61,7 +61,7 @@ internal class EchoDreamView(context: Context) : View(context) {
         val params = if (presence != null) {
             computeVisualParameters(presence, hourOfDay, SurfaceMode.DREAM)
         } else {
-            com.yunjue.echo.mind.ui.NEUTRAL_VISUAL_PARAMS
+            NEUTRAL_VISUAL_PARAMS
         }
         if (startNanos == 0L) startNanos = System.nanoTime()
         val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f

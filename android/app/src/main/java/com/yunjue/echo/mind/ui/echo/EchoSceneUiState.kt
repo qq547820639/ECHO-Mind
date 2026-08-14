@@ -97,3 +97,13 @@ fun assembleEchoSceneUiState(
         suggestedAction = suggested,
     )
 }
+
+/** 初始 UI 状态（ViewModel stateIn 初值；Loading + STARTING 中性占位，不编造）。 */
+fun initialUiState(): EchoSceneUiState = assembleEchoSceneUiState(
+    portraitState = PortraitUiState(status = PortraitStatus.LOADING, portrait = null),
+    presence = null,
+    sensing = SensingRuntimeStatus.STARTING,
+    narrative = null,
+    intelligenceAvailable = false,
+    suggestionsEnabled = true,
+)

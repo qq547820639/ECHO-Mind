@@ -232,6 +232,9 @@ internal val MIGRATION_8_9 = object : Migration(8, 9) {
 }
 
 class AppContainer(context: Context) {
+    /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
+    val applicationContext: Context = context.applicationContext
+
     /** 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
      *  具体类型以支持 v1→v2 口令回退（openDatabase 需要 deriveLegacyDatabasePassphrase）。 */
     val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher()
@@ -314,6 +317,44 @@ class AppContainer(context: Context) {
         dataSource = localPortraitDataSource,
         memoryRepository = memoryRepository,
         preferences = preferences,
+    )
+
+    // ===== v3 §40：子容器分组（所有权拆分；同一实例，按领域暴露，新代码走领域入口） =====
+    val core = com.yunjue.echo.mind.di.CoreContainer(
+        cipher = cipher,
+        passiveSensingPrefs = passiveSensingPrefs,
+        preferences = preferences,
+        database = database,
+        outbox = outbox,
+        apiClient = apiClient,
+        featureFlagRepository = featureFlagRepository,
+        syncStateRepository = syncStateRepository,
+    )
+    val sensing = com.yunjue.echo.mind.di.SensingContainer(
+        consentRepository = consentRepository,
+        sensingRepository = sensingRepository,
+        skillRepository = skillRepository,
+        escalationRepository = escalationRepository,
+        onboardingRepository = onboardingRepository,
+    )
+    val observation = com.yunjue.echo.mind.di.ObservationContainer(
+        localPortraitDataSource = localPortraitDataSource,
+        portraitRepository = portraitRepository,
+        localDataRights = localDataRights,
+        messageRepository = messageRepository,
+    )
+    val presence = com.yunjue.echo.mind.di.PresenceContainer(
+        echoStateStore = echoStateStore,
+        presenceRepository = presenceRepository,
+    )
+    val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(
+        providerCredentialStore = providerCredentialStore,
+        aiProviderManager = aiProviderManager,
+        aiNarrativeService = aiNarrativeService,
+        contextRetriever = contextRetriever,
+    )
+    val memory = com.yunjue.echo.mind.di.MemoryContainer(
+        memoryRepository = memoryRepository,
     )
 
     /** v0.6.1（P0-4）：Skill Active Session 统一协调器（进程内单例）。 */

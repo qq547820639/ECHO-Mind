@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualParameters
+import com.yunjue.echo.mind.presence.NEUTRAL_VISUAL_PARAMS
+import com.yunjue.echo.mind.presence.drawEchoFrame
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeVisualParameters

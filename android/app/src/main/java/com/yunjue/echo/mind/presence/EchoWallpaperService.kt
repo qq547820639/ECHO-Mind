@@ -6,7 +6,7 @@ import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.ui.renderEchoFrameToCanvas
+import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
 import java.time.LocalTime
 
 /**
@@ -126,7 +126,7 @@ class EchoWallpaperService : WallpaperService() {
                         surface = SurfaceMode.HOME_WALLPAPER,
                     )
                 } else {
-                    com.yunjue.echo.mind.ui.NEUTRAL_VISUAL_PARAMS
+                    NEUTRAL_VISUAL_PARAMS
                 }
                 if (startNanos == 0L) startNanos = System.nanoTime()
                 val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f

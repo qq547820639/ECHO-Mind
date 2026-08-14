@@ -18,9 +18,9 @@
 | 分析消息（周小结） | `GET /v1/me/messages` + `LocalPortraitDigest` | 拉取式推送过渡（FCM 就绪后换真推送） |
 | 订阅生命周期 | `GET /v1/me/subscription` + 激活码 subscription_days | 订阅制状态机（NULL=永不过期，到期 402 冻结云端能力） |
 | Phase 0 事实基线 | `docs/current/00_Phase0_Fresh_Truth_Audit.md` | 本封板轮 |
-| Phase 6 UX 规格 | `docs/current/20_Phase6_Onboarding_UX_Spec.md` | 产品经理冻结 |
+| Phase 6 UX 规格 | `docs/current/20_Phase6_Onboarding_UX_Spec.md` | **SUPERSEDED**（onboarding 已三步 + Awakening；见 ANDROID_CODE_INVENTORY） |
 | Phase 9 legacy 审计 | `docs/current/30_Phase9_Legacy_Audit.md` | 分类记录 |
-| 持续在场 v1.0 落地计划 | `docs/current/50_持续在场AI陪伴_差距分析与实施路线_v1.0.md` | 草案 · 待产品/工程评审 |
+| 持续在场 v1.0 落地计划 | `docs/current/50_持续在场AI陪伴_差距分析与实施路线_v1.0.md` | **SUPERSEDED**（被 v2/v3 Master Prompt 取代；见 README_AUTHORITY.md） |
 | 产品宪法 | `docs/product/ECHO_PRODUCT_CONSTITUTION.md` | 冻结（v1.0，ERA 1） |
 | 个人智能契约 | `docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md` | 冻结（v1.0，ERA 1） |
 | 情绪智能契约（门槛） | `docs/intelligence/AFFECTIVE_CONTRACT.md` | 冻结（v1.0，ERA 10 前置） |

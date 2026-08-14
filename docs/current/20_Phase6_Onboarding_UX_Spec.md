@@ -1,6 +1,7 @@
 # Phase 6 — Onboarding 重构 + Permission Degraded + Narrative / Explainability / Today / Trend UX 规格
 
 > 作者：产品经理 许清楚（Alice）｜版本：v0.7 Phase 6｜状态：规格冻结（供工程师实现，不写代码）
+> **状态：SUPERSEDED** —— onboarding 已重构为三步 + ECHO Awakening（ERA 1）；本文件仅历史参考。
 > 上游输入：`PORTRAIT_CONTRACT.md`（最高产品契约）、`docs/current/00_Phase0_Fresh_Truth_Audit.md`（事实基线 Phase 6.x 发现）、`docs/15_Onboarding产品化规格_v0.6.md`（历史规格）、`android/.../ui/OnboardingScreen.kt`、`android/.../ui/TodayScreen.kt`、`android/.../ui/OtherScreens.kt`、`android/.../sensing/PassiveSensingService.kt`、`backend/app/services/portrait/{narrative,explain,dimensions}.py`、`backend/app/api/portraits.py`
 > 产出物：本规格文档（用户可见文案与内部字段分离；文案给「最终用户可见文本」，字段给「内部字段」）
 
