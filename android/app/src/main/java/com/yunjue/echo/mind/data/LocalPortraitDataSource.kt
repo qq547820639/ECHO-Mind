@@ -27,7 +27,8 @@ internal data class PresenceInputs(
     val today: LocalDayAggregate?,
     val baseline: LocalBaselineSnapshot?,
 )
-class LocalPortraitDataSource(private val db: EchoDatabase) {
+class LocalPortraitDataSource(private val db: EchoDatabase) :
+    com.yunjue.echo.mind.ports.ObservationEvidenceSource {
 
     /** 读取某用户全部 passive-core-v1 窗口行（按窗口起点升序）。 */
     suspend fun passiveCoreRows(userId: String): List<LocalWindowRow> =
@@ -52,7 +53,7 @@ class LocalPortraitDataSource(private val db: EchoDatabase) {
     }
 
     /** 今日画像（本地确定性重算；无今日数据时仍返回冷启动状态视图）。 */
-    suspend fun computeToday(
+    override suspend fun computeToday(
         userId: String,
         today: LocalDate,
         zoneId: ZoneId
@@ -63,7 +64,7 @@ class LocalPortraitDataSource(private val db: EchoDatabase) {
     }
 
     /** 最近 [days] 天画像时间线（本地确定性重算，按日期升序；与后端 /portraits 语义一致）。 */
-    suspend fun computeTimeline(
+    override suspend fun computeTimeline(
         userId: String,
         days: Int,
         endDate: LocalDate,

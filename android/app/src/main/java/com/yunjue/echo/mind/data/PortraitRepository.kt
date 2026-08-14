@@ -36,16 +36,19 @@ class PortraitRepository(
     private val apiClient: ApiClient,
     private val outbox: Outbox,
     private val localDataSource: LocalPortraitDataSource
-) {
+) :
+    com.yunjue.echo.mind.ports.CurrentPortraitSource,
+    com.yunjue.echo.mind.ports.PortraitHistorySource,
+    com.yunjue.echo.mind.ports.BaselineSource {
     private val _todayPortraitState = MutableStateFlow(
         PortraitUiState(status = PortraitStatus.LOADING, portrait = null, offline = false)
     )
 
-    fun observeTodayPortrait(): StateFlow<PortraitUiState> = _todayPortraitState
+    override fun observeTodayPortrait(): StateFlow<PortraitUiState> = _todayPortraitState
 
     private val _timelineState = MutableStateFlow(PortraitTimelineUiState(days = 7))
 
-    fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
+    override fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
 
     /** 端侧本地重算 Today 画像（本地模式 / 离线回退共用）。 */
     private suspend fun emitLocalTodayPortrait() {
@@ -70,7 +73,7 @@ class PortraitRepository(
         )
     }
 
-    suspend fun refreshTodayPortrait(networkAvailable: Boolean = true) {
+    override suspend fun refreshTodayPortrait(networkAvailable: Boolean) {
         val sensingEnabled = runCatching {
             preferences.passiveSensingPrefs.passiveSensingEnabled.first()
         }.getOrDefault(false)
@@ -194,7 +197,7 @@ class PortraitRepository(
         )
     }
 
-    suspend fun refreshPortraits(days: Int) {
+    override suspend fun refreshPortraits(days: Int) {
         val sensingEnabled = runCatching {
             preferences.passiveSensingPrefs.passiveSensingEnabled.first()
         }.getOrDefault(false)
@@ -285,7 +288,7 @@ class PortraitRepository(
         }
     }
 
-    suspend fun fetchBaselineStatus(): BaselineStatusDto? {
+    override suspend fun fetchBaselineStatus(): BaselineStatusDto? {
         if (preferences.localMode) {
             val zone = ZoneId.systemDefault()
             val today = Instant.now().atZone(zone).toLocalDate()

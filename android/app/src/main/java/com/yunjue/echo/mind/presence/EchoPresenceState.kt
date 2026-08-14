@@ -136,17 +136,17 @@ data class EchoPresenceState(
  * ERA 1：内存态 + publish/clear；ERA 2：挂接 AmbientEngine 写入，
  * 并落盘最近一版快照（进程死亡后 Wallpaper 恢复用）。
  */
-class EchoStateStore {
+class EchoStateStore : com.yunjue.echo.mind.ports.PresenceSnapshotStore {
     private val _state = MutableStateFlow<EchoPresenceState?>(null)
 
     /** 当前状态流；null = 尚未发布过任何状态（消费者显示中性占位，禁止编造）。 */
-    val state: StateFlow<EchoPresenceState?> = _state
+    override val state: StateFlow<EchoPresenceState?> = _state
 
-    fun publish(state: EchoPresenceState) {
+    override fun publish(state: EchoPresenceState) {
         _state.value = state
     }
 
-    fun clear() {
+    override fun clear() {
         _state.value = null
     }
 }

@@ -211,3 +211,19 @@
   9. **工具链修复**：SourceIntegrityTest / generate_source_reality 声明扫描支持泛型顶层函数（fun <A,...> combine7）。
 - **理由**：MeScreen 是最后一个直接编排共享状态与多 Repository 的根页面（§31-§36）。
 - **后果**：Me Application Layer 完成（§110：Screen 不再直接 orchestrate repositories）；ERA 13.2 Domain Ports 开始（Data package → Adapter）。
+
+## ADR-028：ERA 13.2 Domain Ports（Data package 成为 Adapter）
+
+- **决策**：
+  1. **新 ports 包**（`com.yunjue.echo.mind.ports`）：
+     - Observation Ports（§38）：ObservationEvidenceSource / CurrentPortraitSource / PortraitHistorySource / BaselineSource；
+     - Memory Ports（§39）：EchoMemoryReader / EchoMemoryWriter / CorrectionMemoryWriter（默认参数只在端口声明，实现不得重设）；
+     - Presence Ports（§40）：PresenceStateSource / PresenceStateWriter / PresenceSnapshotStore；
+     - Actions Ports（§41）：**暂不建 ActionContentSource**——Actions 当前不消费 Skills（EchoActionRuntime 为呼吸/暂停），不预置死端口；订阅能力需要技能内容时再建。
+  2. **Data Adapter 化（§42）**：LocalPortraitDataSource → ObservationEvidenceSource；PortraitRepository → CurrentPortraitSource+PortraitHistorySource+BaselineSource；MemoryRepository → 三记忆端口；PresenceRepository → PresenceStateSource+Writer；EchoStateStore → PresenceSnapshotStore。
+  3. **Intelligence 依赖清理（§37）**：EchoContextRetriever 改为（ObservationEvidenceSource, EchoMemoryReader, userId 函数），不再 import LocalPortraitDataSource/MemoryRepository；EchoCorrectionService 改为（EchoMemoryWriter, CorrectionMemoryWriter）。
+  4. **Ground Truth 断环**：sensing/PassiveSensingService 的 SyncWorker 调用经根级缝隙 `SyncEnqueue.kt`（root = composition root 允许接 data）；消除 observation→data 边。
+  5. **边界断言**：ArchitectureBoundaryTest 新增 intelligence 不依赖 data 实现、observation（sensing/localportrait/model）不依赖 data 实现。
+  6. **真实依赖图（§48）**：新增 `scripts/generate_dependency_graph.py`（package/import 分析 + 循环检测；ports 契约层豁免；model 并入 Ground Truth 聚合）→ 生成 ANDROID_DEPENDENCY_GRAPH.md（11 域 53 边，无循环）；CI source-integrity drift gate 强制同步。
+- **理由**：Application Layer（Journey/Me）已收口；下一步是依赖方向：Domain interfaces ↑ data implementations。
+- **后果**：intelligence/observation 与 data 实现解耦；依赖图成为物理模块化（ERA 13.5）输入；下一轮 ERA 13.3 Real DI Ownership（AppContainer 拆构造职责）。

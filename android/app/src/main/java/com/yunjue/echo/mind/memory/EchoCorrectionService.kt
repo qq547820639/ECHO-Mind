@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.memory
 
-import com.yunjue.echo.mind.data.MemoryRepository
+import com.yunjue.echo.mind.ports.CorrectionMemoryWriter
+import com.yunjue.echo.mind.ports.EchoMemoryWriter
 import java.time.LocalDate
 
 /**
@@ -9,7 +10,10 @@ import java.time.LocalDate
  * 「像我 / 不太像 + 原因」→ Correction Memory（UI 不得自己创建 MemoryEntity）。
  * 用户自述（Felt）永远最高置信：confidence=1，importance 高。
  */
-class EchoCorrectionService(private val memoryRepository: MemoryRepository) {
+class EchoCorrectionService(
+    private val memoryWriter: EchoMemoryWriter,
+    private val correctionWriter: CorrectionMemoryWriter,
+) {
 
     /** 画像反馈纠错（Today 一句话「不太像」）。 */
     suspend fun recordPortraitCorrection(
@@ -17,7 +21,7 @@ class EchoCorrectionService(private val memoryRepository: MemoryRepository) {
         reason: String,
         originalStatement: String?,
     ) {
-        memoryRepository.recordCorrection(
+        correctionWriter.recordCorrection(
             date = date,
             reason = reason,
             originalStatement = originalStatement,
@@ -32,7 +36,7 @@ class EchoCorrectionService(private val memoryRepository: MemoryRepository) {
         reason: String? = null,
     ) {
         if (like) {
-            memoryRepository.record(
+            memoryWriter.record(
                 type = MemoryType.CORRECTION,
                 content = "问答反馈：像我（问：${question.take(40)}）",
                 source = "user-feedback",
@@ -41,7 +45,7 @@ class EchoCorrectionService(private val memoryRepository: MemoryRepository) {
                 importance = 60,
             )
         } else {
-            memoryRepository.recordCorrection(
+            correctionWriter.recordCorrection(
                 date = LocalDate.now().toString(),
                 reason = reason ?: "其他",
                 originalStatement = answer,

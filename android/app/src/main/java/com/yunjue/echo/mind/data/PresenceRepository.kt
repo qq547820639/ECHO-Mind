@@ -35,7 +35,9 @@ class PresenceRepository(
     private val passiveSensingPrefs: PassiveSensingPrefs,
     private val appContext: Context,
     private val store: EchoStateStore,
-) {
+) :
+    com.yunjue.echo.mind.ports.PresenceStateSource,
+    com.yunjue.echo.mind.ports.PresenceStateWriter {
     companion object {
         /** 运行时采集心跳阈值：超过视为假活（区别于趋势页 3 天阈值）。 */
         const val RUNTIME_FRESH_MS = 60L * 60L * 1000L
@@ -44,10 +46,10 @@ class PresenceRepository(
     private val _state = MutableStateFlow<EchoPresenceState?>(null)
 
     /** 当前 Presence 状态（null = 尚未组装；消费者显示中性占位，禁止编造）。 */
-    val state: StateFlow<EchoPresenceState?> = _state
+    override val state: StateFlow<EchoPresenceState?> = _state
 
     /** 组装并发布最新状态（幂等；失败不抛——保持中性占位）。 */
-    suspend fun refresh() {
+    override suspend fun refresh() {
         val presence = assemble() ?: return
         _state.value = presence
         store.publish(presence)

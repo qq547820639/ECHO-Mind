@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 13.1 — ME APPLICATION LAYER 完成 ✅ → 下一轮 ERA 13.2（Domain Ports：Data package 成为 Adapter）**
+**ERA 13.2 — DOMAIN PORTS 完成 ✅ → 下一轮 ERA 13.3（Real DI Ownership：AppContainer 拆构造职责）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**485 unit tests 全绿**（Journey 13 + Me §103 矩阵 7）；lintDebug / detekt PASS；assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
+- Android：**487 unit tests 全绿**（Journey 13 + Me 7 + 边界 2）；lintDebug / detekt PASS；assembleRelease PASS（Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance
 - backend：pytest **1070 passed + 1 skipped**；ruff 0 / mypy 0；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 全 PASS（release_preflight 全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -41,11 +41,12 @@
 - **ERA 12.8 Distribution Closure**：runtime 入库、manifest=git、确定性归档、终态验证门禁、root APK provenance 绑定、release-closure CI
 - **ERA 12.9 Document/Status Truth**：IMPLEMENTATION_STATUS 只描述可交付 main；架构清单 LOC 实测修正（888→314）；Source Reality Report CI drift gate（§21）
 - **ERA 13 Journey Application Layer**：JourneyScreen（555→293 行）去编排；JourneyViewModel（168 行）+ JourneyUiState/JourneyEvent（§24/§25 全字段）+ JourneyRepository/JourneyPort（§26）；趋势七态纯逻辑迁 journey 包；ArchitectureBoundaryTest 新增 journey 不依赖 ui 断言；JourneyUiStateAssemblyTest（§102 矩阵）+ JourneyViewModelTest（4 用例）
-- **ERA 13.1 Me Application Layer**：MeScreen（326→124 行）去编排；MeViewModel + DataAndSensingViewModel（§33）+ IntelligenceSettingsViewModel（§34）+ PresenceSettingsViewModel（§35）+ MemoryManagementViewModel（§36，含类别过滤）；纯函数装配器 + combine7/8 助手；MeStateAssemblyTest（§103 矩阵 7 用例）；SourceIntegrityTest/生成器支持泛型顶层函数扫描
+- **ERA 13.1 Me Application Layer**：MeScreen（326→124 行）去编排；MeViewModel + 四个子 ViewModel（§33-§36）；纯函数装配器 + combine7/8；MeStateAssemblyTest（§103 矩阵）
+- **ERA 13.2 Domain Ports**：ports 包（Observation/Memory/Presence 端口族；Actions 端口暂不建——Actions 不消费 Skills，不预置死端口）；五个 data 类 Adapter 化；EchoContextRetriever/EchoCorrectionService 只依赖端口；Ground Truth 断环（SyncEnqueue 根级缝隙）；ArchitectureBoundaryTest +2 断言；真实依赖图生成器（§48，11 域 53 边无循环，CI drift gate）
 
 ## In Progress
 
-- ERA 13.2 Domain Ports：ObservationEvidenceSource/PortraitHistorySource/EchoMemoryReader 等端口 + Intelligence 依赖清理 + Data package Adapter 化（本轮后立即执行）
+- ERA 13.3 Real DI Ownership：子容器自持构造职责 + AppContainer 缩减为 composition root（本轮后立即执行）
 
 ## Blocked
 
@@ -62,7 +63,7 @@
 
 ## Architecture Debt
 
-- AppContainer 子容器为组合式分组（构造仍在 root）——ERA 13.3 抽 ports + 真拥有
+- AppContainer 子容器为组合式分组（构造仍在 root）——**ERA 13.3 Real DI Ownership**
 
 ## Security Debt
 

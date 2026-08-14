@@ -47,6 +47,18 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    fun observationDoesNotDependOnDataImplementations() {
+        // ERA 13.2 §42：Ground Truth 不得 import data 实现（Domain interfaces ↑ data implementations）。
+        for (f in filesUnder("sensing") + filesUnder("localportrait") + filesUnder("model")) {
+            val t = textOf(f)
+            assertTrue(
+                "observation/${f.name} 不得依赖 data 实现：\n" + offendingLines(t, listOf("com.yunjue.echo.mind.data")),
+                "com.yunjue.echo.mind.data" !in t
+            )
+        }
+    }
+
+    @Test
     fun memoryDoesNotDependOnProviderOrIntelligence() {
         for (f in filesUnder("memory")) {
             val t = textOf(f)
@@ -64,6 +76,19 @@ class ArchitectureBoundaryTest {
             assertTrue(
                 "intelligence/${f.name} 不得依赖 ui",
                 "com.yunjue.echo.mind.ui" !in t
+            )
+        }
+    }
+
+    @Test
+    fun intelligenceDoesNotDependOnDataImplementations() {
+        // ERA 13.2 §37/§42：intelligence 只依赖 ports（ObservationEvidenceSource/EchoMemoryReader），
+        // 不得 import data 实现类（LocalPortraitDataSource/MemoryRepository/...）。
+        for (f in filesUnder("intelligence")) {
+            val t = textOf(f)
+            assertTrue(
+                "intelligence/${f.name} 不得依赖 data 实现：\n" + offendingLines(t, listOf("com.yunjue.echo.mind.data")),
+                "com.yunjue.echo.mind.data" !in t
             )
         }
     }

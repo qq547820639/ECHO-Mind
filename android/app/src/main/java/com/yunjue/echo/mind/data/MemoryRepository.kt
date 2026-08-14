@@ -21,7 +21,10 @@ import java.util.UUID
 class MemoryRepository(
     private val db: EchoDatabase,
     private val preferences: AppPreferences,
-) {
+) :
+    com.yunjue.echo.mind.ports.EchoMemoryReader,
+    com.yunjue.echo.mind.ports.EchoMemoryWriter,
+    com.yunjue.echo.mind.ports.CorrectionMemoryWriter {
     private fun memoryDao() = db.memoryDao()
 
     fun observeMemories(): Flow<List<EchoMemory>> =
@@ -30,18 +33,20 @@ class MemoryRepository(
     suspend fun topMemories(limit: Int = 20): List<EchoMemory> =
         memoryDao().topByUser(preferences.userId, limit).map { it.toDomain() }
 
+    override suspend fun memoriesByType(type: MemoryType): List<EchoMemory> = byType(type)
+
     suspend fun byType(type: MemoryType): List<EchoMemory> =
         memoryDao().byType(preferences.userId, type.name).map { it.toDomain() }
 
     /** 写入一条记忆（幂等 id 由调用方提供或自动生成）。 */
-    suspend fun record(
+    override suspend fun record(
         type: MemoryType,
         content: String,
         source: String,
         provenance: String,
-        confidence: Float = 0.8f,
-        importance: Int = 50,
-        now: Long = System.currentTimeMillis(),
+        confidence: Float,
+        importance: Int,
+        now: Long,
     ): String {
         val id = "mem_${UUID.randomUUID().toString().replace("-", "")}"
         memoryDao().upsert(
@@ -67,11 +72,11 @@ class MemoryRepository(
      * 用户纠错记忆（Master Prompt PART 39：prediction ≠ user feedback + 原因）。
      * 「不太像」的每次反馈都进入 Correction Memory，之后推理必须可检索。
      */
-    suspend fun recordCorrection(
+    override suspend fun recordCorrection(
         date: String,
         reason: String,
         originalStatement: String?,
-        now: Long = System.currentTimeMillis(),
+        now: Long,
     ): String {
         val statement = originalStatement?.takeIf { it.isNotBlank() }?.let { "（原判断：$it）" } ?: ""
         return record(
@@ -85,15 +90,15 @@ class MemoryRepository(
         )
     }
 
-    suspend fun confirm(id: String, now: Long = System.currentTimeMillis()) {
+    override suspend fun confirm(id: String, now: Long) {
         memoryDao().confirm(id, now)
     }
 
-    suspend fun forget(id: String) {
+    override suspend fun forget(id: String) {
         memoryDao().forget(id)
     }
 
-    suspend fun edit(id: String, content: String, now: Long = System.currentTimeMillis()) {
+    override suspend fun edit(id: String, content: String, now: Long) {
         if (content.isBlank()) return
         memoryDao().edit(id, content.trim(), now)
     }

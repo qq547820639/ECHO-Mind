@@ -29,6 +29,10 @@ jobs:
         run: |
           python3 scripts/generate_source_reality.py
           git diff --exit-code docs/architecture/SOURCE_REALITY_REPORT.md
+      - name: dependency graph drift gate（ERA 13.2 §48：脚本重生成 + git diff）
+        run: |
+          python3 scripts/generate_dependency_graph.py
+          git diff --exit-code docs/architecture/ANDROID_DEPENDENCY_GRAPH.md
       - name: build deterministic source archive
         run: python3 scripts/build_source_archive.py --out-dir dist
       - name: verify extracted source archive（zip）

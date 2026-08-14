@@ -314,9 +314,9 @@ class AppContainer(context: Context) {
     )
     // v2 §42：Context Compiler 真实数据检索（Task → 画像/基线/记忆 实际取证据）
     val contextRetriever = com.yunjue.echo.mind.intelligence.EchoContextRetriever(
-        dataSource = localPortraitDataSource,
-        memoryRepository = memoryRepository,
-        preferences = preferences,
+        observationSource = localPortraitDataSource,
+        memoryReader = memoryRepository,
+        userId = { preferences.userId },
     )
     // ERA 13 §26：Journey Application Layer（JourneyScreen → JourneyViewModel → JourneyRepository）
     val journeyRepository = com.yunjue.echo.mind.journey.JourneyRepository(

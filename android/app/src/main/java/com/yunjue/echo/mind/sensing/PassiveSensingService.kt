@@ -21,7 +21,7 @@ import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.EchoMindApplication
 import com.yunjue.echo.mind.PassiveSensingPrefs
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.enqueueSync
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -77,7 +77,7 @@ class PassiveSensingService : Service() {
                     } catch (_: Exception) {
                         // voice_features 撤回证据落库失败不阻塞（outbox 尽力；后续可重试）
                     }
-                    runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
+                    runCatching { enqueueSync(this@PassiveSensingService) }
                 }
             }
         }
@@ -183,7 +183,7 @@ class PassiveSensingService : Service() {
             val c = container ?: return@start false
             val ok = c.sensingRepository.saveDerivedFeatures(inputs)
             if (ok) {
-                runCatching { SyncWorker.enqueue(this@PassiveSensingService) }
+                runCatching { enqueueSync(this@PassiveSensingService) }
             }
             ok
         }

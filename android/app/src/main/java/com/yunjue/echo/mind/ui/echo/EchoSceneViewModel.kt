@@ -40,7 +40,10 @@ class EchoSceneViewModel(app: android.app.Application, private val container: Ap
     )
 
     /** 用户纠错统一入口（UI 不自己创建 MemoryEntity）。 */
-    val corrections = EchoCorrectionService(container.memoryRepository)
+    val corrections = EchoCorrectionService(
+        memoryWriter = container.memoryRepository,
+        correctionWriter = container.memoryRepository,
+    )
 
     /** Scene 内行动运行时（呼吸/暂停；建议由 InterventionPolicy 裁决）。 */
     val actionRuntime = EchoActionRuntime()
