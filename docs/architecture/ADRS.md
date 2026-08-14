@@ -168,3 +168,18 @@
 
 
 
+
+## ADR-025：ERA 12.8 Final Distribution Closure（Git = Manifest = Archive = Provenance = Package 同一 Gate）
+
+- **决策**：
+  1. **EchoRuntimeCoordinator 入库**：修复 `.gitignore` 裸 `runtime/` 规则（改为根锚定 `/runtime/`）——runtime 包（145 行正式实现：sensing 六态编排 / presence 刷新 / EchoRuntimeHealth 五态 / provider 状态广播）此前只存在于工作树、从未进入 git，clean checkout 必漏包。禁止以空 stub 凑数。
+  2. **SOURCE_MANIFEST = git 受控文件集**（`git ls-files` 枚举 + 既有排除规则），不再扫描文件系统——未受控文件物理上不可能进入清单。
+  3. **确定性 Source Archive**：`build_source_archive.py`（Python zipfile/tarfile；路径一律 NFC；ZIP 非 ASCII 条目显式置 UTF-8 标志 0x800——修复中文路径 #Uxxxx/乱码根因；时间戳 = HEAD commit time；同 commit 字节级可复现；内嵌 SOURCE_MANIFEST 自证）。禁在旧 ZIP 上覆盖、禁手工拼 dirty worktree。
+  4. **Final Archive Verification Gate**：`verify_source_archive.py`（安全解包 → 内嵌清单双向复核 → NFC/UTF-8 标志校验 → required sources → 禁止目录/后缀检查）+ `test_source_archive.py` 10 用例负例矩阵（中文/emoji/空格/长路径 fixture、确定性、hash 篡改、意外文件、缺失 runtime、NFD、缺 UTF-8 标志）。
+  5. **Provenance schema v2**：root APK 直接绑定（`release_apk_path/release_apk_sha256`）+ `unsigned_apk_sha256` + `signing_stage`/`signature_scheme`（apksigner --verbose 解析，不记录 key 材料）+ jdk/gradle 真实探测 + `source_archive_sha256`。
+  6. **Artifact Manifest 只描述最终交付物**：去除 build 目录 debug/androidTest 临时 APK；根 APK 缺失时以 unsigned release APK 为 dev 交付物。
+  7. **Final Release Package**：`build_final_package.py` + `verify_final_package.py`（包内 manifest 双向复核 + provenance 交叉绑定 + 包内 source archive 递归验证）。
+  8. **CI**：source-integrity 扩展为完整 archive gate；新增 `release-closure.yml`（§17 原子流程：clean checkout → verify → backend → Android test/lint/detekt → release build → sign(secrets) → SBOM → metadata → archive → verify → package → final verify；`--require-clean` 禁 dirty release）。
+  9. **根目录 APK/idsig 移出 git**（交付物而非源码；`.gitignore` 泛化 `ECHO_Mind_v*.apk*`）。
+- **理由**：上一轮 source-integrity 只验证 git checkout，最终分发 ZIP 与 checkout 不是同一道 Gate；manifest 描述打包前 worktree 而非最终 ZIP。
+- **后果**：Git source = SOURCE_MANIFEST = source ZIP/tar.gz = extracted verified source = tested/built source = signed APK = BUILD_PROVENANCE = RELEASE_ARTIFACT_MANIFEST = final package（clean checkout 实测全 PASS）；ERA 12.8 完成后进入 ERA 12.9（文档/状态真值）→ ERA 13（Journey Application Layer）。
