@@ -322,3 +322,15 @@
   3. **§66 Motion Language 冻结**：docs/product/ECHO_MOTION_LANGUAGE.md v1——11 类语义（ambient/state transitions/unlock/touch/scroll/Why/Conversation/Action/Dream/Reduced Motion/Low Power）逐一映射到当前实现锚点；Unlock/Scroll 如实标注「预留」（§22：不把未实现写成 implemented）。
 - **理由**：不可见零渲染是功耗验收硬指标；运动语义此前散落在实现中无单一契约。
 - **后果**：ERA 14 全部完成 → ERA 15 Personal Intelligence Depth（§67-§74：Question Classification / Context Ranking / Context Budget / Evidence 归一化 / Grounding Validator）。
+
+## ADR-038：ERA 15 Personal Intelligence Depth 第一轮（分类/排序/预算/证据/落地校验）
+
+- **决策**：
+  1. **§67 Question Classification**：`QuestionClassifier` 六分类（EXPLAIN_CURRENT_STATE/FIND_LONGITUDINAL_PATTERN/SUMMARIZE_WEEK/SUMMARIZE_MONTH/ANSWER_PERSONAL_QUESTION/PROPOSE_ACTION）关键词信号 + 置信度；EchoConversationController.ask 以分类结果驱动检索（此前恒 ANSWER_PERSONAL_QUESTION）。
+  2. **§68 Context Ranking**：`ContextRanker` 优先级（USER_CORRECTIONS > CONTEXT_EXCEPTIONS > PREFERENCES/BASELINE > PORTRAIT_HISTORY/TODAY_AGGREGATE）+ confidence/timeRange/信息密度次级因子；与 §75 记忆排序同源。
+  3. **§69 Context Budget**：ContextPolicy 增 maxMemories/maxTokens；EchoContextCompiler.compile 在剔除禁止数据后执行「排序 → 证据上限 → 记忆上限 → token 预算（3 字符/token 保守估算，超限截断）」——禁止全历史塞模型。
+  4. **§70 EchoEvidence**：EvidenceItem 扩展为统一 schema（id/type/timeRange/source/value/baseline/comparison/confidence/provenance/sensitivity）；EvidenceAssembler 填充 observation/memory/correction/context_exception 语义字段。
+  5. **§71/§72 EchoAnswer + Grounding Validator**：`GroundingValidator`（Evidence exists / confidence 越界 / Observed-Interpreted-Felt 边界禁词 / containsBlockedVocabulary）+ `buildAnswer` 降级兜底；AiNarrativeService.answerQuestion 在 AI 文本出口强制校验，未通过 → OBSERVATION_FACTS 事实兜底（§73 链：provider fail → repair/retry 已有 → deterministic → observation facts）。
+  6. **§74 立场**：OpenAI-compatible 保持社区主实现；Provider 数量不是成熟度指标（不新增 Provider）。
+- **理由**：模型不是 ECHO——价值来自正确的个人 Context（Relevant，不是 Maximum）。
+- **后果**：IntelligenceDepthTest 9 用例；对话答案所有出口均过 Grounding；下一轮 ERA 15.5 Memory Maturity（§75-§80：检索排序正式化/生命周期 Worker/派生模式/Context Exceptions 表单/What ECHO Knows 七分类）。

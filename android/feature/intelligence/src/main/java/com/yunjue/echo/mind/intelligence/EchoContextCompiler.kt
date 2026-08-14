@@ -10,11 +10,23 @@ package com.yunjue.echo.mind.intelligence
  * 不是 Maximum context。
  */
 
-/** 证据条目（已脱敏、已按类别归类的结构化事实）。 */
+/** ERA 15 §70 — EchoEvidence 统一 schema（已脱敏、已按类别归类的结构化事实）。 */
+enum class EvidenceSensitivity { PERSONAL, SENSITIVE }
+
 data class EvidenceItem(
     val category: DataSourceCategory,
     val label: String,
     val text: String,
+    val id: String = "",
+    val type: String = "", // observation | memory | correction | context_exception
+    val timeRange: String? = null,
+    val source: String = "",
+    val value: String? = null,
+    val baseline: String? = null,
+    val comparison: String? = null,
+    val confidence: Float = 0.5f,
+    val provenance: String = "",
+    val sensitivity: EvidenceSensitivity = EvidenceSensitivity.PERSONAL,
 )
 
 /** 编译结果（system 指令 + 用户内容 + 来源清单，供「依据」UI 使用）。 */
@@ -61,8 +73,25 @@ object EchoContextCompiler {
             it.category !in policy.prohibited && it.category in policy.allowed
         }
 
-        // 2. Privacy Budget：截断到 maxEvidenceItems（保持原始顺序 = 调用方按相关性排序）
-        val capped = kept.take(policy.maxEvidenceItems)
+        // 2. ERA 15 §68/§69：Context Ranking + Budget（证据/记忆/token 三重上限）
+        val ranked = ContextRanker.rank(task, kept).map { it.item }
+        val memoryItems = ranked.filter { it.type == "memory" || it.type == "correction" || it.type == "context_exception" }
+        val nonMemoryItems = ranked.filter { it !in memoryItems }
+        val budgeted = (nonMemoryItems.take(policy.maxEvidenceItems) + memoryItems.take(policy.maxMemories))
+        // token 预算：保守 3 字符/token；超限截断文本
+        var tokens = 0
+        val capped = budgeted.mapNotNull { item ->
+            val cost = item.text.length / 3 + 20
+            if (tokens + cost > policy.maxTokens) {
+                val room = ((policy.maxTokens - tokens) * 3).coerceAtLeast(0)
+                if (room <= 12) return@mapNotNull null
+                tokens += policy.maxTokens - tokens
+                item.copy(text = item.text.take(room) + "…")
+            } else {
+                tokens += cost
+                item
+            }
+        }
 
         // 3. 编译最小上下文：只有结构化事实，不塞原始数据
         val evidenceBlock = if (capped.isEmpty()) {

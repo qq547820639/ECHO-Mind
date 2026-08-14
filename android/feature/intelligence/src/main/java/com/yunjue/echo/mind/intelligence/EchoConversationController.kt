@@ -56,7 +56,9 @@ class EchoConversationController(
     suspend fun ask(question: String): ConversationTurn {
         val q = question.trim()
         _phase.value = ConversationPhase.COMPILING_CONTEXT
-        val evidence = runCatching { retrieve(ReasoningTaskId.ANSWER_PERSONAL_QUESTION) }
+        // ERA 15 §67：问题分类决定检索策略（六分类；默认 ANSWER_PERSONAL_QUESTION）
+        val classification = QuestionClassifier.classify(q)
+        val evidence = runCatching { retrieve(classification.task) }
             .getOrDefault(emptyList())
         _phase.value = ConversationPhase.WAITING_PROVIDER
         val history = _turns.value.takeLast(4).flatMap { turn ->

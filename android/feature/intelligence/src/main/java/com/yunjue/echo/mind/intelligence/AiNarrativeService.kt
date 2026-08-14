@@ -105,11 +105,12 @@ class AiNarrativeService(
             )
         }
         val text = response.text.trim()
-        if (text.isBlank() || !StructuredOutputValidator.isSafeNarrative(text)) {
+        val grounding = GroundingValidator.validate(text, evidence, NarrativeFallbackLevel.AI_NARRATIVE)
+        if (text.isBlank() || !StructuredOutputValidator.isSafeNarrative(text) || !grounding.passed) {
             return NarrativeResult(
                 level = NarrativeFallbackLevel.OBSERVATION_FACTS,
-                text = "我还不确定怎么回答这个，也许可以换个问法。",
-                usedSources = emptyList(),
+                text = "我能确定的事实是：${evidence.filter { it.type == "observation" }.take(3).joinToString("；") { it.text }.ifBlank { "当前证据不足，先继续陪伴。" }}",
+                usedSources = evidence.map { it.category }.distinct(),
             )
         }
         return NarrativeResult(

@@ -55,6 +55,10 @@ data class ContextPolicy(
     val structuredOutput: Boolean,
     val timeWindowDays: Int = 7,
     val allowedMemoryTypes: Set<MemoryType> = emptySet(),
+    /** ERA 15 §69：记忆条数上限（防止全历史塞模型）。 */
+    val maxMemories: Int = 6,
+    /** ERA 15 §69：token 预算（约 3 字符/token 的保守估算）。 */
+    val maxTokens: Int = 1600,
 )
 
 /** 隐私硬边界：原始通知内容 / 原始音频 / 麦克风特征永不进入任何任务。 */

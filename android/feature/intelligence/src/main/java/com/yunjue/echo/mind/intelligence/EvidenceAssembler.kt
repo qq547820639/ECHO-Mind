@@ -27,6 +27,11 @@ object EvidenceAssembler {
                 items.add(
                     EvidenceItem(
                         category = DataSourceCategory.TODAY_AGGREGATE,
+                        type = "observation",
+                        source = "portrait-fact",
+                        confidence = 0.8f,
+                        provenance = "portrait:v1",
+                        timeRange = "today",
                         label = fact.label.ifBlank { "今日观察" },
                         text = parts.joinToString("；"),
                     )
@@ -67,6 +72,17 @@ object EvidenceAssembler {
     fun fromMemories(memories: List<EchoMemory>): List<EvidenceItem> =
         memories.map { memory ->
             EvidenceItem(
+                type = when (memory.type) {
+                    MemoryType.CORRECTION -> "correction"
+                    MemoryType.CONTEXT -> "context_exception"
+                    else -> "memory"
+                },
+                source = "echo-memory",
+                confidence = memory.confidence.coerceIn(0f, 1f),
+                provenance = memory.provenance.ifBlank { "memory:v1" },
+                timeRange = memory.createdAt.toString(),
+                sensitivity = if (memory.type == MemoryType.CORRECTION) EvidenceSensitivity.SENSITIVE else EvidenceSensitivity.PERSONAL,
+                id = memory.id,
                 category = when (memory.type) {
                     MemoryType.CONTEXT -> DataSourceCategory.CONTEXT_EXCEPTIONS
                     MemoryType.CORRECTION -> DataSourceCategory.USER_CORRECTIONS
@@ -88,6 +104,11 @@ object EvidenceAssembler {
                 category = DataSourceCategory.PORTRAIT_HISTORY,
                 label = portrait.date,
                 text = line,
+                type = "observation",
+                source = "portrait-history",
+                confidence = 0.7f,
+                provenance = "portrait-history:v1",
+                timeRange = portrait.date,
             )
         }
 

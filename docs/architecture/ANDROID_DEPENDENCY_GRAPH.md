@@ -27,7 +27,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | actions | 2 |
 | data | 25 |
 | di | 1 |
-| intelligence | 13 |
+| intelligence | 16 |
 | journey | 7 |
 | me | 3 |
 | memory | 2 |
