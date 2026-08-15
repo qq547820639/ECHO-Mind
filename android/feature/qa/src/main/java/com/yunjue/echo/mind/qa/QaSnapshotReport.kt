@@ -139,6 +139,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND35.md](ERA31_ROUND35.md) — ERA 31 R35（Dogfood 交接刷新：真机清单对齐当前 UX）")
         sb.appendLine("- [ERA31_ROUND36.md](ERA31_ROUND36.md) — ERA 31 R36（验收证据总表：十道门 × 五时点 → 轮次与证据）")
         sb.appendLine("- [ERA31_FELT_ACCEPTANCE.md](ERA31_FELT_ACCEPTANCE.md) — ERA 31 验收证据总表（十道门 × 五时点）")
+        sb.appendLine("- [ERA31_ROUND37.md](ERA31_ROUND37.md) — ERA 31 R37（纠正/确认回放说人话：内部记忆格式退役）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()

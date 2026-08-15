@@ -117,4 +117,39 @@ class DeterministicPersonalAnswerProviderTest {
             com.yunjue.echo.mind.intelligence.DataSourceCategory.CONTEXT_EXCEPTIONS in result.usedSources,
         )
     }
+
+    @Test
+    fun correctionRecallSpeaksHumanNotMemoryFormat() = runBlocking {
+        val userId = "u_recall"
+        for (i in 0..19) seedWindow(userId, fixedToday.minusDays(19L - i), 8)
+        val memoryReader = object : EchoMemoryReader {
+            override suspend fun memoriesByType(type: MemoryType): List<EchoMemory> =
+                when (type) {
+                    MemoryType.CORRECTION -> listOf(
+                        EchoMemory(
+                            id = "corr_1", userId = userId, type = MemoryType.CORRECTION,
+                            content = "画像反馈：不太像（原因：旅行）（原判断：是的，最近明显更晚。）",
+                            source = "user-feedback", confidence = 1f,
+                            createdAt = 1L, lastConfirmedAt = 0L, importance = 80,
+                            retentionClass = RetentionClass.LONG_TERM,
+                            provenance = "user-correction:v1",
+                        )
+                    )
+                    else -> emptyList()
+                }
+        }
+        val provider = DeterministicPersonalAnswerProvider(
+            portraitDataSource = LocalPortraitDataSource(db),
+            memoryReader = memoryReader,
+            userId = { userId },
+            seasonDrift = { 0f },
+            today = { fixedToday },
+            zoneId = { zone },
+        )
+        val result = provider.answer("我纠正过你的那次，后来你改了吗？")
+        assertNotNull("纠正回放应可答", result)
+        assertTrue("回放应是人话（含原因）：${result!!.text}", result.text.contains("旅行"))
+        assertTrue("回放应含当时判断：${result.text}", result.text.contains("当时我说的是"))
+        assertTrue("内部格式「画像反馈」不得泄漏：${result.text}", !result.text.contains("画像反馈"))
+    }
 }
