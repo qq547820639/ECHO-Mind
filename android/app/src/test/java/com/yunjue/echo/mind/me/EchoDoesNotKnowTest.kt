@@ -33,7 +33,7 @@ class EchoDoesNotKnowTest {
         assertTrue(lines.any { it.contains("不观察你的屏幕使用") })
         // 感知未开启时麦克风行不重复出现（感知关闭已涵盖声音不记录）
         assertTrue(lines.none { it.contains("不记录你的声音") })
-        assertTrue(lines.any { it.contains("不会生成 AI 解读") })
+        assertTrue(lines.any { it.contains("解读基于你手机本地的确定性解释") })
         assertTrue(lines.any { it.contains("基线天数还不足（当前 3 天）") })
     }
 

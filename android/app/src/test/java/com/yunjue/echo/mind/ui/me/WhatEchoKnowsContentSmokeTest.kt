@@ -181,12 +181,12 @@ class WhatEchoKnowsContentSmokeTest {
         // ERA 61：能力边界行呈现（诚实，不编造）
         val withLines = MemoryManagementUiState(
             doesNotKnow = listOf(
-                "还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。",
+                "没有连接 AI：解读基于你手机本地的确定性解释。",
             ),
         )
         setContent(withLines, mutableListOf())
         compose.onNodeWithText("ECHO 还不知道什么").assertExists()
-        compose.onNodeWithText("· 还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。").assertExists()
+        compose.onNodeWithText("· 没有连接 AI：解读基于你手机本地的确定性解释。").assertExists()
     }
 
     @Test

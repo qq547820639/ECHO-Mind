@@ -207,7 +207,7 @@ object EchoDoesNotKnow {
             add("没有开启麦克风：ECHO 不记录你的声音。")
         }
         if (!facts.providerConfigured) {
-            add("还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。")
+            add("没有连接 AI：解读基于你手机本地的确定性解释。")
         }
         if (facts.baselineDays < MIN_BASELINE_DAYS) {
             add("基线天数还不足（当前 ${facts.baselineDays} 天）：ECHO 还不能可靠地区分「你的平常」与「今天的变化」。")

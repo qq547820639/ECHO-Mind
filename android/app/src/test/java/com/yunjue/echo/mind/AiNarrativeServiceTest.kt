@@ -81,7 +81,10 @@ class AiNarrativeServiceTest {
     fun answerQuestionWithoutProviderIsHonest() = runBlocking {
         val result = service(hasProvider = false, status = ProviderStatus.NOT_CONFIGURED)
             .answerQuestion("我最近是不是越来越晚？", evidence)
-        assertTrue(result.text.contains("还没有连接 AI"))
+        // ERA 31 R17：无 Provider 兜底不得出现「连接 AI」催促/网络状态泄漏，应引导可答的问法
+        assertTrue(result.text.contains("换一种问法"))
+        assertTrue(!result.text.contains("连接 AI"))
+        assertTrue(!result.text.contains("网络"))
         assertEquals(NarrativeFallbackLevel.OBSERVATION_FACTS, result.level)
     }
 
@@ -183,14 +186,15 @@ class AiNarrativeServiceTest {
     }
 
     @Test
-    fun unknownQuestionKeepsOldHonestFallback() = runBlocking {
+    fun unknownQuestionGivesEchoVoicedGuidanceWithoutAiNag() = runBlocking {
         val service = AiNarrativeService(
             hasProvider = { false },
             reason = { _ -> EchoReasoningResponse(text = "", status = ProviderStatus.NOT_CONFIGURED) },
             deterministicPersonalAnswer = { null },
         )
         val result = service.answerQuestion("帮我写一首诗", evidence)
-        assertTrue("引擎不认识的问题保留诚实文案", result.text.contains("还没有连接 AI"))
+        assertTrue("引擎不认识的问题给出引导而非 AI 催促", result.text.contains("换一种问法"))
+        assertTrue(!result.text.contains("连接 AI"))
         assertEquals(NarrativeFallbackLevel.OBSERVATION_FACTS, result.level)
     }
 }

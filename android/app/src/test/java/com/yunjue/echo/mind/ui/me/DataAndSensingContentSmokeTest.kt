@@ -161,11 +161,11 @@ class DataAndSensingContentSmokeTest {
     fun checkupShowsDoesNotKnowAggregateLines() {
         // ERA 68：「ECHO 还不知道什么」聚合行（与 What ECHO Knows 同源事实）
         setContent(
-            state().copy(doesNotKnow = listOf("还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。")),
+            state().copy(doesNotKnow = listOf("没有连接 AI：解读基于你手机本地的确定性解释。")),
             mutableListOf(),
         )
         compose.onNodeWithText(
-            "· 还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。",
+            "· 没有连接 AI：解读基于你手机本地的确定性解释。",
         ).performScrollTo().assertExists()
     }
 

@@ -45,7 +45,7 @@ class EchoConversationControllerTest {
                     )
                     NarrativeResultLevel.FACTS -> AiNarrativeService.NarrativeResult(
                         level = NarrativeFallbackLevel.OBSERVATION_FACTS,
-                        text = "我现在还不能回答这个问题：还没有连接 AI，或者当前没有网络。",
+                        text = "这个问题我现在还确定不了。你可以换一种问法。",
                         usedSources = emptyList(),
                     )
                 }

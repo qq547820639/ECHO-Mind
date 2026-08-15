@@ -42,6 +42,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND14.md](ERA31_ROUND14.md) — ERA 31 R14（Dream 表面自适应帧率对齐）
 - [ERA31_ROUND15.md](ERA31_ROUND15.md) — ERA 31 R15（Why 层安静化：AI 催促移除 + 入口一致化）
 - [ERA31_ROUND16.md](ERA31_ROUND16.md) — ERA 31 R16（进程死亡恢复锚点：快照 commit 落盘 + 恢复回归测试）
+- [ERA31_ROUND17.md](ERA31_ROUND17.md) — ERA 31 R17（Ask ECHO 免费用户走查：AI 催促清零 + 问法归一）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

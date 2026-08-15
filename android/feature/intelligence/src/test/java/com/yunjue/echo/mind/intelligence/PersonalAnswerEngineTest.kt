@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.intelligence
 
 import com.yunjue.echo.mind.model.PortraitDimensionDto
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -183,6 +184,34 @@ class PersonalAnswerEngineTest {
     @Test
     fun unknownQuestionReturnsNullForHonestAiFallback() {
         assertNull(PersonalAnswerEngine.answer("帮我写一首诗", inputs(series(5, start = { 540 }))))
+    }
+
+    @Test
+    fun visualQuestionExplainsTodayLikeWhyToday() {
+        // ERA 31 R17：Ask ECHO 界面建议的「为什么今天 ECHO 看起来不一样？」
+        // = 今天最强的节律差异维度（Why 层同源），离线确定性可答。
+        val days = series(20, start = { 540 }, dimsFor = { i ->
+            if (i == 19) dims("RHYTHM" to "LATER") else dims("STABILITY" to "VERY_SIMILAR")
+        })
+        val answer = PersonalAnswerEngine.answer("为什么今天 ECHO 看起来不一样？", inputs(days))!!
+        assertTrue("视觉问题应命名今天的差异维度：${answer.text}", answer.text.contains("开始活跃的时间比平时晚"))
+    }
+
+    @Test
+    fun questionVariantsNormalizeToSameFamily() {
+        // 用户微调措辞（加「了」/半角问号/感叹号/无标点）应命中同一族，而不是掉进兜底
+        val days = series(90, start = { i -> if (i < 45) 540 else 585 })
+        val canonical = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(days))!!
+        for (variant in listOf("最近我是不是越来越晚了?", "最近我是不是越来越晚", "最近我是不是越来越晚了")) {
+            val answer = PersonalAnswerEngine.answer(variant, inputs(days))
+            assertTrue("变体「$variant」应命中同一族", answer != null)
+            assertEquals(canonical, answer)
+        }
+        // 稳定族同样归一（「了吗！」→ 去 ！/吗/了）
+        val stableDays = series(14, start = { 540 })
+        val stableCanonical = PersonalAnswerEngine.answer("我最近稳定了吗？", inputs(stableDays))
+        assertEquals(stableCanonical, PersonalAnswerEngine.answer("我最近稳定了吗！", inputs(stableDays)))
+        assertEquals(stableCanonical, PersonalAnswerEngine.answer("我最近稳定了吗", inputs(stableDays)))
     }
 
     @Test

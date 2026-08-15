@@ -107,7 +107,10 @@ class AiNarrativeService(
                 NarrativeResult(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, det.text, det.usedSources)
             } ?: NarrativeResult(
                 level = NarrativeFallbackLevel.OBSERVATION_FACTS,
-                text = "我现在还不能回答这个问题：还没有连接 AI，或者当前没有网络。",
+                // ERA 31 R17：旧文案「还没有连接 AI，或者当前没有网络」是 AI 催促 + 网络状态
+                // 工程泄漏（免费用户每问一次就被提醒一次「你没连 AI」）。改为 ECHO 语气的
+                // 诚实引导：不抱怨环境，指向确实能回答的问法。
+                text = "这个问题我现在还确定不了。你可以换一种问法，比如：「最近我是不是越来越晚？」「今天的状态和平时有什么不同？」",
                 usedSources = emptyList(),
             )
         }

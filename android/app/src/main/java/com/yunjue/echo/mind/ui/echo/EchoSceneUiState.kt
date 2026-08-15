@@ -35,7 +35,7 @@ data class EchoSceneUiState(
     val portraitStatus: PortraitStatus,
     val baselineDays: Int,
     val maturity: EchoMaturity,
-    /** 是否已连接 AI（决定「连接 AI 后可获得更深入解释」提示）。 */
+    /** 是否已连接 AI（决定 Scene 顶部一次性 AI 提示卡是否展示）。 */
     val intelligenceAvailable: Boolean,
     /** Intervention Policy L2：是否展示「让自己慢一点」温和建议。 */
     val suggestedAction: Boolean,

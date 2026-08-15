@@ -73,7 +73,7 @@ object PersonalAnswerEngine {
     }
 
     /** 确定性覆盖表：canonical 问法 + Core Set 变体（同一族不同窗口）。 */
-    private val FAMILY_TABLE: Map<String, Pair<Family, Int>> = mapOf(
+    private val RAW_FAMILY_TABLE: Map<String, Pair<Family, Int>> = mapOf(
         // 节律漂移（window = 比较窗口天数）
         "最近我是不是越来越晚？" to (Family.DRIFTING_LATER to 90),
         "最近一个月我明显变晚了吗？" to (Family.DRIFTING_LATER to 60),
@@ -107,6 +107,9 @@ object PersonalAnswerEngine {
         // 今天为什么不一样
         "为什么你觉得今天不一样？" to (Family.WHY_TODAY to 1),
         "今天的状态和平时有什么不同？" to (Family.WHY_TODAY to 1),
+        // ERA 31 R17：Ask ECHO 界面建议的视觉问题——今天 ECHO 看起来不一样 = 今天最强的
+        // 节律差异维度（Why 层 headline 的解释对象同源），离线确定性即可回答，不再掉进「连接 AI」文案。
+        "为什么今天 ECHO 看起来不一样？" to (Family.WHY_TODAY to 1),
         // 今天为什么碎（独立族：只回答碎片化维度，不拿别的维度顶替）
         "今天为什么这么碎？" to (Family.WHY_TODAY_FRAGMENTED to 1),
         // 上下文 / 纠正 / 确认召回
@@ -120,9 +123,32 @@ object PersonalAnswerEngine {
         "我的活跃起点和半年前一样吗？" to (Family.HALF_YEAR to 180),
     )
 
+    private val SENTENCE_TRAILERS =
+        setOf('吗', '呢', '啊', '呀', '吧', '嘛', '了', '？', '?', '！', '!', '。', '.', '，', ',', '~', '～')
+
+    /** 去首尾空白 + 反复去掉句末语气词/标点（与表键同侧归一）。 */
+    private fun normalizeQuestion(question: String): String {
+        var normalized = question.trim()
+        while (normalized.isNotEmpty() && normalized.last() in SENTENCE_TRAILERS) {
+            normalized = normalized.dropLast(1)
+        }
+        return normalized
+    }
+
+    /**
+     * ERA 31 R17：句末语气词/标点归一化后建索引——用户微调措辞（加「了」、半角问号、
+     * 感叹号、不带标点）也能命中同一族，不再因逐字匹配掉进「换一种问法」兜底。
+     * 归一化对键与输入同侧进行；撞车（两个问题归一化后相同）在类初始化时直接失败。
+     */
+    private val FAMILY_TABLE: Map<String, Pair<Family, Int>> = buildMap {
+        for ((question, entry) in RAW_FAMILY_TABLE) {
+            check(put(normalizeQuestion(question), entry) == null) { "问题归一化后撞车：$question" }
+        }
+    }
+
     fun answer(question: String, inputs: PersonalAnswerInputs): PersonalAnswer? {
         if (inputs.days.isEmpty()) return null
-        val (family, window) = FAMILY_TABLE[question.trim()] ?: return null
+        val (family, window) = FAMILY_TABLE[normalizeQuestion(question)] ?: return null
         val dayIndex = inputs.dayIndex.coerceIn(0, inputs.days.size - 1)
         val safe = inputs.copy(dayIndex = dayIndex)
         return when (family) {
