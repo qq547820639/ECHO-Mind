@@ -153,6 +153,8 @@ class PersonalAnswerEngineTest {
         )
         val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", withContext)!!
         assertTrue("应承认影响：${answer.text}", answer.text.contains("有影响"))
+        // ERA 31 R38：语句流畅化（「出差的这几天」而非「出差 这几天」生硬空格）
+        assertTrue("语句应流畅：${answer.text}", answer.text.contains("出差的这几天"))
         assertTrue("证据含窗口与分钟：${answer.evidence}", answer.evidence.contains("出差") && answer.evidence.contains("07:00"))
     }
 

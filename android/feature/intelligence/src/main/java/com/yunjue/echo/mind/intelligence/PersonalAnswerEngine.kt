@@ -507,17 +507,17 @@ object PersonalAnswerEngine {
         val contextSources = listOf(DataSourceCategory.CONTEXT_EXCEPTIONS, DataSourceCategory.PORTRAIT_HISTORY)
         return when {
             active && abs(delta) >= 45 -> PersonalAnswer(
-                "有影响。$label 这几天你明显开始了不同的节奏。",
+                "有影响。${label}的这几天，你明显开始了不同的节奏。",
                 "$label 窗口内活跃起点约 ${minuteText(woke ?: base)}，平时 ${minuteText(base)}（差 ${delta.toInt()} 分钟）",
                 usedSources = contextSources,
             )
             active -> PersonalAnswer(
-                "这几天在${label}窗口里，但我先把它当成你的当前状态，不急着下结论。",
+                "这几天在${label}的窗口里，但我先把它当成你的当前状态，不急着下结论。",
                 "${label}窗口 ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
                 usedSources = contextSources,
             )
             else -> PersonalAnswer(
-                "最近一次${label}已经结束了，你的节奏看起来正在回到平时。",
+                "最近一次的${label}已经结束了，你的节奏看起来正在回到平时。",
                 "上次$label ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
                 usedSources = contextSources,
             )

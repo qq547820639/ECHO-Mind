@@ -250,7 +250,7 @@
 - 期望证据：task=ANSWER_PERSONAL_QUESTION · 窗口 28d · baseline=false · context=true · correction=true
 - **PROFILE_A_STABLE · Day 180**：我这里没有找到出差相关的上下文，所以暂时没有把它算进去。
   - 证据：无出差窗口记录
-- **PROFILE_D_TRAVEL · Day 90**：最近一次出差已经结束了，你的节奏看起来正在回到平时。
+- **PROFILE_D_TRAVEL · Day 90**：最近一次的出差已经结束了，你的节奏看起来正在回到平时。
   - 证据：上次出差 01-25~02-01
 - **PROFILE_F_LOW_DATA · Day 180**：我这里没有找到出差相关的上下文，所以暂时没有把它算进去。
   - 证据：无出差窗口记录

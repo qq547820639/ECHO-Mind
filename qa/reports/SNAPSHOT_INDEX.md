@@ -64,6 +64,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND36.md](ERA31_ROUND36.md) — ERA 31 R36（验收证据总表：十道门 × 五时点 → 轮次与证据）
 - [ERA31_FELT_ACCEPTANCE.md](ERA31_FELT_ACCEPTANCE.md) — ERA 31 验收证据总表（十道门 × 五时点）
 - [ERA31_ROUND37.md](ERA31_ROUND37.md) — ERA 31 R37（纠正/确认回放说人话：内部记忆格式退役）
+- [ERA31_ROUND38.md](ERA31_ROUND38.md) — ERA 31 R38（Ask ECHO 上下文回答语句流畅化）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 
