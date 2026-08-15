@@ -272,6 +272,27 @@ class QaMemorySelfModelTest {
             lines.any { it.contains("我观察到：") && it.contains("晚结束") })
     }
 
+    @Test
+    fun staleConfirmedPatternWithoutCorrectionIsPresentedAsPast() {
+        // ERA 32 R08（§32 Old Me）：用户没纠正过的「静默变化」也不得把过去当现在——
+        // 60+ 天无新观察的确认模式改说「以前观察到…最近没再看到」，不再用现在时。
+        val now = t0 + 90 * dayMs
+        val content = "工作日晚间结束时间持续后移"
+        val model = buildSelfModel(
+            listOf(
+                observation("o1", content),
+                observation("o2", content),
+                observation("o3", content),
+            ),
+            now,
+        )
+        val lines = echoKnowsLines(model)
+        assertTrue("静默陈旧模式应标注「以前观察到」：$lines",
+            lines.any { it.startsWith("以前观察到：") && it.contains("最近没再看到") })
+        assertFalse("静默陈旧模式不得以现在时呈现：$lines",
+            lines.any { it.startsWith("我观察到：") && it.contains("晚结束") })
+    }
+
     // ===== §37 敏感度 + 上下文例外质量 =====
 
     @Test

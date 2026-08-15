@@ -70,14 +70,29 @@ fun buildSelfModel(
 }
 
 /**
+ * ERA 32 R08（§32 Old Me）：确认模式的新鲜度阈值——超过该天数没有新观察，
+ * 即使没有纠正矛盾，也不再以「我观察到」（现在时）呈现，改说「以前观察到…最近没再看到」。
+ * 与 PatternPromotionConfig.outdatedAfterDays（60）同源。
+ */
+private const val STALE_PATTERN_DAYS: Long = 60
+private const val DAY_MS: Long = 86_400_000L
+
+/**
  * ERA 25 §45（Batch 3 先导）— What ECHO Knows 自然语言行：
  * 「你的工作日通常在 09:10 左右明显开始」，而不是 baseline_activation_start = 550。
  * 只输出 PUBLIC 可展示行；纠正原文（敏感）不出现在这里。
  */
 fun echoKnowsLines(model: EchoSelfModel, maxLines: Int = 6): List<String> = buildList {
     model.confirmedPatterns.take(2).forEach { p ->
-        // ERA 31 R11：人类语言复核——「已持续 N 次观察」→「看到过 N 次」（计数保留信任，措辞更口语）
-        add("我观察到：${p.content}（看到过 ${p.occurrenceCount} 次）")
+        // ERA 32 R08（§32 Old Me）：超过 60 天没再看到的确认模式改说「以前观察到」——
+        // 用户没纠正过的「静默变化」也不得把过去当现在。
+        val stalenessDays = ((model.generatedAt - p.lastSeenAt) / DAY_MS).coerceAtLeast(0)
+        if (stalenessDays > STALE_PATTERN_DAYS) {
+            add("以前观察到：${p.content}（看到过 ${p.occurrenceCount} 次；最近没再看到）")
+        } else {
+            // ERA 31 R11：人类语言复核——「已持续 N 次观察」→「看到过 N 次」（计数保留信任，措辞更口语）
+            add("我观察到：${p.content}（看到过 ${p.occurrenceCount} 次）")
+        }
     }
     model.challengedPatterns.take(1).forEach { p ->
         add("之前关于「${p.content}」的判断最近有些出入，我还在观察。")
