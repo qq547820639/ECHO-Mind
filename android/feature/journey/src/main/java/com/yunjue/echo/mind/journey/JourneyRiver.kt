@@ -38,6 +38,14 @@ fun riverKindLabel(kind: RiverSegmentKind): String = when (kind) {
     RiverSegmentKind.TRANSITION -> "长期转变"
 }
 
+/**
+ * ERA 31 R27：某天所属河段的种类标签（含端点）。
+ * 用于把「平稳时期/节律漂移/…」直接标注到主河流的聚合格上——
+ * 一条河流同时是时间线（第 N 周）与故事（什么阶段），不再需要第二条河流。
+ */
+fun journeySegmentKindLabel(date: String, segments: List<JourneyRiverSegment>): String? =
+    segments.firstOrNull { date >= it.startDate && date <= it.endDate }?.label
+
 /** 相邻段视为「转变」的视觉距离阈值（12 维归一化欧氏距离）。 */
 const val RIVER_TRANSITION_DISTANCE = 0.30f
 

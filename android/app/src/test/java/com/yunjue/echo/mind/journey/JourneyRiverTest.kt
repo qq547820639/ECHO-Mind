@@ -127,4 +127,18 @@ class JourneyRiverTest {
         val b = buildVisualMemoryRiver(days, chunkDays = 7)
         assertEquals(a, b)
     }
+
+    @Test
+    fun segmentKindLabelLocatesContainingSegment() {
+        // ERA 31 R27：主河流聚合格标注所属河段种类（一条河流 = 时间线 + 故事）
+        val segments = listOf(
+            JourneyRiverSegment("2026-08-01", "2026-08-07", RiverSegmentKind.STABLE, 0.9f, null, "平稳时期"),
+            JourneyRiverSegment("2026-08-08", "2026-08-14", RiverSegmentKind.DRIFT, 0.4f, null, "节律漂移"),
+        )
+        assertEquals("平稳时期", journeySegmentKindLabel("2026-08-01", segments))
+        assertEquals("平稳时期", journeySegmentKindLabel("2026-08-05", segments))
+        assertEquals("节律漂移", journeySegmentKindLabel("2026-08-14", segments))
+        assertEquals(null, journeySegmentKindLabel("2026-07-31", segments))
+        assertEquals(null, journeySegmentKindLabel("", emptyList()))
+    }
 }

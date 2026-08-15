@@ -1,14 +1,10 @@
 package com.yunjue.echo.mind.ui.journey
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyDay
-import com.yunjue.echo.mind.journey.JourneyRiverSegment
 import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.identityEvolutionLines
 import com.yunjue.echo.mind.journey.landmarkKindLabel
@@ -30,54 +25,14 @@ import com.yunjue.echo.mind.presence.drawEchoFrame
 
 /**
  * ERA 16 §84-§87 — Journey 长期记忆 UI 层（Screen 之外的独立组件，保持 JourneyScreen 薄）：
- * - Visual Memory River（§85 河段概览）；
  * - Year View（§86 四季聚合 + 转变 + 上下文时期 + 身份演化）；
  * - Historical Reconstruction（§84 那一天的回声）；
  * - Life Season × Journey 解释（§87）。
+ * - §85 河段（VisualMemoryRiverRow）于 ERA 31 R27 并入主河流（聚合格直接标注河段种类），
+ *   本文件不再保留第二条河流行。
  *
  * 全部只消费 JourneyUiState；不持有 Repository / AI / Preferences。
  */
-
-/** §85 — 视觉记忆河流河段行（一眼看到平稳/密集/漂移/特殊/转变）。 */
-@Composable
-fun VisualMemoryRiverRow(
-    segments: List<JourneyRiverSegment>,
-    seed: Long,
-) {
-    if (segments.isEmpty()) return
-    Column(Modifier.padding(top = 12.dp)) {
-        Text("视觉记忆河流", style = MaterialTheme.typography.titleSmall)
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-        ) {
-            segments.forEach { segment ->
-                val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Canvas(Modifier.size(44.dp)) {
-                        val frame = segment.visualParams?.let {
-                            computeEchoSceneFrame(
-                                it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height
-                            )
-                        }
-                        if (frame != null) {
-                            drawEchoFrame(frame)
-                        } else {
-                            drawCircle(
-                                color = placeholderColor,
-                                radius = this.size.minDimension * 0.2f,
-                            )
-                        }
-                    }
-                    Text(segment.label, style = MaterialTheme.typography.labelSmall)
-                    Text(segment.startDate.take(7), style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-    }
-}
 
 /** §86 — 年视图：四季聚合 + 转变点 + 上下文时期 + 身份演化（不是 365 个点）。 */
 @Composable

@@ -18,10 +18,12 @@ import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyDay
 import com.yunjue.echo.mind.journey.JourneyEvent
 import com.yunjue.echo.mind.journey.JourneyPeriod
+import com.yunjue.echo.mind.journey.JourneyRiverSegment
 import com.yunjue.echo.mind.journey.JourneyScale
 import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.TrendNoDataReason
 import com.yunjue.echo.mind.journey.TrendUiState
+import com.yunjue.echo.mind.journey.journeySegmentKindLabel
 import com.yunjue.echo.mind.journey.trendNoDataReasonText
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.drawEchoFrame
@@ -152,6 +154,7 @@ private fun JourneyContent(
         scale = state.selectedScale,
         days = state.visualDays,
         periods = state.visualPeriods,
+        segments = state.riverSegments,
         seed = state.journeySeed,
         feedback = feedback,
         onSelectDay = { date -> onEvent(JourneyEvent.SelectDay(date)) },
@@ -181,8 +184,9 @@ private fun JourneyContent(
         }
     }
 
-    // 3. ERA 16 §84-§87 — Journey 长期记忆（河流 / 年视图 / 阶段解释 / 历史重建）
-    VisualMemoryRiverRow(segments = state.riverSegments, seed = state.journeySeed)
+    // 3. ERA 16 §84-§87 — Journey 长期记忆（年视图 / 阶段解释 / 历史重建）
+    //    ERA 31 R27：§85 河段行并入主河流（聚合格直接标注「平稳时期/节律漂移/…」），
+    //    一条河流同时是时间线与故事——第二条河流行移除（§10 信息压缩）。
     SeasonExplanationSection(lines = state.seasonExplanation)
     YearViewSection(state = state, seed = state.journeySeed)
     HistoricalReconstructionSection(
@@ -230,6 +234,7 @@ private fun VisualMemoryRiver(
     scale: JourneyScale,
     days: List<JourneyDay>,
     periods: List<JourneyPeriod>,
+    segments: List<JourneyRiverSegment>,
     seed: Long,
     feedback: (String) -> Boolean?,
     onSelectDay: (String) -> Unit,
@@ -267,13 +272,17 @@ private fun VisualMemoryRiver(
                 periods.forEachIndexed { index, period ->
                     val span = period.days.firstOrNull()?.date?.take(7) ?: ""
                     val last = period.days.lastOrNull()?.date?.take(7) ?: ""
+                    val baseLabel = when (scale) {
+                        JourneyScale.WEEK -> "第 ${index + 1} 周"
+                        else -> if (span.isNotBlank()) "${span}…${last}" else "第 ${index + 1} 段"
+                    }
+                    // ERA 31 R27：聚合格标注所属河段种类（一条河流 = 时间线 + 故事）
+                    val kindLabel = period.days.firstOrNull()?.date
+                        ?.let { journeySegmentKindLabel(it, segments) }
                     JourneyAggregateCell(
                         period = period,
                         seed = seed,
-                        label = when (scale) {
-                            JourneyScale.WEEK -> "第 ${index + 1} 周"
-                            else -> if (span.isNotBlank()) "${span}…${last}" else "第 ${index + 1} 段"
-                        },
+                        label = baseLabel + (kindLabel?.let { " · $it" } ?: ""),
                         large = scale == JourneyScale.MONTH && periods.size == 1,
                     )
                 }
