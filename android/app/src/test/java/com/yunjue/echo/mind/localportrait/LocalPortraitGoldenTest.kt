@@ -332,6 +332,23 @@ class LocalPortraitGoldenTest {
     }
 
     @Test
+    fun firstReadyPortraitAppearsAtExactlySevenValidDays() {
+        // ERA 81（ADR-068 Day 1-7 收官锚）：第 7 个有效日（全部工作日 → weekday 桶）即触发
+        // 第一个 READY 画像——「你的平常」首次成形（维度非空、headline 非空、baselineDays == 7）。
+        // today = 2026-08-10 周一；窗口内工作日 = today-3/-4/-5/-6/-7/-10/-11。
+        val weekdayOffsets = listOf(3L, 4L, 5L, 6L, 7L, 10L, 11L)
+        val sevenWeekdays = weekdayOffsets.map { agg(today.minusDays(it)) }
+        val dto = generate(makeToday(), sevenWeekdays)
+        assertEquals("READY", dto.status)
+        assertEquals(7, dto.baselineDays)
+        assertTrue("第一个 READY 画像必须有维度比较", dto.dimensions.isNotEmpty())
+        assertTrue("第一个 READY 画像必须有 headline", dto.headline.isNotEmpty())
+        // 第 6 个有效日仍处 EARLY_BASELINE（阶梯边界不提前）
+        val sixWeekdays = weekdayOffsets.take(6).map { agg(today.minusDays(it)) }
+        assertEquals("EARLY_BASELINE", generate(makeToday(), sixWeekdays).status)
+    }
+
+    @Test
     fun narrativeHeadlineAtMostThree() {
         val dto = generate(
             makeToday(activeStart = 700, movement = 0.1, screenMinutes = 300.0, lateMinutes = 120.0, notif = 50, app = 90),

@@ -652,3 +652,15 @@
 - **决策**：Personal Baseline 审计（ADR-067）结项后，下一长阶段选定 **First-Run 纵向切面真值审计**——FINAL PRODUCT ACCEPTANCE 首段的端到端切面：新用户安装 → 授权（同意/权限矩阵）→ ECHO 当场苏醒（首帧/中性占位不编造）→ 感知启动（capability 检测）→ WARMING_UP（事实句获得感）→ 7 天基线成型 → 第一个 READY 画像（「你的平常」首次成形）。不选 CI 模拟器矩阵扩展（连续六轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：FINAL PRODUCT ACCEPTANCE 是产品验收的冻结终态描述，其首段（安装→授权→苏醒）尚无独立审计阶段；各环节均有既有实现与测试（Onboarding smoke / 权限矩阵 / 冷启动文案 / 状态机），审计成本低而验收真值高（User trust 1）；全链本地可测。
 - **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：Day 0→7 切面逐段锚点（安装/授权/苏醒/感知/基线成型/READY 首画像）+ ADR-068 结项记录。
+
+### ADR-068 结项记录（ERA 81，两轮结论）
+
+- 第 1 轮：Day-0 苏醒段——新装无授权无数据仍组装中性 Presence（AmbientEngine UNKNOWN → 安装种子 Identity → SEED 成熟度 → 中性视觉参数）；首帧非空白 + 确定性 + 安装种子跨时间同一 ECHO 锚点；授权后链（Onboarding → refresh → refreshAll）复核通过。
+- 第 2 轮：Day 1-7 冷启动段——第一个 READY 画像恰在第 7 个有效日触发（baselineDays == 7 + 维度非空 + headline 非空），第 6 日仍 EARLY_BASELINE（阶梯边界不提前）；WARMING_UP 事实句/无维度与 EARLY 无「比平常」既有 golden（005/007）复核保持。
+- 结论：FINAL PRODUCT ACCEPTANCE 首段（安装→授权→苏醒→基线成型→第一个 READY 画像）逐段可测：「不接模型 ECHO 仍然存在」「你的平常第 7 天首次成形」具备直接锚点。
+
+## ADR-069：下一长阶段选型——Memory 生命周期闭环真值审计（§76，ERA 82）
+
+- **决策**：First-Run 纵向切面（ADR-068）结项后，下一长阶段选定 **Memory 生命周期闭环真值审计（§76）**——decay（衰减分参与检索）/ expiry（自动过期软删）/ reinforce（用户确认强化）/ pin（固定永不过期）在真实执行链（PresenceRefreshWorker 顺序：refresh → snapshotToday → purgeExpired → derivePatterns；确认/编辑/忘记入口）的端到端复核与锚定；「生命周期真正运行」是 Memory 成熟度的最后一环（§75 排序、§77 派生、§109 长历史均已审计）。不选 CI 模拟器矩阵扩展（连续七轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：宪法「Memory 是长期 Personal Intelligence 的核心资产」需要生命周期闭环证据；User control（忘记/固定）与 Personal continuity（强化顺延）直接受益；全链本地可测。
+- **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：执行链顺序/调度锚点 + decay/expiry/reinforce/pin 全路径锚点 + ADR-069 结项记录。
