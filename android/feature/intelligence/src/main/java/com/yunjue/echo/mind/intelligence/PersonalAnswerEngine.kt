@@ -61,6 +61,12 @@ data class PersonalAnswerInputs(
 data class PersonalAnswer(
     val text: String,
     val evidence: String,
+    /**
+     * ERA 31 R24：这条回答真实用到的数据源（依据双清单诚实化——Ask ECHO 的「依据」
+     * 不再一律说「历史画像」，纠正/上下文/确认类回答如实标注自己用了什么）。
+     * 节律/画像族默认 PORTRAIT_HISTORY；上下文/纠正/确认族覆盖为真实来源。
+     */
+    val usedSources: List<DataSourceCategory> = listOf(DataSourceCategory.PORTRAIT_HISTORY),
 )
 
 object PersonalAnswerEngine {
@@ -476,26 +482,35 @@ object PersonalAnswerEngine {
         if (recent == null) return PersonalAnswer(
             "我这里没有找到出差相关的上下文，所以暂时没有把它算进去。",
             "无出差窗口记录",
+            usedSources = emptyList(),
         )
         val active = dayIndex in recent.fromDay..recent.toDay
         val woke = medianOf(wakeSeries(days, recent.fromDay..minOf(recent.toDay, dayIndex)))
         val base = inputs.baselineWakeMinute
             ?: medianOf(wakeSeries(days, 0..(recent.fromDay - 1).coerceAtLeast(0)))
-            ?: return PersonalAnswer("出差窗口前后的节奏数据还不够，先不下结论。", "窗口内有效起点 ${woke != null}")
+            ?: return PersonalAnswer(
+                "出差窗口前后的节奏数据还不够，先不下结论。",
+                "窗口内有效起点 ${woke != null}",
+                usedSources = listOf(DataSourceCategory.CONTEXT_EXCEPTIONS),
+            )
         val delta = (woke ?: base) - base
         val label = recent.label.ifBlank { "出差" }
+        val contextSources = listOf(DataSourceCategory.CONTEXT_EXCEPTIONS, DataSourceCategory.PORTRAIT_HISTORY)
         return when {
             active && abs(delta) >= 45 -> PersonalAnswer(
                 "有影响。$label 这几天你明显开始了不同的节奏。",
                 "$label 窗口内活跃起点约 ${minuteText(woke ?: base)}，平时 ${minuteText(base)}（差 ${delta.toInt()} 分钟）",
+                usedSources = contextSources,
             )
             active -> PersonalAnswer(
                 "这几天在${label}窗口里，但我先把它当成你的当前状态，不急着下结论。",
                 "${label}窗口 ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
+                usedSources = contextSources,
             )
             else -> PersonalAnswer(
                 "最近一次${label}已经结束了，你的节奏看起来正在回到平时。",
                 "上次$label ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
+                usedSources = contextSources,
             )
         }
     }
@@ -542,11 +557,13 @@ object PersonalAnswerEngine {
         if (corrections.isEmpty()) return PersonalAnswer(
             "你还没有纠正过我。等你纠正时我会记住，并且以后优先考虑你的说法。",
             "纠正记录 0 条",
+            usedSources = emptyList(),
         )
         val recent = corrections.takeLast(3)
         return PersonalAnswer(
             "你纠正过我：${recent.joinToString("；")}。这些我以后都会优先考虑。",
             "纠正记录 ${corrections.size} 条（最近 ${recent.size} 条）",
+            usedSources = listOf(DataSourceCategory.USER_CORRECTIONS),
         )
     }
 
@@ -556,11 +573,13 @@ object PersonalAnswerEngine {
         if (confirmed.isEmpty()) return PersonalAnswer(
             "你还没有确认过什么。你确认过的事情我会一直记得，并且优先相信你的说法。",
             "确认记录 0 条",
+            usedSources = emptyList(),
         )
         val recent = confirmed.takeLast(3)
         return PersonalAnswer(
             "记得。你确认过：${recent.joinToString("；")}。",
             "确认记录 ${confirmed.size} 条（最近 ${recent.size} 条）",
+            usedSources = listOf(DataSourceCategory.PREFERENCES),
         )
     }
 
@@ -572,10 +591,12 @@ object PersonalAnswerEngine {
         val valid = window.filter { it.activeStartMinute != null }
         val weekday = valid.filter { !isWeekend(it.date) }.mapNotNull { it.activeStartMinute?.toDouble() }
         val weekend = valid.filter { isWeekend(it.date) }.mapNotNull { it.activeStartMinute?.toDouble() }
+        val bothSources = listOf(DataSourceCategory.PREFERENCES, DataSourceCategory.PORTRAIT_HISTORY)
         if (weekday.size < 5 || weekend.size < 3) {
             return PersonalAnswer(
                 "你确认过周末会晚起。目前周末的观察样本还不多，我先把工作日的样子看清楚再对。",
                 "工作日 ${weekday.size} 天 / 周末 ${weekend.size} 天",
+                usedSources = bothSources,
             )
         }
         val delta = medianOf(weekend)!! - medianOf(weekday)!!
@@ -583,11 +604,13 @@ object PersonalAnswerEngine {
             PersonalAnswer(
                 "一致。你的观察也对：周末确实比工作日晚起约 ${delta.toInt()} 分钟。",
                 "工作日起床 ${minuteText(medianOf(weekday)!!)} · 周末 ${minuteText(medianOf(weekend)!!)}",
+                usedSources = bothSources,
             )
         } else {
             PersonalAnswer(
                 "你确认过周末会晚起。不过最近的观察里，周末和工作日起床时间差得不多（${delta.toInt()} 分钟），我按你的说法继续看。",
                 "工作日起床 ${minuteText(medianOf(weekday)!!)} · 周末 ${minuteText(medianOf(weekend)!!)}",
+                usedSources = bothSources,
             )
         }
     }

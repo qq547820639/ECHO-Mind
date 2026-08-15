@@ -111,5 +111,10 @@ class DeterministicPersonalAnswerProviderTest {
         assertNotNull("上下文窗口应进入回答", result)
         assertTrue("标签应为结构化 kind「旅行」：${result!!.text}", result.text.contains("旅行"))
         assertTrue("不应出现内容串截断：${result.text}", !result.text.contains("特殊时期"))
+        // ERA 31 R24：依据如实标注（你告诉我的特殊日期），不再一律「历史画像」
+        assertTrue(
+            "上下文回答的来源应包含 CONTEXT_EXCEPTIONS：${result.usedSources}",
+            com.yunjue.echo.mind.intelligence.DataSourceCategory.CONTEXT_EXCEPTIONS in result.usedSources,
+        )
     }
 }

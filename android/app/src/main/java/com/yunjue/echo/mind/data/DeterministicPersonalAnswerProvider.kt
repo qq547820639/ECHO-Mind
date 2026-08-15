@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.data
 
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
-import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.intelligence.PersonalAnswerEngine
 import com.yunjue.echo.mind.intelligence.PersonalAnswerInputs
 import com.yunjue.echo.mind.intelligence.PersonalContextWindow
@@ -95,7 +94,9 @@ class DeterministicPersonalAnswerProvider(
         ) ?: return null
         return AiNarrativeService.DeterministicPersonalResult(
             text = result.text,
-            usedSources = listOf(DataSourceCategory.PORTRAIT_HISTORY),
+            // ERA 31 R24：依据如实透传（引擎标注真实用到的数据源）——
+            // 纠正/上下文/确认类回答不再一律显示「参考了：历史画像」。
+            usedSources = result.usedSources,
         )
     }
 }

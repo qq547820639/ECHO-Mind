@@ -187,6 +187,28 @@ class PersonalAnswerEngineTest {
     }
 
     @Test
+    fun answerSourcesAreHonest() {
+        // ERA 31 R24：依据双清单如实标注——上下文/纠正/确认回答不再一律「历史画像」
+        val days = series(40, start = { i -> if (i in 20..39) 420 else 540 })
+        val withContext = inputs(days).copy(contextWindows = listOf(PersonalContextWindow(20, 39, "出差")))
+        val travel = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", withContext)!!
+        assertTrue("上下文回答应标注你告诉我的特殊日期", travel.usedSources.contains(DataSourceCategory.CONTEXT_EXCEPTIONS))
+        assertTrue("上下文回答同时用了画像历史", travel.usedSources.contains(DataSourceCategory.PORTRAIT_HISTORY))
+
+        val corrections = PersonalAnswerEngine.answer(
+            "我纠正过你的那次，后来你改了吗？",
+            inputs(series(5, start = { 540 }), corrections = listOf("画像反馈：不太像（原因：旅行）")),
+        )!!
+        assertEquals(listOf(DataSourceCategory.USER_CORRECTIONS), corrections.usedSources)
+
+        val noWindow = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", inputs(series(5, start = { 540 })))!!
+        assertTrue("无上下文时不应谎称用了任何来源", noWindow.usedSources.isEmpty())
+
+        val drift = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(series(90, start = { 540 })))!!
+        assertEquals(listOf(DataSourceCategory.PORTRAIT_HISTORY), drift.usedSources)
+    }
+
+    @Test
     fun visualQuestionExplainsTodayLikeWhyToday() {
         // ERA 31 R17：Ask ECHO 界面建议的「为什么今天 ECHO 看起来不一样？」
         // = 今天最强的节律差异维度（Why 层同源），离线确定性可答。
