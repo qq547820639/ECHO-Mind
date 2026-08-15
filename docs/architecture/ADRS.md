@@ -739,3 +739,12 @@
 - Grounding claim-evidence compatibility（§29）：7 个状态断言词（压力/疲惫/…）仅用户自述可支撑；「屏幕晚 40 分钟 → 你压力很大」必须失败；正负例矩阵测试。
 - NarrativeDistiller（§30）接入 AiNarrativeService 三条链路；**persona 稳定性门：6 种 Provider 风格同义输出蒸馏后收敛到同一句**（§31）。
 - 门禁：app 844 / qa 61 / presence 16 全绿 + detekt 干净；backend 本轮无变更（1076 上轮全量）。
+
+### ADR-073 第 3 轮记录（Product Quality Era Round 3 — Batch 3 Memory / Self Model）
+
+- EchoSelfModel 六域快照（Rhythm/Context/Preferences/Corrections/Patterns/Interaction）+ echoKnowsLines 自然语言行（§32/§45 先导）。
+- StablePattern 生命周期（§33-35）：OBSERVED→CANDIDATE→CONFIRMED；纠正 1 次 WEAKENING / 2 次 CONFLICTING；矛盾史跨轮保留（不静默覆盖）；长期无支持+矛盾史 → OUTDATED；OUTDATED 后新鲜确认证据 → 复活 CONFIRMED。置信 = 次数×跨度×一致性×上下文覆盖×纠正×新鲜度（§34 全因子锚点）。
+- Memory Consolidation（§36）：≥4 同键观察 → 1 条「过去 N 天持续观察到…」+ 源 id 清单，输出上限 5。
+- Memory Privacy（§37）：EchoMemory 新增 sensitivity（CORRECTION → SENSITIVE 仓储默认）；echoKnowsLines 过滤敏感内容。
+- 上下文例外质量：格式往返/非法日期不伪造/fixture 出差窗口日期覆盖 → 模式置信打折。
+- 门禁：app 844 / qa 76 / presence 16 全绿 + detekt 干净；backend 无变更。

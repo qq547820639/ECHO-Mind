@@ -2,6 +2,7 @@ package com.yunjue.echo.mind.data
 
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.memory.EchoMemory
+import com.yunjue.echo.mind.memory.MemorySensitivity
 import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.memory.RetentionClass
 import com.yunjue.echo.mind.memory.defaultRetentionFor
@@ -193,17 +194,22 @@ class MemoryRepository(
     }
 }
 
-private fun EchoMemoryEntity.toDomain(): EchoMemory = EchoMemory(
-    id = id,
-    userId = userId,
-    type = runCatching { MemoryType.valueOf(type) }.getOrDefault(MemoryType.OBSERVATION),
-    content = content,
-    source = source,
-    confidence = confidence,
-    createdAt = createdAt,
-    lastConfirmedAt = lastConfirmedAt,
-    importance = importance,
-    retentionClass = runCatching { RetentionClass.valueOf(retentionClass) }.getOrDefault(RetentionClass.SHORT_TERM),
-    provenance = provenance,
-    deleted = deleted,
-)
+private fun EchoMemoryEntity.toDomain(): EchoMemory {
+    val domainType = runCatching { MemoryType.valueOf(type) }.getOrDefault(MemoryType.OBSERVATION)
+    return EchoMemory(
+        id = id,
+        userId = userId,
+        type = domainType,
+        content = content,
+        source = source,
+        confidence = confidence,
+        createdAt = createdAt,
+        lastConfirmedAt = lastConfirmedAt,
+        importance = importance,
+        retentionClass = runCatching { RetentionClass.valueOf(retentionClass) }.getOrDefault(RetentionClass.SHORT_TERM),
+        provenance = provenance,
+        deleted = deleted,
+        // ERA 23 §37：纠正类记忆默认敏感（用户自述原因，不进锁屏/公开叙事）
+        sensitivity = if (domainType == MemoryType.CORRECTION) MemorySensitivity.SENSITIVE else MemorySensitivity.PERSONAL,
+    )
+}

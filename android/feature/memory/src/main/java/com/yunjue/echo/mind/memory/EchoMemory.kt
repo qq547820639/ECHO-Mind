@@ -37,6 +37,18 @@ enum class RetentionClass {
     USER_PINNED,   // 永不过期（用户固定）
 }
 
+/**
+ * ERA 23 §37 — 记忆敏感度（Privacy）：每条记忆显式携带敏感度。
+ * SENSITIVE 记忆不进锁屏/壁纸叙事、不进公开依据展示。
+ */
+enum class MemorySensitivity {
+    /** 普通个人节律/偏好。 */
+    PERSONAL,
+
+    /** 用户自述的敏感事实（纠正原因、生活事件等）。 */
+    SENSITIVE,
+}
+
 data class EchoMemory(
     val id: String,
     val userId: String,
@@ -50,6 +62,8 @@ data class EchoMemory(
     val retentionClass: RetentionClass,
     val provenance: String,
     val deleted: Boolean = false,
+    /** §37 sensitivity（CORRECTION 默认为 SENSITIVE，其余 PERSONAL）。 */
+    val sensitivity: MemorySensitivity = MemorySensitivity.PERSONAL,
 )
 
 /** 保留天数（USER_PINNED 无自动过期）。 */
