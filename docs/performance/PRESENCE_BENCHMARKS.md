@@ -10,6 +10,7 @@
 | destroy 后渲染 | **= 0（永久）** | `WallpaperRenderControllerTest.destroyStopsForever` |
 | 不可见触摸绘制 | **= 0** | `WallpaperRenderControllerTest.invisibleTouchProducesNoDraw` |
 | 渲染循环驱动 | 仅 Choreographer postFrameCallback（可见时）；无独立线程空转 | EchoWallpaperService 结构 + code review |
+| 可见期自适应帧率（§16 静态期降帧） | 过渡期（参数变化 <2s / 触摸涟漪）33ms；静置期 250ms（4fps） | `wallpaperFrameIntervalMs` 纯函数 + `WallpaperFrameIntervalPolicyTest`（ERA 31 R13） |
 
 ## 2. 设备实测基准（CI/真机执行，逐次记录）
 

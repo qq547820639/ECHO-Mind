@@ -36,6 +36,9 @@ class EchoWallpaperService : WallpaperService() {
         private var frameCallback: Choreographer.FrameCallback? = null
         private var startNanos = 0L
 
+        /** ERA 31 R13（§16）：最近一次视觉变化时刻（快照更新/触摸涟漪）——自适应帧间隔依据。 */
+        private var lastVisualChangeMs = 0L
+
         /** ERA 3 收尾（WORK-ERA3-2）：触摸涟漪衰减截止时间（0 = 无涟漪）。 */
         private var rippleUntilMs = 0L
 
@@ -96,9 +99,14 @@ class EchoWallpaperService : WallpaperService() {
         }
 
         private fun refreshSnapshot() {
+            val previous = snapshot?.updatedAt
             snapshot = EchoPresenceCodec.decode(
                 prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
             )
+            if (snapshot?.updatedAt != previous) {
+                // ERA 31 R13：快照变化 → 视觉参数将变化 → 进入流畅过渡窗口
+                lastVisualChangeMs = System.currentTimeMillis()
+            }
             lastSnapshotReadMs = System.currentTimeMillis()
         }
 
@@ -113,10 +121,17 @@ class EchoWallpaperService : WallpaperService() {
         private fun startRendering() {
             if (frameCallback != null) return
             startNanos = 0L
+            lastVisualChangeMs = System.currentTimeMillis()
             val callback = object : Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
                     drawFrame()
-                    Choreographer.getInstance().postFrameCallback(this)
+                    // ERA 31 R13（§16）：自适应帧间隔——过渡期 33ms / 静置期 250ms（4fps）
+                    val rippleActive = rippleUntilMs > System.currentTimeMillis()
+                    val interval = wallpaperFrameIntervalMs(
+                        msSinceVisualChange = System.currentTimeMillis() - lastVisualChangeMs,
+                        rippleActive = rippleActive,
+                    )
+                    Choreographer.getInstance().postFrameCallbackDelayed(this, interval)
                 }
             }
             frameCallback = callback

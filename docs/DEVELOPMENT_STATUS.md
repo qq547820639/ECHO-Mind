@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**1005 unit tests**（app 853 / feature:intelligence 20 / feature:presence 21 / feature:qa 111；ERA 31 R11 实测全绿）+ lint（4 安全规则）+
+- Android：**1008 unit tests**（app 853 / feature:intelligence 20 / feature:presence 24 / feature:qa 111；ERA 31 R13 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
