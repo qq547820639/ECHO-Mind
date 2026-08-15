@@ -559,3 +559,9 @@
 - 第 2 轮：「ECHO 不知道什么」能力边界（EchoKnowsFacts → EchoDoesNotKnow 纯映射：感知/麦克风/AI/基线四事实 → 诚实边界行；能力齐备零行不编造）。
 - 第 3 轮：每条记忆显示来源（= 层标签）与保留策略（retentionLabelText 与 retentionDaysFor 同源：7/30/365 天到期自动软删 + 用户固定永不清理）。
 - 结论：FINAL PRODUCT ACCEPTANCE「用户能明确知道 ECHO 知道什么 / 不知道什么 / Memory 有什么」在 Me 世界完整呈现且逐项可测；What ECHO Knows 深化阶段完成。
+
+## ADR-061：下一长阶段选型——Memory 长历史性能与正确性（§109，ERA 63）
+
+- **决策**：What ECHO Knows 深化（ADR-060）结项后，下一长阶段选定 **§109 Memory 长历史性能与正确性审计**——千级/五千级记忆的检索排序、派生、过期维护全路径实测与修复（§109 明确「根据规模加入 indexes/query ranking/summaries」；审计即刻发现 purgeExpired 500 条截断缺陷）。不选 Journey Year 视图深化（视觉打磨）与数据权利检查台（47/49 轮已覆盖导出/删除/撤回证据链）。
+- **理由**：数据真值（宪法优先级 4）> 视觉打磨；过期维护截断是真实正确性缺陷（低重要度短时记忆恰是被截断的那部分）；性能基准本地 JVM 可测 + CI 真机矩阵承接。
+- **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。

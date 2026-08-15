@@ -169,7 +169,9 @@ class MemoryRepository(
     /** 自动过期清理（软删）；返回清理条数。 */
     suspend fun purgeExpired(now: Long = System.currentTimeMillis()): Int {
         var purged = 0
-        for (entity in memoryDao().topByUser(preferences.userId, limit = 500)) {
+        // ERA 63（§109 审计）：全量扫描——此前 topByUser(limit=500) 按重要度截断，
+        // 低重要度短时记忆（恰是最可能过期的一类）被遗漏在扫描之外。
+        for (entity in memoryDao().allNonDeletedByUser(preferences.userId)) {
             if (shouldForget(entity.toDomain(), now)) {
                 memoryDao().expire(entity.id)
                 purged++

@@ -350,6 +350,10 @@ interface MemoryDao {
     @Query("SELECT * FROM echo_memories WHERE userId = :userId AND deleted = 0 ORDER BY importance DESC, lastConfirmedAt DESC LIMIT :limit")
     suspend fun topByUser(userId: String, limit: Int): List<EchoMemoryEntity>
 
+    /** ERA 63（§109 审计）：过期维护专用全量扫描（无 LIMIT——此前 500 条截断漏过期低重要度记忆）。 */
+    @Query("SELECT * FROM echo_memories WHERE userId = :userId AND deleted = 0")
+    suspend fun allNonDeletedByUser(userId: String): List<EchoMemoryEntity>
+
     @Query("SELECT * FROM echo_memories WHERE userId = :userId AND type = :type AND deleted = 0 ORDER BY lastConfirmedAt DESC")
     suspend fun byType(userId: String, type: String): List<EchoMemoryEntity>
 
