@@ -84,9 +84,23 @@
 4. ✅ Year View 复审：Visual > Narrative 已达标；journeyYearStory 保持 QA 用途（不增加 narrative 展示面）。
 5. ✅ 无意义自动总结：未发现（叙事降级链已克制）。
 
-**BATCH 5 进行中（§47-50）**：
+**BATCH 5 ✅ 收口（§47-50）**：
 
-1. ✅ Onboarding 审计：三步流程已符合 North Star（AI/Mic 后置、授权完成不停留、苏醒自动过渡）。
-2. ✅ Time-to-ECHO 指标建立（`qa/reports/TIME_TO_ECHO.md`：六段分解 + 机器段 ≈2.21s + 苏醒时长预算回归锚点）。
-3. ✅ §51 首帧不等待审计（combine 全本地流；Provider/Backend/Memory 不阻塞首帧）。
-4. ⏭ Permission 文案（§48 三问复核）与 dogfood 观察合并到 BATCH 6。
+1. ✅ Onboarding 审计（North Star 达标 / AI·Mic 后置 / 授权完成不停留）。
+2. ✅ Time-to-ECHO 指标（六段分解 + 苏醒时长预算）。
+3. ✅ §51 首帧不等待审计。
+4. ✅ §48 权限文案三问复核（已达标，不改动）。
+
+**BATCH 6 准备中（§35-38，本环境无真机）**：
+
+1. ✅ Dogfood 协议增补：六类缺陷分类 + Why accuracy / 纠正复用 / 壁纸留存意愿 / Journey 有用性记录项。
+2. ✅ `scripts/collect_wallpaper_metrics.sh`（真机 CPU/mem/帧/battery 采样，部署侧执行）。
+3. ⏳ 30 天 dogfood + 真机 Wallpaper battery：外部门执行（协议/清单/脚本已就绪）。
+
+**BATCH 7 进行中（§39-41）**：
+
+1. ✅ Delete Audit（`qa/reports/DELETE_AUDIT.md`）：核心 UI 已干净、无删除；临床量表移交外部门复核。
+2. ✅ Subscription gating 审计：订阅只 gate 云端同步+专业支持，免费核心全部本地（符合 §40）。
+3. ✅ QA mirror cleanup 收尾：learningPhaseHeadline 下沉 feature:presence 单点，QA 副本删除（三项 mirror 全部闭环）。
+4. ⏭ core:ports dependency cleanup（ERA 40 §46 审计）。
+5. ⏭ App/UI complexity cleanup。

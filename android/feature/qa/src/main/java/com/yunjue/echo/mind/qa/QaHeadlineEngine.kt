@@ -42,31 +42,20 @@ object QaHeadlineEngine {
         return QaHeadline(public = public, evidence = evidence, aiLayer = aiLayer)
     }
 
-    /** 学习期文案（ERA 20 §10 + ERA 31 与 production learningPhaseHeadline 逐字对齐）：绝不展示「数据不足」。 */
+    /** 学习期文案：public 用 production 共享函数（ERA 31 R7 QA mirror 收敛——不再有 QA 副本）。 */
     private fun learningPhase(snap: QaDaySnapshot): QaHeadline {
         val observedMinutes = snap.aggregate.validWindowCount * 5L
-        return when (snap.presence.maturity) {
-            EchoMaturity.SEED -> QaHeadline(
-                public = "初见。",
-                evidence = "正在了解今天的节律 · 已观察 $observedMinutes 分钟",
-                aiLayer = null,
-            )
-            EchoMaturity.DISCOVERING, EchoMaturity.EMERGING -> QaHeadline(
-                public = "我开始看到一些属于你的节奏。",
-                evidence = "已观察 $observedMinutes 分钟 · 基线第 ${snap.baseline?.validDays ?: 0} 天",
-                aiLayer = null,
-            )
-            EchoMaturity.KNOWN -> QaHeadline(
-                public = "我开始认识通常的你了。",
-                evidence = "已观察 $observedMinutes 分钟",
-                aiLayer = null,
-            )
-            EchoMaturity.MATURE -> QaHeadline(
-                public = "ECHO 还在了解今天。",
-                evidence = "已观察 $observedMinutes 分钟",
-                aiLayer = null,
-            )
+        val evidence = when (snap.presence.maturity) {
+            EchoMaturity.SEED -> "正在了解今天的节律 · 已观察 $observedMinutes 分钟"
+            EchoMaturity.DISCOVERING, EchoMaturity.EMERGING ->
+                "已观察 $observedMinutes 分钟 · 基线第 ${snap.baseline?.validDays ?: 0} 天"
+            else -> "已观察 $observedMinutes 分钟"
         }
+        return QaHeadline(
+            public = com.yunjue.echo.mind.presence.learningPhaseHeadline(snap.presence.maturity),
+            evidence = evidence,
+            aiLayer = null,
+        )
     }
 
     /** 公共一句话：口语、克制、不喊口号。 */

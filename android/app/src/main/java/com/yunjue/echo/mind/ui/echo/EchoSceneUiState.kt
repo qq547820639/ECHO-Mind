@@ -10,6 +10,7 @@ import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.presence.EchoMaturity
+import com.yunjue.echo.mind.presence.learningPhaseHeadline
 import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
@@ -39,17 +40,6 @@ data class EchoSceneUiState(
     /** Intervention Policy L2：是否展示「让自己慢一点」温和建议。 */
     val suggestedAction: Boolean,
 )
-
-/**
- * ERA 20 §10 — 学习期一句话（按成熟度；禁「数据不足」文案）。
- * SEED：初见；DISCOVERING/EMERGING：开始看到节奏；KNOWN：开始认识通常的你。
- */
-fun learningPhaseHeadline(maturity: EchoMaturity): String = when (maturity) {
-    EchoMaturity.SEED -> "初见。"
-    EchoMaturity.DISCOVERING, EchoMaturity.EMERGING -> "我开始看到一些属于你的节奏。"
-    EchoMaturity.KNOWN -> "我开始认识通常的你了。"
-    EchoMaturity.MATURE -> "ECHO 还在了解今天。"
-}
 
 /**
  * ECHO Scene 状态装配（纯函数）：

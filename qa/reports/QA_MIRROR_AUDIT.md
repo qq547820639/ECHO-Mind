@@ -64,5 +64,5 @@ oracle 与产品不再存在两份实现。
 
 ## 6. 后续（BATCH 7 收口）
 
-- :app headline 纯函数下沉 :feature:intelligence；QaHeadlineEngine 文案分支删除。
-- 复检 `QaPortraitMirror` 是否可改由「backend 导出的 golden 快照」驱动（不跑 Python），以 golden 而非镜像为 fixture 基线。
+- ✅ learningPhaseHeadline 下沉 feature:presence 单点（ERA 31 R7）；QaHeadlineEngine 文案分支删除。
+- QaPortraitMirror 继续以跨语言黄金门对拍 backend（golden 为 fixture 基线，方向不变）。

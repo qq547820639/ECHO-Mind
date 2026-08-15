@@ -34,6 +34,17 @@ fun echoMaturity(baselineDays: Int): EchoMaturity = when {
 }
 
 /**
+ * ERA 20 §10 — 学习期一句话（production 唯一文案源；:app 与 :feature:qa 共用，
+ * 禁止各自再写副本——QA mirror 收敛后的单点）。禁「数据不足」文案。
+ */
+fun learningPhaseHeadline(maturity: EchoMaturity): String = when (maturity) {
+    EchoMaturity.SEED -> "初见。"
+    EchoMaturity.DISCOVERING, EchoMaturity.EMERGING -> "我开始看到一些属于你的节奏。"
+    EchoMaturity.KNOWN -> "我开始认识通常的你了。"
+    EchoMaturity.MATURE -> "ECHO 还在了解今天。"
+}
+
+/**
  * 节律状态（RhythmModel 的当前快照；ERA 2 由 AmbientEngine 填充，ERA 1 为占位默认值）。
  * 全部为中性连续值，禁止评价性命名（见 PERSONAL_INTELLIGENCE_CONTRACT §4）。
  */

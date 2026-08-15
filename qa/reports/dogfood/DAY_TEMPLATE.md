@@ -12,9 +12,13 @@
 - unexpected interpretation：无
 - battery：无异常
 - wallpaper behavior：锁屏只有呼吸，没有文字
+- Why accuracy：一致（学习期无判断，符合预期）
+- wallpaper desire-to-keep：想留
 - useful answer：（无，学习期诚实说「还没攒够」）
 - bad answer：无
-- correction：无
+- correction：无（reused：—）
+- Journey usefulness：DAY 河流有 7 帧，能看出是自己的节奏
+- 问题分类：无缺陷
 
 ## 回流映射示例
 
