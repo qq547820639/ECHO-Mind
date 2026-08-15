@@ -7,7 +7,7 @@ fe16400ad17dadcdd7a053a983d6c6f1957007e7ecec95b2a821876666242fbd  .github/workfl
 1f1e5022fcc6d9258610a5c5fe73a5bef1a5b9c84c77e6ac25f86d09c066080d  .gitignore
 1cb583368385f2d5c3c8808f5a933a1824388b96816a0199f45b83c5335a9d2e  Makefile
 5fc5919e646a637747a171a89bb1700adb635322246ef653820ae8ce1b01cb5c  PORTRAIT_CONTRACT.md
-1d0aaf81ec16130bbbc8969fe7dd668e44125ecda37a5ef745313765355083c2  README.md
+ebec71285e808b07d5d33e5595dad73039f565e0cd0d5843b5a82c0e28b98568  README.md
 93a79b01c9674104e6d6cabb735eb1ae8c1d7d7e7329b4a9dd7f652edaca1804  RELEASE_NOTES_v0.2.0.md
 0028eecff690311519240df6b857dc0a120dab71d9ed4559bc88185288fbf2eb  RELEASE_NOTES_v0.6.0.md
 3ab9380798e062043871c8ca9e08d11b7ae9f3742c2000bb5e49706143a9e5e5  RELEASE_NOTES_v0.7.0.md
@@ -78,9 +78,9 @@ bbb04e8a50b7dd3bd1b84edf5a52c7853a1fa2534a432b0a06c1415d4d80f599  android/app/sr
 bee98d99a9283f2647219d218e209cc449d8452243ac982d5bc2401b625c4fc4  android/app/src/main/java/com/yunjue/echo/mind/security/PreferencesDatabaseSecretStorage.kt
 419ef4ec0430dd783880609c9f3b99d5b8d7e6ebf655cfe4dbf619fca4e8e899  android/app/src/main/java/com/yunjue/echo/mind/sensing/MicCollector.kt
 3609f306363646365d48143a707312b42fefd97b64f6703a9efe964db61e7bc6  android/app/src/main/java/com/yunjue/echo/mind/sensing/PassiveSensingService.kt
-d0c846b9ebdab1cec611be15d62555b118b18e96a70be2bb4b9b82af57f1c30e  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoActionOverlay.kt
+3570ac0f42ed1772fee374d63431279329a79e33c92a75f3c938b97d350b0309  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoActionOverlay.kt
 752a93d459cf921299f11ae42a738dc8a6bcd6bdfe91cabc95463f0ffcba0f49  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoMindApp.kt
-b10d1a3a8bbef6cf232e6583140e56b398dc920446a94b1051585cd33ef928ac  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt
+5c4df014d8580c8c3290b4f2e6ef69f77ad916c46590c04cf1111d8655e12db9  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt
 602bc541b85082d0610f07da39f68c4617e1992b6e071d225f0e448c47f2fed2  android/app/src/main/java/com/yunjue/echo/mind/ui/JourneyState.kt
 f475e17421f30bc8a4689916b388f22bb67929804046199e0eebd6f15c5d1fed  android/app/src/main/java/com/yunjue/echo/mind/ui/MeSupportHelpers.kt
 06df491665f05179440a1d5bf640bce806b35d0b7df56b230cd0d661a27e96f7  android/app/src/main/java/com/yunjue/echo/mind/ui/OnboardingScreen.kt
@@ -93,7 +93,7 @@ d655f7bd6b1df11d8ff2ebb4c968ad093641120d52beab880cf56144f2daae14  android/app/sr
 d2f0ffa2434b535efa9a1f318cbc306b5d6f51bee54ca7884dd0b50ae875d177  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/actions/EchoActionLayer.kt
 53b67bcbcbc4d249360bd8950fcf49373558b1296fd7d86e37de7bd1a76d8eb8  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoPortraitStates.kt
 e28a584fdc2995da3c404244933317f3baa5d81c4d123023e7373b700c3ecd36  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoStatusOverlay.kt
-337615bce8c66cc36ace24d0b142c52caa34335c722193d328a2df9b0645c44d  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoVisualSurface.kt
+141d10df34da117f3098845b35cba10f0f797fba68eace01e026ca69b3f851d3  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/EchoVisualSurface.kt
 4da0c75dd5e091b87b441a0b01951e939ecb3ae48f012ce788c84378d8d776f3  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/components/SkillListSection.kt
 e80c062d3a92b395ba55382659a5763b4df8e6d4df77155d5b7266e74f5eea6c  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/conversation/EchoConversationLayer.kt
 bc13eaefef0e3bddd36ce0fe32f985f78861cfbd93648306a9450dbc769031c9  android/app/src/main/java/com/yunjue/echo/mind/ui/echo/why/EchoWhyLayer.kt
@@ -216,7 +216,7 @@ cfd8eb4eed37bf8f12bc021adfb24894d2813dfce540a8927eafbfe5b2d2136c  android/app/sr
 25f92742e12ecf98b4adbceed5549789c3f2ac5921e923dcb423c6e9171fa9f5  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/actions/EchoActionLayerContentSmokeTest.kt
 8655bcc101c538b3b21f7e34205a8c29eac15927a09751aed693247eec398b8d  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoPortraitStatesSmokeTest.kt
 3311ff9456ab576d6694ee64bdd92bbb88f933bc71e314de94a88350ba084fdc  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoStatusOverlaySmokeTest.kt
-f40040144ffa0b925dc0d7ad1d7a2e4d5f59ec1e6ebce9c3152ad9e5edb86d4b  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoVisualSurfaceConfigTest.kt
+97872f574c94673007e786c96f41e7c0baf9c7193c7d5aa9ef967566cb17b025  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/components/EchoVisualSurfaceConfigTest.kt
 b26ab1b4c7c414c6db3079af1d14531826f1732db4000a2f6f436b9109bb970d  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/conversation/EchoConversationLayerSmokeTest.kt
 fa92e0e9906542d80a5c7a96cab1da68f7790928a95ad9569a56c07cb2921767  android/app/src/test/java/com/yunjue/echo/mind/ui/echo/why/EchoWhyLayerSmokeTest.kt
 88a0c2a455276e5a1068caa939ba586cc82470a2d7b2a81206d5e37339ef442b  android/app/src/test/java/com/yunjue/echo/mind/ui/journey/JourneyScreenSmokeTest.kt
@@ -518,9 +518,9 @@ dd79199277b0db7470ad73a3c27bf8b97be2f8b69d7165133a2f4de3a18232dc  docs/11_部署
 93222a258b2ecd5c3fa0243c111d51dd11a42b61cec6eb930103d4d650c75db1  docs/12_验收记录模板.md
 dec15ad000bc86d1fe140510344c4ad2ea82d1929b03a1eeddb175562f020ea2  docs/15_外部执行任务交接.md
 a3da583cb03ca41c53131acc6ae8fe890285df0292d73d0cc4b3a23c37195700  docs/DOCUMENT_AUTHORITY.md
-aee2969d0932ac16ce7642fc851d5afa1847e38ad181bcd699238525b350e5f8  docs/IMPLEMENTATION_STATUS.md
+74b2a6b68254086c87ceeca3fae1d7cf8147a56d4759c5b3395989eeaae3d86a  docs/IMPLEMENTATION_STATUS.md
 b451ce30093b67dffa508dea68514bafb32398beec61a33b161671e82783bcef  docs/README_AUTHORITY.md
-24cfa860ad2659ef95c49eaea07165c5937b2ab691fe7fe552f7d50ad24559a0  docs/architecture/ADRS.md
+26fa6dc41eb6a168c65c3cfd1c47fb56893efdde71968125d387bf73e3747878  docs/architecture/ADRS.md
 455249fc665de07e36d711605a88217404a5a1ec463240a734b69f88b36d6f0f  docs/architecture/ANDROID_CODE_INVENTORY.md
 5109793767f60d39bf2b7dfaad36ee893ccaeea6e3f4f61987582008de42a75d  docs/architecture/ANDROID_DEPENDENCY_GRAPH.md
 c1378568a30b1168c1b5c8d9564464a0d2f3ed606b921b96663098ca5ff8a381  docs/architecture/CLEAN_ROOM_REPRODUCTION.md
