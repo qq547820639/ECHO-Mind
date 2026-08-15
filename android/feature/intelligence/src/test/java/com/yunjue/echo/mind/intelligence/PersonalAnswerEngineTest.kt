@@ -230,6 +230,33 @@ class PersonalAnswerEngineTest {
     }
 
     @Test
+    fun confirmedRecallReplaysUserConfirmedFacts() {
+        val days = series(10, start = { 540 })
+        val withConfirmed = inputs(days).copy(userConfirmed = listOf("周末会晚起"))
+        val answer = PersonalAnswerEngine.answer("你还记得我确认过的那些事情吗？", withConfirmed)!!
+        assertTrue("回放确认内容：${answer.text}", answer.text.contains("周末会晚起"))
+        val none = PersonalAnswerEngine.answer("你还记得我确认过的那些事情吗？", inputs(days))!!
+        assertTrue("无确认诚实：${none.text}", none.text.contains("还没有确认过"))
+    }
+
+    @Test
+    fun confirmedWeekendCheckAlignsUserTruthWithObservation() {
+        // 工作日 09:00 / 周末 10:00 → 观察与用户自述一致
+        val days = series(90, start = { i ->
+            when (epoch.plusDays(i.toLong()).dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> 600
+                else -> 540
+            }
+        })
+        val answer = PersonalAnswerEngine.answer("我确认过周末会晚起，你的观察一致吗？", inputs(days))!!
+        assertTrue("观察一致：${answer.text}", answer.text.contains("一致") && answer.text.contains("60 分钟"))
+        // 工作日/周末相同 → 诚实地按用户说法继续看（User truth 不被被动证据投票击败）
+        val flatDays = series(90, start = { 540 })
+        val flat = PersonalAnswerEngine.answer("我确认过周末会晚起，你的观察一致吗？", inputs(flatDays))!!
+        assertTrue("用户自述优先：${flat.text}", flat.text.contains("按你的说法继续看"))
+    }
+
+    @Test
     fun allCoreSetPhrasingsRouteToFamilies() {
         val covered = listOf(
             "最近一个月我明显变晚了吗？",

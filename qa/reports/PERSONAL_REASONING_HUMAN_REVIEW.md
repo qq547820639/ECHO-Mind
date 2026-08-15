@@ -59,3 +59,13 @@
 3. 引擎问法为严格表（canonical + Core Set 变体）；自由措辞仍走 AI 路径——这是有意的克制
    （Part 23：不做 keyword patch），下一轮观察真实用户措辞再决定是否扩展；
 4. 周/月/半年回答不含 Life Season 上下文（后续与 Journey 解释链对齐时补）。
+
+## 5. R4 增补（BATCH 2 收口）
+
+- **覆盖率 26/26**：新增 CONFIRMED_RECALL（q043，回放 USER_CONFIRMED 记忆）与
+  CONFIRMED_WEEKEND_CHECK（q042，用户自述 vs 周末观察对拍——观察一致时报数字，
+  不一致时「按你的说法继续看」，被动证据不投票击败用户 §28）。
+- **Grounding overreach 门禁**（§24 落地）：PersonalAnswerReviewHarnessTest 对全部 26×3 回答
+  强制 `containsBlockedVocabulary` + 监视语言双门禁——确定性层的
+  「False personal interpretation rate」从此有回归锚点。
+- Production 接线：USER_CONFIRMED 记忆 → DeterministicPersonalAnswerProvider → 引擎输入。

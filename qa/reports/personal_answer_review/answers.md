@@ -268,26 +268,26 @@
 
 ## q042 我确认过周末会晚起，你的观察一致吗？
 
-- 引擎覆盖：否（诚实交回 AI 路径）
+- 引擎覆盖：是
 - 期望证据：task=ANSWER_PERSONAL_QUESTION · 窗口 60d · baseline=true · context=false · correction=false
-- **PROFILE_A_STABLE · Day 180**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
-- **PROFILE_D_TRAVEL · Day 90**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
-- **PROFILE_F_LOW_DATA · Day 180**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
+- **PROFILE_A_STABLE · Day 180**：一致。你的观察也对：周末确实比工作日晚起约 23 分钟。
+  - 证据：工作日起床 08:51 · 周末 09:14
+- **PROFILE_D_TRAVEL · Day 90**：一致。你的观察也对：周末确实比工作日晚起约 20 分钟。
+  - 证据：工作日起床 08:52 · 周末 09:12
+- **PROFILE_F_LOW_DATA · Day 180**：一致。你的观察也对：周末确实比工作日晚起约 55 分钟。
+  - 证据：工作日起床 09:00 · 周末 09:55
 
 ## q043 你还记得我确认过的那些事情吗？
 
-- 引擎覆盖：否（诚实交回 AI 路径）
+- 引擎覆盖：是
 - 期望证据：task=ANSWER_PERSONAL_QUESTION · 窗口 28d · baseline=false · context=false · correction=false
-- **PROFILE_A_STABLE · Day 180**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
-- **PROFILE_D_TRAVEL · Day 90**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
-- **PROFILE_F_LOW_DATA · Day 180**：这个问题我还需要更多你的上下文才能回答。
-  - 证据：无相关证据
+- **PROFILE_A_STABLE · Day 180**：你还没有确认过什么。你确认过的事情我会一直记得，并且优先相信你的说法。
+  - 证据：确认记录 0 条
+- **PROFILE_D_TRAVEL · Day 90**：你还没有确认过什么。你确认过的事情我会一直记得，并且优先相信你的说法。
+  - 证据：确认记录 0 条
+- **PROFILE_F_LOW_DATA · Day 180**：你还没有确认过什么。你确认过的事情我会一直记得，并且优先相信你的说法。
+  - 证据：确认记录 0 条
 
 ## 覆盖率
 
-引擎覆盖 24/26 条；其余诚实交回 AI 路径。
+引擎覆盖 26/26 条；其余诚实交回 AI 路径。

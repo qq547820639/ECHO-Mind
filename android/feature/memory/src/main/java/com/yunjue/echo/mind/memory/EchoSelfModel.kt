@@ -3,8 +3,9 @@ package com.yunjue.echo.mind.memory
 /**
  * ERA 23 §32 — EchoSelfModel：ECHO 的用户自我模型快照。
  *
- * 不是一个巨大 JSON，而是六个领域：
- * Rhythm / Context / Preferences / Corrections / Stable Patterns / Interaction Preferences。
+ * 不是一个巨大 JSON，而是五个领域：
+ * Rhythm / Context / Preferences / Corrections / Stable Patterns
+ * （ERA 31 BATCH 3 起 Interaction Preferences 并入 Preferences——Self Model Value Audit 删除无消费方字段）。
  * 由记忆确定性构建（[buildSelfModel]），供 What ECHO Knows / 推理上下文 / Journey 共用；
  * 敏感内容（SENSITIVE）只进 [corrections] 域，不出现在公开叙事（[echoKnowsLines] 中过滤）。
  */
@@ -13,12 +14,10 @@ data class EchoSelfModel(
     val rhythmPatterns: List<StablePattern>,
     /** 活跃上下文例外（出差/休假/冲刺…）。 */
     val contexts: List<ContextExceptionInfo>,
-    /** 用户偏好原文。 */
+    /** 用户偏好原文（PREFERENCE + USER_CONFIRMED；含交互类偏好）。 */
     val preferences: List<String>,
     /** 用户纠正原文（敏感；仅应用内）。 */
     val corrections: List<String>,
-    /** 交互偏好（提醒/通知/视觉相关的偏好子集）。 */
-    val interactionPreferences: List<String>,
     /** 快照生成时刻（epoch ms）。 */
     val generatedAt: Long,
 ) {
@@ -30,8 +29,6 @@ data class EchoSelfModel(
     val challengedPatterns: List<StablePattern>
         get() = rhythmPatterns.filter { it.state in setOf(PatternState.WEAKENING, PatternState.CONFLICTING, PatternState.OUTDATED) }
 }
-
-private val INTERACTION_KEYWORDS = listOf("提醒", "通知", "视觉", "安静", "动态", "壁纸", "锁屏", "呼吸")
 
 fun buildSelfModel(
     memories: List<EchoMemory>,
@@ -51,7 +48,9 @@ fun buildSelfModel(
         .mapNotNull { contextExceptionInfo(it.content) }
         .sortedByDescending { it.date ?: "" }
 
-    val preferenceTexts = (preferences + confirmed.filter { m -> INTERACTION_KEYWORDS.none { m.content.contains(it) } })
+    // ERA 31 BATCH 3（Self Model Value Audit）：interactionPreferences 无生产消费方，
+    // 交互类偏好不再单独切分，统一并入 preferences（What ECHO Knows 一并展示）。
+    val preferenceTexts = (preferences + confirmed)
         .sortedByDescending { it.lastConfirmedAt }
         .map { it.content.trim() }
         .distinct()
@@ -61,18 +60,11 @@ fun buildSelfModel(
         .map { it.content.trim() }
         .distinct()
 
-    val interactionPreferences = (preferences + confirmed)
-        .filter { m -> INTERACTION_KEYWORDS.any { m.content.contains(it) } }
-        .sortedByDescending { it.lastConfirmedAt }
-        .map { it.content.trim() }
-        .distinct()
-
     return EchoSelfModel(
         rhythmPatterns = patterns,
         contexts = contextInfos,
         preferences = preferenceTexts,
         corrections = correctionTexts,
-        interactionPreferences = interactionPreferences,
         generatedAt = now,
     )
 }

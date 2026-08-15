@@ -220,7 +220,7 @@ class QaMemorySelfModelTest {
         assertTrue("rhythmPatterns 非空", model.confirmedPatterns.isNotEmpty())
         assertEquals("travel", model.contexts.single().kind)
         assertTrue("preferences 含视觉偏好", model.preferences.any { it.contains("视觉") })
-        assertTrue("interactionPreferences 含交互偏好", model.interactionPreferences.any { it.contains("视觉") })
+        // ERA 31 BATCH 3：interactionPreferences 已删除（无生产消费方）；交互类偏好并入 preferences
         assertTrue("corrections 含纠正原文", model.corrections.single().contains("出差"))
     }
 

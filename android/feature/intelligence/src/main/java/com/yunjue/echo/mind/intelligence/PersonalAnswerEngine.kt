@@ -52,6 +52,8 @@ data class PersonalAnswerInputs(
     val seasonDrift: Float,
     /** 用户纠正过的内容摘要（「我纠正过你什么？」回答用）。 */
     val userCorrections: List<String> = emptyList(),
+    /** 用户确认过的事实（USER_CONFIRMED 记忆；q042/q043 回答用）。 */
+    val userConfirmed: List<String> = emptyList(),
     /** 外部基准活跃起点（QA fixture 提供 profile 真值；生产传 null → 用窗口前中位数）。 */
     val baselineWakeMinute: Double? = null,
 )
@@ -67,7 +69,7 @@ object PersonalAnswerEngine {
     private enum class Family {
         DRIFTING_LATER, END_DRIFT, WEEKEND, SIMILAR_DAYS, STABILITY, MONTH_VS_MONTH,
         SCREEN_MONTH_DELTA, WEEK_SUMMARY, WHY_TODAY, WHY_TODAY_FRAGMENTED, TRAVEL_CONTEXT,
-        HALF_YEAR, CORRECTIONS_RECALL,
+        HALF_YEAR, CORRECTIONS_RECALL, CONFIRMED_RECALL, CONFIRMED_WEEKEND_CHECK,
     }
 
     /** 确定性覆盖表：canonical 问法 + Core Set 变体（同一族不同窗口）。 */
@@ -107,10 +109,12 @@ object PersonalAnswerEngine {
         "今天的状态和平时有什么不同？" to (Family.WHY_TODAY to 1),
         // 今天为什么碎（独立族：只回答碎片化维度，不拿别的维度顶替）
         "今天为什么这么碎？" to (Family.WHY_TODAY_FRAGMENTED to 1),
-        // 上下文 / 纠正召回
+        // 上下文 / 纠正 / 确认召回
         "我说过最近在出差，这有没有影响？" to (Family.TRAVEL_CONTEXT to 28),
         "我之前跟你说过我在出差，还记得吗？" to (Family.TRAVEL_CONTEXT to 28),
         "我纠正过你的那次，后来你改了吗？" to (Family.CORRECTIONS_RECALL to 1),
+        "你还记得我确认过的那些事情吗？" to (Family.CONFIRMED_RECALL to 1),
+        "我确认过周末会晚起，你的观察一致吗？" to (Family.CONFIRMED_WEEKEND_CHECK to 56),
         // 半年变化（Day 180 验收）
         "这半年我有什么变化？" to (Family.HALF_YEAR to 180),
         "我的活跃起点和半年前一样吗？" to (Family.HALF_YEAR to 180),
@@ -135,6 +139,8 @@ object PersonalAnswerEngine {
             Family.TRAVEL_CONTEXT -> travelContext(safe)
             Family.HALF_YEAR -> halfYearChange(safe)
             Family.CORRECTIONS_RECALL -> correctionsRecall(safe)
+            Family.CONFIRMED_RECALL -> confirmedRecall(safe)
+            Family.CONFIRMED_WEEKEND_CHECK -> confirmedWeekendCheck(safe)
         }
     }
 
@@ -516,5 +522,47 @@ object PersonalAnswerEngine {
             "你纠正过我：${recent.joinToString("；")}。这些我以后都会优先考虑。",
             "纠正记录 ${corrections.size} 条（最近 ${recent.size} 条）",
         )
+    }
+
+    /** 你还记得我确认过的事情吗（USER_CONFIRMED 回放；没有 → 诚实）。 */
+    private fun confirmedRecall(inputs: PersonalAnswerInputs): PersonalAnswer {
+        val confirmed = inputs.userConfirmed.filter { it.isNotBlank() }
+        if (confirmed.isEmpty()) return PersonalAnswer(
+            "你还没有确认过什么。你确认过的事情我会一直记得，并且优先相信你的说法。",
+            "确认记录 0 条",
+        )
+        val recent = confirmed.takeLast(3)
+        return PersonalAnswer(
+            "记得。你确认过：${recent.joinToString("；")}。",
+            "确认记录 ${confirmed.size} 条（最近 ${recent.size} 条）",
+        )
+    }
+
+    /** 我确认过周末会晚起，你的观察一致吗（用户自述 vs 观察对拍；User truth 优先）。 */
+    private fun confirmedWeekendCheck(inputs: PersonalAnswerInputs): PersonalAnswer {
+        val days = inputs.days
+        val from = (inputs.dayIndex - 55).coerceAtLeast(0)
+        val window = days.subList(from, inputs.dayIndex + 1)
+        val valid = window.filter { it.activeStartMinute != null }
+        val weekday = valid.filter { !isWeekend(it.date) }.mapNotNull { it.activeStartMinute?.toDouble() }
+        val weekend = valid.filter { isWeekend(it.date) }.mapNotNull { it.activeStartMinute?.toDouble() }
+        if (weekday.size < 5 || weekend.size < 3) {
+            return PersonalAnswer(
+                "你确认过周末会晚起。目前周末的观察样本还不多，我先把工作日的样子看清楚再对。",
+                "工作日 ${weekday.size} 天 / 周末 ${weekend.size} 天",
+            )
+        }
+        val delta = medianOf(weekend)!! - medianOf(weekday)!!
+        return if (delta >= 15) {
+            PersonalAnswer(
+                "一致。你的观察也对：周末确实比工作日晚起约 ${delta.toInt()} 分钟。",
+                "工作日起床 ${minuteText(medianOf(weekday)!!)} · 周末 ${minuteText(medianOf(weekend)!!)}",
+            )
+        } else {
+            PersonalAnswer(
+                "你确认过周末会晚起。不过最近的观察里，周末和工作日起床时间差得不多（${delta.toInt()} 分钟），我按你的说法继续看。",
+                "工作日起床 ${minuteText(medianOf(weekday)!!)} · 周末 ${minuteText(medianOf(weekend)!!)}",
+            )
+        }
     }
 }

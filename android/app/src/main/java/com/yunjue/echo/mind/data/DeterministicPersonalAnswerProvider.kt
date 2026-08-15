@@ -76,6 +76,9 @@ class DeterministicPersonalAnswerProvider(
         val corrections = memoryReader.memoriesByType(MemoryType.CORRECTION)
             .filter { !it.deleted }
             .map { it.content }
+        val confirmed = memoryReader.memoriesByType(MemoryType.USER_CONFIRMED)
+            .filter { !it.deleted }
+            .map { it.content }
         val result = PersonalAnswerEngine.answer(
             question = question,
             inputs = PersonalAnswerInputs(
@@ -84,6 +87,7 @@ class DeterministicPersonalAnswerProvider(
                 contextWindows = contextWindows,
                 seasonDrift = seasonDrift(),
                 userCorrections = corrections,
+                userConfirmed = confirmed,
             ),
         ) ?: return null
         return AiNarrativeService.DeterministicPersonalResult(

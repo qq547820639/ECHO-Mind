@@ -1,18 +1,21 @@
 package com.yunjue.echo.mind.qa
 
+import com.yunjue.echo.mind.model.containsBlockedVocabulary
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 /**
- * ERA 31 BATCH 2 §20/§21 — Core Personal Reasoning Set 真实回答捕获。
+ * ERA 31 BATCH 2 §20/§21/§24 — Core Personal Reasoning Set 真实回答捕获。
  *
  * 对 26 条 Core Set 跑 **production 回答引擎**（QaAskEcho 为 PersonalAnswerEngine 的薄适配器——
  * 捕获的回答就是无 Provider/离线时用户真实看到的回答），落到
  * `qa/reports/personal_answer_review/answers.md` 供人审（Answer Quality A-D 四层）。
  *
- * 机器断言只锁覆盖率（≥20/26 由引擎回答；其余诚实交回 AI 路径——
- * 覆盖率是产品指标「Grounded personal answer rate」的 fixture 代理，不是文案评分）。
+ * 机器断言锁两件事（都是产品指标代理，不是文案评分）：
+ * - 覆盖率 ≥20/26（Grounded personal answer rate）；
+ * - 全部回答过 Grounding 词表门禁（False personal interpretation rate 的确定性层回归）。
  */
 class PersonalAnswerReviewHarnessTest {
 
@@ -33,6 +36,7 @@ class PersonalAnswerReviewHarnessTest {
         sb.appendLine()
 
         var covered = 0
+        val surveillance = listOf("我检测到", "我正在监测", "我监测到你", "盯着你")
         for (case in cases) {
             val answers = reviewPoints.map { (profile, day) ->
                 val answer = QaAskEcho.answer(QaTimeline(profile), day, case.question)
@@ -40,6 +44,17 @@ class PersonalAnswerReviewHarnessTest {
             }
             val engineCovered = answers.all { !it.third.answer.contains("还需要更多你的上下文") }
             if (engineCovered) covered++
+            // Grounding overreach 门禁（§24）：确定性回答永不出现心理推断词/监视语言
+            for ((profileId, day, answer) in answers) {
+                assertFalse(
+                    "$profileId Day$day「${case.question}」命中心理推断词表：${answer.answer}",
+                    containsBlockedVocabulary(answer.answer),
+                )
+                assertFalse(
+                    "$profileId Day$day「${case.question}」出现监视语言：${answer.answer}",
+                    surveillance.any { answer.answer.contains(it) },
+                )
+            }
             sb.appendLine("## ${case.id} ${case.question}")
             sb.appendLine()
             sb.appendLine("- 引擎覆盖：${if (engineCovered) "是" else "否（诚实交回 AI 路径）"}")
@@ -60,8 +75,8 @@ class PersonalAnswerReviewHarnessTest {
         dir.mkdirs()
         File(dir, "answers.md").writeText(sb.toString())
         assertTrue(
-            "Core Set 引擎覆盖率必须 ≥20/26（无 Provider 也能回答个人问题）：$covered/26",
-            covered >= 20,
+            "Core Set 引擎覆盖率必须 26/26（无 Provider 也能回答全部个人问题）：$covered/26",
+            covered >= 26,
         )
     }
 
