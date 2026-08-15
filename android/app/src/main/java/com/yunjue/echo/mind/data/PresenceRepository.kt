@@ -53,6 +53,9 @@ class PresenceRepository(
 
     private val _state = MutableStateFlow<EchoPresenceState?>(null)
 
+    /** ERA 21 §18：日构图按日历日固化（跨日才重算）。 */
+    private val dailyCompositionGate = com.yunjue.echo.mind.presence.DailyCompositionGate()
+
     /** 当前 Presence 状态（null = 尚未组装；消费者显示中性占位，禁止编造）。 */
     override val state: StateFlow<EchoPresenceState?> = _state
 
@@ -126,8 +129,10 @@ class PresenceRepository(
             .map { (date, agg) -> date.toString() to agg.activeStartMinute!!.toDouble() }
         val season = computeLifeSeason(portraits, wakeMinutes, calendarDays = calendarDays)
         // Daily Composition（§58：日级稳定）+ Moment Modulation（§59：分钟级）
+        // ERA 21 §18：日构图按日历日固化（同日 refresh 不重算，避免一天内构图漂移）；
+        // Moment 继续消费当日向量（分钟级呼吸）
         val hourOfDay = now.atZone(zone).hour + now.atZone(zone).minute / 60f
-        val daily = buildDailyComposition(identity, ambient.vector)
+        val daily = dailyCompositionGate.compositionFor(today) { buildDailyComposition(identity, ambient.vector) }
         val moment = buildMomentState(ambient.vector, hourOfDay)
 
         val assembled = EchoPresenceState(

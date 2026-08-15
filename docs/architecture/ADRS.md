@@ -726,6 +726,7 @@
 - 身份质量：`identityDistance`（七维）落地；100-seed 多样性门（两两 ≥0.03，纯色相 <0.005 → 多样性非仅颜色）与连续性门（同用户 <0.05，跨用户 >2×）全部绿灯；**修复身份派生只消费 seed 低 26 位的近撞脸缺陷**（SplitMix64 全熵派生）。
 - Life Season 质量：`LifeSeasonTracker`（3 天持久确认 + 5 天 drift 过渡 + 回退持久 + 同日去重 + confidence）落地并接入 PresenceRepository；**修复 computeLifeSeason 慢漂移不可见**（新增绝对活跃起点两半窗口中位数检测）与**phaseIndex 90+ 永不可达**（calendarDays 语义）。
 - ECHO Scene：三层 headline（确定性真值 + 增量 AI 层）、学习期文案（初见/开始看到节奏/开始认识通常的你）、基线解锁去庆祝化、周小结去卡化、成熟度单一真值（日历语义）。
+- §18 日构图稳定：`DailyCompositionGate` 按日历日固化 Daily Composition（分钟级 refresh 不再漂移构图），Moment 层保持分钟级呼吸；§18/§19 审计测试（一天内构图恒同 + 昼夜曲线平滑 + 呼吸周期有界）。
 - 证据质量：**修复早期基线 z 爆炸到千万级**（scale 下限 1e-6 → 各指标最小有意义差；Android LocalPortraitEngine + backend dimensions.py/explain.py + fixture 镜像三处同步）。
 - Wallpaper：7 天 × 24h 长期模拟基准（不可见/熄屏触摸绘制 = 0、快照重读 ≤1/s、静止适应 <1/4 逐分钟预算、强调色 7 天恒同）。
 - 门禁：backend 1076 passed / Android 844+47+12 全绿（WindowAckTest 为既有跨测试污染 flake，单测通过）/ detekt 干净。
