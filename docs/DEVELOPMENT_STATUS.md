@@ -9,8 +9,8 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `25a4afa`（ERA 31 R45 收口） |
-| 相对 Release Baseline | +37 commits（v0.10.0 Release Baseline 之后 R11–R46，含本提交） |
+| HEAD（本轮起点） | `74dc384`（ERA 31 R46 收口） |
+| 相对 Release Baseline | +38 commits（v0.10.0 Release Baseline 之后 R11–R47，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
 | 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
@@ -115,7 +115,7 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R46）✅**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R47）✅**：
 R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
 R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
 （快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）· R17 Ask ECHO 免费用户走查
@@ -149,7 +149,8 @@ R43 source-integrity 全量重放（reality/依赖图漂移门 + 归档双格式
 CI 生成物目录入 .gitignore）· R44 源码事实扫描假阳性根因
 （KDoc/fun 粘连修复，unresolved 归零）· R45 security-ci + coverage 门禁复核
 （pip-audit 0 漏洞 + coverage 94%，五套 CI 全绿收官）· R46 Release Set 复核
-（v0.10.0 发布包 6/6，dev head 发布就绪总表——随时可发起下一轮 Release Closure）。
+（v0.10.0 发布包 6/6，dev head 发布就绪总表——随时可发起下一轮 Release Closure）·
+R47 文档锚点对齐（政策宪章 §9 状态段 + README 开发头标注）。
 
 **下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；

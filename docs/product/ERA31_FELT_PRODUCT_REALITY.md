@@ -139,3 +139,14 @@ Life Season 不出现「系统说我进入某个阶段」——让 ECHO 自己�
 
 最终北星测试：如果用户换手机上的普通 AI App 觉得「都差不多」，ECHO 还没有完成。
 只有用户觉得「别的 AI 不知道这些，也不是我这个 ECHO」，才算成功。
+
+## 9. 实施状态锚点（2026-08-15 更新）
+
+- **Batches 1–8 全部完成**（v0.10.0 Release Closure 全绿，LAST_RELEASE_BASELINE=6e84086）；
+- **v0.10.0 后产品主链打磨轮 R11–R46 完成**——十道门 × 五时点逐条映射到交付轮次
+  与证据，见 `qa/reports/ERA31_FELT_ACCEPTANCE.md`（机器测试 / 人眼画廊
+  `qa/visual-review/index.html` / 真机清单 `qa/visual-review/DEVICE_CHECKLIST.md`）；
+- **Development Head 发布就绪**：见 `docs/IMPLEMENTATION_STATUS.md` 与
+  `qa/reports/ERA31_ROUND46.md`（下一轮 Release Closure 的版本号决策留人工）；
+- **外部待办**（本环境不可执行，部署侧）：30 天 dogfood（`qa/DOGFOOD_PROTOCOL.md`）、
+  真机壁纸电池采集（DEVICE_CHECKLIST）、生产签名与设备矩阵。
