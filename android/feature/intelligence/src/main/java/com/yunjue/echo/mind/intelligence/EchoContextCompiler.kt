@@ -97,7 +97,14 @@ object EchoContextCompiler {
         val evidenceBlock = if (capped.isEmpty()) {
             "（今天没有可用的节律数据。）"
         } else {
-            capped.joinToString("\n") { "- [${it.label}] ${it.text}" }
+            // ERA 59（§70 收官）：baseline/comparison 字段显式进入编译文本（结构化对比，非合并长句）
+            capped.joinToString("\n") { item ->
+                val contrast = buildString {
+                    if (!item.baseline.isNullOrBlank()) append("（平常：${item.baseline}）")
+                    if (!item.comparison.isNullOrBlank()) append("（变化：${item.comparison}）")
+                }
+                "- [${item.label}] ${item.text}$contrast"
+            }
         }
         val questionBlock = question?.takeIf { it.isNotBlank() }?.let { "用户的问题：$it\n" } ?: ""
         val taskHint = when (task) {

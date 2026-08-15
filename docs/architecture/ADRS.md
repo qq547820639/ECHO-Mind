@@ -537,3 +537,12 @@
 - **决策**：Identity 真值审计（ADR-058）结项后，下一长阶段选定 **§67-73 Personal Intelligence 解释链真值审计与深化**——分类 → 检索/排序 → 预算编译 → Grounding → 降级兜底整链端到端验证（与 Identity 审计同模式：逐段找断链/死参数，测试锚定后修复）。不选 Journey Year 视图深化（ERA 16 五尺度已交付，属视觉打磨）与真机基准二期（CI 已接管，无本地收益）。
 - **理由**：FINAL PRODUCT ACCEPTANCE 的「为什么今天不一样」与「换模型不失忆/模型崩溃 ECHO 不消失」直接依赖解释链与降级链的真值；§68 task relevance 已发现死参数（本轮修复）；Intelligence depth 在宪法优先级高于视觉打磨。
 - **后果**：每轮维持全门禁 + 发布链；审计发现以测试固定后修复；Affective 冻结不受影响。
+
+### ADR-059 结项记录（ERA 59，审计四轮结论）
+
+- 第 1 轮：修复 §68 task relevance 死参数（同 tier 亲和，不跨纠正/例外层级）；端到端链锚点。
+- 第 2 轮：检索策略矩阵 11 任务全检（隐私硬边界 / 用户解释全任务可达 / 预算有限）；Grounding 引用边界 5 契约。
+- 第 3 轮：§73「retry」步骤由注释变实现（瞬态失败重试一次、语义失败立即降级）；StructuredOutputValidator 矩阵复核。
+- 第 4 轮：EchoConversationController 零测试 → 6 契约（全链 / 诚实降级 / 4 轮窗口 / 检索异常 / 相位映射 / 重置）。
+- 收官：§70 baseline/comparison 字段此前装配不落、编译不读（spec 字段流亡）——现装配进入 schema 指定字段并经编译显式进入模型上下文；§71 EchoAnswer.timeRange 此前恒 null——现由被引用证据时间范围导出。
+- 结论：Personal Intelligence 解释链真值审计完成；换模型不失忆（记忆端口检索与模型无关）与模型崩溃 ECHO 不消失（fallback 链）具备端到端锚点。

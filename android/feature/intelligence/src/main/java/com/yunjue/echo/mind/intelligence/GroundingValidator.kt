@@ -99,12 +99,24 @@ object GroundingValidator {
         model: String? = null,
     ): EchoAnswer {
         val report = validate(text, evidence, fallbackLevel)
+        // ERA 59（§71 收官）：timeRange 由被引用证据的时间范围导出（最早~最晚；无则 null）
+        val citedTimeRanges = evidence
+            .filter { e -> e.id.isNotBlank() && e.id in report.citedEvidenceIds }
+            .mapNotNull { it.timeRange }
+            .distinct()
+            .sorted()
+        val timeRange = when (citedTimeRanges.size) {
+            0 -> null
+            1 -> citedTimeRanges.single()
+            else -> "${citedTimeRanges.first()}~${citedTimeRanges.last()}"
+        }
         return EchoAnswer(
             text = if (report.passed) text
             else "我能确定的事实是：${evidence.filter { it.type == "observation" }.take(3).joinToString("；") { it.text }.ifBlank { "当前证据不足。" }}",
             evidenceIds = report.citedEvidenceIds,
             confidence = if (report.passed) 0.5f else 0.2f,
             interpretationLevel = report.interpretationLevel,
+            timeRange = timeRange,
             provider = "openai-compatible",
             model = model,
             fallbackUsed = !report.passed,

@@ -18,12 +18,7 @@ object EvidenceAssembler {
         if (portrait == null) return emptyList()
         val items = mutableListOf<EvidenceItem>()
         portrait.facts.forEach { fact ->
-            val parts = buildList {
-                if (fact.todayText.isNotBlank()) add("今天：${fact.todayText}")
-                if (fact.baselineText.isNotBlank()) add("平常：${fact.baselineText}")
-                if (fact.deltaText.isNotBlank()) add("变化：${fact.deltaText}")
-            }
-            if (parts.isNotEmpty()) {
+            if (fact.todayText.isNotBlank()) {
                 items.add(
                     EvidenceItem(
                         category = DataSourceCategory.TODAY_AGGREGATE,
@@ -33,7 +28,11 @@ object EvidenceAssembler {
                         provenance = "portrait:v1",
                         timeRange = "today",
                         label = fact.label.ifBlank { "今日观察" },
-                        text = parts.joinToString("；"),
+                        text = "今天：${fact.todayText}",
+                        // ERA 59（§70 真值审计收官）：baseline/comparison 进入 schema 指定字段
+                        // （不再合并进 text——让模型显式拿到「平常 vs 变化」结构化对比）
+                        baseline = fact.baselineText.ifBlank { null },
+                        comparison = fact.deltaText.ifBlank { null },
                     )
                 )
             }
