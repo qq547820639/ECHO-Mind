@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Memory 生命周期闭环真值审计收官 ✅（ADR-069 两轮结项：pin 第四权补齐（五层链 + 落盘锚）+ confirm/forget/expire 三动作落盘锚定；decay/维护序列/数据权利联动复核保持——Memory 成熟度四支柱 §75/§76/§77/§109 全部审计完毕）→ 下一轮：ADR-070 长阶段第 1 轮（全仓冻结契约一致性终检）**
+**全仓冻结契约一致性终检第 1 轮完成 ✅（ADR-070：CONTRACT_COMPLIANCE 三级对照总表（宪法 10 条 + Portrait 4 类 + PI 12 条 + Affective 11 条冻结/外部门）22 锚点机器校验（contract_compliance_check.py 入 CI source-integrity）——自查抓获并修复 6 处过期锚点）→ 下一轮：条款复核第二轮（缺口/外部门清单收敛 + 新需求十二问与 Engagement 禁令人工评审项记录）+ ADR-070 结项 + ADR-071 选型**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -121,6 +121,7 @@
 - **First-Run 纵向切面真值审计收官**：Day 1-7 冷启动段——**第一个 READY 画像恰在第 7 个有效日触发**（baselineDays == 7 + 维度非空 + headline 非空），第 6 有效日仍 EARLY_BASELINE（阶梯边界不提前）；WARMING_UP 事实句与 EARLY 无「比平常」既有 golden（005/007）复核保持；**ADR-068 两轮结项**（FINAL PRODUCT ACCEPTANCE 首段逐段可测）+ **ADR-069 选型**：下一长阶段 = Memory 生命周期闭环真值审计（§76：decay/expiry/reinforce/pin 真实执行链复核——Memory 成熟度最后一环）
 - **Memory 生命周期闭环真值审计第 1 轮**：**发现并修复 pin 第四权缺失**——USER_PINNED 此前零写路径（模型保留级别与 UI 标签「你固定的（永不自动清理）」存在，但无 pin 事件/端口/DAO，永不可达）；补齐五层链：EchoMemoryWriter.pin 端口 + MemoryDao.pin SQL（retentionClass → USER_PINNED + 确认时间刷新）+ MemoryRepository + MemoryManagementEvent.Pin + VM 接线 + WhatEchoKnowsSection「固定」按钮（五权：编辑/确认/固定/忘记）；**落盘锚定**：pin 后 retentionClass 与 lastConfirmedAt 断言 + 十年后 shouldForget == false（纯函数与落盘一致）
 - **Memory 生命周期闭环真值审计收官**：生命周期三动作落盘锚定——confirm（重要度 +10 封顶 100 + 确认时间刷新）/ forget（软删审计保留）/ expire（自动过期软删打标）DAO 级测试；decay 参与检索、维护序列 fail-closed、数据权利联动（软删行入导出与足迹）既有锚定复核保持；**ADR-069 两轮结项**（Memory 成熟度四支柱 §75/§76/§77/§109 全部审计完毕）+ **ADR-070 选型**：下一长阶段 = 全仓冻结契约一致性终检（契约条款 → 实现 → 测试三级对照总表，产出 CONTRACT_COMPLIANCE 报告——「禁止文档完成主义」的总执行）
+- **全仓冻结契约一致性终检第 1 轮**：产出 `docs/contracts/CONTRACT_COMPLIANCE.md`——宪法 10 条 + Portrait 4 类 + PI 12 条 + Affective 11 条（§8-§10 外部门/其余冻结）逐条「实现锚点 + 测试锚点」对照；**机器校验**：scripts/contract_compliance_check.py 解析反引号路径断言存在（22 锚点 PASS）并接入 CI source-integrity（含 py_compile）；**自查抓获 6 处过期锚点**并修复（模块真实路径/测试包路径）；Engagement 禁令与十二问标记为流程/人工评审项（如实记录，不伪造锚点）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -166,4 +167,4 @@
 
 ## Next Highest-value Task
 
-ADR-070 长阶段第 1 轮（全仓冻结契约一致性终检）：契约条款清单提取（ECHO_PRODUCT_CONSTITUTION / PORTRAIT_CONTRACT / PERSONAL_INTELLIGENCE_CONTRACT / AFFECTIVE_CONTRACT §8-§10 / PERSONA system 指令）→ 实现与测试锚点映射（docs/contracts/CONTRACT_COMPLIANCE.md 初稿）；Affective 复核止于冻结状态断言（不实施）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+ADR-070 第 2 轮（全仓冻结契约终检收官）：条款复核第二轮——CONTRACT_COMPLIANCE 剩余待办收敛（Engagement 禁令人工评审项 / 十二问流程项 / Affective §8-§10 外部门状态固化）+ 后端契约镜像复核（backend tests 锚点核对）+ ADR-070 结项 + ADR-071 选型。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。

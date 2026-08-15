@@ -22,11 +22,13 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: {python-version: "3.12"}
       - name: python syntax check of integrity scripts
-        run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py scripts/distribution.py scripts/build_source_archive.py scripts/verify_source_archive.py scripts/build_final_package.py scripts/verify_final_package.py scripts/verify_workflow_pins.py
+        run: python3 -m py_compile scripts/update_release_metadata.py scripts/generate_provenance.py scripts/verify_source_manifest.py scripts/distribution.py scripts/build_source_archive.py scripts/verify_source_archive.py scripts/build_final_package.py scripts/verify_final_package.py scripts/verify_workflow_pins.py scripts/contract_compliance_check.py
       - name: workflow action pin gate（ERA 18 §93：uses 全部 pin immutable SHA）
         run: python3 scripts/verify_workflow_pins.py
       - name: verify SOURCE_MANIFEST matches this checkout（git 受控文件集）
         run: python3 scripts/verify_source_manifest.py
+      - name: contract compliance anchor gate（ERA 84：CONTRACT_COMPLIANCE 锚点存在性）
+        run: python3 scripts/contract_compliance_check.py
       - name: source reality report drift gate（ERA 12.9 §21：脚本重生成 + git diff）
         run: |
           python3 scripts/generate_source_reality.py
