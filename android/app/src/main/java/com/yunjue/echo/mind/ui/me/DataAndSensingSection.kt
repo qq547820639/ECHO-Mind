@@ -255,6 +255,12 @@ fun DataAndSensingContent(
                 "记忆条数包含你已选择「忘记」、但依法保留待清理的行；「删除本地数据」会一并清除。",
                 style = MaterialTheme.typography.labelSmall
             )
+            // ERA 68（ADR-062 第 3 轮）：「ECHO 还不知道什么」聚合行（与 What ECHO Knows 同源事实）
+            if (state.doesNotKnow.isNotEmpty()) {
+                state.doesNotKnow.forEach { line ->
+                    Text("· $line", style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 

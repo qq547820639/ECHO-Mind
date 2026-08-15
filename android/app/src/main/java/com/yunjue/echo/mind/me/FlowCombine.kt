@@ -39,3 +39,19 @@ internal fun <A, B, C, D, E, F, G, H> combine8(
         Combine8(p5.a, p5.b, p5.c, p5.d, p5.e, f, g, h)
     }
 }
+
+internal data class Combine9<A, B, C, D, E, F, G, H, I>(
+    val a: A, val b: B, val c: C, val d: D, val e: E,
+    val f: F, val g: G, val h: H, val i: I,
+)
+
+internal fun <A, B, C, D, E, F, G, H, I> combine9(
+    fa: Flow<A>, fb: Flow<B>, fc: Flow<C>, fd: Flow<D>, fe: Flow<E>,
+    ff: Flow<F>, fg: Flow<G>, fh: Flow<H>, fi: Flow<I>,
+): Flow<Combine9<A, B, C, D, E, F, G, H, I>> {
+    val five: Flow<Combine5<A, B, C, D, E>> =
+        combine(fa, fb, fc, fd, fe) { a: A, b: B, c: C, d: D, e: E -> Combine5(a, b, c, d, e) }
+    return combine(five, ff, fg, fh, fi) { p5: Combine5<A, B, C, D, E>, f: F, g: G, h: H, i: I ->
+        Combine9(p5.a, p5.b, p5.c, p5.d, p5.e, f, g, h, i)
+    }
+}

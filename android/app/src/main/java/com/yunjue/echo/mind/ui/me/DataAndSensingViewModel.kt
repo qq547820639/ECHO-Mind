@@ -19,7 +19,8 @@ import com.yunjue.echo.mind.me.MeSyncInputs
 import com.yunjue.echo.mind.me.MicUiInputs
 import com.yunjue.echo.mind.me.SensingUiInputs
 import com.yunjue.echo.mind.me.assembleDataAndSensingUiState
-import com.yunjue.echo.mind.me.combine8
+import com.yunjue.echo.mind.me.combine9
+import kotlinx.coroutines.flow.first
 import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
 import com.yunjue.echo.mind.ui.performPassiveSensingStop
@@ -52,6 +53,9 @@ class DataAndSensingViewModel(
     private val _reEnabling = MutableStateFlow(container.preferences.consentSyncPending)
     private val _localCounts = MutableStateFlow(com.yunjue.echo.mind.data.DataFootprint())
 
+    /** ERA 68（ADR-062 第 3 轮）：能力边界事实（「ECHO 还不知道什么」聚合行；init 异步采集）。 */
+    private val _knowsFacts = MutableStateFlow(com.yunjue.echo.mind.me.EchoKnowsFacts())
+
     /** 本地导出 JSON 一次性事件（UI 收集后分享）。 */
     private val _exportJson = MutableSharedFlow<String>()
     val exportJson: SharedFlow<String> = _exportJson
@@ -61,7 +65,7 @@ class DataAndSensingViewModel(
     private val pendingCount = container.syncStateRepository.observePendingCount()
 
     /** 单一 UI 状态（纯函数装配；Section 只消费）。 */
-    val uiState: StateFlow<DataAndSensingUiState> = combine8(
+    val uiState: StateFlow<DataAndSensingUiState> = combine9(
         sensingEnabled,
         micEnabled,
         pendingCount,
@@ -70,11 +74,13 @@ class DataAndSensingViewModel(
         _showMicConfirm,
         _showLocalDeleteConfirm,
         _localCounts,
-    ).map { (sensing, mic, pending, reEnabling, message, showMic, showDelete, counts) ->
+        _knowsFacts,
+    ).map { (sensing, mic, pending, reEnabling, message, showMic, showDelete, counts, facts) ->
         assembleDataAndSensingUiState(
             DataAndSensingAssemblyInputs(
                 sensing = SensingUiInputs(enabled = sensing, reEnabling = reEnabling),
                 mic = MicUiInputs(enabled = mic, showConfirm = showMic),
+                knowsFacts = facts,
                 showLocalDeleteConfirm = showDelete,
                 eveningReminderEnabled = container.preferences.eveningReminderEnabled,
                 capabilityStates = SensingCapability.entries.associateWith {
@@ -110,6 +116,33 @@ class DataAndSensingViewModel(
 
     init {
         refreshLocalCounts()
+        refreshKnowsFacts()
+    }
+
+    /** ERA 68：能力边界事实采集（感知/麦克风/Provider/基线；页面生命周期内一次快照）。 */
+    private fun refreshKnowsFacts() {
+        viewModelScope.launch {
+            val baselineDays = withContext(Dispatchers.IO) {
+                val userId = container.preferences.userId
+                if (userId.isBlank()) {
+                    0
+                } else {
+                    runCatching {
+                        container.observation.localPortraitDataSource.computeToday(
+                            userId = userId,
+                            today = java.time.LocalDate.now(),
+                            zoneId = java.time.ZoneId.systemDefault(),
+                        ).baselineDays
+                    }.getOrDefault(0)
+                }
+            }
+            _knowsFacts.value = com.yunjue.echo.mind.me.EchoKnowsFacts(
+                sensingEnabled = container.preferences.sensingActive,
+                micEnabled = container.preferences.micEnabledFlow().first(),
+                providerConfigured = container.echoRuntimeCoordinator.provider.value == com.yunjue.echo.mind.intelligence.ProviderStatus.READY,
+                baselineDays = baselineDays,
+            )
+        }
     }
 
     /** Section 唯一交互入口。 */

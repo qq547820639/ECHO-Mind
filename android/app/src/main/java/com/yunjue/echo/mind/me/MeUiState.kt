@@ -82,6 +82,8 @@ data class DataAndSensingUiState(
     val localPortraits: Int = 0,
     /** ERA 67（ADR-062 第 2 轮）：五域存储足迹（检查台卡片数据源）。 */
     val footprint: com.yunjue.echo.mind.data.DataFootprint = com.yunjue.echo.mind.data.DataFootprint(),
+    /** ERA 68（ADR-062 第 3 轮）：「ECHO 还不知道什么」能力边界（检查台聚合行数据源）。 */
+    val doesNotKnow: List<String> = emptyList(),
     val localMode: Boolean = true,
     val institutionCode: String = "",
     val userId: String = "",
@@ -351,6 +353,8 @@ data class DataRightsInputs(
 /** DataAndSensingUiState 装配输入（§33）。 */
 data class DataAndSensingAssemblyInputs(
     val sensing: SensingUiInputs = SensingUiInputs(),
+    /** ERA 68（ADR-062 第 3 轮）：能力边界事实（「ECHO 还不知道什么」聚合行输入）。 */
+    val knowsFacts: EchoKnowsFacts = EchoKnowsFacts(),
     val mic: MicUiInputs = MicUiInputs(),
     val showLocalDeleteConfirm: Boolean = false,
     val eveningReminderEnabled: Boolean = false,
@@ -391,6 +395,7 @@ fun assembleDataAndSensingUiState(inputs: DataAndSensingAssemblyInputs): DataAnd
         localWindows = inputs.rights.footprint.featureWindows,
         localPortraits = inputs.rights.footprint.portraits,
         footprint = inputs.rights.footprint,
+        doesNotKnow = EchoDoesNotKnow.from(inputs.knowsFacts),
         localMode = inputs.rights.localMode,
         institutionCode = inputs.rights.institutionCode,
         userId = inputs.rights.userId,
