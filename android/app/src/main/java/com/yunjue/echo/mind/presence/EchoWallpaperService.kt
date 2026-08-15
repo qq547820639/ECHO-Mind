@@ -70,6 +70,11 @@ class EchoWallpaperService : WallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             render.onVisibilityChanged(visible)
+            if (visible) {
+                // ERA 54（§52 审计收官）：解锁/回前台即重读快照——15 分钟刷新周期的 Presence
+                // 更新无需等下一次 surface 变化（SharedPreferences 读，开销可忽略）。
+                refreshSnapshot()
+            }
             if (render.renderActive) startRendering() else stopRendering()
         }
 

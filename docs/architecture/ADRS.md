@@ -523,3 +523,11 @@
 - **决策**：质量/安全/数据权利复核阶段（ERA 30-49）收官后，下一长阶段选定 **ERA 14 §52/§61 真值审计与深化**——逐条验证 IdentityGenome / LifeSeason / DailyComposition / MomentState 是否真实流入 PresenceRepository → EchoVisualMapper → Renderer → Journey Canonical 快照（§52：未进入数据流则算未实现；§61：无意义 placeholder 字段必须真实现或删除），并以端到端测试锚定「Day 1 / Day 30 / Day 180 同一个 ECHO」的连续性。不选 Provider 生态扩展（宪法明确非优先级）、不选 Journey Year 视图重做（ERA 16 五尺度已交付）。
 - **理由**：FINAL PRODUCT ACCEPTANCE 的核心验收（「半年以后形成只有这个用户才拥有的 Identity」）依赖长期身份链路的真实性；审计发现比新增功能价值更高，且符合「禁止文档完成主义」§110。
 - **后果**：审计发现任何死字段/断链即以测试固定后修复；每轮维持全门禁 + 发布链纪律；Affective 冻结不受影响。
+
+### ADR-058 结项记录（ERA 54，审计四轮结论）
+
+- 第 1 轮（装配/映射/渲染/Journey 快照）：四层数据流逐段真实——无死字段；锚点 IdentityPipelineTruthTest（四层达参 / Canonical 往返同帧 / 跨成熟度同 ECHO）。
+- 第 2 轮（Journey 回退重建 + §87 解释链 + §61 全模块巡检）：回退确定性与解释链逐字绑定锚定（LifeSeasonJourneyBindingTest）；五模块零占位。
+- 第 3 轮（快照落盘恢复链）：发现并修复 **EchoPresenceCodec v1 跨进程断链**——进程死亡后 Wallpaper/Dream 仅恢复颜色连续、丢失人格/纹理/季节/日构图/分钟调制；v2 补齐四层 40 字段（v1 兼容、fail-closed 收紧），跨进程同帧测试锚定。
+- 第 4 轮（Wallpaper 刷新链 + Runtime 协调器边界）：onVisibilityChanged 补快照重读（解锁即追上 15 分钟刷新）；EchoRuntimeCoordinator §3 职责边界复核 PASS（无 AI/Context/基线/记忆合成/UI 越界），§4 健康四组件齐备（memory=READY 为进程级不变量，文档化）。
+- 结论：Identity/LifeSeason 真值审计阶段完成；「Day1/Day180 同一个 ECHO」具备端到端可测锚点；下一步进入下一长阶段选型（见 IMPLEMENTATION_STATUS Next-task）。
