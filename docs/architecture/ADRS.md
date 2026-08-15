@@ -773,3 +773,10 @@
 - §62 AppContainer 瘦身：11 个 Room Migration（约 250 行）移出到 data/database/EchoDatabaseMigrations.kt；AppContainer 只剩六容器组合 + Room builder；测试引用同步更新。
 - §58/§59 core:ports 卫生：EchoMemory/MemoryType/RetentionClass/MemorySensitivity 契约类型上移 core:model（EchoMemoryContract.kt）；**core:ports 不再依赖 feature:memory**（typealias 桥渐进迁移，全仓零破坏）；EchoPresenceState 上移列为下一步。
 - 门禁：app 844 / qa 87 / presence 16 全绿 + detekt；backend 无变更。
+
+### ADR-073 第 7 轮记录（Product Quality Era Round 7 — Batch 7 性能预算 + Batch 8 收官）
+
+- Batch 7 性能预算（JVM 确定性）：冷启动快照解码 = 活体同帧（First Meaningful Presence，1000 次解码 <5s 冒烟门）；365 天年视图预算 + 聚合产物远小于逐日数据；10k 记忆排序与 ~2000 证据排序确定性 + 预算；Dream 映射有界。
+- Batch 8 收官：`qa/DOGFOOD_PROTOCOL.md`（30 天真实使用协议：visual/headline/unexpected/battery/wallpaper/useful/bad/correction 每日模板 + §65 匿名化回流映射）+ `qa/reports/dogfood/DAY_TEMPLATE.md`（fixture 化样例）+ `qa/reports/RELEASE_QUALITY_GATE.md`（A 产品质量门 8 项 / B 质量指标 12 项 / C 工程门 / D 外部发布门保持外部门）。
+- 门禁：app 844 / qa 92 / presence 16 全绿 + detekt；backend 1076（无变更）。
+- **Batch 1-8 全部完成**：Affective 保持冻结（ERA 30 前置未满足：需真实用户 dogfood 数据回流后才评估）。

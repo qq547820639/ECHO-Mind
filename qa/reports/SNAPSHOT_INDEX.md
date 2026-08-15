@@ -20,5 +20,8 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [MEMORY_SELF_MODEL_EVAL.md](MEMORY_SELF_MODEL_EVAL.md) — Memory / Self Model 质量 eval（ERA 23 / Batch 3）
 - [JOURNEY_EMOTIONAL_VALUE_EVAL.md](JOURNEY_EMOTIONAL_VALUE_EVAL.md) — Journey 情感价值 eval（ERA 24 / Batch 4）
 - [ME_TRUST_EXPERIENCE_EVAL.md](ME_TRUST_EXPERIENCE_EVAL.md) — Me / Trust Experience eval（ERA 25 / Batch 5）
+- [PRODUCT_SIMPLIFICATION_EVAL.md](PRODUCT_SIMPLIFICATION_EVAL.md) — 简化 / 模块卫生（ERA 26/28 / Batch 6）
+- [RELEASE_QUALITY_GATE.md](RELEASE_QUALITY_GATE.md) — 发布质量门（Batch 8 收官）
+- [../DOGFOOD_PROTOCOL.md](../DOGFOOD_PROTOCOL.md) — 30 天 dogfood 协议（ERA 29 §63）
 
 生成方式：`QaSnapshotSuiteTest`（:feature:qa 单元测试）确定性重放生成，可随时重复生成零漂移。
