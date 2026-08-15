@@ -28,7 +28,7 @@ class EchoCorrectionService(
         )
     }
 
-    /** 对话回答反馈（v2 §52）：像我 = 正向确认记忆；不太像 = 纠错 + 原因。 */
+    /** 对话回答反馈（v2 §52）：像我 = 正向确认记忆（USER_CONFIRMED，§80 层标签真值）；不太像 = 纠错 + 原因。 */
     suspend fun recordConversationFeedback(
         question: String,
         answer: String,
@@ -37,7 +37,7 @@ class EchoCorrectionService(
     ) {
         if (like) {
             memoryWriter.record(
-                type = MemoryType.CORRECTION,
+                type = MemoryType.USER_CONFIRMED,
                 content = "问答反馈：像我（问：${question.take(40)}）",
                 source = "user-feedback",
                 provenance = "conversation-feedback:v1",

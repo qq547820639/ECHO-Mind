@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Presence 性能与功耗真值审计收官 ✅（ADR-065 两轮结项：四表面偏好消费同源（resolveSurfaceConfig 唯一映射真值 + 行动层缺口修复）+ 快照解码节流；→ 下一轮：ADR-066 长阶段第 1 轮（Personal Correction 环路端到端真值审计）**
+**Personal Correction 环路真值审计第 1 轮完成 ✅（ADR-066 捕获段：修复「像我」层标签缺陷（CORRECTION → USER_CONFIRMED，§80 真值）+ EchoCorrectionService 捕获语义锚定（画像纠错/对话正反反馈/原因兜底）+4 测试）→ 下一轮：检索优先级与编译注入段复核 + ADR-066 结项 + ADR-067 选型**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**827 unit tests 全绿**（ERA 75 +1：三表面配置映射统一等价矩阵）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**831 unit tests 全绿**（ERA 76 +4：Correction 环路捕获段锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -113,6 +113,7 @@
 - **Journey 长历史性能审计收官**：**发现并修复 §108 数据级缺陷**——feature_vectors 无索引且时间线查询全表扫描（allPassiveCoreRows 无限历史）；**Room v11→v12** 复合索引 (userId, schemaVersion, windowStart)（MIGRATION_11_12 纯增量幂等，迁移测试锚定数据零改写）+ passiveCoreRowsBetween 窗口化查询接入 computeTimeline（**锚点 +2**：旧历史/他用户零混入；computeToday/baselineStatus 保留全量扫描——基线连续有效日 streak 语义需全历史，增长边界另立审计项）；canonical 预聚合路径复核通过（≤365 行参数行，无逐日重算）；**ADR-064 两轮结项** + **ADR-065 选型**：下一长阶段 = Presence 性能与功耗真值审计（§64/§65：渲染循环可见性 + 低功耗降级路径本地 JVM 锚定，设备段 CI 承接）
 - **Presence 性能与功耗真值审计第 1 轮**：**发现并修复 §64/§65 真值缺口**——用户视觉偏好（减少动画/动态程度/增强夜间模式）此前未进入 Wallpaper/Dream 渲染，两个功耗最高表面始终 DEFAULT 渲染（REDUCED_MOTION/LOW_POWER 机制对其无效）；**修复**：resolveSurfaceConfig 纯函数（减少动画 → REDUCED_MOTION flowSpeed 归零 / QUIET·LIVELY 系数 / 夜间因子）+ Wallpaper Engine 与 Dream View 每帧按偏好解析；**快照重读节流**：帧循环 60fps JSON 解码 40 字段 → 至多每秒一次（shouldRefreshSnapshot，可见/表面变化强制刷新保留）；**锚点 +5**：REDUCED_MOTION 零流动 / 基底表面保留 / 动态程度与夜间映射（未知 fail-closed DEFAULT）/ QUIET·LOW_POWER 方向 / 节流边界
 - **Presence 性能与功耗真值审计收官**：APP 表面复核与统一——echoVisualSurfaceConfig 委托 resolveSurfaceConfig（APP/Wallpaper/Dream 三表面唯一映射真值，等价矩阵锚定）；**发现并修复行动层缺口**——EchoActionOverlay 忽略用户偏好（现在以同一配置渲染；呼吸引导文字不受减少动画影响）；设备段交接复核（android-ci reactivecircus pinned SHA + connectedDebugAndroidTest；设备基准与 PRESENCE_BENCHMARKS 声明一致，本地不伪造）；**ADR-065 两轮结项** + **ADR-066 选型**：下一长阶段 = Personal Correction 环路端到端真值审计（宪法组件 Correction：捕获→记忆层→检索优先级→编译注入→解释归因）；**feature_vectors 留存裁剪显式排除**——会不可逆删除真实用户数据（阻塞条件 1，非人工确认不得自主执行，记录为待办）
+- **Personal Correction 环路真值审计第 1 轮**：捕获段审计——**发现并修复 §80 层标签缺陷**（对话「像我」正向反馈原写入 CORRECTION 层，冒充纠错；改为 USER_CONFIRMED——正向确认与纠错分层真值）；EchoCorrectionService 此前零测试 → **锚点 +4**：画像纠错写 CORRECTION（日期/原因/原判断）/ 对话「像我」写 USER_CONFIRMED 置信 1 / 对话「不太像」写纠错携带原回答 / 无原因兜底「其他」；§75 检索优先级与 §77 派生既有锚定复核保持
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -158,4 +159,4 @@
 
 ## Next Highest-value Task
 
-ADR-066 长阶段第 1 轮（Personal Correction 环路端到端真值审计）：纠正捕获路径审计（画像反馈 / 对话纠正 / 记忆编辑三入口）+ 记忆层写入与来源标注（CORRECTION 层标签）+ 检索优先级锚定（§75 排序头位）+ 缺口修复。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+ADR-066 第 2 轮（Personal Correction 环路收官）：检索优先级段复核（ContextRanker USER_CORRECTIONS=5 头位 + §75 rankMemories 类型优先级链）与编译注入段复核（EchoContextCompiler correction/context_exception 注入 + EvidenceAssembler CORRECTION → USER_CORRECTIONS 归因 + Journey「你纠正过我的」标签）+ ADR-066 结项 + ADR-067 选型。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
