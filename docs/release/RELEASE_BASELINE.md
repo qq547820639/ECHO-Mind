@@ -13,16 +13,17 @@
 **当前 HEAD ≠ last release。** Product Quality Era（R1–R8）的新代码在 v0.9.0 发布终检之后合入，
 尚未完成新一轮 Release Closure（ERA 39 §45）。
 
-## 2. 当前锚点（2026-08-15 记录）
+## 2. 当前锚点（2026-08-15 更新：v0.10.0 Release Closure）
 
 | 字段 | 值 |
 |---|---|
-| LAST_RELEASE_BASELINE | `578303665334f438010274df22ba001983d1b043` |
-| LAST_RELEASE_BASELINE 描述 | feat: 发布就绪全量终检收官 —— README/docs-current/ADRS 事实终检（ADR-001~072 / 迁移链 2→12 / 五套 CI）+ ADR-072 结项 + 后续方向记录 |
-| LAST_RELEASE_BASELINE 日期 | 2026-08-15 16:56:24 +0800 |
-| 已发布版本 | v0.9.0（APK `ECHO_Mind_v0.9.0.apk`，release 包 `releases/ECHO_Mind_PortraitCore_v0.9.0.zip/.tar.gz`） |
-| DEVELOPMENT_HEAD（记录时） | `b16fc1ce119beeaa75104a312ddc7194a2c48c98`（Product Quality Era R8） |
-| HEAD 相对 baseline | +10 commits（Product Quality Era R1–R8，尚未重新发布） |
+| LAST_RELEASE_BASELINE | `6e840866265da153b1164e780a02646d6b952b6d` |
+| LAST_RELEASE_BASELINE 描述 | chore: v0.10.0 release closure artifacts（uv.lock / openapi / SOURCE_MANIFEST 1019 / DELIVERY / SBOM） |
+| LAST_RELEASE_BASELINE 日期 | 2026-08-15 |
+| 已发布版本 | v0.10.0（versionCode 7；APK `ECHO_Mind_v0.10.0.apk` 本地测试密钥签名 v2,v3，生产签名由运营签名环境执行；release 包 `releases/ECHO_Mind_v0.10.0.release.zip`） |
+| 上一 baseline | v0.9.0（`5783036`，被 v0.10.0 取代） |
+| DEVELOPMENT_HEAD（记录时） | `6e84086`（provenance git_commit 与之相等；Release Closure 全绿） |
+| Release Closure 证据 | LOCAL PREFLIGHT PASSED（backend 1077 / android testDebugUnitTest+assembleDebug+lintDebug）+ assembleRelease（-PECHO_GIT_COMMIT 钉定）+ SOURCE_MANIFEST 1019 + 确定性归档双格式验证 + SBOM 80 + provenance（release / signed v2,v3 / APK 内嵌 commit 绑定）+ artifact manifest + final package §18 终态门禁 PASS + test_release_set 6/6 |
 
 ## 3. 纪律
 

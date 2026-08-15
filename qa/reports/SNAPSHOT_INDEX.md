@@ -35,6 +35,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND7.md](ERA31_ROUND7.md) — ERA 31 R7（Dogfood 准备 / Delete Audit / QA mirror 收尾）
 - [DELETE_AUDIT.md](DELETE_AUDIT.md) — BATCH 7 §39/§40 删除与订阅审计
 - [ERA31_ROUND8.md](ERA31_ROUND8.md) — ERA 31 R8（core:ports 依赖倒置收官，模块化停止）
+- [ERA31_ROUND10.md](ERA31_ROUND10.md) — ERA 31 R9/R10（v0.10.0 Release Closure 全绿）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

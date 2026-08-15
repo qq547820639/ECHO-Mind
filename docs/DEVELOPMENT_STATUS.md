@@ -106,8 +106,15 @@
    core 不再依赖任何 feature；模块化工作停止（§46 约定）。
 5. ✅ App/UI complexity cleanup：无 God Screen 发现（三大世界根页面均已 state-in/event-out 可测）。
 
-**BATCH 8 准备中（release candidate）**：
+**BATCH 8 ✅ 完成（v0.10.0 Release Closure）**：
 
-1. ⏭ clean checkout 全 Gate 重跑（tests / product QA / Android build / backend build）。
-2. ⏭ 发布链全量重生成（archive integrity / source manifest / SBOM / provenance / artifact manifest / release package）。
-3. ⏭ Device smoke test（外部门执行件已就绪）。
+1. ✅ 版本收口 v0.10.0（versionCode 7；一致性门禁 6/6）。
+2. ✅ LOCAL PREFLIGHT PASSED + assembleRelease（-PECHO_GIT_COMMIT 钉定）+ 签名 v2,v3。
+3. ✅ 发布链全量重生成：SOURCE_MANIFEST 1019 / 确定性归档 / SBOM 80 / provenance（release）/
+   artifact manifest / final package §18 终态门禁 PASS / test_release_set 6/6。
+4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
+5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
+
+**ERA 31 全部 Batch 1-8 完成。下一阶段（真实 dogfood 数据回流后）**：
+- BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；
+- Affective 评估（ERA 30 前置满足后）；Production 签名与设备矩阵。
