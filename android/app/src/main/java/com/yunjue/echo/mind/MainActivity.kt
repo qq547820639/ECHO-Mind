@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -16,12 +18,36 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.ui.EchoMindApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // ERA 32 R18：上次未捕获崩溃的本地日志（无 adb 设备也能反馈完整堆栈）
+        val crashText = runCatching {
+            java.io.File(filesDir, EchoMindApplication.CRASH_LOG_FILE)
+                .takeIf { it.exists() }?.readText()
+        }.getOrNull()
+        if (crashText != null) {
+            setContent {
+                MaterialTheme {
+                    Surface {
+                        CrashReportScreen(
+                            text = crashText,
+                            onClearAndRetry = {
+                                runCatching { java.io.File(filesDir, EchoMindApplication.CRASH_LOG_FILE).delete() }
+                                recreate()
+                            },
+                            onExit = { finishAffinity() },
+                        )
+                    }
+                }
+            }
+            return
+        }
         // ERA 32 R15（真机首启闪退修复，§60 crash-free runtime）：
         // 冷启动容器构建链含 fail-closed Keystore 初始化 + 受保护密钥供给 + SQLCipher 建库——
         // 此前任何设备侧异常（Keystore/原生库）都会在首帧前裸崩（「打开就闪退」，无任何可恢复出口）。
@@ -44,6 +70,39 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+/** 上次崩溃的完整堆栈展示（仅本地；供无 adb 设备反馈用）。 */
+@Composable
+fun CrashReportScreen(
+    text: String,
+    onClearAndRetry: () -> Unit,
+    onExit: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("上次打开时出现了问题", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "请把下面的内容复制并反馈给开发团队（只保存在本机）。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { clipboard.setText(AnnotatedString(text)) }) { Text("复制全文") }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onClearAndRetry) { Text("清除并重试") }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onExit) { Text("退出") }
     }
 }
 

@@ -27,6 +27,24 @@ class EchoMindApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // ERA 32 R18（真机调试闭环）：未捕获异常写入本地文件（仅本地，不上传）——
+        // 无 adb 的设备也能在下次打开时看到完整堆栈并反馈（MainActivity 读取展示）。
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            runCatching {
+                val log = java.io.File(filesDir, CRASH_LOG_FILE)
+                val text = buildString {
+                    appendLine("time=${System.currentTimeMillis()}")
+                    appendLine("device=${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+                    appendLine("thread=$thread")
+                    appendLine(throwable.toString())
+                    for (frame in throwable.stackTrace.take(60)) appendLine("  at $frame")
+                    (throwable.cause?.stackTrace ?: emptyArray()).take(20).forEach { appendLine("  caused-by at $it") }
+                }
+                log.writeText(text)
+            }
+            previous?.uncaughtException(thread, throwable)
+        }
         // 预热 DataStore（PassiveSensingPrefs）：
         // 直接实例化 PassiveSensingPrefs，触发 by preferencesDataStore 委托的 DataStore 引用创建
         // （DataStore 全局唯一，所有实例共享同一实例），实际磁盘 IO 在首次 collect 时异步进行，
@@ -65,5 +83,10 @@ class EchoMindApplication : Application(), Configuration.Provider {
 
         // v0.7.4 UX：每晚小结提醒（21:00 自续期一次性任务；开关见支持页）
         EveningReminderWorker.scheduleNext(this)
+    }
+
+    companion object {
+        /** ERA 32 R18：未捕获异常本地日志文件名（filesDir 内，仅本地）。 */
+        const val CRASH_LOG_FILE = "echo_crash.log"
     }
 }
