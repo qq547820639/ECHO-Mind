@@ -19,7 +19,7 @@
 - 日历 0 天 · 基线有效日 0
 
 ### Me · What ECHO Knows
-- ECHO 认识你 0 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.36 coherence=0.37 turbulence=0.15 pulse=4.1s · 粒子 37
@@ -72,10 +72,7 @@
   - 第 4 天：开始看到你的节奏（EMERGING）
 
 ### Me · What ECHO Knows
-- 你的工作日通常在 07:08 左右明显开始。
-- 工作日晚间通常在 02:28 前后安静下来。
-- 你平时每天屏幕约 213 分钟。
-- ECHO 认识你 3 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.12 coherence=0.37 turbulence=0.21 pulse=5.4s · 粒子 34
@@ -132,10 +129,7 @@
   - 第 8 天：开始认识通常的你（KNOWN）
 
 ### Me · What ECHO Knows
-- 你的工作日通常在 07:08 左右明显开始。
-- 工作日晚间通常在 02:28 前后安静下来。
-- 你平时每天屏幕约 149 分钟。
-- ECHO 认识你 7 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.37 coherence=0.46 turbulence=0.71 pulse=4.1s · 粒子 43
@@ -191,10 +185,7 @@
   - 第 29 天：ECHO 成熟（MATURE）
 
 ### Me · What ECHO Knows
-- 你的工作日通常在 07:08 左右明显开始。
-- 工作日晚间通常在 02:28 前后安静下来。
-- 你平时每天屏幕约 237 分钟。
-- ECHO 认识你 28 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.39 coherence=0.65 turbulence=0.57 pulse=4.1s · 粒子 36
@@ -258,10 +249,7 @@
   - 活跃起点后移
 
 ### Me · What ECHO Knows
-- 你的工作日通常在 10:45 左右明显开始。
-- 工作日晚间通常在 10:16 前后安静下来。
-- 你平时每天屏幕约 77 分钟。
-- ECHO 认识你 90 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.37 coherence=0.58 turbulence=0.74 pulse=4.1s · 粒子 37
@@ -321,10 +309,7 @@
   - 晚间屏幕更早
 
 ### Me · What ECHO Knows
-- 你的工作日通常在 04:47 左右明显开始。
-- 工作日晚间通常在 08:16 前后安静下来。
-- 你平时每天屏幕约 286 分钟。
-- ECHO 认识你 180 天了。
+- 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
 - flow=0.12 coherence=0.37 turbulence=0.25 pulse=5.4s · 粒子 34

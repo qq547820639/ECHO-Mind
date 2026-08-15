@@ -2,10 +2,17 @@ package com.yunjue.echo.mind.qa
 import com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs
 import com.yunjue.echo.mind.journey.JourneyScale
 import com.yunjue.echo.mind.journey.assembleJourneyMemoryState
+import com.yunjue.echo.mind.memory.EchoMemory
+import com.yunjue.echo.mind.memory.MemoryType
+import com.yunjue.echo.mind.memory.buildSelfModel
+import com.yunjue.echo.mind.memory.contextExceptionContent
+import com.yunjue.echo.mind.memory.echoKnowsLines
 import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
+import com.yunjue.echo.mind.model.RetentionClass
 
 import com.yunjue.echo.mind.presence.SurfaceMode
+import java.time.LocalDate
 
 /**
  * ERA 19 §4 — 完整产品快照（一个用户在某一天的所见）。
@@ -72,7 +79,7 @@ object QaProductSnapshot {
             scene = scene(snap, timeline),
             why = why(snap),
             journey = journey(snap, timeline),
-            me = me(snap),
+            me = me(snap, timeline),
             wallpaper = wallpaper(snap),
             dream = dream(snap),
             askEcho = QaAskEcho.CANONICAL_QUESTIONS.map { QaAskEcho.answer(timeline, dayIndex, it) },
@@ -144,25 +151,29 @@ object QaProductSnapshot {
         )
     }
 
-    private fun me(snap: QaDaySnapshot): MeSection {
-        val knows = mutableListOf<String>()
-        val baseline = snap.baseline
-        if (baseline != null && baseline.validDays >= 2) {
-            baseline.metrics["active_start_minute"]?.median?.let {
-                knows += "你的工作日通常在 ${QaPortraitMirror.minuteText(it)} 左右明显开始。"
-            }
-            baseline.metrics["active_end_minute"]?.median?.let {
-                knows += "工作日晚间通常在 ${QaPortraitMirror.minuteText(it)} 前后安静下来。"
-            }
-            baseline.metrics["screen_on_minutes"]?.median?.let {
-                knows += "你平时每天屏幕约 ${it.toInt()} 分钟。"
-            }
+    private fun me(snap: QaDaySnapshot, timeline: QaTimeline): MeSection {
+        // ERA 32 R13：Me 快照改吃 production 装配（buildSelfModel + echoKnowsLines）——
+        // 不再用 baseline 指标自造 production 并不产出的「你的工作日通常在…」行
+        // （QA 必须测 Production；产品预览不得展示产品不存在的语句）。
+        // 时间锚点固定（确定性快照，不受生成时刻影响）。
+        val now = LocalDate.parse("2026-08-15").toEpochDay() * 86_400_000L
+        val memories = timeline.profile.specialWindows.map { w ->
+            EchoMemory(
+                id = "ctx_${w.fromDay}_${w.toDay}",
+                userId = "qa",
+                type = MemoryType.CONTEXT,
+                content = contextExceptionContent(w.label, "", timeline.dateOf(w.fromDay).toString()),
+                source = "user-stated-context",
+                confidence = 1f,
+                createdAt = 0L,
+                lastConfirmedAt = 0L,
+                importance = 70,
+                retentionClass = RetentionClass.USER_PINNED,
+                provenance = "context-exception:v1",
+                deleted = false,
+            )
         }
-        if (snap.dayIndex >= 7) {
-            // 周末对比由 Ask ECHO 层回答（需要跨日聚合统计）
-        }
-        knows += "ECHO 认识你 ${snap.dayIndex} 天了。"
-        return MeSection(knows)
+        return MeSection(echoKnowsLines(buildSelfModel(memories, now)))
     }
 
     private fun wallpaper(snap: QaDaySnapshot): WallpaperSection {
