@@ -35,10 +35,17 @@ interface KeystoreKeyProvider {
  *   标准 GCM）——§89/§90 正式迁移后的 DB 秘密包装；
  * - [deleteAncientAlias]：v0.7 预修复时代 v1 alias（现实设备从未建成库）迁移后删除。
  */
-class AndroidKeystoreKeyProvider : KeystoreKeyProvider {
+class AndroidKeystoreKeyProvider(
+    /**
+     * ERA 32 R16 自愈：主 alias 在设备上不可用（如 OEM 卸载残留旧签名 Keystore 条目）时，
+     * 用带后缀的新 alias 重建密钥——alias 内嵌安装身份，不再被历史残留污染。
+     * 主 alias = ""（既有安装不变）；fallback = "-r" + 随机 hex（持久化于 prefs）。
+     */
+    aliasSuffix: String = "",
+) : KeystoreKeyProvider {
 
-    private val fieldAlias = "echo_mind_sensitive_fields_v2"
-    private val dbSecretAlias = "echo_mind_db_secret_v1"
+    private val fieldAlias = "echo_mind_sensitive_fields_v2$aliasSuffix"
+    private val dbSecretAlias = "echo_mind_db_secret_v1$aliasSuffix"
     private val ancientAlias = "echo_mind_sensitive_fields_v1"
 
     private val keyStore: KeyStore = runCatching {

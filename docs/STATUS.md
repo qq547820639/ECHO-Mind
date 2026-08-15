@@ -26,14 +26,14 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `24e14f6`，2026-08-15 22:25 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `72697f1`，2026-08-15 22:36 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1045 全绿**（app 875 / feature:intelligence 32 / feature:presence 25 / feature:qa 113） |
+| Android 单测（testDebugUnitTest） | **182 全绿**（app 12 / feature:intelligence 32 / feature:presence 25 / feature:qa 113） |
 | backend pytest | **1077 passed + 1 skipped**（全绿） |
-| Production Kotlin | 166 |
-| Test Kotlin | 124 |
+| Production Kotlin | 167 |
+| Test Kotlin | 125 |
 | QA Kotlin（:feature:qa，非 Production Runtime） | 36 |
 | Python | 68 |
 
@@ -97,6 +97,7 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 
 

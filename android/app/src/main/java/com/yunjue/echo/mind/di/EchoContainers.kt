@@ -30,6 +30,7 @@ import com.yunjue.echo.mind.openDatabase
 import com.yunjue.echo.mind.presence.EchoStateStore
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import com.yunjue.echo.mind.security.AndroidKeystoreKeyProvider
+import com.yunjue.echo.mind.security.KeystoreKeyProvider
 import com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage
 
 /**
@@ -46,24 +47,49 @@ import com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage
  */
 
 /** Core：安全/数据库/同步/基础仓库（基础设施，Application scoped）。 */
-class CoreContainer(context: Context) {
+class CoreContainer(
+    context: Context,
+    /** 测试注入缝：按 alias 后缀构造 KeystoreKeyProvider（默认生产实现）。 */
+    keyProviderFactory: (suffix: String) -> KeystoreKeyProvider = { AndroidKeystoreKeyProvider(it) },
+) {
     val applicationContext: Context = context.applicationContext
+
+    private val secretPrefs = context.getSharedPreferences(AppPreferences.PREFS_FILE, Context.MODE_PRIVATE)
+    private val secretStorage = PreferencesDatabaseSecretStorage(secretPrefs)
 
     /**
      * 生产字段加密：AndroidKeystore fail-closed（Keystore 不可用即抛异常，绝不降级）。
      * ERA 17 §89/§90：DB 口令 = HKDF(受保护随机 secret)；字段/DB 密钥分离（独立 alias）。
+     *
+     * ERA 32 R16 自愈（真机缺陷修复）：主 alias 键在设备上不可用（OEM 卸载残留旧签名
+     * Keystore 条目等）且本机**尚无受保护秘密**（全新安装，无数据可孤儿化）时，
+     * 换 per-install 后缀 alias 重建密钥并持久化后缀——后续启动直接用 fallback alias；
+     * 已有受保护秘密 → 保持 fail-closed（保护既有数据，绝不换钥丢库）。
      */
-    val cipher: AndroidKeystoreFieldCipher = AndroidKeystoreFieldCipher(
-        keys = AndroidKeystoreKeyProvider(),
-        secretStorage = PreferencesDatabaseSecretStorage(
-            context.getSharedPreferences(AppPreferences.PREFS_FILE, Context.MODE_PRIVATE)
-        ),
-    )
+    val cipher: AndroidKeystoreFieldCipher
+    val database: EchoDatabase
+
+    init {
+        val persistedSuffix = secretPrefs.getString(KEY_DB_ALIAS_SUFFIX, null)
+        val resolved = com.yunjue.echo.mind.security.resolveCipher(
+            persistedSuffix = persistedSuffix,
+            build = { suffix ->
+                AndroidKeystoreFieldCipher(keyProviderFactory(suffix), secretStorage)
+            },
+            hasWrappedSecret = { secretStorage.readWrappedSecret() != null },
+            newSuffix = {
+                "-r" + java.security.SecureRandom().let { rng ->
+                    ByteArray(8).also { rng.nextBytes(it) }.joinToString("") { "%02x".format(it) }
+                }
+            },
+            persistSuffix = { secretPrefs.edit().putString(KEY_DB_ALIAS_SUFFIX, it).apply() },
+        )
+        cipher = resolved
+        database = openDatabase(context, resolved)
+    }
+
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
-
-    /** SQLCipher 全库加密数据库（fail-closed：native 加载失败抛异常，绝不回退明文 Room）。 */
-    val database: EchoDatabase = openDatabase(context, cipher)
 
     val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
 
@@ -74,6 +100,11 @@ class CoreContainer(context: Context) {
     val syncStateRepository = SyncStateRepository(database, preferences)
     val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
     val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
+
+    companion object {
+        /** ERA 32 R16：fallback alias 后缀的 prefs 键（非敏感；只是别名片段）。 */
+        const val KEY_DB_ALIAS_SUFFIX = "db_secret_alias_suffix"
+    }
 }
 
 /** Observation：端侧画像 Ground Truth + 感知/同意（不依赖 intelligence——永久边界）。 */

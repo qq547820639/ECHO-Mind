@@ -68,7 +68,7 @@ ba93e34ce79f6177df45fed34ef5a96565f0817450dfb8d6a67e8b1db52a98d8  android/app/sr
 2848681ec2851110f40f25db8fcdd58be51abbfeb29fbc13dc13ffa007d57c7f  android/app/src/main/java/com/yunjue/echo/mind/data/SyncWorker.kt
 04034e8b1405970b99ff1713b0c2a994099a57a6b42182652947e6a508c7a4c3  android/app/src/main/java/com/yunjue/echo/mind/data/database/EchoDatabaseMigrations.kt
 ecc3158182204df660535beb7766b02bce69ca8f113400f6d72eede7d48b86d9  android/app/src/main/java/com/yunjue/echo/mind/data/outbox/Outbox.kt
-f3bfcffa94eb71be5d3e83f72943c5cbd297297c9eac6f316222d2ae933e8f37  android/app/src/main/java/com/yunjue/echo/mind/di/EchoContainers.kt
+2f131a97f78eaac80cdfbb879579425020bfc785b63aec57f7434838f0e5bac1  android/app/src/main/java/com/yunjue/echo/mind/di/EchoContainers.kt
 1ac0ea52dd2e88f76ad9529e990b0fb557f7610253e53a09c62ea0d07ae58261  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyMemoryRepository.kt
 7465ac8c4c54ccb4630b2b4940b8d91d8e03cc3f0b71300e022742e030e3a3a9  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyRepository.kt
 fef22d35f7debbad6489b5291b417a1bffb05d827c8032ea6ff464a0f1947366  android/app/src/main/java/com/yunjue/echo/mind/me/FlowCombine.kt
@@ -221,6 +221,7 @@ d2dda4553c3e5355d5f8338b863e2adfc85bd260638420abfb169dbe1b16b39c  android/app/sr
 00b8dbb5fa8a4658d1241b86aacd7e6f0939a56d6f8aee30d4e60c50bfb2b856  android/app/src/test/java/com/yunjue/echo/mind/presence/PresenceSurfacePolicyTest.kt
 b7ea7e54185d95bd3781c9064c2fe54bd2b5dd8079f9ce68b6f792528a03f8ba  android/app/src/test/java/com/yunjue/echo/mind/presence/WallpaperRenderControllerTest.kt
 75f7b2741b3485c025d9f79c8450b2a90a0b0a807663919a93c5ab6a17380aa9  android/app/src/test/java/com/yunjue/echo/mind/security/AndroidKeystoreFieldCipherMigrationTest.kt
+2886a4625538a8b6a003c9c2582b51ba83f9dd85e31977db889b2bb9432ae198  android/app/src/test/java/com/yunjue/echo/mind/security/CipherSelfHealingTest.kt
 1e80fe98b3b71b89522fed2dd2917e84ffd886032c82224bc5d23555879fb1c4  android/app/src/test/java/com/yunjue/echo/mind/security/DatabaseOpenOrchestratorTest.kt
 f49097533efcea6ca726a8b023d6c29621c07eefe1f1918002141a206ba51e58  android/app/src/test/java/com/yunjue/echo/mind/security/DatabasePassphraseDerivationTest.kt
 b303479637b0a245de8a53d913b3b2f7919306ecbbf5921788dbc88da78cb810  android/app/src/test/java/com/yunjue/echo/mind/security/HkdfSha256Test.kt
@@ -277,12 +278,13 @@ b370f62d099e33b36b13d30c907a4c2ec498af60e61314eb28303f3f48f49cbc  android/core/p
 75328dd483f6d921012c7528ca6e6240764a8789564dc78f54561477de6f564b  android/core/security/gradle.lockfile
 daa0fb1f32ba7ea85a07ef6302ab3d58c3407d7fd2aa03ec132cb9e38e8d9849  android/core/security/src/main/AndroidManifest.xml
 ea831b33b26bc4aa3b3711e2d84fbdd5b06c7d47087bc8866034b2de2db9f005  android/core/security/src/main/java/com/yunjue/echo/mind/security/AndroidKeystoreFieldCipher.kt
+d20d7fdd2ad42cdb6920205b3a744e5e0872ca6c11add84b435a8a8ce6673a10  android/core/security/src/main/java/com/yunjue/echo/mind/security/CipherSelfHealing.kt
 1e4061a52976f5546c3b9f4325d74aff1b6876772d6a1bfc42846ec4b4dcf1fe  android/core/security/src/main/java/com/yunjue/echo/mind/security/DatabaseOpenOrchestrator.kt
 320f03dcacb979aa6a039abc73a6f8ac6dc387bc799095baa827466e8f32dd41  android/core/security/src/main/java/com/yunjue/echo/mind/security/DatabasePassphraseDerivation.kt
 f0fd183180c030ba21b2222748815df044d7ec5efaa98bac6ba9cdd3549c4441  android/core/security/src/main/java/com/yunjue/echo/mind/security/DatabaseSecretStorage.kt
 865691b4ad2d67b54c3855f857214c06a32f50f029207f26bf6752abae1925ba  android/core/security/src/main/java/com/yunjue/echo/mind/security/FieldCipher.kt
 19eba1cfff9c64fe2634bb6efe70dc35d8738bd2dcfb3e3b5f5de6ef43cc2075  android/core/security/src/main/java/com/yunjue/echo/mind/security/HkdfSha256.kt
-e894f04bc5aafd21ca5d65b81c3ad63b8a6c8e14cf39d806a073be584823844e  android/core/security/src/main/java/com/yunjue/echo/mind/security/KeystoreKeyProvider.kt
+e81b79de76478c0b4d1a1be5ef0574cc93f31d3c4681fc6680143402ef46f93a  android/core/security/src/main/java/com/yunjue/echo/mind/security/KeystoreKeyProvider.kt
 667f3f3aadfa9bec2f2a8d3df0e44c49e44b06d5169563148904be96cc874007  android/detekt.yml
 0e4edbf81a092d60319df6afe18e78c88de68a482dfddb65d682e2ab3726c643  android/feature/actions/build.gradle.kts
 854d5af74474bf59946d6618b1a3c222a2157ee46e8cdac59b76752153e9692a  android/feature/actions/gradle.lockfile
@@ -613,7 +615,7 @@ dfef72508afcc7121ebc0dd0b5fbeeb774edc5407469850ae9458ce12e14de26  docs/CHANGELOG
 b451ce30093b67dffa508dea68514bafb32398beec61a33b161671e82783bcef  docs/CHANGELOG/README_AUTHORITY_legacy.md
 12c1a23e40aeec33411ce287b7e6f8ec4db32790cfb745a3cc8471db7c972e0c  docs/CHANGELOG/RELEASE_READINESS_v0.9.0.md
 78e03aab19e5743237a453d370a0c799bb65acc17912ec1f7dec1a3f1f7322db  docs/RELEASE_BASELINE.md
-82053b492844d4638ba90f414f0a63cb80c2d986404946ea6bf0c6f8048014c5  docs/STATUS.md
+6110862428420702261aed00ba76c76068167339fe4c2d1914cd608483060e7e  docs/STATUS.md
 f071a1f1c9bcb3127ecf470099a06d197739aba1f4c74d5f20c5469c44f9efe0  docs/architecture/ADRS.md
 455249fc665de07e36d711605a88217404a5a1ec463240a734b69f88b36d6f0f  docs/architecture/ANDROID_CODE_INVENTORY.md
 41be3e6754a62b2ebd02e1246af270836c0b9b1c50845006593daaa5f6015f2b  docs/architecture/ANDROID_DEPENDENCY_GRAPH.md
