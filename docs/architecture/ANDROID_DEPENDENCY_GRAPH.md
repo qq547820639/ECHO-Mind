@@ -12,7 +12,7 @@ di ──► data, intelligence, journey, presence, root, security
 intelligence ──► memory, observation, ports, security
 journey ──► data, intelligence, memory, observation, presence, root
 me ──► data, memory, observation
-memory ──► ports
+memory ──► observation, ports
 observation ──► root
 ports ──► observation
 presence ──► observation, root
@@ -29,7 +29,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | data | 27 |
 | di | 1 |
 | intelligence | 18 |
-| journey | 15 |
+| journey | 16 |
 | me | 3 |
 | memory | 6 |
 | observation | 25 |
@@ -67,6 +67,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - me → data
 - me → memory
 - me → observation
+- memory → observation
 - memory → ports
 - observation → root
 - ports → observation

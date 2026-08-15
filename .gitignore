@@ -43,5 +43,8 @@ ECHO_Mind_v*.apk*
 releases/ECHO_Mind_PortraitCore_v*
 releases/ECHO_Mind_v*.release.zip
 
+# source-integrity CI 的确定性源归档输出目录（生成物，不入库；流水线 artifact 上传）
+dist/
+
 # Gradle Kotlin session dir
 **/.kotlin/

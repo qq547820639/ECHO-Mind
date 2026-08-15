@@ -30,7 +30,7 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：164
+- Kotlin 文件：165
 - Python 文件：68
 - Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）
@@ -69,7 +69,7 @@
 - `runtime` ✅
 
 ## unresolved project symbol 候选（自动发现；人工复核）
-- 无
+- `deriveIdentityGenome`（引用自 presence）—— 疑似缺失/常量/跨包，需复核
 
 ## 文档宣称但缺失实现候选
 - 由 SourceIntegrityTest（runtime/intelligence/presence/memory 关键类）与 unresolved 扫描联合覆盖；本轮无已知项。
