@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Journey 年视图深化第 2 轮完成 ✅（转变点 §87 中性解释绑定（shiftExplanationLines：时间范围 + 用户可读解释 + 诚实兜底，不泄漏技术维度名）+ 身份演化逐点呈现（每月快照 + 与上一记录一致/细微调整标注）+ YearViewSection 渲染 smoke 锚定；+4 测试）→ 下一轮：ADR-063 第 3 轮收官审计 + 结项记录**
+**Journey 年视图深化收官 ✅（ADR-063 三轮结项：跨年季节桶真值修复 + §87 转变点中性解释 + 身份演化逐点呈现 + 365 天装配级回归无重无漏）→ 下一轮：ADR-064 长阶段第 1 轮（§108 Journey 长历史性能与正确性审计）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**814 unit tests 全绿**（ERA 70 +4：转变点解释绑定 +3 / YearViewSection smoke +1）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**815 unit tests 全绿**（ERA 71 +1：365 天窗口装配级跨年分桶回归）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -108,6 +108,7 @@
 - **Me 数据权利检查台收官**：能力边界聚合行接入同卡——FlowCombine 增 combine9，VM 增 _knowsFacts（感知/麦克风/Provider READY/基线天数四事实采集，与 What ECHO Knows 同源），DataAndSensingUiState.doesNotKnow 由 EchoDoesNotKnow 纯映射；删除动作后足迹自动刷新契约确认（RequestDelete → refreshLocalCounts；导出不改变计数）；**ADR-062 三轮结项**：「数据使用什么 / Memory 有什么 / 权限有哪些 / ECHO 还不知道什么」单卡呈现逐项可测；**新锚点**：DataAndSensingContentSmokeTest +1（聚合行渲染）
 - **ADR-063 选型 + Journey 年视图深化第 1 轮**：下一长阶段选定 **ERA 16 §86/§87 真值审计**（Journey 年视图深化；不选 CI 模拟器矩阵——基础设施无直接收益且本环境无法本地验证）；**发现并修复跨年季节桶合并缺陷**——滚动 365 天窗口跨日历年时旧代码按季节标签分桶（2025-08 与 2026-06 混入同一 SUMMER、12 月与次年 1/2 月失联），改为 seasonKeyOf（标签 + 冬季起始年：1/2 月归上一年冬季）分桶；**锚点 +3**：seasonKeyOf 跨年分键 / 跨年窗口五桶逐日序列（双 SUMMER 分桶 + 冬季桶跨 12~2 月 3 天 + 桶跨度 ≤5 月）/ 转变点年份归属（2025-12 转变入 WINTER-2025 桶、2026-06 桶零误报）
 - **Journey 年视图深化第 2 轮**：转变点 §87 中性解释绑定——JourneyMajorShift 增 beforeDate（前聚合段末日），shiftExplanationLines = explainPeriodChange（时间范围 + 用户可读解释）+ 无显著单维变化时「整体视觉风格转变」诚实兜底（不再泄漏 flow/coherence 技术维度名）；身份演化逐点呈现——identityEvolutionLines（每月快照日期 + 与上一记录一致/细微调整标注，仅比较基因组字段零推断）；YearViewSection 渲染换用两条纯函数；**锚点 +4**：beforeDate 填充 / 解释行时间范围与中性词绑定（技术名零泄漏断言）/ 兜底行 / 身份一致性标注 + JourneyYearViewSmokeTest（季节行·特殊阶段·转变解释·身份演化标题与逐点行）
+- **Journey 年视图深化收官**：365 天窗口装配级回归（2025-08-15 → 2026-08-14 经 assembleJourneyUiState：双 SUMMER 分桶 + sumOf dayCount == 365 无重无漏 + 桶日期单调）；**ADR-063 三轮结项**（§86/§87 真值审计完成）+ **ADR-064 选型**：下一长阶段 = §108 Journey 长历史性能与正确性审计（镜像 ADR-061 方法；PERFORMANCE_BASELINES 12 行将补 Journey 长历史行；不选 CI 模拟器矩阵——连续三轮理由不变）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -153,4 +154,4 @@
 
 ## Next Highest-value Task
 
-Journey 年视图深化第 3 轮（ADR-063 收官）：§86/§87 全链终检（跨年桶 ✓ / 转变解释 ✓ / 身份逐点 ✓ / smoke ✓——复核 YEAR 尺度 365 天窗口装配与 SEASON 尺度回归）+ ADR-063 结项记录 + 下一长阶段选型（ADR-064 候选池）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+ADR-064 长阶段第 1 轮（§108 Journey 长历史性能与正确性审计）：365 天窗口全路径 JVM 实测（时间线装配 / 视觉日 / 河流 / 年视图 / 生活阶段）与锚点入 PERFORMANCE_BASELINES（第 13 行）+ 全量重算路径审计（canonical snapshots 预聚合 vs 逐日重算）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

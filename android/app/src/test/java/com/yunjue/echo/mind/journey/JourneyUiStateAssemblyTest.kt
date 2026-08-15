@@ -170,6 +170,20 @@ class JourneyUiStateAssemblyTest {
     }
 
     @Test
+    fun yearWindowSplitsSeasonsAcrossCalendarYearsInAssembly() {
+        // ERA 70 装配级回归：365 天窗口（2025-08-15 → 2026-08-14）跨日历年，
+        // 同标签季节（SUMMER 2025 / SUMMER 2026）必须各自成桶（seasonKeyOf 修复的端到端锚点）。
+        val state = assemble(scale = JourneyScale.YEAR, timeline = freshTimeline(365))
+        val year = state.yearView
+        assertNotNull(year)
+        val summers = year!!.seasons.filter { it.season == SEASON_SUMMER }
+        assertEquals(2, summers.size)
+        assertTrue(summers[0].startDate < summers[1].startDate)
+        assertTrue(year.seasons.all { it.startDate <= it.endDate })
+        assertEquals(365, year.seasons.sumOf { it.dayCount })
+    }
+
+    @Test
     fun contextExceptionsMarkSpecialRiverSegments() {
         val state = assembleJourneyUiState(
             scale = JourneyScale.DAY,
