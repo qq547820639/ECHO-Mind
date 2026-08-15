@@ -27,3 +27,7 @@ detekt {
     config.setFrom(rootProject.file("detekt.yml"))
     parallel = true
 }
+
+dependencies {
+    implementation(project(":core:model"))
+}

@@ -766,3 +766,10 @@
 - §48 AI 数据用途：确认已有会话层「参考了/没有使用」双清单即 §48 落地（ConversationTurn.sources 自 ERA 7 流转）。
 - §46 用户控制复核：纠正/确认/忘记/编辑/固定/暂停/关闭某类数据/删除 Memory/删除本地数据全部在位。
 - 门禁：Me 系列 smoke 全绿（新增顺序锚定 + Advanced 分离）；app 844 / qa 87 / presence 16 全绿 + detekt；backend 无变更。
+
+### ADR-073 第 6 轮记录（Product Quality Era Round 6 — Batch 6 简化 + 模块卫生）
+
+- §49/§50 旧心理健康产品遗产审计：questionnaires/journals/checkins 仅剩 DB 表与迁移（UI 早已移除，历史数据保留）；Skill 已收敛为 Action 层（BREATHING/PAUSE）；订阅区位于 Me 底部（非「ECHO 懂不懂我」开关）。
+- §62 AppContainer 瘦身：11 个 Room Migration（约 250 行）移出到 data/database/EchoDatabaseMigrations.kt；AppContainer 只剩六容器组合 + Room builder；测试引用同步更新。
+- §58/§59 core:ports 卫生：EchoMemory/MemoryType/RetentionClass/MemorySensitivity 契约类型上移 core:model（EchoMemoryContract.kt）；**core:ports 不再依赖 feature:memory**（typealias 桥渐进迁移，全仓零破坏）；EchoPresenceState 上移列为下一步。
+- 门禁：app 844 / qa 87 / presence 16 全绿 + detekt；backend 无变更。

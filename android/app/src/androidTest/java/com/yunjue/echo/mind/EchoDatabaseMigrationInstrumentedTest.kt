@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind
 
+import com.yunjue.echo.mind.data.database.*
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry

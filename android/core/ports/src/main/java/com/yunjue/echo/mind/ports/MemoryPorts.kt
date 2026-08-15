@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.ports
 
-import com.yunjue.echo.mind.memory.EchoMemory
-import com.yunjue.echo.mind.memory.MemoryType
+import com.yunjue.echo.mind.model.EchoMemory
+import com.yunjue.echo.mind.model.MemoryType
 
 /**
  * ERA 13.2 §39 — Memory Ports。
