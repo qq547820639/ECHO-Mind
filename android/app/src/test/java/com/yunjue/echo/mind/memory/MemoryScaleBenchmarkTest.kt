@@ -93,4 +93,30 @@ class MemoryScaleBenchmarkTest {
         assertTrue("10000 条派生耗时 ${deriveMs}ms 超出万级护栏", deriveMs < 8000)
         assertTrue("唯一内容样本零派生", patterns.isEmpty())
     }
+
+    @Test
+    fun twentyThousandScaleGuardrails() {
+        // ERA 32 R07（§58）：两万级护栏——长期用户记忆上限；预算宽于万级以区分真数量级退化
+        val now = 10_000_000_000L
+        val input = memories(20_000)
+
+        val rankStart = System.nanoTime()
+        val ranked = rankMemories(input, now)
+        val rankMs = (System.nanoTime() - rankStart) / 1_000_000
+        assertEquals(20_000, ranked.size)
+        assertTrue("20000 条排序耗时 ${rankMs}ms 超出两万级护栏", rankMs < 12_000)
+
+        val sweepStart = System.nanoTime()
+        for (m in input) {
+            shouldForget(m, now)
+        }
+        val sweepMs = (System.nanoTime() - sweepStart) / 1_000_000
+        assertTrue("20000 条过期判定耗时 ${sweepMs}ms 超出两万级护栏", sweepMs < 12_000)
+
+        val deriveStart = System.nanoTime()
+        val patterns = derivePatterns(input)
+        val deriveMs = (System.nanoTime() - deriveStart) / 1_000_000
+        assertTrue("20000 条派生耗时 ${deriveMs}ms 超出两万级护栏", deriveMs < 12_000)
+        assertTrue("唯一内容样本零派生", patterns.isEmpty())
+    }
 }

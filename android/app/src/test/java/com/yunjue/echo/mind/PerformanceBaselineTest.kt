@@ -112,6 +112,36 @@ class PerformanceBaselineTest {
         assertTrue("365 天 UI 状态装配耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
     }
 
+    /** ERA 32 R07（§59）：Journey 1000 天完整 UI 状态装配预算——canonical/聚合/懒渲染组合上限。 */
+    @Test
+    fun journeyUiStateAssembly1000StaysUnderBudget() {
+        val start = LocalDate.of(2023, 4, 1)
+        val portraits = (0 until 1000).map { i ->
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 120)
+        }
+        val timeline = com.yunjue.echo.mind.model.PortraitTimelineUiState(
+            days = 1000, loading = false, portraits = portraits,
+        )
+        val ms = measureMs(2) {
+            com.yunjue.echo.mind.journey.assembleJourneyUiState(
+                scale = com.yunjue.echo.mind.journey.JourneyScale.YEAR,
+                timeline = timeline,
+                permissionEnabled = true,
+                narrative = null,
+                runtimeAvailability = null,
+                runtimeDiagnostics = null,
+                showEvidence = false,
+                intelligenceAvailable = false,
+                syncStatus = com.yunjue.echo.mind.journey.JourneySyncStatus(consent = true, permissionEnabled = true),
+                journeySeed = 42L,
+                memory = com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs(
+                    contextExceptions = mapOf("2024-03-10" to "travel"),
+                ),
+            )
+        }
+        assertTrue("1000 天 UI 状态装配耗时 ${"%.1f".format(ms)}ms 超出预算 5000ms", ms < 5000.0)
+    }
+
     /** §108：Life Season 计算（365 画像窗口）——全量重算预算。 */
     @Test
     fun lifeSeason365WindowStaysUnderBudget() {
