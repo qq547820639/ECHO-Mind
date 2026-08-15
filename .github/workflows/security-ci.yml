@@ -35,7 +35,7 @@ jobs:
           output-file: sbom.spdx.json
 
       # CodeQL：python（autobuild）+ Kotlin SAST（P2 落地：manual build + Android SDK）
-      - uses: github/codeql-action/init@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3  # v4.37.6
         with:
           languages: python, java-kotlin
           build-mode: manual
