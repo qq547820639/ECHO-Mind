@@ -13,7 +13,6 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.model.SensingDiagnostics
-import com.yunjue.echo.mind.model.portraitStabilitySummary
 import com.yunjue.echo.mind.model.SensingCapability
 import com.yunjue.echo.mind.sensing.capabilityState
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +103,8 @@ open class JourneyRepository(
         val evidence = contextRetriever.retrieve(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN)
         val result = aiNarrativeService.longitudinalNarrative(
             evidence = evidence,
-            deterministicText = portraitStabilitySummary(portraits),
+            // ERA 31 R19：确定性 fallback 说成人话（journeyNaturalSummary），指标行留给 Evidence Layer
+            deterministicText = journeyNaturalSummary(portraits),
         )
         val exceptions = evidence
             .filter { it.category == DataSourceCategory.CONTEXT_EXCEPTIONS }

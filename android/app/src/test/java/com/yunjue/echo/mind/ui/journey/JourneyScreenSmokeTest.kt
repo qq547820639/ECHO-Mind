@@ -208,12 +208,13 @@ class JourneyScreenSmokeTest {
     }
 
     @Test
-    fun dayCellClickEmitsSelectDayForToday() {
+    fun dayCellClickEmitsSelectDayForLatestRecordedDay() {
+        // ERA 31 R19：DAY 河流锚定旅程实际最新一天（感知滞后时不渲染空占位的「今天」）
         val events = mutableListOf<JourneyEvent>()
         setJourneyContent(freshState(), events = events)
-        val today = LocalDate.now()
-        val label = "${today.monthValue}/${today.dayOfMonth}"
+        val latestRecorded = LocalDate.parse("2026-08-14")
+        val label = "${latestRecorded.monthValue}/${latestRecorded.dayOfMonth}"
         compose.onNode(hasClickAction() and hasText(label)).performScrollTo().performClick()
-        assertTrue(events.contains(JourneyEvent.SelectDay(today.toString())))
+        assertTrue(events.contains(JourneyEvent.SelectDay("2026-08-14")))
     }
 }

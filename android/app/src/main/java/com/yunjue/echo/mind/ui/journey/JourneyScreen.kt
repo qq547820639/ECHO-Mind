@@ -162,7 +162,7 @@ private fun JourneyContent(
     if (narrative != null) {
         val portraits = state.timeline.portraits
         Text(
-            if (narrative.result.text.isBlank()) com.yunjue.echo.mind.model.portraitStabilitySummary(portraits)
+            if (narrative.result.text.isBlank()) com.yunjue.echo.mind.journey.journeyNaturalSummary(portraits)
             else narrative.result.text,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(top = 12.dp)
@@ -236,7 +236,12 @@ private fun VisualMemoryRiver(
 ) {
     when (scale) {
         JourneyScale.DAY -> {
-            val lastDays = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
+            // ERA 31 R19：7 天窗口锚定到旅程实际最新一天（感知滞后时不渲染
+            // 「今天/昨天」的空占位——有记录的最后 7 天才是「我的时间」）。
+            val latest = days.maxOfOrNull { it.date }
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?: LocalDate.now()
+            val lastDays = (0 until 7).map { latest.minusDays((7 - 1 - it).toLong()) }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState())
