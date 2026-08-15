@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**1002 unit tests**（app 850 / feature:intelligence 20 / feature:presence 21 / feature:qa 111；ERA 31 R5 实测全绿）+ lint（4 安全规则）+
+- Android：**1004 unit tests**（app 852 / feature:intelligence 20 / feature:presence 21 / feature:qa 111；ERA 31 R6 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
@@ -76,10 +76,17 @@
 3. ✅ Memory consolidation 决策：暂不接线（decay/expiry/purge 已限增长；触发条件 = dogfood 实测记忆成为真实问题）。
 4. ⏭ What ECHO Knows 人类语言复核 + edit / forget / confirm UX（列 BATCH 6 dogfood 轮并行推进）。
 
-**BATCH 4 进行中（§30-34）**：
+**BATCH 4 ✅ 收口（§30-34）**：
 
-1. ✅ Journey 第一视觉修复：免责文案移到页底，打开 Journey = 视觉记忆河流第一眼。
-2. ⏭ Significant Change 精简复核。
-3. ⏭ Landmark quality 复核。
-4. ⏭ Month/Season/Year visual story 复审。
-5. ⏭ 删除无意义自动总结（如有）。
+1. ✅ Journey 第一视觉修复（免责文案移页底）。
+2. ✅ Significant Change 复核：领域层已达标（阈值/置信度/上下文标注/情感词守卫），无需改动。
+3. ✅ Landmark quality：发现 buildLandmarks 生产零消费 → YEAR 尺度装配 + 「时间地标」UI（§33 四类）。
+4. ✅ Year View 复审：Visual > Narrative 已达标；journeyYearStory 保持 QA 用途（不增加 narrative 展示面）。
+5. ✅ 无意义自动总结：未发现（叙事降级链已克制）。
+
+**BATCH 5 进行中（§47-50）**：
+
+1. ✅ Onboarding 审计：三步流程已符合 North Star（AI/Mic 后置、授权完成不停留、苏醒自动过渡）。
+2. ✅ Time-to-ECHO 指标建立（`qa/reports/TIME_TO_ECHO.md`：六段分解 + 机器段 ≈2.21s + 苏醒时长预算回归锚点）。
+3. ✅ §51 首帧不等待审计（combine 全本地流；Provider/Backend/Memory 不阻塞首帧）。
+4. ⏭ Permission 文案（§48 三问复核）与 dogfood 观察合并到 BATCH 6。

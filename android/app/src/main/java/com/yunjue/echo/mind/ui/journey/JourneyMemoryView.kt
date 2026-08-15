@@ -21,6 +21,7 @@ import com.yunjue.echo.mind.journey.JourneyDay
 import com.yunjue.echo.mind.journey.JourneyRiverSegment
 import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.identityEvolutionLines
+import com.yunjue.echo.mind.journey.landmarkKindLabel
 import com.yunjue.echo.mind.journey.reconstructJourneyFrame
 import com.yunjue.echo.mind.journey.seasonLabel
 import com.yunjue.echo.mind.journey.shiftExplanationLines
@@ -126,6 +127,16 @@ fun YearViewSection(state: JourneyUiState, seed: Long) {
             identityEvolutionLines(year.identityEvolution).forEach { line ->
                 Text(line, style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+    // §41 时间地标：值得回看的时间锚点（§33 四类；安静列表，视觉仍是第一层）
+    if (state.landmarks.isNotEmpty()) {
+        Text("时间地标", style = MaterialTheme.typography.titleSmall)
+        state.landmarks.forEach { landmark ->
+            Text(
+                "${landmark.date} · ${landmarkKindLabel(landmark.kind)}：${landmark.text}",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

@@ -50,6 +50,19 @@ class JourneyUiStateAssemblyTest {
     )
 
     @Test
+    fun yearScaleCarriesTimeLandmarksNotOtherScales() {
+        val dates = (0 until 365).map {
+            java.time.LocalDate.parse("2026-01-05").plusDays(it.toLong()).toString()
+        }
+        val timeline = PortraitTimelineUiState(loading = false, portraits = dates.map { portrait(it) })
+        val year = assemble(scale = JourneyScale.YEAR, timeline = timeline)
+        assertTrue("YEAR 尺度应装配时间地标（§33 四类）", year.landmarks.isNotEmpty())
+        assertTrue("应含第一次基线成熟地标", year.landmarks.any { it.kind == JourneyLandmarkKind.BASELINE_MATURE })
+        val day = assemble(scale = JourneyScale.DAY, timeline = timeline)
+        assertTrue("非 YEAR 尺度不装配地标（避免每尺度重算）", day.landmarks.isEmpty())
+    }
+
+    @Test
     fun emptyTimelineIsNoData() {
         val state = assemble()
         assertEquals(TrendUiState.NO_DATA, state.trendState)

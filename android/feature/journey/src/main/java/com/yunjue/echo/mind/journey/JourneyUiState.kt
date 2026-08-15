@@ -80,6 +80,8 @@ data class JourneyUiState(
     val yearView: JourneyYearView? = null,
     /** Life Season × Journey 解释（§87：SEASON/YEAR 尺度）。 */
     val seasonExplanation: List<String> = emptyList(),
+    /** §41 时间地标（YEAR 尺度装配；其余尺度为空）。 */
+    val landmarks: List<JourneyLandmark> = emptyList(),
     /** 选中历史日期（§84 历史重建：那天 ECHO 的视觉事实）。 */
     val selectedDay: JourneyDay? = null,
     val selectedCanonical: JourneyCanonicalDay? = null,
@@ -102,6 +104,7 @@ data class JourneyMemoryState(
     val riverSegments: List<JourneyRiverSegment> = emptyList(),
     val yearView: JourneyYearView? = null,
     val seasonExplanation: List<String> = emptyList(),
+    val landmarks: List<JourneyLandmark> = emptyList(),
     val selectedDay: JourneyDay? = null,
     val selectedCanonical: JourneyCanonicalDay? = null,
     val selectedDayExplanation: List<String> = emptyList(),
@@ -140,6 +143,14 @@ fun assembleJourneyMemoryState(
     val seasonExplanation = if (scale == JourneyScale.SEASON || scale == JourneyScale.YEAR) {
         explainLifeSeasonVisual(computeLifeSeason(timeline.portraits))
     } else emptyList()
+    // §41：时间地标只在 YEAR 尺度装配（与年视图同生命周期；§33 四类地标，不把普通波动地标化）
+    val landmarks = if (scale == JourneyScale.YEAR && yearView != null) {
+        buildLandmarks(
+            days = visualDays,
+            contextPeriods = yearView.contextPeriods,
+            confirmedPhases = emptyMap(),
+        )
+    } else emptyList()
     val selectedDay = memory.selectedDayDate?.let { date -> visualDays.firstOrNull { it.date == date } }
     val selectedCanonical = memory.selectedDayDate?.let { date ->
         memory.canonicalDays.firstOrNull { it.date == date }
@@ -165,6 +176,7 @@ fun assembleJourneyMemoryState(
         riverSegments = riverSegments,
         yearView = yearView,
         seasonExplanation = seasonExplanation,
+        landmarks = landmarks,
         selectedDay = selectedDay,
         selectedCanonical = selectedCanonical,
         selectedDayExplanation = selectedDayExplanation,
@@ -221,6 +233,7 @@ fun assembleJourneyUiState(
         riverSegments = memoryState.riverSegments,
         yearView = memoryState.yearView,
         seasonExplanation = memoryState.seasonExplanation,
+        landmarks = memoryState.landmarks,
         selectedDay = memoryState.selectedDay,
         selectedCanonical = memoryState.selectedCanonical,
         selectedDayExplanation = memoryState.selectedDayExplanation,

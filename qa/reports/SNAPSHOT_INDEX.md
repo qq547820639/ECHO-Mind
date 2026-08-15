@@ -30,6 +30,8 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [PERSONAL_REASONING_HUMAN_REVIEW.md](PERSONAL_REASONING_HUMAN_REVIEW.md) — BATCH 2 真实回答四层人审（R3/R4）
 - [SELF_MODEL_VALUE_AUDIT.md](SELF_MODEL_VALUE_AUDIT.md) — BATCH 3 Self Model 价值审计（R4/R5）
 - [ERA31_ROUND5.md](ERA31_ROUND5.md) — ERA 31 R5（BATCH 3 收口 / Journey 第一视觉修复）
+- [ERA31_ROUND6.md](ERA31_ROUND6.md) — ERA 31 R6（BATCH 4 收口：时间地标入 Journey / Time-to-ECHO 指标）
+- [TIME_TO_ECHO.md](TIME_TO_ECHO.md) — BATCH 5 §50 Time-to-ECHO 测量契约
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

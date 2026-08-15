@@ -410,7 +410,8 @@ private fun AwakeningScreen(onFinished: () -> Unit) {
     }
 }
 
-private const val AWAKENING_DURATION_MS = 2200L
+/** ERA 31 §50：苏醒过渡时长（Time-to-ECHO 机器段预算；>3s 视为回归）。 */
+internal const val AWAKENING_DURATION_MS = 2200L
 
 /** Onboarding 各步骤底部常驻紧急入口（任何步骤可访问）。 */
 @Composable

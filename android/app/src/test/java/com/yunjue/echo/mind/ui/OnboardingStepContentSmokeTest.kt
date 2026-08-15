@@ -32,6 +32,12 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class OnboardingStepContentSmokeTest {
 
+    @Test
+    fun awakeningDurationWithinTimeToEchoBudget() {
+        // §50：苏醒过渡 ≤3s（机器段预算）；回归 = 时间被悄悄拉长
+        assertTrue("AWAKENING_DURATION_MS 超出 Time-to-ECHO 预算", AWAKENING_DURATION_MS <= 3000L)
+    }
+
     @get:Rule
     val compose = createComposeRule()
 
