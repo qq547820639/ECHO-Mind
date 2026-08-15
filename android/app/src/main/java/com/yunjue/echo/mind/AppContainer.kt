@@ -107,6 +107,12 @@ class AppContainer(context: Context) {
  * 本函数只做 Room/SQLCipher 适配。
  */
 internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher): EchoDatabase {
+    // ERA 32 R19（真机根因修复）：net.zetetic:sqlcipher-android 4.17.0 不再自动加载原生库
+    // （旧 net.sqlcipher 时代的 loadLibs 已随新 artifact 移除）——必须在任何建库/查库前
+    // 显式 System.loadLibrary("sqlcipher")，否则首个 Room 写（onboarding 同意落库）在
+    // nativeOpen 边界抛 UnsatisfiedLinkError（nubia NX809J / Android 16 实测复现）。
+    // 加载失败会沿容器构建链冒泡到 MainActivity 兜底画面（fail-closed，不静默降级）。
+    System.loadLibrary("sqlcipher")
     fun build(passphrase: ByteArray): EchoDatabase =
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(
