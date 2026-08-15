@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**ERA 14 §52 真值审计第 1 轮完成 ✅（Identity 全链路四层数据流逐段验证 PASS + IdentityPipelineTruthTest 3 用例锚定——四层达参 / Canonical 往返同帧 / 跨成熟度同 ECHO）→ 下一轮：§52 审计第 2 轮（Journey 侧历史重建与 Life Season × Journey 解释链验证）**
+**ERA 14 §52 真值审计第 2 轮完成 ✅（Journey 回退重建确定性 / §87 解释链逐字绑定 / 全模块 §61 巡检零占位——LifeSeasonJourneyBindingTest 4 用例）→ 下一轮：§52 审计第 3 轮（Presence 快照落盘恢复链 + Wallpaper/Dream 跨进程 Identity 一致性）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**766 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**770 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -89,6 +89,7 @@
 - **云端撤回证据链复核轮**：DSR delete 全链复核——11 类派生/主动内容删除、5 类依法保留（consents 同意证据链 / risk_signals / escalations 危机处置 + 用户去标识（external_ref→dsr_哈希 / city 清空 / timezone UTC）/ audit_events 哈希链 / dsr 记录）逐类复核 PASS；**补契约**：回执-证据链绑定测试（返回回执 per_category 与 dsr.complete 审计事件 metadata 逐类一致；幂等重放结果相等已在册）——用户拿到的回执就是审计链里的事实；**Room 12 预研结论**：当前全部领域已有表覆盖（v11 为最新），无新表需求——不预建 Room 12，维持「需要才迁移」纪律
 - **文档终检 + 下阶段选型轮**：全仓文档巡检（README/docs/current/ADRS/性能与安全文档）——测试计数（1077/763）、instrumentation 4 组、ADR 计数、版本 0.9.0/versionCode 6、Room v11、detekt 27 全部零陈旧（ADR 内历史条目保留其时代真值）；**覆盖率实测更新**：93.8% → **94%**（3642 行 / 205 未覆盖，全量 pytest --cov 实测）；**ADR-058 下阶段选型**：质量/安全/数据权利复核阶段收官，下一长阶段 = ERA 14 §52/§61 Identity/LifeSeason 真值审计深化（不选 Provider 扩展/Journey Year 重做）
 - **ERA 14 §52 真值审计第 1 轮**：全链路逐段验证——装配（deriveIdentityGenome：SecureRandom 一次性持久化种子（identitySeed，§54 禁设备指纹）+ 基线稳定性 + 运动偏好；computeLifeSeason：60 天画像时间线中性词表；buildDailyComposition / buildMomentState / smoothPresenceState α=0.35 §60）→ 映射（computeVisualParameters 真实消费四层：motionPersonality/symmetryTendency/textureFamily → 流动/相干/密度；lifeSeason.drift → 湍流下限；daily → 五视觉参数；moment.breathingPeriod → 帧呼吸周期）→ 渲染（帧色相由 identity seed Knuth 散列决定——颜色属于 Identity 非状态）→ Journey 快照（Canonical 存 seed/params/identity 引用/maturity/evidenceIds，reconstructJourneyFrame 确定性重建）；§61 巡检：presence/journey 无 TODO/FIXME，rhythmDelta=0f 仅为结构默认（装配恒赋真实 season.drift）；**新锚点**：IdentityPipelineTruthTest 3 用例（四层各自真实改变视觉参数 / Canonical 编解码往返重建帧与当日同帧 / 同 seed 跨成熟度颜色一致·开放度成长——「Day1/Day180 同一个 ECHO」可测化）
+- **ERA 14 §52 真值审计第 2 轮**：Journey 侧逐段验证——§84 回退重建（Canonical 缺失 → journeyDayParams 画像回退：确定性同帧且与直接渲染链路一致、双缺失 → null 不伪造）；§87 Life Season × Journey 解释链（assembleJourneyUiState.seasonExplanation 与 computeLifeSeason→explainLifeSeasonVisual **逐字绑定**（SEASON/YEAR 尺度）；全 SIMILAR 时间线仅出数据派生的「more_regular」一行、无漂移编造——审计中发现并固定该语义）；§61 巡检扩展：journey/intelligence/observation/memory/actions 五模块零 TODO/FIXME；**新锚点**：LifeSeasonJourneyBindingTest 4 用例
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -134,4 +135,4 @@
 
 ## Next Highest-value Task
 
-ERA 14 §52 真值审计第 2 轮：Journey 侧历史重建验证（Canonical 缺失回退画像路径 / 一年前快照重建帧与 Identity 一致性）+ Life Season × Journey 解释链（§87：阶段视觉变化可被 season 字段解释）+ §61 全模块 placeholder 复查（journey/intelligence/observation 侧）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+ERA 14 §52 真值审计第 3 轮：Presence 快照落盘恢复链（EchoPresenceCodec 编解码一致性 / 进程死亡后 Wallpaper 读快照恢复的 Identity 一致性——同一 seed 跨进程同 ECHO）+ Wallpaper/Dream 渲染器 seed 传递验证。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
