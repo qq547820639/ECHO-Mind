@@ -1,10 +1,10 @@
 {
-  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。v0.10.0 = ERA 31 Felt Product Reality：真实渲染评审画廊 + 无 Provider 确定性个人问答引擎（26/26）+ Journey 时间地标 + 跨语言黄金门 + core:ports 依赖倒置收官。",
-  "release_version": "0.10.0",
-  "backend_package_version": "0.10.0",
-  "android_version_name": "0.10.0",
-  "android_version_code": 7,
+  "$comment": "ECHO-Mind 单一版本事实源（Phase 8.2）。v0.11.0 = ERA 32 Personal Intelligence 质量升级：q032 月间规律度答对、z 距离泄漏退役、无变化结论可验证、上下文 14 天活跃窗口（旧上下文不再被当现在）、AI 路径记忆人话化、治理减法（状态文档收敛 + 数字自动生成）。",
+  "release_version": "0.11.0",
+  "backend_package_version": "0.11.0",
+  "android_version_name": "0.11.0",
+  "android_version_code": 8,
   "contract_manifest_version": "0.7.0",
-  "release_notes_file": "RELEASE_NOTES_v0.10.0.md",
+  "release_notes_file": "RELEASE_NOTES_v0.11.0.md",
   "sbom_created_utc": "2026-08-15T00:00:00Z"
 }

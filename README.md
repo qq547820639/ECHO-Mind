@@ -4,7 +4,7 @@
 
 **ECHO Mind** 是生活在手机里的**个人 AI 伴侣**：它通过持续、克制、可信的感知理解你的生活节律，并通过动态生命场、锁屏与充电屏保、时间记忆与解释，让你随时感受到——**ECHO 在这里，而且它越来越懂你**。
 
-- 版本：**v0.10.0 工程包**（Personal Ambient Intelligence · 三世界架构，尚未正式上线）
+- 版本：**v0.11.0 工程包**（Personal Ambient Intelligence · 三世界架构，尚未正式上线）
 - Development HEAD：v0.10.0 后 ERA 31 产品主链打磨轮 R11–R49（十道门 × 五时点验收映射见
   `qa/reports/ERA31_FELT_ACCEPTANCE.md`；开发状态见 `docs/STATUS.md`，发布锚点见 `docs/RELEASE_BASELINE.md`，
   历史轮次见 `docs/CHANGELOG/`）

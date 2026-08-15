@@ -10,7 +10,7 @@
 | 字段 | 值 |
 |---|---|
 | Product Era | ERA 32+ — Felt Product Reality / Real Product Validation（ERA 31 全部 Batch 1–8 完成，v0.10.0 后打磨轮 R11–R49 已合入） |
-| 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
+| 版本线 | v0.11.0（versionCode 8；ERA 32 Personal Intelligence 升级——closure 进行中） |
 | 相对 Release Baseline | +41 commits（v0.10.0 Baseline 之后 R11–R49 + ERA 32 治理轮） |
 | 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线） |
 

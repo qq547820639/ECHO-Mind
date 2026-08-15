@@ -13,9 +13,9 @@
 | 情绪智能契约（门槛） | `docs/intelligence/AFFECTIVE_CONTRACT.md` | 冻结（实现前置未满足） |
 | AI Provider 规格 | `docs/providers/AI_PROVIDER_SPEC.md` | 冻结（v1.0） |
 | Presence 架构 | `docs/presence/ECHO_PRESENCE_ARCHITECTURE.md` | 冻结（v1.0） |
-| 版本事实源 | `scripts/version_source.json` | 0.10.0（Android versionCode 7） |
-| 产品 README | `README.md` | v0.10.0 |
-| 发布说明 | `RELEASE_NOTES_v0.10.0.md` | 本版本 |
+| 版本事实源 | `scripts/version_source.json` | 0.11.0（Android versionCode 8） |
+| 产品 README | `README.md` | v0.11.0 |
+| 发布说明 | `RELEASE_NOTES_v0.11.0.md` | 本版本 |
 | 发布锚点 | `docs/RELEASE_BASELINE.md` | LAST_RELEASE_BASELINE=6e84086 |
 | 架构决策 | `docs/architecture/ADRS.md` | ADR-001~072 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
