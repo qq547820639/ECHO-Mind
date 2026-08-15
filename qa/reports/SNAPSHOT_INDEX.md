@@ -60,6 +60,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND32.md](ERA31_ROUND32.md) — ERA 31 R32（关键验收契约锁：UI 建议同步 + 纠正复用全链）
 - [ERA31_ROUND33.md](ERA31_ROUND33.md) — ERA 31 R33（Release Integrity 复核：全量本地预检 + Baseline 文档对齐）
 - [ERA31_ROUND34.md](ERA31_ROUND34.md) — ERA 31 R34（Wallpaper Adoption：Scene 一次性壁纸引导）
+- [ERA31_ROUND35.md](ERA31_ROUND35.md) — ERA 31 R35（Dogfood 交接刷新：真机清单对齐当前 UX）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 
