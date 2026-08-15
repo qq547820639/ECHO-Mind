@@ -187,12 +187,20 @@ class EchoSceneContentSmokeTest {
     }
 
     @Test
-    fun warmingUpWithDaysShowsBaselineProgress() {
+    fun warmingUpWithDaysShowsFactsNotProgressDashboard() {
+        // ERA 31 R28：基线 X/7 进度条与「今日已学习 NN%」覆盖率条从 Scene 移除
+        // （§9 第一视觉是 ECHO 不是仪表盘；§13 禁止进度条）——「它在记录」由事实句承担。
         setContent(
-            portrait = portraitState(status = PortraitStatus.WARMING_UP, baselineDays = 3),
+            portrait = portraitState(
+                status = PortraitStatus.WARMING_UP,
+                baselineDays = 3,
+                summary = "ECHO 正在慢慢了解你的日常节奏。\n\n今天累计屏幕互动 126 分钟。",
+            ),
             uiState = uiState(baselineDays = 3),
         )
-        compose.onNodeWithText("已积累 3/7 天，基线即将成型").assertExists()
+        compose.onNodeWithText("今天累计屏幕互动 126 分钟。").assertExists()
+        compose.onNodeWithText("已积累 3/7 天，基线即将成型").assertDoesNotExist()
+        compose.onNodeWithText("今日已学习").assertDoesNotExist()
     }
 
     @Test
@@ -202,7 +210,8 @@ class EchoSceneContentSmokeTest {
             uiState = uiState(baselineDays = 5),
         )
         compose.onNodeWithText("最近的作息更稳定。").assertExists()
-        compose.onNodeWithText("已积累 5/7 天，基线即将成型").assertExists()
+        compose.onNodeWithText("已积累 5/7 天，基线即将成型").assertDoesNotExist()
+        compose.onNodeWithText("今日已学习").assertDoesNotExist()
     }
 
     @Test

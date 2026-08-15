@@ -62,30 +62,8 @@ class EchoPortraitStatesSmokeTest {
         compose.onNodeWithText("今天和平时很接近。").assertDoesNotExist()
     }
 
-    @Test
-    fun baselineProgressShowsAccumulatedDays() {
-        compose.setContent {
-            MaterialTheme { BaselineProgress(baselineDays = 3) }
-        }
-        compose.onNodeWithText("已积累 3/7 天，基线即将成型").assertExists()
-    }
-
-    @Test
-    fun coverageRowRendersPercentage() {
-        compose.setContent {
-            MaterialTheme { CoverageRow(coverage = mapOf("coverage_score" to 0.42)) }
-        }
-        compose.onNodeWithText("今日已学习").assertExists()
-        compose.onNodeWithText("42%").assertExists()
-    }
-
-    @Test
-    fun coverageRowHiddenWhenNull() {
-        compose.setContent {
-            MaterialTheme { CoverageRow(coverage = null) }
-        }
-        compose.onNodeWithText("今日已学习").assertDoesNotExist()
-    }
+    // ERA 31 R28：BaselineProgress / CoverageRow 已从 Scene 移除（§9/§13 禁进度条与
+    // 覆盖率仪表盘），对应 smoke 用例随组件删除——「它在记录」由当天事实句承担。
 
     @Test
     fun unlockBannerShowsOnceWhenBaselineReadyAndNotConsumed() {

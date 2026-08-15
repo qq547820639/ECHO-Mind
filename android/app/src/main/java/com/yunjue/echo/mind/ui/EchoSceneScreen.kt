@@ -51,8 +51,6 @@ import com.yunjue.echo.mind.model.todayPortraitStateText
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneViewModel
 import com.yunjue.echo.mind.ui.echo.actions.EchoActionLayer
-import com.yunjue.echo.mind.ui.echo.components.BaselineProgress
-import com.yunjue.echo.mind.ui.echo.components.CoverageRow
 import com.yunjue.echo.mind.ui.echo.components.EchoStatusOverlay
 import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurface
 import com.yunjue.echo.mind.ui.echo.components.echoVisualSurfaceConfig
@@ -275,20 +273,19 @@ fun EchoSceneContent(
                         SeedPortraitBlock(awakenedAtEpochMs = state.awakenedAtEpochMs, state = portrait)
                     } else {
                         Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
-                        BaselineProgress(uiState.baselineDays)
                         val factsOnly = portrait.portrait?.summary
                             ?.substringAfter("\n\n", missingDelimiterValue = "")
                             ?.takeIf { it.isNotBlank() }
                         if (factsOnly != null) {
                             Text(factsOnly, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
                         }
-                        CoverageRow(portrait.portrait?.coverage)
+                        // ERA 31 R28：基线 X/7 进度条与「今日已学习 NN%」覆盖率条从 Scene 移除
+                        // （§9 第一视觉是 ECHO 不是仪表盘；§13 禁止进度条/等级 UI）——
+                        // 「它在记录」的获得感由当天事实句承担（v0.7.4 事实句仍在）。
                     }
                 }
                 PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE -> item {
                     PortraitSummaryOnly(portrait)
-                    BaselineProgress(uiState.baselineDays)
-                    CoverageRow(portrait.portrait?.coverage)
                 }
                 PortraitStatus.READY -> item {
                     UnlockBanner(consumeUnlocked = coreActions.onConsumeUnlocked, state = portrait)

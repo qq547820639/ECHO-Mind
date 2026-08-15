@@ -2,10 +2,8 @@ package com.yunjue.echo.mind.ui.echo.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,14 +17,14 @@ import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_BASELINE_UNLOCKED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.model.baselineProgressText
-import com.yunjue.echo.mind.model.todayCoveragePercent
 import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_BODY
 import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_TITLE
 import com.yunjue.echo.mind.model.presenceSeedRuntimeText
 
 /**
- * v3 §9 — EchoPortraitStates：画像九态的子组件（SEED 画报/基线进度/覆盖度/解锁仪式）。
+ * v3 §9 — EchoPortraitStates：画像九态的子组件（SEED 画报 / 解锁仪式）。
+ * ERA 31 R28：BaselineProgress（X/7 进度条）与 CoverageRow（今日已学习 NN%）
+ * 已从 Scene 移除（§9/§13：第一视觉是 ECHO 不是仪表盘，禁止进度条）。
  * 只渲染 [PortraitUiState]；状态文案一律来自 model 层锚点。
  */
 
@@ -58,36 +56,6 @@ fun SeedPortraitBlock(awakenedAtEpochMs: Long, state: PortraitUiState) {
     }
 }
 
-/** 基线积累进度（X/7 + 进度条）。 */
-@Composable
-fun BaselineProgress(baselineDays: Int) {
-    val progress = baselineDays.coerceIn(0, 7) / 7f
-    Column(
-        Modifier.fillMaxWidth().padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-        Text(baselineProgressText(baselineDays), style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-/** 今日数据覆盖率（无数据/非法 → 不渲染）。 */
-@Composable
-fun CoverageRow(coverage: Map<String, Any>?) {
-    val pct = todayCoveragePercent(coverage) ?: return
-    Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-    ) {
-        Text("今日已学习", style = MaterialTheme.typography.bodySmall)
-        LinearProgressIndicator(
-            progress = { pct / 100f },
-            modifier = Modifier.weight(1f)
-        )
-        Text("$pct%", style = MaterialTheme.typography.bodySmall)
-    }
-}
 
 /**
  * 基线成型提示（首次 READY 只出现一次；ERA 20 §10：不是庆祝横幅，
