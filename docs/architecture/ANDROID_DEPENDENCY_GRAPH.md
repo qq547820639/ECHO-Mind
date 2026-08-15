@@ -34,10 +34,10 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | memory | 4 |
 | observation | 23 |
 | ports | 3 |
-| presence | 10 |
+| presence | 11 |
 | runtime | 1 |
 | security | 8 |
-| ui | 35 |
+| ui | 36 |
 
 ## 3. 跨领域边清单
 

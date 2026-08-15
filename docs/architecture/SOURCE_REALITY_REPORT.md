@@ -29,13 +29,13 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：151
+- Kotlin 文件：153
 - Python 文件：68
 - Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）
 - Repository：13
 - Runtime/Coordinator：4
-- ViewModel：7
+- ViewModel：8
 - Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'feature:journey', 'core:security', 'core:model', 'core:ports']
 
 ## Manifest Components
@@ -55,7 +55,7 @@
 ## Repository / Runtime / ViewModel
 - Repository：ConsentRepository, EscalationRepository, FeatureFlagRepository, JourneyMemoryRepository, JourneyRepository, MemoryRepository, MessageRepository, OnboardingRepository, PortraitRepository, PresenceRepository, SensingRepository, SkillRepository, SyncStateRepository
 - Runtime：EchoActionRuntime, EchoRuntimeCoordinator, SensingRuntimeStatus, SkillSessionCoordinator
-- ViewModel：DataAndSensingViewModel, EchoSceneViewModel, IntelligenceSettingsViewModel, JourneyViewModel, MeViewModel, MemoryManagementViewModel, PresenceSettingsViewModel
+- ViewModel：DataAndSensingViewModel, EchoSceneViewModel, IntelligenceSettingsViewModel, JourneyViewModel, MeViewModel, MemoryManagementViewModel, PresenceSettingsViewModel, SubscriptionViewModel
 
 ## Domain packages（必须存在）
 - `sensing` ✅
