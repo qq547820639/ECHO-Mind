@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**解释链真值审计第 1 轮完成 ✅（ADR-059 选定 Personal Intelligence 解释链审计与深化；发现并修复 §68 task relevance 死参数 + 端到端链锚点 2 用例）→ 下一轮：解释链审计第 2 轮（检索/证据组装策略矩阵 + §78 上下文例外检索优先验证）**
+**解释链真值审计第 2 轮完成 ✅（检索策略矩阵逐任务复核 PASS——§78/§79 用户解释全任务可达、原始敏感源硬禁止全任务成立、预算恒有限；Grounding 引用边界 5 契约）→ 下一轮：解释链审计第 3 轮（Provider 失败链 §73 端到端 + 结构化输出校验器矩阵）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**773 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**780 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -93,6 +93,7 @@
 - **ERA 14 §52 真值审计第 3 轮**：快照落盘恢复链审计发现**真实断链**——EchoPresenceCodec v1 仅存 13 字段（rhythm/behavior/confidence/seed/accentHue），进程死亡后 Wallpaper/Dream 恢复的 ECHO 丢失 LifeSeason drift、DailyComposition、MomentState 与 Identity 的 6 项形态字段（颜色连续、人格/纹理/季节调制全失）；**修复**：codec v2（40 字段：Identity 全 8 项 + LifeSeason 7 项 + Daily 12 项 + Moment 2 项；叙事字段仍永不入快照），v1 快照继续可解（新字段结构默认，与 v1 时代语义一致），版本/长度校验 fail-closed 收紧；Wallpaper/Dream 服务确认以 identityGenome.seed 渲染（同 seed 同帧）；**新锚点**：EchoPresenceCodecTest 扩 4 用例（全四层往返相等 / 跨进程同帧 / v1 兼容 / 截断与未知版本 fail-closed）
 - **ERA 14 §52 真值审计收官**：Wallpaper 刷新链复核——onVisibilityChanged(true) 补 refreshSnapshot()（解锁/回前台即追上 15 分钟 Presence 刷新，不再等 surface 变化；SharedPreferences 读开销可忽略）；EchoRuntimeCoordinator §3 职责边界逐条复核 PASS（只做感知编排/Presence 刷新/健康聚合/Provider 轻量状态——无 AI reasoning、无 Context 编译、无基线计算、无记忆合成、无 UI 渲染）；§4 健康四组件齐备（sensing 六态映射/presence 组装态/intelligence Provider 态/memory 进程级 READY 文档化不变量）；**ADR-058 四轮结项**：审计发现 1 处真实断链（codec v1）已修复，3 组测试锚点（IdentityPipelineTruth / LifeSeasonJourneyBinding / EchoPresenceCodec v2）固定「Day1/Day180 同一个 ECHO」端到端真值
 - **解释链真值审计第 1 轮**：ADR-059 选定下一长阶段（§67-73 解释链真值审计与深化，理由：宪法 Intelligence depth > 视觉打磨；不选 Year 视图深化/真机基准二期）；**发现并修复 §68 死参数**——ContextRanker.rank(task, items) 的 task 参数从未参与打分；实现 task relevance 粗粒度亲和（EXPLAIN_CURRENT_STATE→TODAY_AGGREGATE / 纵向与摘要→PORTRAIT_HISTORY / 个人问题→PREFERENCES / 行动建议→CONTEXT_EXCEPTIONS，+0.5 封顶远低于 tier 差 10 分——**亲和只影响同 tier 内部，永不跨越纠正/上下文例外优先层级**）；**端到端链锚点**：IntelligenceChainTruthTest 2 用例（分类→编译→Grounding→降级整链契约 + task relevance 同 tier/跨 tier 边界）
+- **解释链真值审计第 2 轮**：检索策略矩阵逐任务复核——11 任务策略表全检：原始通知/音频/麦克风 NEVER_ALLOWED 全任务硬禁止 ✓；§78/§79 用户解释（MemoryType.CONTEXT）进入全部 7 个解释/总结/建议任务 ✓；§69 预算（证据 ≤40 / token ≥200 / 时间窗 1-365）全任务有限 ✓；Grounding 引用判定边界 5 契约（空证据 AI 叙事必须失败 / 观察层级不要求证据 / 空 id 不崩且零引用 / 短 label 可引用 / 引用命中携带 evidenceIds）；**新锚点**：IntelligencePolicyMatrixTest 7 用例——策略矩阵演化时的隐私硬边界与用户解释优先防回归
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -138,4 +139,4 @@
 
 ## Next Highest-value Task
 
-解释链真值审计第 2 轮：EvidenceAssembler/EchoContextRetriever 检索策略矩阵逐任务复核（allowed/prohibited/时间窗与 §78 上下文例外优先级——用户「出差」解释必须进入相关任务上下文）；GroundingValidator 证据引用判定的边界（引用不存在/空证据/纯观察）补契约。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+解释链真值审计第 3 轮：§73 Provider 失败链端到端（invalid→repair→retry→deterministic narrative→observation facts 全序 + OpenAiCompatibleProvider 超时/非 2xx/畸形 JSON 各失败态）+ StructuredOutputValidator 矩阵（required 字段缺失/类型错/多余字段/空对象）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
