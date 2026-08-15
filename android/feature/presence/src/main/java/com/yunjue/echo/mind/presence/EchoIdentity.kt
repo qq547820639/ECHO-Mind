@@ -92,7 +92,8 @@ fun identityDistance(a: EchoIdentityGenome, b: EchoIdentityGenome): Float {
  * @param seed installation random seed（AppPreferences.identitySeed，一次性生成持久化）
  * @param baselineStability 长期基线稳定性 0..1（来自 AmbientVector.regularity：稳定模式缓慢塑形运动人格）
  * @param motionPreference 用户视觉偏好（QUIET/DEFAULT/LIVELY）
- */fun deriveIdentityGenome(
+ */
+fun deriveIdentityGenome(
     seed: Long,
     baselineStability: Float,
     motionPreference: PresenceMotionLevel,

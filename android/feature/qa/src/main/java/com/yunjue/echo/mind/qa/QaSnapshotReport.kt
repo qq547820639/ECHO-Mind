@@ -146,6 +146,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND41.md](ERA31_ROUND41.md) — ERA 31 R41（Release Build Readiness：R8 全量构建通过）")
         sb.appendLine("- [ERA31_ROUND42.md](ERA31_ROUND42.md) — ERA 31 R42（CI 完整性审计：契约锚点修复 + SOURCE_MANIFEST 重生成）")
         sb.appendLine("- [ERA31_ROUND43.md](ERA31_ROUND43.md) — ERA 31 R43（source-integrity 全量本地重放：五套 CI 恢复全绿）")
+        sb.appendLine("- [ERA31_ROUND44.md](ERA31_ROUND44.md) — ERA 31 R44（源码事实扫描假阳性根因：KDoc 与 fun 粘连修复）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()

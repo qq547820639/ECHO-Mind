@@ -69,7 +69,7 @@
 - `runtime` ✅
 
 ## unresolved project symbol 候选（自动发现；人工复核）
-- `deriveIdentityGenome`（引用自 presence）—— 疑似缺失/常量/跨包，需复核
+- 无
 
 ## 文档宣称但缺失实现候选
 - 由 SourceIntegrityTest（runtime/intelligence/presence/memory 关键类）与 unresolved 扫描联合覆盖；本轮无已知项。
