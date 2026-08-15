@@ -121,6 +121,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND17.md](ERA31_ROUND17.md) — ERA 31 R17（Ask ECHO 免费用户走查：AI 催促清零 + 问法归一）")
         sb.appendLine("- [ERA31_ROUND18.md](ERA31_ROUND18.md) — ERA 31 R18（§22 Correction Reuse：纠正 → 上下文推理桥梁）")
         sb.appendLine("- [ERA31_ROUND19.md](ERA31_ROUND19.md) — ERA 31 R19（Journey 第一眼走查：免费用户叙事说人话 + 河流锚定真实数据）")
+        sb.appendLine("- [ERA31_ROUND20.md](ERA31_ROUND20.md) — ERA 31 R20（Wallpaper 运动现实检查：4fps 静态期实测 + 真实帧率人眼证据）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()

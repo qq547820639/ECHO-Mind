@@ -143,11 +143,50 @@ class VisualReviewRenderTest {
             )
         }
 
+        // 5) ERA 31 R20：真实帧率运动证据——静态期 4fps（250ms/帧，R13 策略）与
+        //    过渡期 30fps（33ms/帧）按真实采样间隔渲染（§16 Battery Reality 的人眼证据：
+        //    静态期不是停帧也不是跳帧，是缓慢呼吸）。
+        val realRateProfiles = QaProfiles.ALL.filter {
+            it.id in setOf("PROFILE_A_STABLE", "PROFILE_G_WEEKEND_DIFFERENT")
+        }
+        for (profile in realRateProfiles) {
+            val snap = snapshot(profile, 90)
+            val lockParams = snap.lockVisual
+            val idleCells = (0 until 12).map { step ->
+                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                    lockParams, snap.identity.seed, 600f + step * 0.25f, 1080f, 2400f,
+                )
+                VisualReviewRenderer.SheetCell("+${step * 250}ms", renderWallpaperPng(frame))
+            }
+            writeSheet(
+                cells = idleCells,
+                columns = 6,
+                title = "${profile.id} · WALLPAPER · 静态期真实 4fps（250ms/帧 × 3s）",
+                file = File(sheets, "motion_wallpaper_idle4fps_${profile.id}.png"),
+            )
+            val transitionCells = (0 until 12).map { step ->
+                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                    lockParams, snap.identity.seed, 600f + step * 0.033f, 1080f, 2400f,
+                )
+                VisualReviewRenderer.SheetCell("+${step * 33}ms", renderWallpaperPng(frame))
+            }
+            writeSheet(
+                cells = transitionCells,
+                columns = 6,
+                title = "${profile.id} · WALLPAPER · 过渡期 30fps（33ms/帧 × 0.4s）",
+                file = File(sheets, "motion_wallpaper_transition30fps_${profile.id}.png"),
+            )
+        }
+
         val manifest = StringBuilder()
         sheets.listFiles()?.sortedBy { it.name }?.forEach { manifest.appendLine(it.name) }
         File(sheets, "_MANIFEST.txt").writeText(manifest.toString())
         assertTrue("拼图已生成", File(sheets, "users_APP_day90.png").exists())
         assertTrue("运动序列已生成", File(sheets, "motion_APP_PROFILE_A_STABLE.png").exists())
+        assertTrue(
+            "真实帧率运动证据已生成",
+            File(sheets, "motion_wallpaper_idle4fps_PROFILE_A_STABLE.png").exists(),
+        )
     }
 
     @Test
@@ -237,6 +276,13 @@ class VisualReviewRenderTest {
 
     private fun renderPng(frame: com.yunjue.echo.mind.presence.EchoSceneFrame): Bitmap =
         VisualReviewRenderer.renderFrame(frame, 1080, 2340)
+
+    private fun renderWallpaperPng(frame: com.yunjue.echo.mind.presence.EchoSceneFrame): Bitmap =
+        VisualReviewRenderer.renderFrame(
+            frame,
+            VisualReviewRenderer.WALLPAPER_WIDTH,
+            VisualReviewRenderer.WALLPAPER_HEIGHT,
+        )
 
     private fun cell(
         profile: QaProfileSpec,
