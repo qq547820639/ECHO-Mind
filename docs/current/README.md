@@ -16,7 +16,7 @@
 | 版本事实源 | `scripts/version_source.json` | 0.11.0（Android versionCode 8） |
 | 产品 README | `README.md` | v0.11.0 |
 | 发布说明 | `RELEASE_NOTES_v0.11.0.md` | 本版本 |
-| 发布锚点 | `docs/RELEASE_BASELINE.md` | LAST_RELEASE_BASELINE=6e84086 |
+| 发布锚点 | `docs/RELEASE_BASELINE.md` | LAST_RELEASE_BASELINE=88db3b9 |
 | 架构决策 | `docs/architecture/ADRS.md` | ADR-001~072 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
 | Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |

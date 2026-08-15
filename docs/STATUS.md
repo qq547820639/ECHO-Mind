@@ -9,24 +9,24 @@
 
 | 字段 | 值 |
 |---|---|
-| Product Era | ERA 32+ — Felt Product Reality / Real Product Validation（ERA 31 全部 Batch 1–8 完成，v0.10.0 后打磨轮 R11–R49 已合入） |
-| 版本线 | v0.11.0（versionCode 8；ERA 32 Personal Intelligence 升级——closure 进行中） |
-| 相对 Release Baseline | +41 commits（v0.10.0 Baseline 之后 R11–R49 + ERA 32 治理轮） |
+| Product Era | ERA 32+ — Felt Product Reality / Real Product Validation（ERA 31 全部 Batch 1–8 + v0.10.0 后打磨轮 R11–R49 + ERA 32 治理/Personal Intelligence 升级均已合入） |
+| 版本线 | v0.11.0（versionCode 8） |
+| 相对 Release Baseline | closure 收口文档提交（发布内容 = LAST_RELEASE_BASELINE `88db3b9`） |
 | 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线） |
 
 ## 2. Last Verified Release
 
 | 字段 | 值 |
 |---|---|
-| 已发布版本 | v0.10.0（见 `docs/RELEASE_BASELINE.md` 完整锚点） |
-| APK | `ECHO_Mind_v0.10.0.apk`（本地测试密钥签名 v2,v3；生产签名由运营环境执行） |
-| Release 包 | `releases/ECHO_Mind_v0.10.0.release.zip` |
+| 已发布版本 | v0.11.0（见 `docs/RELEASE_BASELINE.md` 完整锚点） |
+| APK | `ECHO_Mind_v0.11.0.apk`（本地测试密钥签名 v2,v3；生产签名由运营环境执行） |
+| Release 包 | `releases/ECHO_Mind_v0.11.0.release.zip` |
 
 ## 3. Build Status（自动生成）
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `f07fa88`，2026-08-15 20:56 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `88db3b9`，2026-08-15 21:05 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
@@ -53,10 +53,10 @@
 
 ## 5. Known Engineering Risks
 
-- **Development HEAD 未做新一轮 Release Closure**：R11–R49 打磨轮在 v0.10.0 Baseline 之后，尚未全量重跑发布链
-  （clean checkout / 全测试 / SBOM / provenance / final package）。发起条件与纪律见 `docs/RELEASE_BASELINE.md`。
 - **外部发布门未执行**：真实设备回归 / 责任矩阵 / 临床签署 / 法务定稿 / 外部渗透 / 值班演练 / 生产域 /
   伦理审查——见 `docs/CHANGELOG/RELEASE_READINESS_v0.9.0.md`（移交包），不由代码生成替代。
+- **v0.11.0 发布物边界**：本地测试密钥签名（生产签名在运营环境）；release 包内 SOURCE_MANIFEST 为
+  closure 时点快照，closure 后文档更新以仓库清单为准（`docs/RELEASE_BASELINE.md` §3 纪律 5）。
 - **PersonalAnswerEngine 复杂度**：626 行 / 16 回答族单 object，已审计——三层拆分暂不必要（触发条件入册），
   ERA 32 R02 答案复核轮修复 3 个真实缺陷（q032 答非所问 / z 距离泄漏 / 无变化结论不可验证）；
   见 `qa/reports/PERSONAL_ANSWER_ENGINE_AUDIT.md`。
@@ -75,7 +75,10 @@
 5. **Journey / Memory**（Batch E/F）：以真实长期数据评估 Visual Memory River、Landmarks、consolidation。
 6. **Delete Review**（Batch G）✅ 预检完成——删除 v0.7 遗留零消费函数（进度条/覆盖率文案），
    复查 Skills/Subscription/QA mirror/reports 均保留（判定见 `docs/CHANGELOG/ERA32_ROUND04_DELETE_REVIEW.md`）。
-7. **Release Candidate**（Batch H）：真实体验明显升级后，全量重跑发布链并切版本（0.10.1 / 0.11.0 自决）。
+7. **Release Candidate**（Batch H）✅ v0.11.0 Closure 完成——版本收口 8 处同步 + 全门禁 +
+   assembleRelease 全 40 位 commit 钉定 + 测试密钥签名 v2,v3 + provenance 绑定 + final package §18 门禁 +
+   test_release_set/test_source_archive 16/16（`docs/CHANGELOG/ERA32_ROUND05_RELEASE.md`）。
+   下一批：真实数据回流后 Batch D/E/F；真机可用即执行 Batch B。
 
 ## 7. Governance（冻结纪律）
 
@@ -92,6 +95,7 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 
 

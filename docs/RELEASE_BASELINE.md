@@ -11,21 +11,17 @@
 | **DEVELOPMENT_HEAD** | 当前 git main 顶端；包含已合入但尚未发布验证的代码 | `git rev-parse HEAD` |
 | **LAST_RELEASE_BASELINE** | 最近一次完整走完发布终检（tests / product QA / Android build / backend build / archive integrity / source manifest / SBOM / provenance / artifact manifest / release package）的 commit | 本文件 |
 
-**当前 HEAD ≠ last release。** ERA 31 v0.10.0 后产品主链打磨轮 R11–R49（Real Render /
-Scene / Wallpaper / Reasoning / Correction Reuse / Journey / 苏醒 / 信任与安静化走查）已在
-v0.10.0 Release Closure 之后合入 main，尚未完成新一轮 Release Closure（ERA 39 §45）。
-
-## 2. 当前锚点（2026-08-15 更新：v0.10.0 Release Closure）
+## 2. 当前锚点（2026-08-15 更新：v0.11.0 Release Closure）
 
 | 字段 | 值 |
 |---|---|
-| LAST_RELEASE_BASELINE | `6e840866265da153b1164e780a02646d6b952b6d` |
-| LAST_RELEASE_BASELINE 描述 | chore: v0.10.0 release closure artifacts（uv.lock / openapi / SOURCE_MANIFEST 1019 / DELIVERY / SBOM） |
+| LAST_RELEASE_BASELINE | `88db3b9c0d9384b2f492fa8e135eaa3806562d74` |
+| LAST_RELEASE_BASELINE 描述 | chore: v0.11.0 release closure artifacts（SOURCE_MANIFEST 1083 / DELIVERY / SBOM 80） |
 | LAST_RELEASE_BASELINE 日期 | 2026-08-15 |
-| 已发布版本 | v0.10.0（versionCode 7；APK `ECHO_Mind_v0.10.0.apk` 本地测试密钥签名 v2,v3，生产签名由运营签名环境执行；release 包 `releases/ECHO_Mind_v0.10.0.release.zip`） |
-| 上一 baseline | v0.9.0（`5783036`，被 v0.10.0 取代） |
-| DEVELOPMENT_HEAD（记录时） | `6e84086`（provenance git_commit 与之相等；Release Closure 全绿） |
-| Release Closure 证据 | LOCAL PREFLIGHT PASSED（backend 1077 / android testDebugUnitTest+assembleDebug+lintDebug）+ assembleRelease（-PECHO_GIT_COMMIT 钉定）+ SOURCE_MANIFEST 1019 + 确定性归档双格式验证 + SBOM 80 + provenance（release / signed v2,v3 / APK 内嵌 commit 绑定）+ artifact manifest + final package §18 终态门禁 PASS + test_release_set 6/6 |
+| 已发布版本 | v0.11.0（versionCode 8；APK `ECHO_Mind_v0.11.0.apk` 本地测试密钥签名 v2,v3，生产签名由运营签名环境执行；release 包 `releases/ECHO_Mind_v0.11.0.release.zip`） |
+| 上一 baseline | v0.10.0（`6e84086`，被 v0.11.0 取代） |
+| DEVELOPMENT_HEAD（记录时） | `88db3b9`（provenance git_commit 与之相等；Release Closure 全绿） |
+| Release Closure 证据 | backend 1077 passed + 1 skipped + ruff + mypy strict；Android testDebugUnitTest 全绿 + lint + detekt + assembleDebug；assembleRelease（-PECHO_GIT_COMMIT 全 40 位钉定）；SOURCE_MANIFEST 1083；确定性归档双格式验证；SBOM 80；provenance（release / signed v2,v3 / APK 内嵌 commit 绑定）；artifact manifest 9 条目；final package §18 终态门禁 PASS；test_release_set + test_source_archive 16/16 |
 
 ## 3. 纪律
 
@@ -33,5 +29,7 @@ v0.10.0 Release Closure 之后合入 main，尚未完成新一轮 Release Closur
 2. 描述 Development HEAD 的能力时用 `docs/STATUS.md`，不得改写历史发布元数据。
 3. 下一次 Release Closure 必须在 clean checkout 上全量重新生成
    tests / product QA / Android build / backend build / archive integrity / source manifest /
-   SBOM / provenance / artifact manifest / release package——**不得带着旧 v0.10.0 proof 发布新代码**。
+   SBOM / provenance / artifact manifest / release package——**不得带着旧 v0.11.0 proof 发布新代码**。
 4. Release Closure 通过后，把新 commit 更新为本文件的 LAST_RELEASE_BASELINE。
+5. ERA 32 补充：closure 之后任何受控文件更新（含本文档）都必须同步重生成 SOURCE_MANIFEST
+   （发布包内清单为 closure 时点的快照；仓库清单以 git 受控文件集为唯一事实源）。
