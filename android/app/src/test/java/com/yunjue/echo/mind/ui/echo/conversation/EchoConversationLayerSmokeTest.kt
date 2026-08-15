@@ -78,7 +78,8 @@ class EchoConversationLayerSmokeTest {
         compose.onNodeWithText("ECHO：相比基线，你的入睡时间更早了。").assertExists()
         compose.onNode(hasClickAction() and hasText("依据")).performClick()
         compose.onNodeWithText("参考了：个人基线").assertExists()
-        compose.onNodeWithText("没有使用：麦克风、通知正文、精确位置").assertExists()
+        // ERA 32 R09（§52）：精确词表——「原始音频」而非「麦克风」（麦克风开启时派生特征会进聚合）
+        compose.onNodeWithText("没有使用：原始音频、通知正文、精确位置").assertExists()
     }
 
     @Test

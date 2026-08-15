@@ -110,7 +110,9 @@ private fun EchoConversationMessage(
                 else turn.sources.joinToString("、") { dataSourceLabelForConversation(it) },
                 style = MaterialTheme.typography.bodySmall
             )
-            Text("没有使用：麦克风、通知正文、精确位置", style = MaterialTheme.typography.bodySmall)
+            // ERA 32 R09（§52）：精确词表——「原始音频」而非「麦克风」：麦克风可选开启时
+            // 派生特征（音量/语速级）会进入聚合，但原始音频永不进入任何回答/AI 上下文。
+            Text("没有使用：原始音频、通知正文、精确位置", style = MaterialTheme.typography.bodySmall)
         }
         // 反馈（v3 §17：走 EchoCorrectionService，不直接创建 MemoryEntity）
         if (feedback == null) {
