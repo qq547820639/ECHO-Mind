@@ -184,6 +184,49 @@ class JourneyUiStateAssemblyTest {
     }
 
     @Test
+    fun twoStageAssemblyMatchesSingleStageContract() {
+        // ERA 72 §108：两段式装配与既有单段契约完全等价（重构零行为漂移锚点）。
+        val timeline = freshTimeline(365)
+        val memory = JourneyMemoryAssemblyInputs(contextExceptions = mapOf("2026-03-10" to "travel"))
+        val single = assembleJourneyUiState(
+            scale = JourneyScale.YEAR,
+            timeline = timeline,
+            permissionEnabled = true,
+            narrative = null,
+            runtimeAvailability = null,
+            runtimeDiagnostics = null,
+            showEvidence = false,
+            intelligenceAvailable = true,
+            syncStatus = JourneySyncStatus(permissionEnabled = true),
+            journeySeed = 42L,
+            memory = memory,
+        )
+        val twoStage = assembleJourneyUiState(
+            memoryState = assembleJourneyMemoryState(JourneyScale.YEAR, timeline, memory),
+            permissionEnabled = true,
+            narrative = null,
+            runtimeAvailability = null,
+            runtimeDiagnostics = null,
+            showEvidence = false,
+            intelligenceAvailable = true,
+            syncStatus = JourneySyncStatus(permissionEnabled = true),
+            journeySeed = 42L,
+        )
+        assertEquals(single, twoStage)
+    }
+
+    @Test
+    fun memoryStateAssemblyIsDeterministic() {
+        // ERA 72 §108：记忆装配中间态确定性（VM distinctUntilChanged 缓存正确性的纯函数前提）。
+        val timeline = freshTimeline(365)
+        val a = assembleJourneyMemoryState(JourneyScale.YEAR, timeline)
+        val b = assembleJourneyMemoryState(JourneyScale.YEAR, timeline)
+        assertEquals(a, b)
+        assertEquals(365, a.visualDays.size)
+        assertNotNull(a.yearView)
+    }
+
+    @Test
     fun contextExceptionsMarkSpecialRiverSegments() {
         val state = assembleJourneyUiState(
             scale = JourneyScale.DAY,

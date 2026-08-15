@@ -87,34 +87,35 @@ data class JourneyUiState(
 )
 
 /**
- * Journey UI 状态纯函数装配器（§24/§81-§87；与 EchoSceneUiState 装配器同模式）。
+ * ERA 72 §108 — Journey 记忆装配中间态（两段式装配的第一段）。
  *
- * 输入全部来自应用层数据（timeline/permission/runtime/narrative/memory）；
- * Screen 与 ViewModel 都不各自拼状态。
+ * 重计算（视觉日/周期/河流/年视图/生活阶段解释）只随窗口与记忆输入变化；
+ * UI 轻量输入（evidence 折叠/叙事/运行时快照）复用本实例，不再触发 365 天全量重算。
  */
-fun assembleJourneyUiState(
+data class JourneyMemoryState(
+    val scale: JourneyScale,
+    val timeline: PortraitTimelineUiState,
+    val canonicalDays: List<JourneyCanonicalDay> = emptyList(),
+    val visualDays: List<JourneyDay> = emptyList(),
+    val visualPeriods: List<JourneyPeriod> = emptyList(),
+    val selectedPeriod: JourneyPeriod? = null,
+    val riverSegments: List<JourneyRiverSegment> = emptyList(),
+    val yearView: JourneyYearView? = null,
+    val seasonExplanation: List<String> = emptyList(),
+    val selectedDay: JourneyDay? = null,
+    val selectedCanonical: JourneyCanonicalDay? = null,
+    val selectedDayExplanation: List<String> = emptyList(),
+)
+
+/**
+ * ERA 72 §108 — 两段式装配第一段：全部 Journey 长历史重计算（纯函数、确定性）。
+ * 输入只含窗口/时间线/Canonical 快照/上下文例外/选中日期。
+ */
+fun assembleJourneyMemoryState(
     scale: JourneyScale,
     timeline: PortraitTimelineUiState,
-    permissionEnabled: Boolean,
-    narrative: JourneyNarrative?,
-    runtimeAvailability: PortraitAvailability?,
-    runtimeDiagnostics: SensingDiagnostics?,
-    showEvidence: Boolean,
-    intelligenceAvailable: Boolean,
-    syncStatus: JourneySyncStatus,
-    journeySeed: Long,
     memory: JourneyMemoryAssemblyInputs = JourneyMemoryAssemblyInputs(),
-): JourneyUiState {
-    val availability = runtimeAvailability ?: PortraitAvailability()
-    val diagnostics = runtimeDiagnostics ?: SensingDiagnostics(sensingActive = syncStatus.consent)
-    val trendState = resolveTrendState(
-        loading = timeline.loading,
-        loadFailed = timeline.loadFailed,
-        offlineCached = timeline.fromCache,
-        items = timeline.portraits.ifEmpty { null },
-        permissionEnabled = permissionEnabled,
-        isPartial = timeline.isPartial,
-    )
+): JourneyMemoryState {
     val visualDays = buildJourneyDays(timeline.portraits)
     val visualPeriods = when (scale) {
         JourneyScale.DAY -> emptyList()
@@ -124,7 +125,6 @@ fun assembleJourneyUiState(
         ?: visualPeriods.lastOrNull()
         ?: visualDays.lastOrNull()?.let { JourneyPeriod(listOf(it), it.visualParams, it) }
 
-    // ===== ERA 16 §81-§87 纯函数装配 =====
     val riverSegments = buildVisualMemoryRiver(
         days = visualDays,
         contextExceptions = memory.contextExceptions,
@@ -155,25 +155,13 @@ fun assembleJourneyUiState(
         )
     } ?: emptyList()
 
-    return JourneyUiState(
-        selectedScale = scale,
-        windowDays = journeyWindowDays(scale),
+    return JourneyMemoryState(
+        scale = scale,
         timeline = timeline,
-        trendState = trendState,
-        availability = availability,
-        diagnostics = diagnostics,
-        noDataReason = resolveTrendNoDataReason(availability, diagnostics),
+        canonicalDays = memory.canonicalDays,
         visualDays = visualDays,
         visualPeriods = visualPeriods,
         selectedPeriod = selectedPeriod,
-        narrative = narrative,
-        showEvidence = showEvidence,
-        intelligenceAvailable = intelligenceAvailable,
-        syncStatus = syncStatus,
-        loading = timeline.loading,
-        error = trendState == TrendUiState.ERROR,
-        journeySeed = journeySeed,
-        canonicalDays = memory.canonicalDays,
         riverSegments = riverSegments,
         yearView = yearView,
         seasonExplanation = seasonExplanation,
@@ -182,3 +170,84 @@ fun assembleJourneyUiState(
         selectedDayExplanation = selectedDayExplanation,
     )
 }
+
+/**
+ * Journey UI 状态纯函数装配器（§24/§81-§87；与 EchoSceneUiState 装配器同模式）。
+ *
+ * 输入全部来自应用层数据（timeline/permission/runtime/narrative/memory）；
+ * Screen 与 ViewModel 都不各自拼状态。
+ */
+fun assembleJourneyUiState(
+    memoryState: JourneyMemoryState,
+    permissionEnabled: Boolean,
+    narrative: JourneyNarrative?,
+    runtimeAvailability: PortraitAvailability?,
+    runtimeDiagnostics: SensingDiagnostics?,
+    showEvidence: Boolean,
+    intelligenceAvailable: Boolean,
+    syncStatus: JourneySyncStatus,
+    journeySeed: Long,
+): JourneyUiState {
+    val availability = runtimeAvailability ?: PortraitAvailability()
+    val diagnostics = runtimeDiagnostics ?: SensingDiagnostics(sensingActive = syncStatus.consent)
+    val trendState = resolveTrendState(
+        loading = memoryState.timeline.loading,
+        loadFailed = memoryState.timeline.loadFailed,
+        offlineCached = memoryState.timeline.fromCache,
+        items = memoryState.timeline.portraits.ifEmpty { null },
+        permissionEnabled = permissionEnabled,
+        isPartial = memoryState.timeline.isPartial,
+    )
+
+    return JourneyUiState(
+        selectedScale = memoryState.scale,
+        windowDays = journeyWindowDays(memoryState.scale),
+        timeline = memoryState.timeline,
+        trendState = trendState,
+        availability = availability,
+        diagnostics = diagnostics,
+        noDataReason = resolveTrendNoDataReason(availability, diagnostics),
+        visualDays = memoryState.visualDays,
+        visualPeriods = memoryState.visualPeriods,
+        selectedPeriod = memoryState.selectedPeriod,
+        narrative = narrative,
+        showEvidence = showEvidence,
+        intelligenceAvailable = intelligenceAvailable,
+        syncStatus = syncStatus,
+        loading = memoryState.timeline.loading,
+        error = trendState == TrendUiState.ERROR,
+        journeySeed = journeySeed,
+        canonicalDays = memoryState.canonicalDays,
+        riverSegments = memoryState.riverSegments,
+        yearView = memoryState.yearView,
+        seasonExplanation = memoryState.seasonExplanation,
+        selectedDay = memoryState.selectedDay,
+        selectedCanonical = memoryState.selectedCanonical,
+        selectedDayExplanation = memoryState.selectedDayExplanation,
+    )
+}
+
+/** 兼容既有调用与测试的单段装配（内部走两段式；等价性由测试锚定）。 */
+fun assembleJourneyUiState(
+    scale: JourneyScale,
+    timeline: PortraitTimelineUiState,
+    permissionEnabled: Boolean,
+    narrative: JourneyNarrative?,
+    runtimeAvailability: PortraitAvailability?,
+    runtimeDiagnostics: SensingDiagnostics?,
+    showEvidence: Boolean,
+    intelligenceAvailable: Boolean,
+    syncStatus: JourneySyncStatus,
+    journeySeed: Long,
+    memory: JourneyMemoryAssemblyInputs = JourneyMemoryAssemblyInputs(),
+): JourneyUiState = assembleJourneyUiState(
+    memoryState = assembleJourneyMemoryState(scale, timeline, memory),
+    permissionEnabled = permissionEnabled,
+    narrative = narrative,
+    runtimeAvailability = runtimeAvailability,
+    runtimeDiagnostics = runtimeDiagnostics,
+    showEvidence = showEvidence,
+    intelligenceAvailable = intelligenceAvailable,
+    syncStatus = syncStatus,
+    journeySeed = journeySeed,
+)

@@ -61,60 +61,53 @@ class JourneyViewModel(
         .distinctUntilChanged()
         .flatMapLatest { days -> repository.timeline(days) }
 
-    /** combine 中间态（5 流 + 4 流，因 combine 最多 5 个参数）。 */
-    private data class CombineCore(
-        val scale: JourneyScale,
-        val timeline: PortraitTimelineUiState,
-        val permissionEnabled: Boolean,
-        val narrative: JourneyNarrative?,
-        val runtime: JourneyRuntimeSnapshot?,
-        val memory: JourneyMemoryAssemblyInputs,
-    )
+    /** ERA 72 §108：365 天长历史装配只在记忆输入变化时执行（UI 轻量输入变化零重算）。 */
+    private val memoryState: kotlinx.coroutines.flow.Flow<com.yunjue.echo.mind.journey.JourneyMemoryState> =
+        combine(
+            _scale,
+            timeline,
+            canonicalDays,
+            _contextExceptions,
+            _selectedDayDate,
+        ) { scale, tl, canonical, exceptions, selectedDate ->
+            com.yunjue.echo.mind.journey.assembleJourneyMemoryState(
+                scale = scale,
+                timeline = tl,
+                memory = com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs(
+                    canonicalDays = canonical,
+                    contextExceptions = exceptions,
+                    selectedDayDate = selectedDate,
+                ),
+            )
+        }.distinctUntilChanged()
 
     /** 单一 UI 状态（纯函数装配；Screen 只消费）。 */
     val uiState: StateFlow<JourneyUiState> = combine(
-        _scale,
-        timeline,
+        memoryState,
         permissionEnabled,
         _narrative,
         _runtime,
-    ) { scale, tl, perm, narrative, runtime ->
-        CombineCore(
-            scale = scale,
-            timeline = tl,
-            permissionEnabled = perm,
-            narrative = narrative,
-            runtime = runtime,
-            memory = JourneyMemoryAssemblyInputs(),
-        )
-    }.combine(canonicalDays) { core, canonical ->
-        core.copy(memory = core.memory.copy(canonicalDays = canonical))
-    }.combine(_contextExceptions) { core, exceptions ->
-        core.copy(memory = core.memory.copy(contextExceptions = exceptions))
-    }.combine(_selectedDayDate) { core, selectedDate ->
-        core.copy(memory = core.memory.copy(selectedDayDate = selectedDate))
-    }.combine(_showEvidence) { core, showEvidence ->
-        val snapshot = core.runtime
+        _showEvidence,
+    ) { mem, perm, narrative, runtime, showEvidence ->
+        val snapshot = runtime
         val sync = JourneySyncStatus(
             lastCollectedAt = snapshot?.availability?.lastCollectedAt ?: 0L,
             lastSyncedAt = snapshot?.availability?.lastSyncedAt ?: 0L,
             pendingUploads = snapshot?.diagnostics?.pendingUploadCount ?: 0,
             persistenceFailures = snapshot?.diagnostics?.consecutivePersistenceFailures ?: 0,
-            consent = core.permissionEnabled,
-            permissionEnabled = core.permissionEnabled,
+            consent = perm,
+            permissionEnabled = perm,
         )
         assembleJourneyUiState(
-            scale = core.scale,
-            timeline = core.timeline,
-            permissionEnabled = core.permissionEnabled,
-            narrative = core.narrative,
+            memoryState = mem,
+            permissionEnabled = perm,
+            narrative = narrative,
             runtimeAvailability = snapshot?.availability,
             runtimeDiagnostics = snapshot?.diagnostics,
             showEvidence = showEvidence,
             intelligenceAvailable = repository.intelligenceAvailable(),
             syncStatus = sync,
             journeySeed = journeySeed,
-            memory = core.memory,
         )
     }.stateIn(
         scope = viewModelScope,

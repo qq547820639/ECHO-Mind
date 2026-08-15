@@ -24,11 +24,15 @@
 | Memory 排序（JVM 重排）· 五千级 | 5000 条 | < 5000 ms | ERA 63（§109 审计）：千级之上防数量级退化护栏 |
 | Memory 过期判定扫掠（shouldForget） | 5000 条 | < 5000 ms | ERA 63（§109 审计）：维护路径全量扫描修复后的护栏 |
 | Derived Pattern 派生 · 五千级 | 5000 条观察 | < 5000 ms | ERA 64（§109 审计）：唯一内容零派生顺手锚定幂等语义 |
+| Journey 365 天**记忆装配第一段**（assembleJourneyMemoryState：周期/河流/年视图/生活阶段解释） | 365 天 | < 2000 ms | ERA 72（§108 审计）：两段式拆分后独立锚点——UI 轻量输入变化零重算（VM distinctUntilChanged + 实例级测试） |
 
 ## 长历史策略（§108/§109 已落地）
 
 - **Journey**：Canonical Daily State 预聚合快照（Room v10 `journey_canonical_days`，
   userId/localDate 索引）——年视图只读 ≤365 行参数行；河流/月聚合只在窗口内计算。
+- **Journey（ERA 72 深化）**：两段式装配——assembleJourneyMemoryState 只在
+  窗口/时间线/Canonical/上下文例外/选中日期变化时执行（VM `distinctUntilChanged` 缓存）；
+  evidence 折叠、叙事到达、运行时快照刷新等 UI 轻量输入变化零重算（实例级测试锚定）。
 - **Memory**：查询全部带 userId + LIMIT（topByUser 3 倍候选截断）；
   Room v11 复合索引 `(userId, deleted, importance)` 与 `(userId, type, deleted)`
   覆盖 top/observe/byType 三条热路径——避免「SELECT everything → JVM sort」随规模退化。

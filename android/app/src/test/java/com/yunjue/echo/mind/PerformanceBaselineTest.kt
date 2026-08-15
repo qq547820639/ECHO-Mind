@@ -123,6 +123,25 @@ class PerformanceBaselineTest {
         assertTrue("Life Season 365 窗口耗时 ${"%.1f".format(ms)}ms 超出预算 1000ms", ms < 1000.0)
     }
 
+    /** ERA 72 §108：两段式记忆装配第一段（周期/河流/年视图/生活阶段解释）——独立预算锚点。 */
+    @Test
+    fun journeyMemoryAssembly365StaysUnderBudget() {
+        val start = LocalDate.of(2026, 1, 1)
+        val portraits = (0 until 365).map { i ->
+            portrait(start.plusDays(i.toLong()).toString(), baselineDays = i % 120)
+        }
+        val timeline = com.yunjue.echo.mind.model.PortraitTimelineUiState(
+            days = 365, loading = false, portraits = portraits,
+        )
+        val ms = measureMs(3) {
+            com.yunjue.echo.mind.journey.assembleJourneyMemoryState(
+                scale = com.yunjue.echo.mind.journey.JourneyScale.YEAR,
+                timeline = timeline,
+            )
+        }
+        assertTrue("365 天记忆装配耗时 ${"%.1f".format(ms)}ms 超出预算 2000ms", ms < 2000.0)
+    }
+
     /** §109：Memory Long History——1000 条记忆排序（JVM 重排预算；SQL 侧已 LIMIT + 复合索引）。 */
     @Test
     fun memoryRanking1000StaysUnderBudget() {

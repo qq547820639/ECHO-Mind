@@ -31,6 +31,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -173,6 +176,35 @@ class JourneyViewModelTest {
         vm.onEvent(JourneyEvent.RetryNarrative)
         advanceUntilIdle()
         assertTrue(fake.narrativeCalls > callsBefore)
+    }
+
+    @Test
+    fun lightInputChangesDoNotRecomputeYearMemory() = runTest(mainDispatcher) {
+        // ERA 72 §108：evidence 折叠 / 叙事到达不得触发 365 天长历史重算（实例级锚定）。
+        val fake = FakeJourneyPort()
+        val vm = JourneyViewModel(app, fake)
+        collectState(vm)
+        advanceUntilIdle()
+        vm.onEvent(JourneyEvent.SelectScale(JourneyScale.YEAR))
+        val start = java.time.LocalDate.of(2025, 8, 15)
+        fake.timelineFlow.value = PortraitTimelineUiState(
+            days = 365, loading = false, portraits = (0 until 365).map { portrait(start.plusDays(it.toLong()).toString()) },
+        )
+        advanceUntilIdle()
+        val yearViewBefore = vm.uiState.value.yearView
+        assertNotNull(yearViewBefore)
+        // 1. evidence 折叠：年视图实例必须原样保留
+        vm.onEvent(JourneyEvent.ToggleEvidence)
+        advanceUntilIdle()
+        assertSame(yearViewBefore, vm.uiState.value.yearView)
+        // 2. 叙事再生：年视图实例必须原样保留
+        vm.onEvent(JourneyEvent.RetryNarrative)
+        advanceUntilIdle()
+        assertSame(yearViewBefore, vm.uiState.value.yearView)
+        // 3. 窗口真正变化（DAY）：年视图按契约清空——证明缓存并非永不失效
+        vm.onEvent(JourneyEvent.SelectScale(JourneyScale.DAY))
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.yearView)
     }
 
     @Test
