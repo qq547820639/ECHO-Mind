@@ -3,7 +3,6 @@ package com.yunjue.echo.mind.localportrait
 import com.yunjue.echo.mind.data.MessageRepository
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
-import com.yunjue.echo.mind.model.baselineProgressText
 import com.yunjue.echo.mind.model.containsBlockedVocabulary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,7 +14,7 @@ import org.junit.Test
  * 周小结（分析消息）测试：与后端 tests/test_messages.py 逐场景镜像。
  *
  * - <3 天 abstain；确定性幂等 id；词表安全 fail-closed；
- * - 消息解析（GET /v1/me/messages 响应）与基线进度文案（v0.7 UX）。
+ * - 消息解析（GET /v1/me/messages 响应）。
  */
 class LocalPortraitDigestTest {
 
@@ -95,14 +94,6 @@ class LocalPortraitDigestTest {
     }
 
     @Test
-    fun baselineProgressTextClamps() {
-        assertEquals("已积累 0/7 天，基线即将成型", baselineProgressText(0))
-        assertEquals("已积累 5/7 天，基线即将成型", baselineProgressText(5))
-        assertEquals("已积累 7/7 天，基线即将成型", baselineProgressText(9))
-        assertEquals("已积累 0/7 天，基线即将成型", baselineProgressText(-1))
-    }
-
-    @Test
     fun subscriptionStatusTextSemantics() {
         val now = 1_000_000_000_000L
         // 机构旧用户：null = 永不过期
@@ -121,18 +112,8 @@ class LocalPortraitDigestTest {
     }
 }
 
-/** v0.7.4 UX 辅助函数测试（今日覆盖率 / 每晚提醒时刻计算）。 */
+/** 每晚提醒时刻计算测试。 */
 class UxHelpersTest {
-
-    @Test
-    fun todayCoveragePercentParsesAndClamps() {
-        assertEquals(68, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 0.68)))
-        assertEquals(100, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 1.5)))
-        assertEquals(0, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to 0.0)))
-        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(null))
-        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("x" to 1)))
-        assertEquals(null, com.yunjue.echo.mind.model.todayCoveragePercent(mapOf("coverage_score" to "0.5")))
-    }
 
     @Test
     fun delayToNextEveningMs() {
