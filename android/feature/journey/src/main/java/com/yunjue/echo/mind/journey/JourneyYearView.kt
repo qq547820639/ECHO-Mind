@@ -76,6 +76,24 @@ fun seasonOf(date: String): String? = runCatching {
     }
 }.getOrNull()
 
+/**
+ * 季节桶键（标签 + 冬季起始年，形如 "SUMMER-2026"）：
+ * 12 月属于当年冬季；1/2 月属于上一年 12 月开始的冬季。
+ * 滚动 365 天窗口跨日历年时，同标签不同年份不得合并（§86 season aggregation 真值）。
+ */
+fun seasonKeyOf(date: String): String? = runCatching {
+    val year = date.take(4).toInt()
+    val month = date.substring(5, 7).toInt()
+    when (month) {
+        3, 4, 5 -> "$SEASON_SPRING-$year"
+        6, 7, 8 -> "$SEASON_SUMMER-$year"
+        9, 10, 11 -> "$SEASON_AUTUMN-$year"
+        12 -> "$SEASON_WINTER-$year"
+        1, 2 -> "$SEASON_WINTER-${year - 1}"
+        else -> null
+    }
+}.getOrNull()
+
 /** 季节 → 用户可读标签。 */
 fun seasonLabel(season: String): String = when (season) {
     SEASON_SPRING -> "春"
@@ -97,11 +115,11 @@ fun buildYearView(
     val periods = buildContextPeriods(contextExceptions)
     val shifts = detectMajorShifts(sortedDays, chunkDays)
 
-    // 四季聚合：按季节分桶（year 窗口内可能不足四季——不足四季时只输出有数据的季）
-    val seasons = sortedDays.groupBy { seasonOf(it.date) }
+    // 四季聚合：按季节桶（标签 + 冬季起始年）分桶；跨年窗口同标签不同年份分开
+    val seasons = sortedDays.groupBy { seasonKeyOf(it.date) }
         .filterKeys { it != null }
-        .map { (season, seasonDays) ->
-            val s = season ?: return@map null
+        .mapNotNull { (key, seasonDays) ->
+            val season = key?.substringBefore('-') ?: return@mapNotNull null
             val start = seasonDays.first().date
             val end = seasonDays.last().date
             val seasonShifts = shifts.filter { it.date in start..end }
@@ -110,7 +128,7 @@ fun buildYearView(
                 it.date in start..end
             }?.identityReference
             JourneySeasonSummary(
-                season = s,
+                season = season,
                 startDate = start,
                 endDate = end,
                 dayCount = seasonDays.size,
@@ -119,7 +137,7 @@ fun buildYearView(
                 contextPeriods = seasonPeriods,
                 identitySnapshot = identity,
             )
-        }.filterNotNull().sortedBy { it.startDate }
+        }.sortedBy { it.startDate }
 
     // 身份演化：每月最近一次 Canonical 身份快照（无快照的月跳过——不编造）
     val identityPoints = sortedCanonical

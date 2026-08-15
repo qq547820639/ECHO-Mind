@@ -24,6 +24,20 @@ class JourneyYearViewTest {
     }
 
     @Test
+    fun seasonKeyOfSplitsSameLabelAcrossCalendarYears() {
+        assertEquals("SUMMER-2025", seasonKeyOf("2025-08-01"))
+        assertEquals("SUMMER-2026", seasonKeyOf("2026-06-15"))
+        assertEquals("WINTER-2025", seasonKeyOf("2025-12-25"))
+        assertEquals("WINTER-2025", seasonKeyOf("2026-01-15"))
+        assertEquals("WINTER-2025", seasonKeyOf("2026-02-28"))
+        assertEquals("WINTER-2026", seasonKeyOf("2026-12-01"))
+        assertEquals("SPRING-2026", seasonKeyOf("2026-03-01"))
+        assertEquals("AUTUMN-2026", seasonKeyOf("2026-11-30"))
+        assertNull(seasonKeyOf("garbage"))
+        assertNull(seasonKeyOf(""))
+    }
+
+    @Test
     fun contextPeriodsMergeAdjacentSameKindDates() {
         val periods = buildContextPeriods(
             mapOf(
@@ -112,5 +126,69 @@ class JourneyYearViewTest {
         assertTrue(view.majorShifts.isEmpty())
         assertTrue(view.contextPeriods.isEmpty())
         assertTrue(view.identityEvolution.isEmpty())
+    }
+
+    @Test
+    fun yearViewSplitsSeasonsAcrossCalendarYears() {
+        // 滚动 365 天窗口跨日历年（2025-08 → 2026-06）：同标签不同年份必须分桶。
+        val days = listOf(
+            journeyDay("2025-08-15"),
+            journeyDay("2025-09-15"),
+            journeyDay("2025-12-15"),
+            journeyDay("2026-01-15"),
+            journeyDay("2026-02-15"),
+            journeyDay("2026-03-15"),
+            journeyDay("2026-06-15"),
+        )
+        val view = buildYearView(days = days, canonicalDays = emptyList(), contextExceptions = emptyMap())
+        // 标签序列：SUMMER(2025) / AUTUMN(2025) / WINTER(2025-12..2026-02) / SPRING(2026) / SUMMER(2026)
+        assertEquals(
+            listOf(SEASON_SUMMER, SEASON_AUTUMN, SEASON_WINTER, SEASON_SPRING, SEASON_SUMMER),
+            view.seasons.map { it.season },
+        )
+        val summers = view.seasons.filter { it.season == SEASON_SUMMER }
+        assertEquals(2, summers.size)
+        assertEquals("2025-08-15", summers[0].startDate)
+        assertEquals("2026-06-15", summers[1].startDate)
+        // 冬季桶横跨两个日历年（12 月 + 次年 1/2 月），逐日都在一个桶内
+        val winter = view.seasons.single { it.season == SEASON_WINTER }
+        assertEquals("2025-12-15", winter.startDate)
+        assertEquals("2026-02-15", winter.endDate)
+        assertEquals(3, winter.dayCount)
+        // 无任何季节桶跨 12 个月以上（合并缺陷的量化锚点）
+        assertTrue(view.seasons.all { it.startDate <= it.endDate })
+        val monthSpan = { s: JourneySeasonSummary ->
+            val start = java.time.LocalDate.parse(s.startDate)
+            val end = java.time.LocalDate.parse(s.endDate)
+            java.time.temporal.ChronoUnit.MONTHS.between(start, end)
+        }
+        assertTrue(view.seasons.all { monthSpan(it) <= 5L })
+    }
+
+    @Test
+    fun yearViewAttributesShiftsToCorrectYearBucket() {
+        // 2025-11 稳定段 → 2025-12 转变：转变点必须归属 WINTER-2025（12 月），不落 2026 桶
+        val novStable = (1..30).map { i -> journeyDay("2025-11-${i.toString().padStart(2, '0')}") }
+        val decChanged = (1..30).map { i ->
+            journeyDay(
+                "2025-12-${i.toString().padStart(2, '0')}",
+                params = visualParams { flowSpeed = 0.95f; coherence = 0.95f; turbulence = 0.95f; structureComplexity = 0.95f },
+            )
+        }
+        // 2026-06 与 12 月同样参数（稳定延续）：跨年后 SUMMER-2026 独立成桶、不误报转变
+        val junStable = (1..30).map { i ->
+            journeyDay(
+                "2026-06-${i.toString().padStart(2, '0')}",
+                params = visualParams { flowSpeed = 0.95f; coherence = 0.95f; turbulence = 0.95f; structureComplexity = 0.95f },
+            )
+        }
+        val view = buildYearView(days = novStable + decChanged + junStable, canonicalDays = emptyList(), contextExceptions = emptyMap())
+        assertEquals(1, view.majorShifts.size)
+        assertEquals("2025-12-01", view.majorShifts.first().date)
+        val winter = view.seasons.single { it.season == SEASON_WINTER }
+        assertTrue(winter.majorShifts.any { it.date == "2025-12-01" })
+        val summer2026 = view.seasons.single { it.season == SEASON_SUMMER }
+        assertTrue(summer2026.majorShifts.isEmpty())
+        assertEquals("2026-06-01", summer2026.startDate)
     }
 }
