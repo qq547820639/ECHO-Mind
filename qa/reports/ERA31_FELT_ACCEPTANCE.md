@@ -31,10 +31,22 @@
 
 ## C. 复核方式
 
-- 机器证据：Android 1031 全绿（app 871 / intelligence 23 / presence 25 / qa 112）+
-  detekt 27 + lintDebug；backend 1077 passed + 1 skipped + ruff 0 + mypy strict 0；
-  LOCAL PREFLIGHT PASSED（R33）。
+- 机器证据：Android/backend 全门禁实测数字**由 `scripts/refresh_status_numbers.py` 自动生成**，
+  见 `docs/STATUS.md` §3（禁止手写计数；ERA 32 起生效）。
+- 发布证据：v0.11.0 Release Closure 全链（ERA 32 R05）——provenance / final package §18 门禁 /
+  test_release_set + test_source_archive 16/16，锚点 `docs/RELEASE_BASELINE.md`。
 - 人眼证据：浏览器打开 `qa/visual-review/index.html`——不同用户 Day 180 并排、
   同一用户连续性、36s 运动序列、真实帧率 4fps/30fps 拼图（R20）。
 - 真机证据：`qa/visual-review/DEVICE_CHECKLIST.md`（R35 对齐当前 UX，部署侧执行）。
 - 下一 Release Closure 时全部重新生成，不带旧 proof 发布（RELEASE_BASELINE.md 纪律）。
+
+## D. ERA 32 增量证据（R01–R13，v0.11.0）
+
+| 门 / 时点 | ERA 32 增量 | 证据 |
+|---|---|---|
+| 1. 更懂自己 | R02（q032 月间规律度答对 / 无变化结论可验证 / z 距离退役）、R03（上下文 14 天活跃窗口，旧上下文不再被当「这几天」） | stabilityMonthCompareAnswersTheQuestionAsked、travelContextOldContextIsTreatedAsEnded、similarDaysEvidenceSpeaksHumanNotZDistance |
+| 4. 纠正后未来理解改变 | R03（AI 路径记忆人话化——内部格式不再进 Provider；纠正→CONTEXT 桥梁复核） | EvidenceAssemblerHumanizeTest、CorrectionReuseAcceptanceTest 复验 |
+| 6. Journey 看见自己的时间 | R06（§41 四问全部可答：期间故事 + 现在 vs 一个月前） | periodStoryAndMonthAgoAnswerTheNinetyDayTest、insufficientHistoryDoesNotClaimStability |
+| 7. 知道什么/不知道什么 | R08（静默陈旧模式改说「以前观察到…最近没再看到」，不把过去当现在） | staleConfirmedPatternWithoutCorrectionIsPresentedAsPast、outdatedPatternIsPresentedAsChallengedNotCurrentTruth |
+| 10. 信任/隐私/控制 | R09（§52 依据词表精确化：「原始音频」替代假声明「麦克风」）、R10（QA 隔离双保险）、R13（QA 快照 Me 面吃 production，不再展示产品不存在的语句） | EchoConversationLayerSmokeTest、productionModulesNeverDependOnQaPackage、7 profile 快照 |
+| Day 30/90/180 | R07（20k 记忆 / 1000 天 Journey 护栏）、R11（阶段终检 16/16 + 漂移门补齐）、R12（Day-0 链终验） | twentyThousandScaleGuardrails、journeyUiStateAssembly1000StaysUnderBudget、`docs/CHANGELOG/ERA32_ROUND11_PHASE_CHECK.md` |
