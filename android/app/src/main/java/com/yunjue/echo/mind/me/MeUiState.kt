@@ -123,6 +123,8 @@ data class MemoryManagementUiState(
     val filter: MemoryType? = null,
     /** ERA 60（ADR-060 第 1 轮）：§80 七层认知分层计数（Observed/Confirmed/Context/Correction/Preference/Pattern/Interpretation）。 */
     val layerCounts: MemoryLayerCounts = MemoryLayerCounts(),
+    /** ERA 61（ADR-060 第 2 轮）：「ECHO 不知道什么」能力边界行（纯映射结果）。 */
+    val doesNotKnow: List<String> = emptyList(),
 )
 
 /**
@@ -170,6 +172,41 @@ data class MemoryLayerCounts(
                 derivedPattern = derivedPattern,
                 temporaryInterpretation = temporaryInterpretation,
             )
+        }
+    }
+}
+
+/**
+ * ERA 61（ADR-060 第 2 轮）——「ECHO 不知道什么」输入事实（纯数据，无推测）。
+ */
+data class EchoKnowsFacts(
+    val sensingEnabled: Boolean = true,
+    val micEnabled: Boolean = true,
+    val providerConfigured: Boolean = true,
+    val baselineDays: Int = 30,
+)
+
+/**
+ * ERA 61（ADR-060 第 2 轮）——「ECHO 不知道什么」纯映射：
+ * 由运行时/权限/基线事实导出诚实的能力边界行（无事实不产行，不编造）。
+ * FINAL PRODUCT ACCEPTANCE：用户能明确知道 ECHO 知道什么、不知道什么。
+ */
+object EchoDoesNotKnow {
+
+    const val MIN_BASELINE_DAYS = 7
+
+    fun from(facts: EchoKnowsFacts): List<String> = buildList {
+        if (!facts.sensingEnabled) {
+            add("没有开启被动感知：ECHO 不观察你的屏幕使用、移动与作息节奏。")
+        }
+        if (facts.sensingEnabled && !facts.micEnabled) {
+            add("没有开启麦克风：ECHO 不记录你的声音。")
+        }
+        if (!facts.providerConfigured) {
+            add("还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。")
+        }
+        if (facts.baselineDays < MIN_BASELINE_DAYS) {
+            add("基线天数还不足（当前 ${facts.baselineDays} 天）：ECHO 还不能可靠地区分「你的平常」与「今天的变化」。")
         }
     }
 }

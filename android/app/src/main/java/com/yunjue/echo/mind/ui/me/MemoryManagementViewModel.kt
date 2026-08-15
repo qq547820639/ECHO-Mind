@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -31,15 +32,39 @@ class MemoryManagementViewModel(
 
     private val _filter = MutableStateFlow<MemoryType?>(null)
 
+    /** ERA 61：运行时/权限/基线事实（「ECHO 不知道什么」输入；init 异步采集一次）。 */
+    private val _knowsFacts = MutableStateFlow(com.yunjue.echo.mind.me.EchoKnowsFacts())
+
+    init {
+        viewModelScope.launch {
+            val baselineDays = runCatching {
+                container.observation.localPortraitDataSource.computeToday(
+                    userId = container.core.preferences.userId,
+                    today = java.time.LocalDate.now(),
+                    zoneId = java.time.ZoneId.systemDefault(),
+                )?.baselineDays ?: 0
+            }.getOrDefault(0)
+            _knowsFacts.value = com.yunjue.echo.mind.me.EchoKnowsFacts(
+                sensingEnabled = container.core.preferences.sensingActive,
+                micEnabled = container.core.passiveSensingPrefs.micEnabled.first(),
+                providerConfigured = container.echoRuntimeCoordinator.provider.value == com.yunjue.echo.mind.intelligence.ProviderStatus.READY,
+                baselineDays = baselineDays,
+            )
+        }
+    }
+
     val uiState: StateFlow<MemoryManagementUiState> = combine(
         container.memoryRepository.observeMemories(),
         _filter,
-    ) { memories, filter ->
+        _knowsFacts,
+    ) { memories, filter, facts ->
         MemoryManagementUiState(
             memories = memories,
             filter = filter,
             // ERA 60：七层计数（§80 分层真值；过滤不影响计数——用户看到的永远是全貌）
             layerCounts = MemoryLayerCounts.from(memories),
+            // ERA 61：「ECHO 不知道什么」能力边界（纯映射；无事实不产行）
+            doesNotKnow = com.yunjue.echo.mind.me.EchoDoesNotKnow.from(facts),
         )
     }.stateIn(
         scope = viewModelScope,

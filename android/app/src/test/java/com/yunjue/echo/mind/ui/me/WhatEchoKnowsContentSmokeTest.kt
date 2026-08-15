@@ -147,8 +147,7 @@ class WhatEchoKnowsContentSmokeTest {
     }
 
     @Test
-    fun layerSummaryShowsSevenLayerCounts() {
-        // ERA 60：§80 七层摘要（过滤不影响计数——用户看到的永远是全貌）
+    fun layerSummaryShowsSevenLayerCounts() {        // ERA 60：§80 七层摘要（过滤不影响计数——用户看到的永远是全貌）
         val state = MemoryManagementUiState(
             memories = listOf(
                 memory("m1", MemoryType.OBSERVATION, "观察"),
@@ -175,5 +174,25 @@ class WhatEchoKnowsContentSmokeTest {
         compose.onNodeWithText(
             "共 7 条：你确认过 1 · 你告诉我的 1 · 我观察到 1 · 你的偏好 1 · 你纠正过 1 · 发现的模式 1 · 还在推测 1",
         ).assertExists()
+    }
+
+    @Test
+    fun doesNotKnowBlockShowsOnlyWhenLinesExist() {
+        // ERA 61：能力边界行呈现（诚实，不编造）
+        val withLines = MemoryManagementUiState(
+            doesNotKnow = listOf(
+                "还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。",
+            ),
+        )
+        setContent(withLines, mutableListOf())
+        compose.onNodeWithText("ECHO 还不知道什么").assertExists()
+        compose.onNodeWithText("· 还没有连接 AI：ECHO 不会生成 AI 解读，只用本地的确定性解释。").assertExists()
+    }
+
+    @Test
+    fun doesNotKnowBlockHiddenWhenNoLines() {
+        val withoutLines = MemoryManagementUiState()
+        setContent(withoutLines, mutableListOf())
+        compose.onNodeWithText("ECHO 还不知道什么").assertDoesNotExist()
     }
 }

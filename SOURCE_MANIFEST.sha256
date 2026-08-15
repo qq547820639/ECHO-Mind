@@ -7,7 +7,7 @@ fe16400ad17dadcdd7a053a983d6c6f1957007e7ecec95b2a821876666242fbd  .github/workfl
 1f1e5022fcc6d9258610a5c5fe73a5bef1a5b9c84c77e6ac25f86d09c066080d  .gitignore
 1cb583368385f2d5c3c8808f5a933a1824388b96816a0199f45b83c5335a9d2e  Makefile
 5fc5919e646a637747a171a89bb1700adb635322246ef653820ae8ce1b01cb5c  PORTRAIT_CONTRACT.md
-c3f4d40574a2497d5052fe92d023d3001cd5bec4c6d2c7a17a3545a96d977b41  README.md
+959c2173f9ffeddb2f6eda5f7603d988ed8f92a045752c7fd9295f20aeedae79  README.md
 93a79b01c9674104e6d6cabb735eb1ae8c1d7d7e7329b4a9dd7f652edaca1804  RELEASE_NOTES_v0.2.0.md
 0028eecff690311519240df6b857dc0a120dab71d9ed4559bc88185288fbf2eb  RELEASE_NOTES_v0.6.0.md
 3ab9380798e062043871c8ca9e08d11b7ae9f3742c2000bb5e49706143a9e5e5  RELEASE_NOTES_v0.7.0.md
@@ -68,7 +68,7 @@ ecc3158182204df660535beb7766b02bce69ca8f113400f6d72eede7d48b86d9  android/app/sr
 a58aac82d25f4d9e658548faffe1e90df131bd09b91c11f3c9146d42449b7e42  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyRepository.kt
 d1067fc99d08e1bc6f776b78ec2b762f6a1692202f81d7e717a625b2bae5f7ae  android/app/src/main/java/com/yunjue/echo/mind/me/FlowCombine.kt
 532358688e4b775cd4131212b1430bcdcb6b57b1c2ac948b8be644ae33a313bb  android/app/src/main/java/com/yunjue/echo/mind/me/MeEvent.kt
-a400418ba227407d8377b35658246b1a4ba6ac8bc4334c1dc85a6dfd8558f472  android/app/src/main/java/com/yunjue/echo/mind/me/MeUiState.kt
+c969d00a1af0ab6cd956c705e7bc93a354a070a0cd9089180275ca05e94eef30  android/app/src/main/java/com/yunjue/echo/mind/me/MeUiState.kt
 2068167094d92d2a7290770c8e204a149af9dab19951831da9ddf768ef8503c6  android/app/src/main/java/com/yunjue/echo/mind/memory/EchoCorrectionService.kt
 1b4132131a379b620f8553b1eb750d874cefa9c1c46a8abe2cf1273c0bc5f6f2  android/app/src/main/java/com/yunjue/echo/mind/presence/EchoDreamService.kt
 1efb8d1ebda7dc504f938ba1ec6a78bf629d73dfe29c4ee37a9e25d0ebcb93e7  android/app/src/main/java/com/yunjue/echo/mind/presence/EchoStateStore.kt
@@ -106,13 +106,13 @@ b11c91a002acffcabefc60c980cac503aeff318dc0e4f74ee8e41f326e70b2c9  android/app/sr
 ca8b7a63204d842996c164e6e6d64c4cf23598abb0f1d6b438c76cced767ca93  android/app/src/main/java/com/yunjue/echo/mind/ui/me/IntelligenceSettingsViewModel.kt
 b18d8c8385b3f7ea668b6b10c33087b200808c207ba2e57c299d56b88134555f  android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt
 2025022f395889963e9d20ea3bb78f01c746a34a372642d5cae185ec880fb315  android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeViewModel.kt
-922909a4a5dcb221b648f197eae91a6463d0af867c742f3710fa1a2dd6b0b0fd  android/app/src/main/java/com/yunjue/echo/mind/ui/me/MemoryManagementViewModel.kt
+83646a39a34750761abf408e052c9232df076ec07b8cd2db8e78d838ccaca3bc  android/app/src/main/java/com/yunjue/echo/mind/ui/me/MemoryManagementViewModel.kt
 9184d3372fe8f6cc39801a8f5de7b8000c915f91ba972dffff9918db4c0af176  android/app/src/main/java/com/yunjue/echo/mind/ui/me/PresenceSettingsSection.kt
 1e34fd6958d6bfef633f6d7b866a9fc015b62ff955156d76db687c70427d06ac  android/app/src/main/java/com/yunjue/echo/mind/ui/me/PresenceSettingsViewModel.kt
 5eb53eb808afdbc2df7a06fc52640f9b505ea946186ee3ff63f434032c693897  android/app/src/main/java/com/yunjue/echo/mind/ui/me/SubscriptionSection.kt
 03f7ef2bf264d0451e03427a4176140456af482d0b79e81991a34c1da02c4cec  android/app/src/main/java/com/yunjue/echo/mind/ui/me/SubscriptionViewModel.kt
 aa11189d7f4c3e8e42955d4eb313dfc61c1ecfed76cf833e737f08a9a968c46d  android/app/src/main/java/com/yunjue/echo/mind/ui/me/SupportSection.kt
-ed130e4ee32bd6070bced18ed3d3a4517b36d545b5e08a032085c7e6d1eedb20  android/app/src/main/java/com/yunjue/echo/mind/ui/me/WhatEchoKnowsSection.kt
+7eef5f9ffbbd451cac68c1f37d239b251c7fbaa321c8affbfa3c9cd233e10054  android/app/src/main/java/com/yunjue/echo/mind/ui/me/WhatEchoKnowsSection.kt
 d92fd64cbcc8ba938ae5e5ac6520fb241848f4808241a7e957fcf4b70883a655  android/app/src/main/res/drawable/ic_launcher_foreground.xml
 5110a19bc565137f2fa48f4baa050e072cb164c2790ace272c1f1de7e46bf74b  android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
 84a1d8eb1ac594c52834c53860a8cb802be88c287551d1076f93b5ec9973176f  android/app/src/main/res/values/colors.xml
@@ -195,6 +195,7 @@ d04a5de8d6176ebd81e094ffb04fdae78a08ebf9c740760b7cab5e07de6794c6  android/app/sr
 292bbc38e514cf3e10b33e502f39ba6a431a309747d180ad6a4f5b07e0f3a360  android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitDigestTest.kt
 8ae2a41cc7611d7ad693816ee2d7905805c3ddf62795b37d0d7491b1abdcfd8a  android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitGoldenTest.kt
 d2dda4553c3e5355d5f8338b863e2adfc85bd260638420abfb169dbe1b16b39c  android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitMathTest.kt
+e38f3cc8244fbe36b3fee1999fb2cbfa812b2c8374605a2aee4cbcd8cc76f8a6  android/app/src/test/java/com/yunjue/echo/mind/me/EchoDoesNotKnowTest.kt
 82b60a7f32fce23f0c95de928803f41187c7eeed59775d75f83ffa0b8d98503d  android/app/src/test/java/com/yunjue/echo/mind/me/MeStateAssemblyTest.kt
 449f329d340ffcdfffb76e9aae4714fe845d6101d9f44bb95da02cb2783b75c0  android/app/src/test/java/com/yunjue/echo/mind/memory/ContextExceptionsTest.kt
 351f3790e07e434cbe290b97929f146fb6e9945961a43132c4e1ce640403dc89  android/app/src/test/java/com/yunjue/echo/mind/memory/MemoryMaturityTest.kt
@@ -224,7 +225,7 @@ b25e4c320d5b2a937e8cc108824a8cddb50bc914ec8ce247cb0a639215d15540  android/app/sr
 a8cb9be0cbfea97996b7f4867f3178dc346658ff82a4e4ecdde5dc5a99a2880c  android/app/src/test/java/com/yunjue/echo/mind/ui/me/SubscriptionContentSmokeTest.kt
 d473b6fc28ff69498a94565fcb617c10149aaa27382ae8d841ba54e1a0507252  android/app/src/test/java/com/yunjue/echo/mind/ui/me/SubscriptionViewModelTest.kt
 26a26e7276bd94571d3c2c0196ac4b11e0226b1332e0f05cafdf9122470f47bb  android/app/src/test/java/com/yunjue/echo/mind/ui/me/SupportSectionSmokeTest.kt
-1597389daf60687ac837321a84ecc1aded100ea4bc1fb808fd98426e001aa1c6  android/app/src/test/java/com/yunjue/echo/mind/ui/me/WhatEchoKnowsContentSmokeTest.kt
+9223aeecaee1deab8d8bcb7ba1b81eed2ed0f89f4eb0a7add62b16ab57ac3571  android/app/src/test/java/com/yunjue/echo/mind/ui/me/WhatEchoKnowsContentSmokeTest.kt
 8e36abd6c4588ea4be41db621d1f92f03c4f1356a45ee853402a2883f4df78cc  android/app/src/test/resources/portrait_contract/baseline_status.json
 36666a3edeb8c7e150ac70b2cdbc408067b67bc4c97f6239ebf0cbaba129d8b9  android/app/src/test/resources/portrait_contract/dimensions_nested.json
 694dc86ddc7e06723f5814826b0e9c528fe4557beab3a7219dd4d8b61f93264f  android/app/src/test/resources/portrait_contract/early_baseline.json
@@ -512,7 +513,7 @@ dd79199277b0db7470ad73a3c27bf8b97be2f8b69d7165133a2f4de3a18232dc  docs/11_部署
 93222a258b2ecd5c3fa0243c111d51dd11a42b61cec6eb930103d4d650c75db1  docs/12_验收记录模板.md
 dec15ad000bc86d1fe140510344c4ad2ea82d1929b03a1eeddb175562f020ea2  docs/15_外部执行任务交接.md
 a3da583cb03ca41c53131acc6ae8fe890285df0292d73d0cc4b3a23c37195700  docs/DOCUMENT_AUTHORITY.md
-e1bfd742e57f06245f9e55b722778585091e4d87031d51e3285c0b23cbb134f0  docs/IMPLEMENTATION_STATUS.md
+8eddfb6cc18a66cb75067c16d6cbb3fef2cd97e891c01cb8b8bec62e8557d409  docs/IMPLEMENTATION_STATUS.md
 b451ce30093b67dffa508dea68514bafb32398beec61a33b161671e82783bcef  docs/README_AUTHORITY.md
 464ad73c6ec1d89b63978379bc57c9310ae287e884e7304d5a056e46b6d89673  docs/architecture/ADRS.md
 455249fc665de07e36d711605a88217404a5a1ec463240a734b69f88b36d6f0f  docs/architecture/ANDROID_CODE_INVENTORY.md

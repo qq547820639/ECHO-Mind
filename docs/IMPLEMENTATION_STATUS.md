@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**What ECHO Knows 深化第 1 轮完成 ✅（ADR-060 选定用户信任层为下一长阶段；§80 七层分层摘要落地——MemoryLayerCounts 纯映射 + UI 摘要行 + 过滤不影响计数）→ 下一轮：What ECHO Knows 第 2 轮（「ECHO 不知道什么」显式呈现 + 单层详情展开）**
+**What ECHO Knows 深化第 2 轮完成 ✅（「ECHO 不知道什么」能力边界落地——EchoKnowsFacts/EchoDoesNotKnow 纯映射 + VM 运行时事实采集 + UI 边界块 + 6 契约；单层详情 = 既有过滤 chips 语义确认）→ 下一轮：What ECHO Knows 第 3 轮（记忆来源/保留策略解释 + ADR-060 结项）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**793 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**799 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -98,6 +98,7 @@
 - **解释链真值审计第 4 轮**：EchoConversationController 此前**零测试**（多轮链核心控制器无锚点）——补 6 契约：全链编排（分类→检索→回答→记录，COMPLETE 相位 + 来源携带）/ provider 失败 → FAILED 相位诚实降级且仍记录（永不空白）/ 4 轮历史窗口滚动（第 6 问的 history 恰为最近 4 轮 8 条，窗口外轮次被滚出）/ 检索异常不破链（空证据继续诚实降级）/ DETERMINISTIC → FALLBACK 相位映射 / clear 重置轮次与相位；Provider 配置修复闭环复核（validate 7 用例：normalize/缺失字段/不安全 URL/本地 http/172 公网段/超时边界 + testConnection 诊断 + providerComponentHealth 状态映射）PASS
 - **解释链真值审计收官**：发现两处 **spec 字段流亡**——§70 baseline/comparison 装配不落、编译不读（画像事实把「平常/变化」合并进长句，模型拿不到结构化对比）；§71 EchoAnswer.timeRange 恒 null（spec 字段无任何写入点）。**修复**：fromPortrait 把 baseline/comparison 落入 schema 指定字段，EchoContextCompiler 以「（平常：X）（变化：Y）」显式进入模型上下文（无对比字段不产空括号）；GroundingValidator.buildAnswer 由被引用证据时间范围导出 timeRange（最早~最晚 / 单一 / 无引用 null）；**ADR-059 四轮结项**：换模型不失忆（记忆端口检索与模型无关）与模型崩溃 ECHO 不消失（fallback 链）具备端到端锚点；**新锚点**：EvidenceSchemaFlowTest 3 用例
 - **What ECHO Knows 深化第 1 轮**：ADR-060 选定下一长阶段（§80 What ECHO Knows 深化——User trust/User control 直接受益；不选 Year 视图打磨与千级压测本地化）；**§80 七层分层摘要落地**：MemoryLayerCounts（纯映射：七 MemoryType → 七计数 + total；过滤不影响计数——用户永远看到全貌），MemoryManagementUiState.layerCounts 接入 VM，WhatEchoKnowsContent 摘要行（「共 N 条：你确认过 X · 你告诉我的 Y · 我观察到 Z · 你的偏好 · 你纠正过 · 发现的模式 · 还在推测」）；**新锚点**：WhatEchoKnowsContentSmokeTest +1（七层摘要行精确渲染）
+- **What ECHO Knows 深化第 2 轮**：「ECHO 不知道什么」能力边界落地（FINAL PRODUCT ACCEPTANCE「明确知道 ECHO 知道什么/不知道什么」）——EchoKnowsFacts（sensingEnabled/micEnabled/providerConfigured/baselineDays）+ EchoDoesNotKnow 纯映射（感知未开 → 不观察屏幕/移动；感知开但麦克风关 → 不记录声音；未接 AI → 只用本地确定性解释；基线 <7 天 → 不能可靠区分平常与变化；能力齐备零行不编造）；VM 由运行时事实采集（sensingActive / micEnabled flow / provider READY / computeToday.baselineDays）；UI 边界块（无行即隐藏）；单层详情确认 = 既有过滤 chips（点选任一层 → 该层列表）；**新锚点**：EchoDoesNotKnowTest 4 用例 + WhatEchoKnowsContentSmokeTest +2（边界块呈现/隐藏）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -143,4 +144,4 @@
 
 ## Next Highest-value Task
 
-What ECHO Knows 深化第 2 轮：「ECHO 不知道什么」显式呈现（无感知授权 → 不观察屏幕/移动；未接 AI → 不生成解读；无数据天数 → 无基线——由现有 runtime/权限状态导出，纯映射 + 测试）+ 单层详情展开（点选七层摘要任一层 → 该层列表）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+What ECHO Knows 深化第 3 轮：记忆来源与保留策略解释（每条记忆行显示来源（观察/你告诉我的/纠正…）与保留期限（retentionClass → 天数的确定性映射 + 过期软删语义）+ ADR-060 结项记录。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

@@ -73,6 +73,13 @@ fun WhatEchoKnowsContent(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+            // ERA 61（ADR-060 第 2 轮）：「ECHO 还不知道什么」能力边界（诚实呈现，不编造）
+            if (state.doesNotKnow.isNotEmpty()) {
+                Text("ECHO 还不知道什么", style = MaterialTheme.typography.titleSmall)
+                state.doesNotKnow.forEach { line ->
+                    Text("· $line", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             // §78/§79：用户解释优先（特殊时期入口）
             var showAddDialog by remember { mutableStateOf(false) }
             OutlinedButton(onClick = { showAddDialog = true }) {
