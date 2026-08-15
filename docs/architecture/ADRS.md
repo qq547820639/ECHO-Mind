@@ -628,3 +628,15 @@
 - **决策**：Presence 功耗审计（ADR-065）结项后，下一长阶段选定 **Personal Correction 环路端到端真值审计**——宪法七组件之一 Correction 的完整数据流：用户纠正捕获（画像反馈/对话纠正/记忆编辑）→ 记忆层写入与来源标注 → 检索排序优先级（§75 USER_CONFIRMED/CORRECTION/CONTEXT 优先）→ Context 编译注入 → 解释与证据呈现的纠正归因（「你纠正过我的」）。不选 CI 模拟器矩阵扩展（连续四轮理由不变）与 feature_vectors 留存裁剪（会不可逆删除真实用户数据——阻塞条件 1，非人工确认不得自主执行，仅记录为待办）。
 - **理由**：宪法组件 Correction 自 ADR-059 后无独立端到端审计阶段；User trust / Personal continuity（优先级 1/8）直接受益；全链本地可测（纯函数 + Robolectric），无需设备。
 - **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：纠正写入→检索优先级→编译注入→解释归因全链锚点 + ADR-066 结项记录。
+
+### ADR-066 结项记录（ERA 77，两轮结论）
+
+- 第 1 轮：捕获段真值修复——对话「像我」层标签 CORRECTION → USER_CONFIRMED（§80 分层真值）；EchoCorrectionService 捕获语义锚定 +4（画像纠错/对话正反/原因兜底）。
+- 第 2 轮：链段锚定——CorrectionLoopChainTest：纠错记忆 → 证据映射（correction / USER_CORRECTIONS / SENSITIVE / 「你纠正过我」）→ ContextRanker 头位（「纠正永远最高」）→ EchoContextCompiler 注入（userContent 含纠正内容与来源标签）；§75/§79（用户解释优先）既有锚定复核保持。
+- 结论：Personal Correction 环路端到端完成——捕获→分层标注→检索头位→编译注入→用户可见归因逐段可测；「用户说『最近是因为出差』→ ECHO 保存 Context → 以后判断改变」具备全链证据。
+
+## ADR-067：下一长阶段选型——Personal Baseline 端到端真值审计（ERA 78）
+
+- **决策**：Personal Correction 环路（ADR-066）结项后，下一长阶段选定 **Personal Baseline 端到端真值审计**——宪法第一组件（Personal Baseline + Context + Memory + …）与 Ground Truth Layer 的核心：validDays 连续有效日语义 / 缺失源覆盖与置信 / 冷启动阶梯（WARMING_UP→READY）/ 本地引擎与后端镜像一致性（同算法镜像契约）/ 基线→画像→ECHO 成熟度传导。不选 CI 模拟器矩阵扩展（连续五轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：基线是「ECHO 区分你的平常与今天变化」的唯一事实基础（解释链/画像/Journey/Intelligence 全部依赖）；此前各轮只间接触及（ADR-058 Identity / ADR-059 解释链），无独立审计阶段；本地 JVM + Robolectric 全链可测。
+- **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：validDays 语义/缺失源/冷启动/镜像一致性锚点 + ADR-067 结项记录。
