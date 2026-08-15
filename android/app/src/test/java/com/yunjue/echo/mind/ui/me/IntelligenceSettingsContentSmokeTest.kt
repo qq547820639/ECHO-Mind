@@ -49,7 +49,7 @@ class IntelligenceSettingsContentSmokeTest {
     fun unconfiguredHidesProviderDetailsAndTestEmitsEvent() {
         val events = mutableListOf<IntelligenceSettingsEvent>()
         setContent(IntelligenceSettingsUiState(), events)
-        compose.onNodeWithText("Current provider：OpenAI Compatible").assertDoesNotExist()
+        compose.onNodeWithText("当前服务：OpenAI 兼容接口").assertDoesNotExist()
         compose.onNodeWithText("断开连接").assertDoesNotExist()
         compose.onNode(hasClickAction() and hasText("测试连接")).performClick()
         assertTrue(events.contains(IntelligenceSettingsEvent.TestConnection))
@@ -67,7 +67,7 @@ class IntelligenceSettingsContentSmokeTest {
             ),
             events,
         )
-        compose.onNodeWithText("Model：gpt-echo-1").assertExists()
+        compose.onNodeWithText("模型：gpt-echo-1").assertExists()
         compose.onNodeWithText("Base URL：https://echo.local/v1").assertDoesNotExist()
         compose.onNode(hasClickAction() and hasText("断开连接")).performClick()
         assertTrue(events.contains(IntelligenceSettingsEvent.Disconnect))
@@ -84,7 +84,7 @@ class IntelligenceSettingsContentSmokeTest {
             ),
             mutableListOf(),
         )
-        compose.onNodeWithText("Advanced（高级）").assertExists()
+        compose.onNodeWithText("高级设置").assertExists()
         compose.onNodeWithText("Base URL：https://echo.local/v1").assertExists()
     }
 

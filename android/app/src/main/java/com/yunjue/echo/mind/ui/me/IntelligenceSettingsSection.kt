@@ -52,12 +52,12 @@ fun IntelligenceSettingsContent(
                 style = MaterialTheme.typography.bodySmall
             )
             if (state.providerConfigured && state.model != null) {
-                Text("Current provider：OpenAI Compatible", style = MaterialTheme.typography.titleSmall)
-                Text("Model：${state.model}", style = MaterialTheme.typography.bodySmall)
+                Text("当前服务：OpenAI 兼容接口", style = MaterialTheme.typography.titleSmall)
+                Text("模型：${state.model}", style = MaterialTheme.typography.bodySmall)
             }
             state.statusText?.let {
                 Text(
-                    "Status：$it",
+                    "状态：$it",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.status == com.yunjue.echo.mind.intelligence.ProviderStatus.READY)
                         MaterialTheme.colorScheme.primary
@@ -83,8 +83,9 @@ fun IntelligenceSettingsContent(
                 }
             }
             if (state.changeExpanded) {
-                // ERA 25 §47：Advanced（Base URL/模型名/API Key 属高级配置，不在主视图堆叠）
-                Text("Advanced（高级）", style = MaterialTheme.typography.titleSmall)
+                // ERA 25 §47：高级设置（Base URL/模型名/API Key 属高级配置，不在主视图堆叠）
+                // ERA 31 R39：界面标签中文化（Base URL 属协议专名保留英文，其余中文）
+                Text("高级设置", style = MaterialTheme.typography.titleSmall)
                 if (state.providerConfigured) {
                     Text("Base URL：${state.baseUrl}", style = MaterialTheme.typography.bodySmall)
                 }
