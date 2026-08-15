@@ -436,8 +436,7 @@ class AppPreferences(
         }
 
     /** 动态程度：QUIET / DEFAULT / LIVELY（Me → Presence 设置）。 */
-    var presenceMotionLevel: String
-        get() = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT"
+    var presenceMotionLevel: String        get() = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT"
         set(value) = prefs.edit().putString("presence_motion_level", value).apply()
 
     /** 增强夜间模式（额外降暗减速；昼夜亮度曲线本身已自动调暗）。默认关。 */
@@ -459,6 +458,11 @@ class AppPreferences(
     var aiPromptDismissed: Boolean
         get() = prefs.getBoolean("ai_prompt_dismissed", false)
         set(value) = prefs.edit().putBoolean("ai_prompt_dismissed", value).apply()
+
+    /** ERA 31 R34：一次性壁纸引导已关闭（打开过或「以后再说」；PART 57 Wallpaper adoption）。 */
+    var wallpaperPromptDismissed: Boolean
+        get() = prefs.getBoolean("wallpaper_prompt_dismissed", false)
+        set(value) = prefs.edit().putBoolean("wallpaper_prompt_dismissed", value).apply()
 
     companion object {
         /** 应用状态 SharedPreferences 文件名（Wallpaper/Dream 进程直读快照用）。 */

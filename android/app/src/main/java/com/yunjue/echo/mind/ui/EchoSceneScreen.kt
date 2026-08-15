@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.actions.EchoActionKind
 import com.yunjue.echo.mind.intelligence.ConversationPhase
@@ -80,6 +81,7 @@ fun EchoSceneScreen(
     onEmergency: () -> Unit,
 ) {
     val viewModel: EchoSceneViewModel = viewModel(factory = EchoSceneViewModel.factory(container))
+    val context = LocalContext.current
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val portrait by viewModel.portrait.collectAsStateWithLifecycle()
@@ -97,6 +99,7 @@ fun EchoSceneScreen(
             runningAction = runningAction,
             message = message,
             aiPromptDismissed = container.preferences.aiPromptDismissed,
+            wallpaperPromptDismissed = container.preferences.wallpaperPromptDismissed,
             awakenedAtEpochMs = container.preferences.awakenedAtEpochMs,
         ),
         navigation = EchoSceneNavigation(
@@ -115,6 +118,13 @@ fun EchoSceneScreen(
         ),
         feedbackActions = EchoSceneFeedbackActions(
             onDismissAiPrompt = viewModel::dismissAiPrompt,
+            onDismissWallpaperPrompt = viewModel::dismissWallpaperPrompt,
+            onSelectWallpaper = {
+                // ERA 31 R34：跳系统动态壁纸选择器（组件钉定 ECHO 壁纸）；
+                // 打开过即视为已引导（不再重复出现）。
+                viewModel.dismissWallpaperPrompt()
+                selectEchoWallpaper(context)
+            },
             onPortraitLike = { viewModel.recordPortraitFeedback(it, true) },
             onPortraitNotLike = { viewModel.recordPortraitFeedback(it, false) },
             onPortraitCorrection = viewModel::recordPortraitCorrection,
@@ -175,6 +185,7 @@ data class EchoSceneContentState(
     val runningAction: EchoActionKind?,
     val message: MessageDisplay?,
     val aiPromptDismissed: Boolean,
+    val wallpaperPromptDismissed: Boolean = true,
     val awakenedAtEpochMs: Long = 0L,
 )
 
@@ -199,6 +210,8 @@ data class EchoSceneCoreActions(
 /** ERA 36 — EchoSceneContent 反馈/提示回调（Correction Memory 与 AI 提示）。 */
 data class EchoSceneFeedbackActions(
     val onDismissAiPrompt: () -> Unit,
+    val onDismissWallpaperPrompt: () -> Unit = {},
+    val onSelectWallpaper: () -> Unit = {},
     val onPortraitLike: (String) -> Unit,
     val onPortraitNotLike: (String) -> Unit,
     val onPortraitCorrection: (String, String, String?) -> Unit,
@@ -249,6 +262,24 @@ fun EchoSceneContent(
                     onGoToMe = navigation.onGoToMe,
                     onDismissAiPrompt = feedbackActions.onDismissAiPrompt,
                 )
+            }
+
+            // 2.5 ERA 31 R34：一次性壁纸引导（PART 57 Wallpaper adoption）——
+            // 与 AI 提示同款可关闭安静入口；打开过或关闭过就不再出现。
+            if (!state.wallpaperPromptDismissed) {
+                item {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TextButton(onClick = feedbackActions.onSelectWallpaper) {
+                            Text("让 ECHO 留在桌面：设置动态壁纸 →")
+                        }
+                        TextButton(onClick = feedbackActions.onDismissWallpaperPrompt) {
+                            Text("以后再说")
+                        }
+                    }
+                }
             }
 
             // 3. 周小结消息（订阅/本地镜像；ERA 20 §8 去卡化——无边框直排）
@@ -382,6 +413,24 @@ fun EchoSceneContent(
 
         // 10. Scene 内行动覆盖层（运行时 running 状态驱动；结束回 Ambient Scene）
         state.runningAction?.let { actionOverlay() }
+    }
+}
+
+/**
+ * ERA 31 R34：跳系统动态壁纸选择器（组件钉定 ECHO 壁纸）。
+ * 与 Me → PresenceSettingsSection 的入口同一 intent；失败静默（无障碍环境无壁纸选择器）。
+ */
+private fun selectEchoWallpaper(context: android.content.Context) {
+    runCatching {
+        context.startActivity(
+            android.content.Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+                android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                android.content.ComponentName(
+                    context,
+                    com.yunjue.echo.mind.presence.EchoWallpaperService::class.java
+                )
+            )
+        )
     }
 }
 

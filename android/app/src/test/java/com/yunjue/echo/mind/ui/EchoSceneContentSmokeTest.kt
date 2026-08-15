@@ -101,6 +101,8 @@ class EchoSceneContentSmokeTest {
         val notLikes = mutableListOf<String>()
         val corrections = mutableListOf<Triple<String, String, String?>>()
         val feedbackCalls = mutableListOf<String>()
+        val wallpaperDismissed = mutableListOf<Boolean>()
+        val wallpaperSelected = mutableListOf<Boolean>()
 
         fun navigation() = EchoSceneNavigation(
             onGoToJourney = { journey += true },
@@ -120,6 +122,8 @@ class EchoSceneContentSmokeTest {
 
         fun feedback(feedbackFor: (String) -> Boolean? = { null }) = EchoSceneFeedbackActions(
             onDismissAiPrompt = {},
+            onDismissWallpaperPrompt = { wallpaperDismissed += true },
+            onSelectWallpaper = { wallpaperSelected += true },
             onPortraitLike = { likes += it },
             onPortraitNotLike = { notLikes += it },
             onPortraitCorrection = { d, r, s -> corrections += Triple(d, r, s) },
@@ -133,6 +137,7 @@ class EchoSceneContentSmokeTest {
         uiState: EchoSceneUiState = uiState(),
         message: MessageDisplay? = null,
         aiPromptDismissed: Boolean = true,
+        wallpaperPromptDismissed: Boolean = true,
         runningAction: EchoActionKind? = null,
         recorder: Recorder = Recorder(),
         visualSurface: @Composable () -> Unit = { Text("slot-visual") },
@@ -150,6 +155,7 @@ class EchoSceneContentSmokeTest {
                         runningAction = runningAction,
                         message = message,
                         aiPromptDismissed = aiPromptDismissed,
+                        wallpaperPromptDismissed = wallpaperPromptDismissed,
                     ),
                     navigation = recorder.navigation(),
                     coreActions = recorder.core(),
@@ -168,6 +174,30 @@ class EchoSceneContentSmokeTest {
         compose.onNodeWithText("slot-visual").assertExists()
         compose.onNodeWithText("slot-actions").assertExists()
         compose.onNodeWithText("今天 · ", substring = true).assertExists()
+    }
+
+    @Test
+    fun wallpaperPromptHiddenByDefault() {
+        setContent()
+        compose.onNodeWithText("让 ECHO 留在桌面：设置动态壁纸 →").assertDoesNotExist()
+        compose.onNodeWithText("以后再说").assertDoesNotExist()
+    }
+
+    @Test
+    fun wallpaperPromptShowsUntilDismissed() {
+        val recorder = Recorder()
+        setContent(wallpaperPromptDismissed = false, recorder = recorder)
+        compose.onNodeWithText("让 ECHO 留在桌面：设置动态壁纸 →").assertExists()
+        compose.onNode(hasClickAction() and hasText("以后再说")).performClick()
+        assertTrue(recorder.wallpaperDismissed.isNotEmpty())
+    }
+
+    @Test
+    fun wallpaperPromptSelectEmitsWallpaperAction() {
+        val recorder = Recorder()
+        setContent(wallpaperPromptDismissed = false, recorder = recorder)
+        compose.onNode(hasClickAction() and hasText("让 ECHO 留在桌面：设置动态壁纸 →")).performClick()
+        assertTrue(recorder.wallpaperSelected.isNotEmpty())
     }
 
     @Test

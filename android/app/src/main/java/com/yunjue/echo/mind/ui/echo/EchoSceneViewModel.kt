@@ -157,6 +157,11 @@ class EchoSceneViewModel(app: android.app.Application, private val container: Ap
         container.preferences.aiPromptDismissed = true
     }
 
+    /** ERA 31 R34：一次性壁纸引导关闭（打开过/以后再说）。 */
+    fun dismissWallpaperPrompt() {
+        container.preferences.wallpaperPromptDismissed = true
+    }
+
     companion object {
         fun factory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
             initializer {
