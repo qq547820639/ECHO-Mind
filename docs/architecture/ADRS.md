@@ -552,3 +552,10 @@
 - **决策**：解释链真值审计（ADR-059）结项后，下一长阶段选定 **§80 What ECHO Knows 深化**——七类认知分层（Observed / User-confirmed / Context / Correction / Preference / Derived Pattern / Temporary Interpretation）在 Me 世界的完整呈现与解释（FINAL PRODUCT ACCEPTANCE：用户能明确知道 ECHO 知道什么、不知道什么）。不选 Journey Year 视图深化（视觉打磨，优先级低于用户信任）与 Memory 长历史性能（§109 索引已在 v11 落地，千级压测归 CI 真机矩阵）。
 - **理由**：宪法优先级 User trust / User control 直接受益；§80 分层在 UI 已有标签与过滤基础（WhatEchoKnowsContentSmokeTest 7 用例），深化成本低、真值收益高。
 - **后果**：每轮维持全门禁 + 发布链；「ECHO 不知道什么」与分层摘要补齐后以测试锚定；Affective 冻结不受影响。
+
+### ADR-060 结项记录（ERA 62，三轮结论）
+
+- 第 1 轮：§80 七层分层摘要（MemoryLayerCounts 纯映射；过滤不影响计数——用户永远看到全貌）。
+- 第 2 轮：「ECHO 不知道什么」能力边界（EchoKnowsFacts → EchoDoesNotKnow 纯映射：感知/麦克风/AI/基线四事实 → 诚实边界行；能力齐备零行不编造）。
+- 第 3 轮：每条记忆显示来源（= 层标签）与保留策略（retentionLabelText 与 retentionDaysFor 同源：7/30/365 天到期自动软删 + 用户固定永不清理）。
+- 结论：FINAL PRODUCT ACCEPTANCE「用户能明确知道 ECHO 知道什么 / 不知道什么 / Memory 有什么」在 Me 世界完整呈现且逐项可测；What ECHO Knows 深化阶段完成。

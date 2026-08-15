@@ -223,6 +223,8 @@ private fun MemoryRow(
                 Column(Modifier.weight(1f)) {
                     Text(label, style = MaterialTheme.typography.labelSmall)
                     Text(memory.content, style = MaterialTheme.typography.bodySmall)
+                    // ERA 62（ADR-060 第 3 轮）：来源=层标签（上行）；保留策略=确定性映射（下行）
+                    Text("保留 ${com.yunjue.echo.mind.me.retentionLabelText(memory.retentionClass)}", style = MaterialTheme.typography.labelSmall)
                 }
                 TextButton(onClick = { editing = true; draft = memory.content }) { Text("编辑") }
                 TextButton(onClick = { onEvent(MemoryManagementEvent.Confirm(memory.id)) }) { Text("确认") }

@@ -56,4 +56,13 @@ class EchoDoesNotKnowTest {
             EchoDoesNotKnow.from(EchoKnowsFacts(baselineDays = 7)).none { it.contains("基线天数还不足") },
         )
     }
+
+    @Test
+    fun retentionLabelsMapAllClasses() {
+        // ERA 62：保留策略用户文案（与 retentionDaysFor 同源语义）
+        assertEquals("7 天（到期自动清理）", retentionLabelText(com.yunjue.echo.mind.memory.RetentionClass.EPHEMERAL))
+        assertEquals("30 天（到期自动清理）", retentionLabelText(com.yunjue.echo.mind.memory.RetentionClass.SHORT_TERM))
+        assertEquals("365 天（到期自动清理）", retentionLabelText(com.yunjue.echo.mind.memory.RetentionClass.LONG_TERM))
+        assertEquals("你固定的（永不自动清理）", retentionLabelText(com.yunjue.echo.mind.memory.RetentionClass.USER_PINNED))
+    }
 }

@@ -195,4 +195,19 @@ class WhatEchoKnowsContentSmokeTest {
         setContent(withoutLines, mutableListOf())
         compose.onNodeWithText("ECHO 还不知道什么").assertDoesNotExist()
     }
+
+    @Test
+    fun memoryRowShowsRetentionLabel() {
+        // ERA 62：每行显示保留策略（来源=层标签）
+        setContent(
+            MemoryManagementUiState(
+                memories = listOf(memory("m1", MemoryType.CONTEXT, "最近在出差")),
+                layerCounts = com.yunjue.echo.mind.me.MemoryLayerCounts.from(
+                    listOf(memory("m1", MemoryType.CONTEXT, "最近在出差")),
+                ),
+            ),
+            mutableListOf(),
+        )
+        compose.onNodeWithText("保留 365 天（到期自动清理）").assertExists()
+    }
 }

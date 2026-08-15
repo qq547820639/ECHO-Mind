@@ -212,6 +212,17 @@ object EchoDoesNotKnow {
 }
 
 /**
+ * ERA 62（ADR-060 第 3 轮）——记忆保留策略用户文案（纯映射，与 retentionDaysFor 同源）。
+ * 语义：到期自动软删（可审计不物理抹除）；USER_PINNED 永不自动清理。
+ */
+fun retentionLabelText(retentionClass: com.yunjue.echo.mind.memory.RetentionClass): String = when (retentionClass) {
+    com.yunjue.echo.mind.memory.RetentionClass.EPHEMERAL -> "7 天（到期自动清理）"
+    com.yunjue.echo.mind.memory.RetentionClass.SHORT_TERM -> "30 天（到期自动清理）"
+    com.yunjue.echo.mind.memory.RetentionClass.LONG_TERM -> "365 天（到期自动清理）"
+    com.yunjue.echo.mind.memory.RetentionClass.USER_PINNED -> "你固定的（永不自动清理）"
+}
+
+/**
  * ERA 33 — Subscription（可选订阅开通）状态。
  * 业务（激活码验证 / 订阅状态快照）在 SubscriptionViewModel；UI 只渲染。
  */
