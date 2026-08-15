@@ -175,9 +175,17 @@ class MemoryRepository(
             if (shouldForget(entity.toDomain(), now)) {
                 memoryDao().expire(entity.id)
                 purged++
+                // ERA 64（§109 第 2 轮）：维护 Worker 单轮成本上限——剩余过期项下一轮继续
+                // （软删幂等且无顺序依赖；限制单轮 UPDATE 数量，避免万级记忆时 Worker 超时）。
+                if (purged >= MAX_PURGE_PER_ROUND) break
             }
         }
         return purged
+    }
+
+    companion object {
+        /** ERA 64：单轮过期清理上限（每 15 分钟维护周期最多软删条数）。 */
+        const val MAX_PURGE_PER_ROUND = 2000
     }
 }
 

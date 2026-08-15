@@ -55,4 +55,16 @@ class MemoryScaleBenchmarkTest {
         // EPHEMERAL（7 天）+ createdAt 远早于 now → 必有过期命中（语义正确性顺手锚定）
         assertTrue("样本应包含可过期记忆", expiring > 0)
     }
+
+    @Test
+    fun derivePatternsOverFiveThousandWithinBudget() {
+        // ERA 64（§109 第 2 轮）：五千级派生模式记忆锚点（千级 <1000ms 预算已在 PERFORMANCE_BASELINES）
+        val input = memories(5000)
+        val start = System.nanoTime()
+        val patterns = derivePatterns(input)
+        val ms = (System.nanoTime() - start) / 1_000_000
+        assertTrue("5000 条派生耗时 ${ms}ms 超出预算", ms < 5000)
+        // 样本内容各不相同（编号唯一）→ 无 3 次重复 → 无派生（幂等语义顺手锚定）
+        assertTrue("唯一内容样本不应产出派生模式", patterns.isEmpty())
+    }
 }
