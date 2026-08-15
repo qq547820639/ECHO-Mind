@@ -37,8 +37,8 @@
 - `services`
 
 ## 数量事实
-- Production Kotlin：165
-- Test Kotlin：122
+- Production Kotlin：166
+- Test Kotlin：123
 - QA Kotlin（:feature:qa，不属于 Production Runtime）：36
 - Python 文件：68
 - Manifest Components：5（缺失源类：0）
