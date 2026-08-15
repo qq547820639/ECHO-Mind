@@ -531,3 +531,9 @@
 - 第 3 轮（快照落盘恢复链）：发现并修复 **EchoPresenceCodec v1 跨进程断链**——进程死亡后 Wallpaper/Dream 仅恢复颜色连续、丢失人格/纹理/季节/日构图/分钟调制；v2 补齐四层 40 字段（v1 兼容、fail-closed 收紧），跨进程同帧测试锚定。
 - 第 4 轮（Wallpaper 刷新链 + Runtime 协调器边界）：onVisibilityChanged 补快照重读（解锁即追上 15 分钟刷新）；EchoRuntimeCoordinator §3 职责边界复核 PASS（无 AI/Context/基线/记忆合成/UI 越界），§4 健康四组件齐备（memory=READY 为进程级不变量，文档化）。
 - 结论：Identity/LifeSeason 真值审计阶段完成；「Day1/Day180 同一个 ECHO」具备端到端可测锚点；下一步进入下一长阶段选型（见 IMPLEMENTATION_STATUS Next-task）。
+
+## ADR-059：下一长阶段选型——Personal Intelligence 解释链真值审计与深化（ERA 55）
+
+- **决策**：Identity 真值审计（ADR-058）结项后，下一长阶段选定 **§67-73 Personal Intelligence 解释链真值审计与深化**——分类 → 检索/排序 → 预算编译 → Grounding → 降级兜底整链端到端验证（与 Identity 审计同模式：逐段找断链/死参数，测试锚定后修复）。不选 Journey Year 视图深化（ERA 16 五尺度已交付，属视觉打磨）与真机基准二期（CI 已接管，无本地收益）。
+- **理由**：FINAL PRODUCT ACCEPTANCE 的「为什么今天不一样」与「换模型不失忆/模型崩溃 ECHO 不消失」直接依赖解释链与降级链的真值；§68 task relevance 已发现死参数（本轮修复）；Intelligence depth 在宪法优先级高于视觉打磨。
+- **后果**：每轮维持全门禁 + 发布链；审计发现以测试固定后修复；Affective 冻结不受影响。
