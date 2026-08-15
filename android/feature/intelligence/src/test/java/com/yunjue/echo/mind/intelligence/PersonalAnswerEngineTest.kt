@@ -190,10 +190,10 @@ class PersonalAnswerEngineTest {
 
     @Test
     fun travelContextUsesUserContextOverRawObservation() {
-        // 出差窗口 20..39（含今天）：起点 07:00（平时 09:00）
-        val days = series(40, start = { i -> if (i in 20..39) 420 else 540 })
+        // 出差窗口 36..39（含今天，活跃窗口内）：起点 07:00（平时 09:00）
+        val days = series(40, start = { i -> if (i in 36..39) 420 else 540 })
         val withContext = inputs(days).copy(
-            contextWindows = listOf(PersonalContextWindow(20, 39, "出差")),
+            contextWindows = listOf(PersonalContextWindow(36, 39, "出差")),
             baselineWakeMinute = 540.0,
         )
         val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", withContext)!!
@@ -201,6 +201,21 @@ class PersonalAnswerEngineTest {
         // ERA 31 R38：语句流畅化（「出差的这几天」而非「出差 这几天」生硬空格）
         assertTrue("语句应流畅：${answer.text}", answer.text.contains("出差的这几天"))
         assertTrue("证据含窗口与分钟：${answer.evidence}", answer.evidence.contains("出差") && answer.evidence.contains("07:00"))
+    }
+
+    @Test
+    fun travelContextOldContextIsTreatedAsEnded() {
+        // ERA 32 R03：生产 CONTEXT 记忆只有开始日期——60 天前的上下文不得再当「这几天」
+        // （此前 toDay 恒为今天，三个月前的出差也被回答成「这几天在出差的窗口里」）。
+        val days = series(90, start = { i -> if (i in 28..30) 420 else 540 })
+        val withContext = inputs(days).copy(
+            contextWindows = listOf(PersonalContextWindow(28, 89, "出差")),
+            baselineWakeMinute = 540.0,
+        )
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", withContext)!!
+        assertTrue("旧上下文应视为已结束：${answer.text}", answer.text.contains("已经结束了"))
+        assertTrue("证据不编造结束日：${answer.evidence}", answer.evidence.contains("已过去"))
+        assertTrue("证据不含工程口径：${answer.evidence}", !answer.evidence.contains("~"))
     }
 
     @Test

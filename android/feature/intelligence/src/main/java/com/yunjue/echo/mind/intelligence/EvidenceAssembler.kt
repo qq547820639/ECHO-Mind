@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.intelligence
 
 import com.yunjue.echo.mind.memory.EchoMemory
+import com.yunjue.echo.mind.memory.MemoryHumanizer
 import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.dimensionDisplayName
@@ -89,7 +90,13 @@ object EvidenceAssembler {
                     else -> DataSourceCategory.TODAY_AGGREGATE
                 },
                 label = memoryTypeLabel(memory.type),
-                text = memory.content,
+                // ERA 32 R03：内部存储格式不进 AI Provider 上下文（与确定性路径同源人话化）
+                text = when (memory.type) {
+                    MemoryType.CORRECTION -> MemoryHumanizer.humanizeCorrection(memory.content)
+                    MemoryType.USER_CONFIRMED -> MemoryHumanizer.humanizeConfirmed(memory.content)
+                    MemoryType.CONTEXT -> MemoryHumanizer.humanizeContext(memory.content)
+                    else -> memory.content
+                },
             )
         }
 

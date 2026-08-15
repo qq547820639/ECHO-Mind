@@ -5,6 +5,7 @@ import com.yunjue.echo.mind.intelligence.PersonalAnswerEngine
 import com.yunjue.echo.mind.intelligence.PersonalAnswerInputs
 import com.yunjue.echo.mind.intelligence.PersonalContextWindow
 import com.yunjue.echo.mind.intelligence.PersonalDayFacts
+import com.yunjue.echo.mind.memory.MemoryHumanizer
 import com.yunjue.echo.mind.model.MemoryType
 import com.yunjue.echo.mind.ports.EchoMemoryReader
 import java.time.Instant
@@ -31,9 +32,6 @@ class DeterministicPersonalAnswerProvider(
     companion object {
         /** 引擎最长需要 181 天（半年对比）；§108 窗口化加载只查该范围。 */
         const val TIMELINE_DAYS = 181
-
-        /** ERA 31 R37：纠正记忆内部格式前缀（人话化解析锚点）。 */
-        const val CORRECTION_REASON_PREFIX = "画像反馈：不太像（原因："
     }
 
     suspend fun answer(question: String): AiNarrativeService.DeterministicPersonalResult? {
@@ -80,10 +78,10 @@ class DeterministicPersonalAnswerProvider(
             }
         val corrections = memoryReader.memoriesByType(MemoryType.CORRECTION)
             .filter { !it.deleted }
-            .map { humanizeCorrection(it.content) }
+            .map { MemoryHumanizer.humanizeCorrection(it.content) }
         val confirmed = memoryReader.memoriesByType(MemoryType.USER_CONFIRMED)
             .filter { !it.deleted }
-            .map { humanizeConfirmed(it.content) }
+            .map { MemoryHumanizer.humanizeConfirmed(it.content) }
         val result = PersonalAnswerEngine.answer(
             question = question,
             inputs = PersonalAnswerInputs(
@@ -101,31 +99,5 @@ class DeterministicPersonalAnswerProvider(
             // 纠正/上下文/确认类回答不再一律显示「参考了：历史画像」。
             usedSources = result.usedSources,
         )
-    }
-
-    /**
-     * ERA 31 R37：纠正记忆内容说人话——回放问题（「我纠正过你的那次…」）不再把
-     * 「画像反馈：不太像（原因：旅行）（原判断：…）」整串内部格式甩给用户。
-     */
-    private fun humanizeCorrection(content: String): String {
-        val reason = content
-            .substringAfter(CORRECTION_REASON_PREFIX, missingDelimiterValue = "")
-            .substringBefore("）（原判断", missingDelimiterValue = "")
-            .substringBefore("）")
-            .ifBlank { content.take(24) }
-        val original = content
-            .substringAfter("原判断：", missingDelimiterValue = "")
-            .substringBefore("）")
-        return if (original.isNotBlank()) "$reason——当时我说的是「${original.take(40)}」" else reason
-    }
-
-    /** ERA 31 R37：确认记忆内容说人话（「问答反馈：像我（问：…）」→「问「…」的回答」）。 */
-    private fun humanizeConfirmed(content: String): String {
-        val prefix = "问答反馈：像我（问："
-        return if (content.startsWith(prefix)) {
-            "问「${content.removePrefix(prefix).removeSuffix("）").take(40)}」的回答"
-        } else {
-            content.take(40)
-        }
     }
 }

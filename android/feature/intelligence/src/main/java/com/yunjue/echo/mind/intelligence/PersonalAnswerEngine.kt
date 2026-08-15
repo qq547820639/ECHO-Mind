@@ -73,6 +73,9 @@ data class PersonalAnswer(
 
 object PersonalAnswerEngine {
 
+    /** ERA 32 R03：用户自述上下文无结束日期时，超过该天数未更新按已结束处理（活跃窗口上限）。 */
+    private const val CONTEXT_ACTIVE_DAYS = 14
+
     /** 问题 → 回答族（严格表；未收录 → null，诚实交回 AI 路径）。 */
     private enum class Family {
         DRIFTING_LATER, END_DRIFT, WEEKEND, SIMILAR_DAYS, STABILITY, STABILITY_MONTH_COMPARE,
@@ -533,7 +536,9 @@ object PersonalAnswerEngine {
             "无出差窗口记录",
             usedSources = emptyList(),
         )
-        val active = dayIndex in recent.fromDay..recent.toDay
+        // ERA 32 R03：上下文没有结束日期时不得永远「进行中」——超过 14 天未更新按已结束处理
+        // （生产 CONTEXT 记忆只带开始日期；此前 toDay 恒为今天，三个月前的出差仍被当成「这几天」）。
+        val active = dayIndex - recent.fromDay <= CONTEXT_ACTIVE_DAYS && dayIndex in recent.fromDay..recent.toDay
         val woke = medianOf(wakeSeries(days, recent.fromDay..minOf(recent.toDay, dayIndex)))
         val base = inputs.baselineWakeMinute
             ?: medianOf(wakeSeries(days, 0..(recent.fromDay - 1).coerceAtLeast(0)))
@@ -545,6 +550,11 @@ object PersonalAnswerEngine {
         val delta = (woke ?: base) - base
         val label = recent.label.ifBlank { "出差" }
         val contextSources = listOf(DataSourceCategory.CONTEXT_EXCEPTIONS, DataSourceCategory.PORTRAIT_HISTORY)
+        // 证据只陈述已知事实：窗口有明确结束 → 显示区间；没有 → 只显示开始日 + 已过去天数（不编造结束日）
+        val fromText = days[recent.fromDay].date.toString().takeLast(5)
+        val toText = days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)
+        val boundedRange = "$fromText~$toText"
+        val openEnded = "从 $fromText 开始（已过去 ${dayIndex - recent.fromDay} 天）"
         return when {
             active && abs(delta) >= 45 -> PersonalAnswer(
                 "有影响。${label}的这几天，你明显开始了不同的节奏。",
@@ -553,12 +563,12 @@ object PersonalAnswerEngine {
             )
             active -> PersonalAnswer(
                 "这几天在${label}的窗口里，但我先把它当成你的当前状态，不急着下结论。",
-                "${label}窗口 ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
+                "${label}${if (recent.toDay > dayIndex) "窗口 $boundedRange" else openEnded}",
                 usedSources = contextSources,
             )
             else -> PersonalAnswer(
                 "最近一次的${label}已经结束了，你的节奏看起来正在回到平时。",
-                "上次$label ${days[recent.fromDay].date.toString().takeLast(5)}~${days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)}",
+                "上次$label ${if (recent.toDay < dayIndex) boundedRange else openEnded}",
                 usedSources = contextSources,
             )
         }
