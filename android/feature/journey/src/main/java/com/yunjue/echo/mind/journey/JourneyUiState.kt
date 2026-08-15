@@ -82,6 +82,9 @@ data class JourneyUiState(
     val seasonExplanation: List<String> = emptyList(),
     /** §41 时间地标（YEAR 尺度装配；其余尺度为空）。 */
     val landmarks: List<JourneyLandmark> = emptyList(),
+    /** §41 90 天测试：期间故事 + 现在 vs 一个月前（自 JourneyMemoryState 透传）。 */
+    val periodStory: String = "",
+    val monthAgoLines: List<String> = emptyList(),
     /** 选中历史日期（§84 历史重建：那天 ECHO 的视觉事实）。 */
     val selectedDay: JourneyDay? = null,
     val selectedCanonical: JourneyCanonicalDay? = null,
@@ -105,6 +108,10 @@ data class JourneyMemoryState(
     val yearView: JourneyYearView? = null,
     val seasonExplanation: List<String> = emptyList(),
     val landmarks: List<JourneyLandmark> = emptyList(),
+    /** §41 90 天测试：期间故事（最多 3 个真正重要的变化，日期 + 方面 + 上下文）。 */
+    val periodStory: String = "",
+    /** §41 90 天测试：现在与一个月前的对比行（无变化 → 诚实的「很接近」）。 */
+    val monthAgoLines: List<String> = emptyList(),
     val selectedDay: JourneyDay? = null,
     val selectedCanonical: JourneyCanonicalDay? = null,
     val selectedDayExplanation: List<String> = emptyList(),
@@ -151,6 +158,11 @@ fun assembleJourneyMemoryState(
             confirmedPhases = emptyMap(),
         )
     } else emptyList()
+    // §41 90 天测试（ERA 32 R06）：期间故事 + 现在 vs 一个月前——90 天用户打开 Journey
+    // 就能回答「大致经历了什么 / 什么时候变化最明显 / 现在和一个月前哪里不一样」。
+    val contextPeriods = buildContextPeriods(memory.contextExceptions)
+    val periodStory = buildPeriodStory(days = visualDays, contextPeriods = contextPeriods)
+    val monthAgoLines = compareNowWithMonthAgo(visualDays)
     val selectedDay = memory.selectedDayDate?.let { date -> visualDays.firstOrNull { it.date == date } }
     val selectedCanonical = memory.selectedDayDate?.let { date ->
         memory.canonicalDays.firstOrNull { it.date == date }
@@ -177,6 +189,8 @@ fun assembleJourneyMemoryState(
         yearView = yearView,
         seasonExplanation = seasonExplanation,
         landmarks = landmarks,
+        periodStory = periodStory,
+        monthAgoLines = monthAgoLines,
         selectedDay = selectedDay,
         selectedCanonical = selectedCanonical,
         selectedDayExplanation = selectedDayExplanation,
@@ -234,6 +248,8 @@ fun assembleJourneyUiState(
         yearView = memoryState.yearView,
         seasonExplanation = memoryState.seasonExplanation,
         landmarks = memoryState.landmarks,
+        periodStory = memoryState.periodStory,
+        monthAgoLines = memoryState.monthAgoLines,
         selectedDay = memoryState.selectedDay,
         selectedCanonical = memoryState.selectedCanonical,
         selectedDayExplanation = memoryState.selectedDayExplanation,

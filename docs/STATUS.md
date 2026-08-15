@@ -26,11 +26,11 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `88db3b9`，2026-08-15 21:05 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `c6df313`，2026-08-15 21:23 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1038 全绿**（app 869 / feature:intelligence 32 / feature:presence 25 / feature:qa 112） |
+| Android 单测（testDebugUnitTest） | **1040 全绿**（app 871 / feature:intelligence 32 / feature:presence 25 / feature:qa 112） |
 | backend pytest | **1077 passed + 1 skipped**（全绿） |
 | Production Kotlin | 166 |
 | Test Kotlin | 123 |
@@ -72,7 +72,9 @@
 4. **Personal Reasoning / Correction Loop**（Batch C）✅ 完成——26 条 Core Set 四层复核（R02：q032 答非所问、
    z 距离泄漏、无变化结论不可验证）+ Context/Correction 深度走查（R03：上下文永不过期 P1 缺陷 +
    AI 路径内部格式泄漏，均已修）；PersonalAnswerEngine 保持单 object 不拆分（触发条件入册）。
-5. **Journey / Memory**（Batch E/F）：以真实长期数据评估 Visual Memory River、Landmarks、consolidation。
+5. **Journey / Memory**（Batch E/F）：§41 90 天测试 ✅（R06：期间故事 + 现在 vs 一个月前接入
+   production 屏幕，四问全部可答；QA 快照 Journey 段改吃 production 装配——mirror 收口）；
+   Memory consolidation 仍待真实 dogfood 数据回流评估。
 6. **Delete Review**（Batch G）✅ 预检完成——删除 v0.7 遗留零消费函数（进度条/覆盖率文案），
    复查 Skills/Subscription/QA mirror/reports 均保留（判定见 `docs/CHANGELOG/ERA32_ROUND04_DELETE_REVIEW.md`）。
 7. **Release Candidate**（Batch H）✅ v0.11.0 Closure 完成——版本收口 8 处同步 + 全门禁 +
@@ -95,6 +97,7 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 
 

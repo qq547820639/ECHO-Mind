@@ -1,8 +1,11 @@
 package com.yunjue.echo.mind.qa
+import com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs
+import com.yunjue.echo.mind.journey.JourneyScale
+import com.yunjue.echo.mind.journey.assembleJourneyMemoryState
 import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.PortraitTimelineUiState
 
 import com.yunjue.echo.mind.presence.SurfaceMode
-import kotlin.math.abs
 
 /**
  * ERA 19 §4 — 完整产品快照（一个用户在某一天的所见）。
@@ -26,7 +29,10 @@ object QaProductSnapshot {
         val calendarDays: Int,
         val baselineDays: Int,
         val landmarks: List<String>,
-        val recentChanges: List<String>,
+        /** §41 90 天测试（ERA 32 R06）：production 装配的期间故事（不再是 QA z 镜像）。 */
+        val periodStory: String,
+        /** §41 90 天测试：现在 vs 一个月前（production compareNowWithMonthAgo 输出）。 */
+        val monthAgoLines: List<String>,
         val seasonLine: String,
     )
 
@@ -115,21 +121,13 @@ object QaProductSnapshot {
                 landmarks += "${timeline.dateOf(w.fromDay)}~${timeline.dateOf(w.toDay)}：${w.label}"
             }
         }
-        // 最近 30 天最显著的两个变化日（|z| 最大）
-        val from = (dayIndex - 29).coerceAtLeast(0)
-        val changes = (from..dayIndex).mapNotNull { d ->
-            val p = timeline.portraitFor(d) ?: return@mapNotNull null
-            val top = p.dimensions.filter { it.key != "STABILITY" }
-                .maxByOrNull { abs(it.value.z ?: 0.0) }
-            if (top == null || abs(top.value.z ?: 0.0) <= 0.7) return@mapNotNull null
-            Triple(d, top.key, top.value.value)
-        }.sortedByDescending { d -> timeline.portraitFor(d.first)?.dimensions?.get(d.second)?.z?.let { abs(it) } ?: 0.0 }
-            .take(2)
-            .map { (d, dim, value) ->
-                // ERA 31 R40：镜像与 production 同口径——变化日证据说人话，
-                // 不泄露 z 分数（R25 已把生产引擎证据人话化，此处同步）。
-                "${timeline.dateOf(d)}：${dimName(dim)}${valueName(value)}"
-            }
+        // ERA 32 R06：期间故事 + 现在 vs 一个月前改吃 production 装配
+        // （§41 90 天测试同源）——QA 快照不再用自己的 z 分数镜像近似（QA 必须测 Production）。
+        val memoryState = assembleJourneyMemoryState(
+            scale = JourneyScale.DAY,
+            timeline = PortraitTimelineUiState(loading = false, portraits = timeline.allPortraitsUpTo(dayIndex)),
+            memory = JourneyMemoryAssemblyInputs(),
+        )
         val season = snap.season
         val seasonLine = when {
             season.rhythmShift == "later" -> "这段时间的整体节奏在逐渐后移。"
@@ -140,7 +138,8 @@ object QaProductSnapshot {
             calendarDays = dayIndex,
             baselineDays = snap.baseline?.validDays ?: 0,
             landmarks = landmarks,
-            recentChanges = changes,
+            periodStory = memoryState.periodStory,
+            monthAgoLines = memoryState.monthAgoLines,
             seasonLine = seasonLine,
         )
     }
@@ -182,22 +181,5 @@ object QaProductSnapshot {
     private fun dream(snap: QaDaySnapshot): DreamSection =
         DreamSection(line = "${snap.date} · ECHO")
 
-    private fun dimName(dim: String): String = when (dim) {
-        "RHYTHM" -> "活跃起点"
-        "MOVEMENT" -> "活动量"
-        "SCREEN_AMOUNT" -> "屏幕时间"
-        "SCREEN_TIMING" -> "晚间屏幕"
-        "DAY_STRUCTURE" -> "一天结构"
-        else -> dim
-    }
-
-    private fun valueName(value: String): String = when (value) {
-        "LATER" -> "后移"
-        "EARLIER" -> "前移"
-        "MORE" -> "增加"
-        "LESS" -> "减少"
-        "MORE_FRAGMENTED" -> "更零散"
-        "MORE_CONCENTRATED" -> "更集中"
-        else -> value
-    }
+    // ERA 32 R06：dimName/valueName 已删除——z 分数镜像退役后无消费方（§53 Delete Review）。
 }

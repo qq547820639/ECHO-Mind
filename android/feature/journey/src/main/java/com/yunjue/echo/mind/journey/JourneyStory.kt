@@ -168,12 +168,15 @@ private fun shiftedBehaviorAspects(before: List<JourneyDay>, after: List<Journey
         val delta = shiftedFraction(after) - shiftedFraction(before)
         if (kotlin.math.abs(delta) < 0.3f) return@mapNotNull null
         val direction = if (delta > 0) dominantValue(dim, after) else dominantValue(dim, before)
-        dimensionShiftLabel(dim, direction)
+        if (direction.isBlank()) return@mapNotNull null
+        dimensionShiftLabel(dim, direction).takeUnless { it == dim } // 未知组合不得泄漏工程键
     }.sortedByDescending { kotlin.math.abs(it.length) }
 }
 
 private fun dominantValue(dim: String, days: List<JourneyDay>): String =
-    days.mapNotNull { it.dimensionValues[dim] }.groupBy { it }.maxByOrNull { it.value.size }?.key ?: ""
+    days.mapNotNull { it.dimensionValues[dim] }
+        .filter { it !in setOf("SIMILAR", "VERY_SIMILAR", "") }
+        .groupBy { it }.maxByOrNull { it.value.size }?.key ?: ""
 
 /** 维度 → 中性变化标签（行为语言）。 */
 private fun dimensionShiftLabel(dim: String, value: String): String = when (dim to value) {
@@ -200,6 +203,8 @@ fun buildPeriodStory(
     maxChanges: Int = 3,
     config: SignificantChangeConfig = SignificantChangeConfig(),
 ): String {
+    // ERA 32 R06：不足两个检测窗口（<28 天）不妄断「平稳」——数据不足就是数据不足。
+    if (days.size < config.windowDays * 2) return ""
     val changes = detectSignificantChanges(days, contextPeriods, config)
     if (changes.isEmpty()) {
         return "这段时间的节奏很平稳，没有特别大的变化。"
@@ -211,6 +216,25 @@ fun buildPeriodStory(
         "${c.date} 前后，${aspects}方面有明显变化$context。"
     }
     return sentences.joinToString(" ")
+}
+
+/**
+ * §41 90 天测试：现在（近 7 天）与一个月前（30~23 天前）对比。
+ * 复用 §40 的同一批组合原语（视觉聚合 + 行为方向性变化）；
+ * 无变化 → 诚实的「很接近」；不足 38 天 → 空（不硬凑）。
+ */
+fun compareNowWithMonthAgo(days: List<JourneyDay>): List<String> {
+    val sorted = days.sortedBy { it.date }
+    if (sorted.size < 38) return emptyList()
+    val now = sorted.takeLast(7)
+    val monthAgo = sorted.subList(sorted.size - 38, sorted.size - 31)
+    val before = journeyAggregateOfDays(monthAgo) ?: return emptyList()
+    val after = journeyAggregateOfDays(now) ?: return emptyList()
+    val lines = buildList {
+        addAll(explainPeriodChange(before, after, monthAgo.lastOrNull()?.date, now.lastOrNull()?.date))
+        addAll(shiftedBehaviorAspects(monthAgo, now))
+    }.distinct()
+    return if (lines.isEmpty()) listOf("和一个月前相比，整体节奏很接近。") else lines
 }
 
 /** §41 — Memory Landmarks（时间锚点：用户愿意回看的时间）。 */

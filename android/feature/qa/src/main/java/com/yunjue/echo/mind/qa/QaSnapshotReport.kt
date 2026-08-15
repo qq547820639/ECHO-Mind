@@ -46,9 +46,12 @@ object QaSnapshotReport {
                 sb.appendLine("- 里程碑：")
                 s.journey.landmarks.forEach { sb.appendLine("  - $it") }
             }
-            if (s.journey.recentChanges.isNotEmpty()) {
-                sb.appendLine("- 最近 30 天显著变化：")
-                s.journey.recentChanges.forEach { sb.appendLine("  - $it") }
+            if (s.journey.periodStory.isNotBlank()) {
+                sb.appendLine("- ${s.journey.periodStory}")
+            }
+            if (s.journey.monthAgoLines.isNotEmpty()) {
+                sb.appendLine("- 现在和一个月前：")
+                s.journey.monthAgoLines.forEach { sb.appendLine("  - $it") }
             }
             sb.appendLine()
             // Me

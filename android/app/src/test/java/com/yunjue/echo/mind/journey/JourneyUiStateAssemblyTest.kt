@@ -314,4 +314,37 @@ class JourneyUiStateAssemblyTest {
         }
         return PortraitTimelineUiState(days = days, portraits = portraits, loading = false)
     }
+
+    @Test
+    fun periodStoryAndMonthAgoAnswerTheNinetyDayTest() {
+        // ERA 32 R06（§41 90 天测试）：90 天用户打开 Journey 必须能回答
+        // 「大致经历了什么变化 / 什么时候变化最明显 / 现在和一个月前哪里不一样」。
+        val start = java.time.LocalDate.of(2026, 8, 14).minusDays(89)
+        val portraits = (0 until 90).map { i ->
+            // 第 60 天起活动量显著转为 MORE（现在 vs 一个月前窗口可对比）
+            portrait(start.plusDays(i.toLong()).toString(), if (i >= 60) "MORE" else "SIMILAR")
+        }
+        val state = assemble(timeline = PortraitTimelineUiState(loading = false, portraits = portraits))
+        assertTrue("期间故事应描述变化与时间：${state.periodStory}", state.periodStory.contains("有明显变化"))
+        assertTrue("现在 vs 一个月前应有对比行：${state.monthAgoLines}", state.monthAgoLines.isNotEmpty())
+
+        // 平稳 90 天：诚实的「很接近」，不编造变化
+        val stable = assemble(timeline = PortraitTimelineUiState(loading = false, portraits = (0 until 90).map {
+            portrait(start.plusDays(it.toLong()).toString())
+        }))
+        assertTrue(
+            "平稳历史应诚实说接近：${stable.monthAgoLines}",
+            stable.monthAgoLines.any { it.contains("很接近") },
+        )
+    }
+
+    @Test
+    fun insufficientHistoryDoesNotClaimStability() {
+        // ERA 32 R06：不足 28 天不得妄断「这段时间很平稳」——数据不足就是数据不足
+        val start = java.time.LocalDate.of(2026, 8, 14).minusDays(9)
+        val portraits = (0 until 10).map { portrait(start.plusDays(it.toLong()).toString()) }
+        val state = assemble(timeline = PortraitTimelineUiState(loading = false, portraits = portraits))
+        assertEquals("", state.periodStory)
+        assertTrue(state.monthAgoLines.isEmpty())
+    }
 }

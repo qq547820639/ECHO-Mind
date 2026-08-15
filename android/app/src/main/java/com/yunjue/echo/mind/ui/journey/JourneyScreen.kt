@@ -184,6 +184,24 @@ private fun JourneyContent(
         }
     }
 
+    // 2b. §41 90 天测试（ERA 32 R06）：期间故事（什么时候变化最明显 + 大致经历了什么）
+    //     与「现在 vs 一个月前」——安静的第二叙事层，不抢河流第一视觉。
+    if (state.periodStory.isNotBlank()) {
+        Text(
+            state.periodStory,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    state.monthAgoLines.forEach { line ->
+        Text(
+            "现在和一个月前：$line",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     // 3. ERA 16 §84-§87 — Journey 长期记忆（年视图 / 阶段解释 / 历史重建）
     //    ERA 31 R27：§85 河段行并入主河流（聚合格直接标注「平稳时期/节律漂移/…」），
     //    一条河流同时是时间线与故事——第二条河流行移除（§10 信息压缩）。
