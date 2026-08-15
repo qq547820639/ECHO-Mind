@@ -34,3 +34,16 @@
 
 - 本仓库无真机/模拟器时**不伪造** 2 节数字；CI connected-test（API 34/36 emulator）与真机矩阵是 2 节的执行点；
 - 新增渲染路径必须保持 §1 硬指标（WallpaperRenderControllerTest 防回归）。
+
+## 5. ERA 74 功耗真值审计（ADR-065 第 1 轮）
+
+- **发现并修复**：用户视觉偏好（减少动画/动态程度/增强夜间模式）此前未进入
+  Wallpaper/Dream 渲染——两个功耗最高的 ambient surface 始终以 DEFAULT/HOME_WALLPAPER/DREAM
+  渲染，§64 冻结的 REDUCED_MOTION/LOW_POWER 机制对它们无效。
+- **修复**：`resolveSurfaceConfig`（feature:presence 纯函数）——减少动画 → REDUCED_MOTION
+  （flowSpeed 归零）；动态程度 QUIET/DEFAULT/LIVELY → motionFactor；夜间模式 → nightFactor；
+  Wallpaper Engine 与 Dream View 每帧按偏好解析表面配置。
+- **快照重读节流**：渲染循环不再每帧 JSON 解码 40 字段快照（60fps → 至多每秒一次；
+  Presence 更新节奏为分钟级，零感知损失）；可见/表面变化仍强制刷新。
+- **锚点**：PresenceSurfacePolicyTest（REDUCED_MOTION 零流动 / QUIET·LOW_POWER 方向 /
+  节流边界）；设备段实测数字仍由 CI connected-test 与真机矩阵执行（不伪造）。

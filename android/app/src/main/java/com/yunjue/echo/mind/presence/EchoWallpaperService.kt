@@ -48,6 +48,8 @@ class EchoWallpaperService : WallpaperService() {
         private var snapshot: EchoPresenceState? = EchoPresenceCodec.decode(
             prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
         )
+        /** ERA 74 §65：快照重读节流（每帧 JSON 解码 → 至多每秒一次）。 */
+        private var lastSnapshotReadMs = 0L
 
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
             super.onCreate(surfaceHolder)
@@ -96,7 +98,16 @@ class EchoWallpaperService : WallpaperService() {
             snapshot = EchoPresenceCodec.decode(
                 prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
             )
+            lastSnapshotReadMs = System.currentTimeMillis()
         }
+
+        /** ERA 74 §64：用户视觉偏好进入渲染（减少动画/动态程度/夜间模式；键与 AppPreferences 同源）。 */
+        private fun surfaceConfig() = resolveSurfaceConfig(
+            baseSurface = SurfaceMode.HOME_WALLPAPER,
+            reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
+            motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
+            nightMode = prefs.getBoolean("presence_night_mode", false),
+        )
 
         private fun startRendering() {
             if (frameCallback != null) return
@@ -125,14 +136,20 @@ class EchoWallpaperService : WallpaperService() {
                 return
             } ?: return
             try {
-                refreshSnapshot()
+                // ERA 74 §65：节流重读（可见/表面变化时已强制刷新；帧循环内至多每秒一次）
+                if (shouldRefreshSnapshot(lastSnapshotReadMs, System.currentTimeMillis())) {
+                    refreshSnapshot()
+                }
                 val presence = snapshot
                 val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
+                val config = surfaceConfig()
                 val params = if (presence != null) {
                     computeVisualParameters(
                         state = presence,
                         hourOfDay = hourOfDay,
-                        surface = SurfaceMode.HOME_WALLPAPER,
+                        surface = config.surface,
+                        motionLevel = config.motionLevel,
+                        nightMode = config.nightMode,
                     )
                 } else {
                     NEUTRAL_VISUAL_PARAMS

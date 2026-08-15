@@ -46,6 +46,8 @@ internal class EchoDreamView(context: Context) : View(context) {
     }
 
     private var startNanos = 0L
+    private var lastSnapshotReadMs = 0L
+    private var snapshot: EchoPresenceState? = null
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
 
@@ -55,12 +57,24 @@ internal class EchoDreamView(context: Context) : View(context) {
         val w = canvas.width.toFloat()
         val h = canvas.height.toFloat()
 
-        val presence = EchoPresenceCodec.decode(
-            prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
-        )
+        // ERA 74 §65：快照重读节流（至多每秒一次；首帧立即读取）
+        if (shouldRefreshSnapshot(lastSnapshotReadMs, System.currentTimeMillis())) {
+            snapshot = EchoPresenceCodec.decode(
+                prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
+            )
+            lastSnapshotReadMs = System.currentTimeMillis()
+        }
+        val presence = snapshot
         val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
+        // ERA 74 §64：用户视觉偏好进入渲染（键与 AppPreferences 同源）
+        val config = resolveSurfaceConfig(
+            baseSurface = SurfaceMode.DREAM,
+            reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
+            motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
+            nightMode = prefs.getBoolean("presence_night_mode", false),
+        )
         val params = if (presence != null) {
-            computeVisualParameters(presence, hourOfDay, SurfaceMode.DREAM)
+            computeVisualParameters(presence, hourOfDay, config.surface, config.motionLevel, config.nightMode)
         } else {
             NEUTRAL_VISUAL_PARAMS
         }
