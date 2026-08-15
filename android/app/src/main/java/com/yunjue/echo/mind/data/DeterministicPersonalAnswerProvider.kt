@@ -66,10 +66,13 @@ class DeterministicPersonalAnswerProvider(
                 if (fromDay < 0) {
                     null
                 } else {
+                    // ERA 31 R18：结构化上下文用 kind 做标签（如「旅行」），
+                    // 避免把「特殊时期：旅行（…）」整串截断进回答；非结构化兜底原逻辑。
+                    val info = com.yunjue.echo.mind.memory.contextExceptionInfo(memory.content)
                     PersonalContextWindow(
                         fromDay = fromDay.coerceAtMost(lastIndex),
                         toDay = lastIndex,
-                        label = memory.content.take(24),
+                        label = info?.kind?.takeIf { it.isNotBlank() } ?: memory.content.take(24),
                     )
                 }
             }

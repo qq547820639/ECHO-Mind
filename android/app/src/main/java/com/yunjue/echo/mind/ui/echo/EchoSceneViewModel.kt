@@ -42,6 +42,7 @@ class EchoSceneViewModel(app: android.app.Application, private val container: Ap
     val corrections = EchoCorrectionService(
         memoryWriter = container.memoryRepository,
         correctionWriter = container.memoryRepository,
+        memoryReader = container.memoryRepository,
     )
 
     /** Scene 内行动运行时（呼吸/暂停；建议由 InterventionPolicy 裁决）。 */
