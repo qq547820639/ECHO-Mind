@@ -77,7 +77,9 @@ object EchoContextCompiler {
         val ranked = ContextRanker.rank(task, kept).map { it.item }
         val memoryItems = ranked.filter { it.type == "memory" || it.type == "correction" || it.type == "context_exception" }
         val nonMemoryItems = ranked.filter { it !in memoryItems }
-        val budgeted = nonMemoryItems.take(policy.maxEvidenceItems) + memoryItems.take(policy.maxMemories)
+        // ERA 22 §28 修复：记忆（纠正/上下文/确认）先行占用预算——
+        // 观察证据再多也不得把用户自述挤出编译上下文（token 预算不能饿死纠正）
+        val budgeted = memoryItems.take(policy.maxMemories) + nonMemoryItems.take(policy.maxEvidenceItems)
         // token 预算：保守 3 字符/token；超限截断文本
         var tokens = 0
         val capped = budgeted.mapNotNull { item ->

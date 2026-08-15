@@ -94,6 +94,9 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.PORTRAIT_HISTORY,
                 DataSourceCategory.BASELINE,
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
+                // ERA 22 §28 修复：纠正必须到达模型（此前 CORRECTION 记忆映射为
+                // USER_CORRECTIONS 类而被 allowed 过滤——用户纠正对纵向问题失效）
+                DataSourceCategory.USER_CORRECTIONS,
             ),
             maxEvidenceItems = 40,
             timeWindowDays = 28,
@@ -126,6 +129,7 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.PORTRAIT_HISTORY,
                 DataSourceCategory.BASELINE,
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
+                DataSourceCategory.USER_CORRECTIONS,
             ),
             maxEvidenceItems = 40,
             timeWindowDays = 7,
@@ -137,6 +141,7 @@ fun contextPolicyFor(task: ReasoningTaskId): ContextPolicy {
                 DataSourceCategory.PORTRAIT_HISTORY,
                 DataSourceCategory.BASELINE,
                 DataSourceCategory.CONTEXT_EXCEPTIONS,
+                DataSourceCategory.USER_CORRECTIONS,
             ),
             maxEvidenceItems = 40,
             timeWindowDays = 28,

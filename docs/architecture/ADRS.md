@@ -730,3 +730,12 @@
 - 证据质量：**修复早期基线 z 爆炸到千万级**（scale 下限 1e-6 → 各指标最小有意义差；Android LocalPortraitEngine + backend dimensions.py/explain.py + fixture 镜像三处同步）。
 - Wallpaper：7 天 × 24h 长期模拟基准（不可见/熄屏触摸绘制 = 0、快照重读 ≤1/s、静止适应 <1/4 逐分钟预算、强调色 7 天恒同）。
 - 门禁：backend 1076 passed / Android 844+47+12 全绿（WindowAckTest 为既有跨测试污染 flake，单测通过）/ detekt 干净。
+
+### ADR-073 第 2 轮记录（Product Quality Era Round 2 — Batch 2 Personal Reasoning）
+
+- 题库 115 条（8 主题 × Expected Evidence：任务/时间窗/baseline/correction/context/confirmed 标志 + 证据类别）；结构化规则分类器升级（意图优先/显式周月总结/今天解释/用户自述召回/纵向/个人 fallback），**准确率 94.8%**。
+- Context Retrieval 离线 eval（D 出差 Day 90 fixture 语料 + 出差场景记忆）：Recall@5/Recall@10/CorrectionRecall/ContextExceptionRecall/UserConfirmedRecall **全部 1.0**、排序顺序无关。
+- **修复 §28 违约**：FIND_LONGITUDINAL/SUMMARIZE_WEEK/SUMMARIZE_MONTH 的 allowed 集合缺 USER_CORRECTIONS → CORRECTION 记忆被编译层过滤，纠正从未到达模型；已加入 allowed 并改为「记忆先行占用」预算（观察证据不得挤出用户自述）。端到端 Correction Reuse 测试（纠正前后编译上下文对比）锚定。
+- Grounding claim-evidence compatibility（§29）：7 个状态断言词（压力/疲惫/…）仅用户自述可支撑；「屏幕晚 40 分钟 → 你压力很大」必须失败；正负例矩阵测试。
+- NarrativeDistiller（§30）接入 AiNarrativeService 三条链路；**persona 稳定性门：6 种 Provider 风格同义输出蒸馏后收敛到同一句**（§31）。
+- 门禁：app 844 / qa 61 / presence 16 全绿 + detekt 干净；backend 本轮无变更（1076 上轮全量）。

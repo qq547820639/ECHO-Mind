@@ -46,6 +46,18 @@ object GroundingValidator {
         "emo", "崩溃了", "很痛苦",
     )
 
+    /**
+     * ERA 22 §29 — claim-evidence compatibility：
+     * 心理/状态断言词只有「用户自己说过」才能出现在回答里。
+     * 证据只是行为观察（如「屏幕使用晚 40 分钟」）时，模型不得生成「你最近压力很大」。
+     */
+    private val CLAIM_WORDS_REQUIRING_USER_STATEMENT = listOf(
+        "压力", "疲惫", "累垮", "沮丧", "失眠", "心烦", "崩溃", "心情不好", "情绪不好", "撑不住",
+    )
+
+    /** 用户自述证据类型（只有这些来源里的原话可以支撑心理/状态断言）。 */
+    private val USER_STATEMENT_TYPES = setOf("correction", "context_exception", "memory")
+
     fun validate(
         text: String,
         evidence: List<EvidenceItem>,
@@ -59,6 +71,18 @@ object GroundingValidator {
         }
         if (com.yunjue.echo.mind.model.containsBlockedVocabulary(text)) {
             problems.add("命中产品禁词表（containsBlockedVocabulary）")
+        }
+
+        // 1.5 ERA 22 §29 claim-evidence compatibility：状态断言必须有用户自述支撑
+        for (word in CLAIM_WORDS_REQUIRING_USER_STATEMENT) {
+            if (text.contains(word)) {
+                val supported = evidence.any {
+                    it.type in USER_STATEMENT_TYPES && it.text.contains(word)
+                }
+                if (!supported) {
+                    problems.add("claim-evidence compatibility 失败：文本断言「$word」但证据中没有用户自述支持")
+                }
+            }
         }
 
         // 2. Evidence exists：AI 叙事必须有证据

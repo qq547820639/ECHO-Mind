@@ -76,7 +76,7 @@ class AiNarrativeService(
 
         return NarrativeResult(
             level = NarrativeFallbackLevel.AI_NARRATIVE,
-            text = parsed.statement,
+            text = NarrativeDistiller.distill(parsed.statement),
             usedSources = compiled.usedSources,
         )
     }
@@ -128,7 +128,7 @@ class AiNarrativeService(
         }
         return NarrativeResult(
             level = NarrativeFallbackLevel.AI_NARRATIVE,
-            text = text,
+            text = NarrativeDistiller.distill(text),
             usedSources = compiled.usedSources,
         )
     }
@@ -170,7 +170,7 @@ class AiNarrativeService(
         }
         return NarrativeResult(
             level = NarrativeFallbackLevel.AI_NARRATIVE,
-            text = text,
+            text = NarrativeDistiller.distill(text),
             usedSources = compiled.usedSources,
         )
     }
