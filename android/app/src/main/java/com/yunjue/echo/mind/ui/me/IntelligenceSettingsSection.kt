@@ -54,7 +54,6 @@ fun IntelligenceSettingsContent(
             if (state.providerConfigured && state.model != null) {
                 Text("Current provider：OpenAI Compatible", style = MaterialTheme.typography.titleSmall)
                 Text("Model：${state.model}", style = MaterialTheme.typography.bodySmall)
-                Text("Base URL：${state.baseUrl}", style = MaterialTheme.typography.bodySmall)
             }
             state.statusText?.let {
                 Text(
@@ -84,6 +83,11 @@ fun IntelligenceSettingsContent(
                 }
             }
             if (state.changeExpanded) {
+                // ERA 25 §47：Advanced（Base URL/模型名/API Key 属高级配置，不在主视图堆叠）
+                Text("Advanced（高级）", style = MaterialTheme.typography.titleSmall)
+                if (state.providerConfigured) {
+                    Text("Base URL：${state.baseUrl}", style = MaterialTheme.typography.bodySmall)
+                }
                 OutlinedTextField(
                     value = state.draftBaseUrl,
                     onValueChange = { onEvent(IntelligenceSettingsEvent.UpdateDraftBaseUrl(it)) },

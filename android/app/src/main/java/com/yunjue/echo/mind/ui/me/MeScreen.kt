@@ -100,13 +100,16 @@ fun MeScreenContent(
     }
 
     Page("Me · 我的控制权") {
+        // ERA 25 §44 信息架构：危机入口（安全常驻，契约冻结）→ ECHO Presence →
+        // What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About。
+        // Me 不是 Settings：用户的 ECHO 与它知道什么排在最前，工程配置沉底。
         crisisCard()
+        presenceSettings()
+        whatEchoKnows()
+        intelligenceSettings()
+        dataAndSensing()
         subscription()
         support()
-        dataAndSensing()
-        presenceSettings()
-        intelligenceSettings()
-        whatEchoKnows()
         aboutCard()
         state.message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)

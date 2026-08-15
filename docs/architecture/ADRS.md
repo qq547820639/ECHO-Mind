@@ -757,3 +757,12 @@
 - 修复 DRIFT 误报：isDriftStep（单步无符号距离）→ isDriftChain（两步同向点积>0）；A 稳定用户河流恢复以 STABLE 为主。
 - fixture 驱动：E 冲刺期=1 个变化（含「项目冲刺」上下文标注）；D 出差期变化全部上下文化；年故事「冬平稳/春冲刺/夏 1 次明显变化」；7 profile × Day90 canonical 重建与当日渲染同帧。
 - 门禁：app 844 / qa 84 / presence 16 全绿 + detekt；backend 无变更。
+
+### ADR-073 第 5 轮记录（Product Quality Era Round 5 — Batch 5 Me 信任体验）
+
+- §44 Me 信息架构重排：危机（契约冻结）→ ECHO Presence → What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About；smoke 以语义树 DFS 顺序锚定。
+- §45 What ECHO Knows：接入 buildSelfModel/echoKnowsLines 自然语言摘要（「用一句话说」）；knowsLines 无工程标识符（状态层 eval）；敏感纠正不进公开摘要。
+- §47 Provider 透明：主视图只留 Provider/Model/Status；Base URL/模型名/API Key 移入「Advanced（高级）」展开区（smoke 双锚定）。
+- §48 AI 数据用途：确认已有会话层「参考了/没有使用」双清单即 §48 落地（ConversationTurn.sources 自 ERA 7 流转）。
+- §46 用户控制复核：纠正/确认/忘记/编辑/固定/暂停/关闭某类数据/删除 Memory/删除本地数据全部在位。
+- 门禁：Me 系列 smoke 全绿（新增顺序锚定 + Advanced 分离）；app 844 / qa 87 / presence 16 全绿 + detekt；backend 无变更。

@@ -56,7 +56,8 @@ class IntelligenceSettingsContentSmokeTest {
     }
 
     @Test
-    fun configuredShowsModelBaseUrlAndDisconnectEmits() {
+    fun configuredShowsProviderModelAndDisconnectEmits() {
+        // ERA 25 §47：主视图只显示 Provider/Model/Status；Base URL 属 Advanced
         val events = mutableListOf<IntelligenceSettingsEvent>()
         setContent(
             IntelligenceSettingsUiState(
@@ -67,9 +68,24 @@ class IntelligenceSettingsContentSmokeTest {
             events,
         )
         compose.onNodeWithText("Model：gpt-echo-1").assertExists()
-        compose.onNodeWithText("Base URL：https://echo.local/v1").assertExists()
+        compose.onNodeWithText("Base URL：https://echo.local/v1").assertDoesNotExist()
         compose.onNode(hasClickAction() and hasText("断开连接")).performClick()
         assertTrue(events.contains(IntelligenceSettingsEvent.Disconnect))
+    }
+
+    @Test
+    fun baseUrlLivesInAdvancedExpandedSection() {
+        setContent(
+            IntelligenceSettingsUiState(
+                providerConfigured = true,
+                model = "gpt-echo-1",
+                baseUrl = "https://echo.local/v1",
+                changeExpanded = true,
+            ),
+            mutableListOf(),
+        )
+        compose.onNodeWithText("Advanced（高级）").assertExists()
+        compose.onNodeWithText("Base URL：https://echo.local/v1").assertExists()
     }
 
     @Test

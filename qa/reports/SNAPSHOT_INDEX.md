@@ -18,5 +18,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ECHO_SCENE_AUDIT.md](ECHO_SCENE_AUDIT.md) — ECHO Scene 产品质量审计（ERA 20 §8）
 - [PERSONAL_REASONING_EVAL.md](PERSONAL_REASONING_EVAL.md) — Personal Reasoning 质量 eval（ERA 22 / Batch 2）
 - [MEMORY_SELF_MODEL_EVAL.md](MEMORY_SELF_MODEL_EVAL.md) — Memory / Self Model 质量 eval（ERA 23 / Batch 3）
+- [JOURNEY_EMOTIONAL_VALUE_EVAL.md](JOURNEY_EMOTIONAL_VALUE_EVAL.md) — Journey 情感价值 eval（ERA 24 / Batch 4）
+- [ME_TRUST_EXPERIENCE_EVAL.md](ME_TRUST_EXPERIENCE_EVAL.md) — Me / Trust Experience eval（ERA 25 / Batch 5）
 
 生成方式：`QaSnapshotSuiteTest`（:feature:qa 单元测试）确定性重放生成，可随时重复生成零漂移。

@@ -30,6 +30,8 @@ import com.yunjue.echo.mind.me.MemoryManagementEvent
 import com.yunjue.echo.mind.me.MemoryManagementUiState
 import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemoryType
+import com.yunjue.echo.mind.memory.buildSelfModel
+import com.yunjue.echo.mind.memory.echoKnowsLines
 
 /**
  * ERA 15.5 §80 — Me → What ECHO Knows：七分类明确区分
@@ -77,6 +79,16 @@ fun WhatEchoKnowsContent(
             if (state.doesNotKnow.isNotEmpty()) {
                 Text("ECHO 还不知道什么", style = MaterialTheme.typography.titleSmall)
                 state.doesNotKnow.forEach { line ->
+                    Text("· $line", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            // ERA 25 §45：What ECHO Knows 自然语言摘要（自我模型 → 一句话式了解，
+            // 不是 baseline_activation_start=550；纠正原文（SENSITIVE）不出现在这里）
+            val selfModel = remember(memories) { buildSelfModel(memories, System.currentTimeMillis()) }
+            val knowsLines = echoKnowsLines(selfModel)
+            if (memories.isNotEmpty() && knowsLines.isNotEmpty()) {
+                Text("用一句话说", style = MaterialTheme.typography.titleSmall)
+                knowsLines.forEach { line ->
                     Text("· $line", style = MaterialTheme.typography.bodySmall)
                 }
             }
