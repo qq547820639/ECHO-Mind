@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Pilot-candidate 发布准备终检第 1 轮完成 ✅（ADR-071：升级 receipt 语义双端复核（送达≠人工已收到，不早宣称）+ pilot-pack 总控表刷新（v0.2→v0.9.0 实测对齐：APK/provenance/844+1076 测试/5 条 CI/契约校验；外部阻断项保持外部门）+ CONTRACT_COMPLIANCE 增 Institutional 纵切段（24 锚点））→ 下一轮：激活/订阅/DSR 纵向复核 + pilot-pack 其余模板一致性 + ADR-071 结项 + ADR-072 选型**
+**Pilot-candidate 发布准备终检收官 ✅（ADR-071 两轮结项：receipt 语义双端复核 + pilot-pack 总控表刷新（v0.9.0 实测对齐）+ 激活/订阅/DSR 纵向复核（backend 4 测试组 + Android VM/smoke）——试点仅剩外部发布门）→ 下一轮：ADR-072 长阶段第 1 轮（发布就绪全量终检 / Final Release Readiness Sweep）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -124,6 +124,7 @@
 - **全仓冻结契约一致性终检第 1 轮**：产出 `docs/contracts/CONTRACT_COMPLIANCE.md`——宪法 10 条 + Portrait 4 类 + PI 12 条 + Affective 11 条（§8-§10 外部门/其余冻结）逐条「实现锚点 + 测试锚点」对照；**机器校验**：scripts/contract_compliance_check.py 解析反引号路径断言存在（22 锚点 PASS）并接入 CI source-integrity（含 py_compile）；**自查抓获 6 处过期锚点**并修复（模块真实路径/测试包路径）；Engagement 禁令与十二问标记为流程/人工评审项（如实记录，不伪造锚点）
 - **全仓冻结契约一致性终检收官**：条款复核第二轮——后端镜像锚点复核（test_immutability_v03 / test_portrait_golden / test_version_consistency 在 backend 全量套件执行）；待办固化（Engagement/十二问 = 流程项、Affective §8-§10 = 外部门、feature_vectors 留存裁剪 = 阻塞条件 1）；**ADR-070 两轮结项**（契约逐条具备「实现+测试」或「明确冻结/外部」两种诚实状态，CI 防漂移）+ **ADR-071 选型**：下一长阶段 = Pilot-candidate 发布准备终检（Institutional Support 纵向切面：激活→订阅→升级→receipt→DSR + pilot-pack 治理模板一致性；外部发布门保持外部门不伪造）
 - **Pilot-candidate 发布准备终检第 1 轮**：升级 receipt 语义双端复核（后端 delivery_confirmed_at 接收即写、human_acknowledged 仅显式 ack/takeover；Android 映射 DELIVERED/TAKEN_OVER 不早宣称「人工已收到」）；**发现并修复 pilot-pack 总控表陈旧**（v0.2 时代描述：未生成 APK/AES-256-GCM/781 测试/3 条 CI——与 final distributed state 严重漂移）→ 刷新为 ERA 86 实测（v0.9.0 signed APK + provenance、844+1076 测试、Room v12、HKDF+Keystore、5 条 CI、发布链、契约校验 22 锚点；Path-A 专项材料保持草案、外部阻断项保持外部门不伪造）；CONTRACT_COMPLIANCE 增 Institutional 纵切段（**24 锚点** PASS）
+- **Pilot-candidate 发布准备终检收官**：激活/订阅/DSR 纵向复核——backend（test_activation_codes 三维限速+tenant / test_subscription bind / test_dsr_matrix / test_e2e_privacy）与 Android（SubscriptionViewModelTest + SubscriptionContentSmokeTest）全部在既有套件执行、无缺口；pilot-pack 其余模板（责任矩阵/危机脚本/Go-NoGo）无版本漂移（02 同意版本号保持草案标识语义）；**ADR-071 两轮结项**（试点仅剩外部发布门：真实设备/法务临床定稿/渗透/演练/伦理审查）+ **ADR-072 选型**：下一长阶段 = 发布就绪全量终检（生成文档零漂移 + RELEASE_READINESS 移交包 + clean-clone 全 Gate 复核——内部审计阶段的收官）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -169,4 +170,4 @@
 
 ## Next Highest-value Task
 
-ADR-071 第 2 轮（Pilot-candidate 发布准备收官）：激活（activation 三维限速/tenant 隔离）与订阅绑定（bind flow）纵向复核 + DSR 矩阵复核 + pilot-pack 其余模板一致性（责任矩阵/危机脚本/Go-NoGo 引用核对）+ ADR-071 结项 + ADR-072 选型。外部发布门（真实设备/合规/渗透/真实试点）保持外部门记录不伪造。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+ADR-072 长阶段第 1 轮（发布就绪全量终检）：生成文档再生成零漂移（generate_source_reality / generate_dependency_graph / openapi 导出 git diff）+ RELEASE_READINESS 移交包（内部证据 ↔ 外部发布门映射：真实设备/合规/渗透/演练/伦理）初稿 + README/状态/ADRS 事实终检。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。

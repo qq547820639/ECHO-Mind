@@ -688,3 +688,15 @@
 - **决策**：契约一致性终检（ADR-070）结项后，下一长阶段选定 **Pilot-candidate 发布准备终检**——Institutional Support 支柱的端到端纵向切面：机构激活 → 订阅绑定 → 升级上报 → 服务端 receipt（delivery_confirmed / human_acknowledged 未确认不早宣称）→ 数据权利请求（DSR）→ 危机/安全响应入口；配合 pilot-pack 治理模板（责任矩阵/单独同意/PIPIA/演练/Go-NoGo）一致性复核。外部发布门（真实设备构建、合规审批、独立渗透测试、真实试点）如实保持外部门，不伪造。不选 CI 模拟器矩阵扩展（连续九轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：README 当前状态 pilot-candidate；Institutional Support 是宪法 Backend 部分六支柱之一且各轮已建（激活 42 / DSR 49 / escalation receipt），但无端到端纵向审计；试点发布准备是当前产品阶段的自然下一步（User trust 1：机构与用户双边的诚实状态呈现）。
 - **后果**：每轮维持全门禁 + 发布链；外部发布门保持外部门记录；Affective 冻结不受影响。结项标准：激活→订阅→升级→receipt→DSR 纵向锚点 + pilot-pack 一致性复核 + ADR-071 结项记录。
+
+### ADR-071 结项记录（ERA 87，两轮结论）
+
+- 第 1 轮：升级 receipt 语义双端复核（送达≠人工已收到，不早宣称）；pilot-pack 总控表 v0.2→v0.9.0 实测刷新（APK/provenance/844+1076 测试/Room v12/HKDF+Keystore/5 条 CI/契约校验 22 锚点）；外部阻断项保持外部门；CONTRACT_COMPLIANCE 增 Institutional 纵切段（24 锚点）。
+- 第 2 轮：激活/订阅/DSR 纵向复核——backend（test_activation_codes 三维限速+tenant / test_subscription bind / test_dsr_matrix / test_e2e_privacy）与 Android（SubscriptionViewModelTest + SubscriptionContentSmokeTest）全部在既有套件执行；pilot-pack 其余模板（责任矩阵/危机脚本/Go-NoGo）无版本漂移（唯一 draft 标识 02 同意版本号保持草案标识语义）。
+- 结论：Institutional Support 纵向切面完成——机构侧（激活/订阅/升级/receipt）与用户侧（DSR/撤回）双端锚定；试点发布仅剩外部发布门（真实设备、法务/临床定稿、渗透、演练、伦理审查），如实保持外部门。
+
+## ADR-072：下一长阶段选型——发布就绪全量终检（Final Release Readiness Sweep，ERA 88）
+
+- **决策**：Pilot-candidate 发布准备（ADR-071）结项后，下一长阶段选定 **发布就绪全量终检**——作为内部审计阶段的收官：全量生成文档再生成零漂移（SOURCE_REALITY_REPORT / ANDROID_DEPENDENCY_GRAPH / openapi 导出）、clean-clone 全 Gate 复核、发布门证据汇总表（RELEASE_READINESS：内部证据 ↔ 外部发布门映射）、README/状态/ADRS 事实终检。不选 CI 模拟器矩阵扩展（连续十轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：所有主题审计（ADR-058~071）已结项；外部发布门（真实设备/合规/渗透/真实试点）无法在本环境执行，内部可做的最后一块即「发布就绪全量终检」——把全部内部证据汇总为对外部门的移交包；宪法优先级 Distribution integrity / Source integrity（2/3）。
+- **后果**：每轮维持全门禁 + 发布链；发现漂移即修复；Affective 冻结不受影响。结项标准：生成文档零漂移 + RELEASE_READINESS 移交包 + ADR-072 结项记录。
