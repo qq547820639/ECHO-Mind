@@ -21,7 +21,8 @@ import java.time.format.DateTimeFormatter
  *   不是锁屏替代品（不承诺接管锁屏 UI）；
  * - 最沉浸的 Ambient surface：大 ECHO + 时钟 + 日期，大量 UI 自动隐藏；
  * - 只消费 EchoPresenceState 快照（与 Wallpaper 同源），不运行 Intelligence pipeline；
- * - 渲染用 View + postInvalidateOnAnimation：View 脱离窗口后回调链自动停止，0 残留渲染；
+ * - 渲染用 View + 自适应帧间隔（ERA 31 R14 §16：过渡期 33ms / 静置期 250ms）：
+ *   View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止，0 残留渲染；
  * - 显示内容全部 PUBLIC_SAFE：ECHO 字标 + 时间 + 日期（无状态词、无敏感文字）。
  */
 class EchoDreamService : DreamService() {
@@ -49,6 +50,8 @@ internal class EchoDreamView(context: Context) : View(context) {
     private var startNanos = 0L
     private var lastSnapshotReadMs = 0L
     private var snapshot: EchoPresenceState? = null
+    /** ERA 31 R14（§16）：最近视觉变化时刻——与 Wallpaper 同款自适应帧间隔策略。 */
+    private var lastVisualChangeMs = 0L
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
 
@@ -60,9 +63,13 @@ internal class EchoDreamView(context: Context) : View(context) {
 
         // ERA 74 §65：快照重读节流（至多每秒一次；首帧立即读取）
         if (shouldRefreshSnapshot(lastSnapshotReadMs, System.currentTimeMillis())) {
+            val previous = snapshot?.updatedAt
             snapshot = EchoPresenceCodec.decode(
                 prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
             )
+            if (snapshot?.updatedAt != previous) {
+                lastVisualChangeMs = System.currentTimeMillis()
+            }
             lastSnapshotReadMs = System.currentTimeMillis()
         }
         val presence = snapshot
@@ -91,7 +98,13 @@ internal class EchoDreamView(context: Context) : View(context) {
         renderEchoFrameToCanvas(canvas, frame, w, h)
         drawPublicSafeOverlay(canvas, frame, w, h)
 
-        postInvalidateOnAnimation()
+        // ERA 31 R14（§16）：与 Wallpaper 同款自适应帧率——过渡期 33ms / 静置期 250ms（4fps）。
+        // View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止（0 残留渲染语义保持）。
+        val interval = wallpaperFrameIntervalMs(
+            msSinceVisualChange = System.currentTimeMillis() - lastVisualChangeMs,
+            rippleActive = false,
+        )
+        postDelayed({ invalidate() }, interval)
     }
 
     /**

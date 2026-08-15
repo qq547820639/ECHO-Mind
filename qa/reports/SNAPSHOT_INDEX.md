@@ -39,6 +39,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND11.md](ERA31_ROUND11.md) — ERA 31 R11（Headline 自然句优先 / What ECHO Knows 人类语言）
 - [ERA31_ROUND12.md](ERA31_ROUND12.md) — ERA 31 R12（ECHO Scene 全链路走查：日期降噪）
 - [ERA31_ROUND13.md](ERA31_ROUND13.md) — ERA 31 R13（§16 Wallpaper 自适应帧率：静态期 4fps）
+- [ERA31_ROUND14.md](ERA31_ROUND14.md) — ERA 31 R14（Dream 表面自适应帧率对齐）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 
