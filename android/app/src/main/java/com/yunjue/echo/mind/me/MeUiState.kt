@@ -121,7 +121,58 @@ data class MemoryManagementUiState(
     val memories: List<com.yunjue.echo.mind.memory.EchoMemory> = emptyList(),
     /** 当前过滤类别；null = 全部。 */
     val filter: MemoryType? = null,
+    /** ERA 60（ADR-060 第 1 轮）：§80 七层认知分层计数（Observed/Confirmed/Context/Correction/Preference/Pattern/Interpretation）。 */
+    val layerCounts: MemoryLayerCounts = MemoryLayerCounts(),
 )
+
+/**
+ * ERA 60（ADR-060 第 1 轮）——What ECHO Knows 七层计数（§80 分层真值）。
+ * 纯数据：UI 以人话标签渲染；计数来自 MemoryType 映射（无推测、无编造）。
+ */
+data class MemoryLayerCounts(
+    val observation: Int = 0,
+    val userConfirmed: Int = 0,
+    val context: Int = 0,
+    val correction: Int = 0,
+    val preference: Int = 0,
+    val derivedPattern: Int = 0,
+    val temporaryInterpretation: Int = 0,
+) {
+    val total: Int get() = observation + userConfirmed + context + correction + preference + derivedPattern + temporaryInterpretation
+
+    companion object {
+        /** 纯映射：记忆列表 → 七层计数（确定性；过滤不影响计数，只影响列表展示）。 */
+        fun from(memories: List<com.yunjue.echo.mind.memory.EchoMemory>): MemoryLayerCounts {
+            var observation = 0
+            var userConfirmed = 0
+            var context = 0
+            var correction = 0
+            var preference = 0
+            var derivedPattern = 0
+            var temporaryInterpretation = 0
+            for (m in memories) {
+                when (m.type) {
+                    MemoryType.OBSERVATION -> observation++
+                    MemoryType.USER_CONFIRMED -> userConfirmed++
+                    MemoryType.CONTEXT -> context++
+                    MemoryType.CORRECTION -> correction++
+                    MemoryType.PREFERENCE -> preference++
+                    MemoryType.DERIVED_PATTERN -> derivedPattern++
+                    MemoryType.TEMPORARY_INTERPRETATION -> temporaryInterpretation++
+                }
+            }
+            return MemoryLayerCounts(
+                observation = observation,
+                userConfirmed = userConfirmed,
+                context = context,
+                correction = correction,
+                preference = preference,
+                derivedPattern = derivedPattern,
+                temporaryInterpretation = temporaryInterpretation,
+            )
+        }
+    }
+}
 
 /**
  * ERA 33 — Subscription（可选订阅开通）状态。

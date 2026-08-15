@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.me.MemoryManagementEvent
 import com.yunjue.echo.mind.me.MemoryManagementUiState
+import com.yunjue.echo.mind.me.MemoryLayerCounts
 import com.yunjue.echo.mind.memory.MemoryType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,7 +35,12 @@ class MemoryManagementViewModel(
         container.memoryRepository.observeMemories(),
         _filter,
     ) { memories, filter ->
-        MemoryManagementUiState(memories = memories, filter = filter)
+        MemoryManagementUiState(
+            memories = memories,
+            filter = filter,
+            // ERA 60：七层计数（§80 分层真值；过滤不影响计数——用户看到的永远是全貌）
+            layerCounts = MemoryLayerCounts.from(memories),
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

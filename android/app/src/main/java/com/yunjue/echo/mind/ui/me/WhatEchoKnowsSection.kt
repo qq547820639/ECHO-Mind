@@ -62,6 +62,17 @@ fun WhatEchoKnowsContent(
                 "ECHO 的记忆由你的数据与你告诉它的话形成。你可以确认、纠正或忘记任何一条。",
                 style = MaterialTheme.typography.bodySmall
             )
+            // ERA 60（ADR-060 第 1 轮）：§80 七层分层摘要（用户看到的永远是全貌计数，过滤不影响）
+            val counts = state.layerCounts
+            if (counts.total > 0) {
+                Text(
+                    "共 ${counts.total} 条：你确认过 ${counts.userConfirmed} · 你告诉我的 ${counts.context} · " +
+                        "我观察到 ${counts.observation} · 你的偏好 ${counts.preference} · " +
+                        "你纠正过 ${counts.correction} · 发现的模式 ${counts.derivedPattern} · " +
+                        "还在推测 ${counts.temporaryInterpretation}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             // §78/§79：用户解释优先（特殊时期入口）
             var showAddDialog by remember { mutableStateOf(false) }
             OutlinedButton(onClick = { showAddDialog = true }) {

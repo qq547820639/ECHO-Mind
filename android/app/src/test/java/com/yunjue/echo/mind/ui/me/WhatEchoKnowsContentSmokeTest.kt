@@ -145,4 +145,35 @@ class WhatEchoKnowsContentSmokeTest {
         )
         compose.onNodeWithText("还没有长期记忆。ECHO 正在慢慢认识你。").assertDoesNotExist()
     }
+
+    @Test
+    fun layerSummaryShowsSevenLayerCounts() {
+        // ERA 60：§80 七层摘要（过滤不影响计数——用户看到的永远是全貌）
+        val state = MemoryManagementUiState(
+            memories = listOf(
+                memory("m1", MemoryType.OBSERVATION, "观察"),
+                memory("m2", MemoryType.USER_CONFIRMED, "确认"),
+                memory("m3", MemoryType.CONTEXT, "出差"),
+                memory("m4", MemoryType.CORRECTION, "纠正"),
+                memory("m5", MemoryType.PREFERENCE, "偏好"),
+                memory("m6", MemoryType.DERIVED_PATTERN, "模式"),
+                memory("m7", MemoryType.TEMPORARY_INTERPRETATION, "推测", confidence = 0.4f),
+            ),
+            layerCounts = com.yunjue.echo.mind.me.MemoryLayerCounts.from(
+                listOf(
+                    memory("m1", MemoryType.OBSERVATION, "观察"),
+                    memory("m2", MemoryType.USER_CONFIRMED, "确认"),
+                    memory("m3", MemoryType.CONTEXT, "出差"),
+                    memory("m4", MemoryType.CORRECTION, "纠正"),
+                    memory("m5", MemoryType.PREFERENCE, "偏好"),
+                    memory("m6", MemoryType.DERIVED_PATTERN, "模式"),
+                    memory("m7", MemoryType.TEMPORARY_INTERPRETATION, "推测", confidence = 0.4f),
+                ),
+            ),
+        )
+        setContent(state, mutableListOf())
+        compose.onNodeWithText(
+            "共 7 条：你确认过 1 · 你告诉我的 1 · 我观察到 1 · 你的偏好 1 · 你纠正过 1 · 发现的模式 1 · 还在推测 1",
+        ).assertExists()
+    }
 }

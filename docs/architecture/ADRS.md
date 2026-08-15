@@ -546,3 +546,9 @@
 - 第 4 轮：EchoConversationController 零测试 → 6 契约（全链 / 诚实降级 / 4 轮窗口 / 检索异常 / 相位映射 / 重置）。
 - 收官：§70 baseline/comparison 字段此前装配不落、编译不读（spec 字段流亡）——现装配进入 schema 指定字段并经编译显式进入模型上下文；§71 EchoAnswer.timeRange 此前恒 null——现由被引用证据时间范围导出。
 - 结论：Personal Intelligence 解释链真值审计完成；换模型不失忆（记忆端口检索与模型无关）与模型崩溃 ECHO 不消失（fallback 链）具备端到端锚点。
+
+## ADR-060：下一长阶段选型——What ECHO Knows 深化（Me 世界用户信任层，ERA 60）
+
+- **决策**：解释链真值审计（ADR-059）结项后，下一长阶段选定 **§80 What ECHO Knows 深化**——七类认知分层（Observed / User-confirmed / Context / Correction / Preference / Derived Pattern / Temporary Interpretation）在 Me 世界的完整呈现与解释（FINAL PRODUCT ACCEPTANCE：用户能明确知道 ECHO 知道什么、不知道什么）。不选 Journey Year 视图深化（视觉打磨，优先级低于用户信任）与 Memory 长历史性能（§109 索引已在 v11 落地，千级压测归 CI 真机矩阵）。
+- **理由**：宪法优先级 User trust / User control 直接受益；§80 分层在 UI 已有标签与过滤基础（WhatEchoKnowsContentSmokeTest 7 用例），深化成本低、真值收益高。
+- **后果**：每轮维持全门禁 + 发布链；「ECHO 不知道什么」与分层摘要补齐后以测试锚定；Affective 冻结不受影响。

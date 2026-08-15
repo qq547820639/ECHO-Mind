@@ -121,7 +121,7 @@ ECHO 无 AI 也完整（感知、画像、Presence、旅程全部本地运行）
 - **架构**：Observation Core（被动感知 → 派生特征 → 日聚合 → 个人基线 → 画像）为 Ground Truth Layer；其上为 EchoPresenceState（单一状态：App/Wallpaper/Dream 共享）、EchoSelfModel & Memory、Context Compiler（AI 请求唯一通道）、Journey 视觉记忆、Actions 干预分级。详见 `docs/IMPLEMENTATION_STATUS.md` 与 `docs/architecture/`。
 - **商业模式**：免费本地版（完整产品）+ 可选订阅（云端同步备份、长周期分析与消息推送、专业支持）。BYOM 模式下 AI 由用户自己的 Provider 承担，ECHO 服务端默认不知道用户 API Key。
 - **当前状态**：`pilot-candidate`（试点候选）。在完成真实设备构建、合规审批、独立渗透测试与真实试点等**外部发布门**之前，不得标记为生产上线。
-- **质量保障**：后端自动测试 **1077 项全绿**；Android 客户端 **792 项单测全绿**（含 Compose UI smoke tests：三大世界根页面状态矩阵 + ECHO 组件层 + Onboarding 三步渲染矩阵 + 9 行性能防退化预算）+ 4 组 instrumentation 用例（迁移链 2→11 / Keystore 真机路径 / 引擎设备烟测 / 设备性能锚点，CI 模拟器执行）；三套 CI 门禁（后端 / Android / 安全）；后端行覆盖率 94%。客户端本地数据库采用 Room v11。
+- **质量保障**：后端自动测试 **1077 项全绿**；Android 客户端 **793 项单测全绿**（含 Compose UI smoke tests：三大世界根页面状态矩阵 + ECHO 组件层 + Onboarding 三步渲染矩阵 + 9 行性能防退化预算）+ 4 组 instrumentation 用例（迁移链 2→11 / Keystore 真机路径 / 引擎设备烟测 / 设备性能锚点，CI 模拟器执行）；三套 CI 门禁（后端 / Android / 安全）；后端行覆盖率 94%。客户端本地数据库采用 Room v11。
 - **技术文档**：`docs/`（产品/智能/Provider/Presence/架构/隐私契约）、`pilot-pack/`（试点治理模板）、`scripts/`（发布门禁脚本）。安装、构建与部署细节见这些文档，本页不再展开。
 
 ---
