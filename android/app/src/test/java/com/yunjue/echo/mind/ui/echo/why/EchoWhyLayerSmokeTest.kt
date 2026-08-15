@@ -94,9 +94,11 @@ class EchoWhyLayerSmokeTest {
     }
 
     @Test
-    fun aiUnavailableShowsConnectHint() {
+    fun aiUnavailableKeepsWhyLayerQuiet() {
+        // ERA 31 R15：Why 层不再常驻 AI 催促（AI 引导唯一入口 = StatusOverlay 一次性提示；
+        // R3 起无 AI 也能得到确定性个人回答，常驻提示与产品事实相悖）
         setContent(state(intelligenceAvailable = false))
-        compose.onNodeWithText("连接 AI 后可获得更深入的解释。").assertExists()
+        compose.onNodeWithText("连接 AI 后可获得更深入的解释。").assertDoesNotExist()
     }
 
     @Test

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,15 +56,15 @@ fun EchoWhyLayer(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        if (!uiState.intelligenceAvailable) {
-            Text("连接 AI 后可获得更深入的解释。", style = MaterialTheme.typography.bodySmall)
-        }
+        // ERA 31 R15：移除「连接 AI 后可获得更深入的解释」常驻提示——
+        // ① R3 起无 AI 也能得到确定性个人回答，这句与产品事实相悖；
+        // ② AI 引导已有唯一入口（EchoStatusOverlay 一次性可关闭提示），Why 层不再重复催促（§10 更安静）。
 
         // Layer 2：为什么？（Scene 内展开，不切详情页）
         EchoEvidenceCards(uiState.facts)
 
-        // Layer 3：查看更多 → Journey
-        OutlinedButton(onClick = onGoToJourney, modifier = Modifier.fillMaxWidth()) {
+        // Layer 3：查看更多 → Journey（安静入口，与 Scene 主入口一致）
+        TextButton(onClick = onGoToJourney, modifier = Modifier.fillMaxWidth()) {
             Text("查看更多 → Journey")
         }
     }
