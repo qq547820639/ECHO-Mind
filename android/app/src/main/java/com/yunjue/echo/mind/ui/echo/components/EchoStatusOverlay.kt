@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -44,13 +43,15 @@ fun EchoStatusOverlay(
         else -> Unit
     }
     if (!intelligenceAvailable && !aiPromptDismissed) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("连接一个 AI，让 ECHO 更深入地理解你的变化。", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onGoToMe) { Text("连接 AI") }
-                    OutlinedButton(onClick = onDismissAiPrompt) { Text("以后再说") }
-                }
+        // ERA 31：去卡化——信任信息保留，卡片边框移除（安静提示，非营销卡片）
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("连接一个 AI，让 ECHO 更深入地理解你的变化。", style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onGoToMe) { Text("连接 AI") }
+                OutlinedButton(onClick = onDismissAiPrompt) { Text("以后再说") }
             }
         }
     }

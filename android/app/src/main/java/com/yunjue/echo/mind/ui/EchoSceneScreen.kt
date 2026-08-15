@@ -48,7 +48,6 @@ import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.todayPortraitStateText
 import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneViewModel
 import com.yunjue.echo.mind.ui.echo.actions.EchoActionLayer
@@ -332,9 +331,9 @@ fun EchoSceneContent(
             // 4.5 ERA 29 §64：内部质量反馈（仅 DEBUG 构建渲染，正式用户不可见）
             item { qualityFeedback() }
 
-            // 5. Journey 入口（Layer 3 证据/长期趋势）
+            // 5. Journey 入口（Layer 3 证据/长期趋势）—— TextButton：安静入口，不做按钮墙
             item {
-                OutlinedButton(onClick = navigation.onGoToJourney, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = navigation.onGoToJourney, modifier = Modifier.fillMaxWidth()) {
                     Text("Journey · 我的时间 →")
                 }
             }
@@ -364,7 +363,7 @@ fun EchoSceneContent(
             // 9. Ask ECHO 对话层（Controller 状态机驱动）
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
+                    TextButton(
                         onClick = { askExpanded = !askExpanded },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (askExpanded) "收起对话" else "问 ECHO") }

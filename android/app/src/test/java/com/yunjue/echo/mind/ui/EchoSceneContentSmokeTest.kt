@@ -26,7 +26,6 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_TITLE
 import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.sensing.SensingRuntimeStatus

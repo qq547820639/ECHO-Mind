@@ -28,7 +28,12 @@ class VisualRegressionGoldenTest {
         feed(frame.coreRadiusFraction)
         feed(frame.ringRadiusFraction)
         feed(frame.ringAlpha)
-        frame.particles.forEach { p -> feed("${p.x},${p.y},${p.radiusFraction},${p.alpha}") }
+        feed(frame.textureFamily)
+        feed(frame.contrast)
+        frame.extraRings.forEach { feed("${it.radiusFraction},${it.alpha}") }
+        frame.particles.forEach { p ->
+            feed("${p.x},${p.y},${p.radiusFraction},${p.alpha},${p.streakLength},${p.streakDirX},${p.streakDirY}")
+        }
         return hash
     }
 
@@ -40,13 +45,28 @@ class VisualRegressionGoldenTest {
     @Test
     fun allFortyTwoAnchorFramesMatchGoldenHashes() {
         val mismatches = mutableListOf<String>()
+        val actualMap = LinkedHashMap<String, Map<Int, Long>>()
         for (profile in QaProfiles.ALL) {
+            val byDay = LinkedHashMap<Int, Long>()
             for (day in QaProfiles.SNAPSHOT_DAYS) {
                 val expected = GOLDEN[profile.id]?.get(day)
                 val actual = goldenFor(profile, day)
+                byDay[day] = actual
                 if (expected != null && expected != actual) {
                     mismatches += "${profile.id} day$day expected=$expected actual=$actual"
                 }
+            }
+            actualMap[profile.id] = byDay
+        }
+        if (mismatches.isNotEmpty()) {
+            // 打印可粘贴的黄金值表（有意改渲染后用它更新 GOLDEN；先跑其他产品质量门再更新）
+            println("=== GOLDEN REGEN ===")
+            for ((id, byDay) in actualMap) {
+                println("\"$id\" to mapOf(")
+                for ((day, hash) in byDay) {
+                    println("    $day to ${hash}L,")
+                }
+                println("),")
             }
         }
         assertEquals("视觉回归黄金集漂移（改渲染必须有意为之并同步更新黄金值）：\n" + mismatches.joinToString("\n"),
@@ -54,63 +74,63 @@ class VisualRegressionGoldenTest {
     }
 
     companion object {
-        /** 黄金值（2026-08 Product Quality Era R8 生成；渲染改动需同步更新）。 */
+        /** 黄金值（ERA 31 R1 生成：sceneRandom index 熵修复 + 帧模型消费纹理族/轨道几何/结构环/对比度）。 */
         val GOLDEN: Map<String, Map<Int, Long>> = mapOf(
             "PROFILE_A_STABLE" to mapOf(
-                0 to 1971569938039394187L,
-                3 to 9164492421526947268L,
-                7 to 1073082752663521134L,
-                28 to 849186746776370409L,
-                90 to 5433353950693572231L,
-                180 to 6211416433378784131L,
+                0 to 1669986756197806128L,
+                3 to -3519019148247797043L,
+                7 to 507182913284167094L,
+                28 to -6694603047645385794L,
+                90 to 3872031034459735819L,
+                180 to 7621979488207323922L,
             ),
             "PROFILE_B_NIGHT_OWL" to mapOf(
-                0 to -3638772498787147426L,
-                3 to 7267552435732451710L,
-                7 to -3961035773630084523L,
-                28 to 6724371751830065499L,
-                90 to 7080790262660994938L,
-                180 to 6149063886892077663L,
+                0 to -244897554995760997L,
+                3 to 6653888985586845277L,
+                7 to -8050449222511522585L,
+                28 to -2422357479064826762L,
+                90 to -9164365190693916417L,
+                180 to 6488824926315496164L,
             ),
             "PROFILE_C_IRREGULAR" to mapOf(
-                0 to -6203479018106862038L,
-                3 to -7603533728091904883L,
-                7 to -2615580432758446265L,
-                28 to -658346588006363393L,
-                90 to -2339096625341711894L,
-                180 to 3622304070038244768L,
+                0 to -3649532375274039188L,
+                3 to 3198974423186129409L,
+                7 to -5659993300333025793L,
+                28 to 3050314129770243300L,
+                90 to -5306239397707646606L,
+                180 to -6626916932635316952L,
             ),
             "PROFILE_D_TRAVEL" to mapOf(
-                0 to -6424405438305328925L,
-                3 to 2451580284964866236L,
-                7 to 2878645960916976528L,
-                28 to 2980914234489123275L,
-                90 to -4557669451211553838L,
-                180 to -8433763979841321594L,
+                0 to 3685232399730296287L,
+                3 to -8106371701180884489L,
+                7 to 7207409188845085459L,
+                28 to -4082715309619861362L,
+                90 to 5394654868756790802L,
+                180 to -4776920813325993366L,
             ),
             "PROFILE_E_PROJECT_CRUNCH" to mapOf(
-                0 to -1538055773110379003L,
-                3 to 1449026529900089696L,
-                7 to 1334427920504146215L,
-                28 to 1423226970099077605L,
-                90 to -6378318493011656774L,
-                180 to -5929800774354633276L,
+                0 to 5016293378218045123L,
+                3 to 5385476005824193965L,
+                7 to -3397350885913279956L,
+                28 to 7461543173701993710L,
+                90 to -7804897181299741766L,
+                180 to -4864461286184926862L,
             ),
             "PROFILE_F_LOW_DATA" to mapOf(
-                0 to 5952604763572871744L,
-                3 to -3350423384949706738L,
-                7 to -7069116712671922883L,
-                28 to -4696373632052244132L,
-                90 to 5307368343374899224L,
-                180 to 8494806639602706893L,
+                0 to -6282835688936304473L,
+                3 to 6074665271136645373L,
+                7 to -3295192136292986241L,
+                28 to 6184185341677663071L,
+                90 to 3471352108219402081L,
+                180 to 6982349254142242401L,
             ),
             "PROFILE_G_WEEKEND_DIFFERENT" to mapOf(
-                0 to -593834902951483716L,
-                3 to -6390340846329501296L,
-                7 to 2238485181663348016L,
-                28 to -387636121066257754L,
-                90 to 4351930825307015375L,
-                180 to -3816704137912649086L,
+                0 to -8024581698350048516L,
+                3 to -446541527559493373L,
+                7 to 1612456852995724661L,
+                28 to -543810697796165897L,
+                90 to 3113550895566961084L,
+                180 to -8509596057000690899L,
             ),
         )
     }

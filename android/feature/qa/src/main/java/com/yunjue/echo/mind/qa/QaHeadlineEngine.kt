@@ -42,7 +42,7 @@ object QaHeadlineEngine {
         return QaHeadline(public = public, evidence = evidence, aiLayer = aiLayer)
     }
 
-    /** 学习期文案（ERA 20 §10）：绝不展示「数据不足」。 */
+    /** 学习期文案（ERA 20 §10 + ERA 31 与 production learningPhaseHeadline 逐字对齐）：绝不展示「数据不足」。 */
     private fun learningPhase(snap: QaDaySnapshot): QaHeadline {
         val observedMinutes = snap.aggregate.validWindowCount * 5L
         return when (snap.presence.maturity) {
@@ -56,8 +56,13 @@ object QaHeadlineEngine {
                 evidence = "已观察 $observedMinutes 分钟 · 基线第 ${snap.baseline?.validDays ?: 0} 天",
                 aiLayer = null,
             )
-            else -> QaHeadline(
+            EchoMaturity.KNOWN -> QaHeadline(
                 public = "我开始认识通常的你了。",
+                evidence = "已观察 $observedMinutes 分钟",
+                aiLayer = null,
+            )
+            EchoMaturity.MATURE -> QaHeadline(
+                public = "ECHO 还在了解今天。",
                 evidence = "已观察 $observedMinutes 分钟",
                 aiLayer = null,
             )

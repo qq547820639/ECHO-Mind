@@ -108,13 +108,36 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.drawEchoFrame(frame: EchoSc
         style = Stroke(width = minDim * 0.0015f),
     )
 
-    // 粒子（density 决定数量，coherence 决定可见度）
-    frame.particles.forEach { p ->
+    // ERA 31：次级环（结构丰富度 / 环晕纹理）
+    frame.extraRings.forEach { ring ->
         drawCircle(
-            color = Color(frame.accentColor).copy(alpha = p.alpha),
-            radius = p.radiusFraction * minDim,
-            center = Offset(p.x * size.width, p.y * size.height),
+            color = Color(frame.accentColor).copy(alpha = ring.alpha),
+            radius = ring.radiusFraction * minDim,
+            center = center,
+            style = Stroke(width = minDim * 0.0015f),
         )
+    }
+
+    // 粒子（density 决定数量，coherence 决定可见度；纹理族 2 渲染为流线）
+    frame.particles.forEach { p ->
+        if (p.streakLength > 0f) {
+            val len = p.streakLength * minDim
+            val px = p.x * size.width
+            val py = p.y * size.height
+            drawLine(
+                color = Color(frame.accentColor).copy(alpha = p.alpha),
+                start = Offset(px - p.streakDirX * len / 2f, py - p.streakDirY * len / 2f),
+                end = Offset(px + p.streakDirX * len / 2f, py + p.streakDirY * len / 2f),
+                strokeWidth = p.radiusFraction * minDim,
+                cap = StrokeCap.Round,
+            )
+        } else {
+            drawCircle(
+                color = Color(frame.accentColor).copy(alpha = p.alpha),
+                radius = p.radiusFraction * minDim,
+                center = Offset(p.x * size.width, p.y * size.height),
+            )
+        }
     }
 
     // 核心光斑（呼吸）
@@ -165,11 +188,41 @@ fun renderEchoFrameToCanvas(
     ringPaint.alpha = (frame.ringAlpha * 0x99).toInt()
     canvas.drawCircle(cx, cy, frame.ringRadiusFraction * minDim, ringPaint)
 
+    // ERA 31：次级环（结构丰富度 / 环晕纹理）
+    val extraRingPaint = android.graphics.Paint().apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = minDim * 0.0015f
+        isAntiAlias = true
+        color = frame.accentColor.withAlpha(0xFF)
+    }
+    frame.extraRings.forEach { ring ->
+        extraRingPaint.alpha = (ring.alpha * 255f).toInt().coerceIn(0, 255)
+        canvas.drawCircle(cx, cy, ring.radiusFraction * minDim, extraRingPaint)
+    }
+
     val particlePaint = android.graphics.Paint().apply { isAntiAlias = true }
     particlePaint.color = frame.accentColor
+    val streakPaint = android.graphics.Paint().apply {
+        isAntiAlias = true
+        color = frame.accentColor
+        strokeCap = android.graphics.Paint.Cap.ROUND
+    }
     frame.particles.forEach { p ->
         particlePaint.alpha = (p.alpha * 255f).toInt().coerceIn(0, 255)
-        canvas.drawCircle(p.x * widthPx, p.y * heightPx, p.radiusFraction * minDim, particlePaint)
+        val px = p.x * widthPx
+        val py = p.y * heightPx
+        if (p.streakLength > 0f) {
+            val len = p.streakLength * minDim
+            streakPaint.alpha = particlePaint.alpha
+            streakPaint.strokeWidth = p.radiusFraction * minDim
+            canvas.drawLine(
+                px - p.streakDirX * len / 2f, py - p.streakDirY * len / 2f,
+                px + p.streakDirX * len / 2f, py + p.streakDirY * len / 2f,
+                streakPaint,
+            )
+        } else {
+            canvas.drawCircle(px, py, p.radiusFraction * minDim, particlePaint)
+        }
     }
 
     val corePaint = android.graphics.Paint().apply {

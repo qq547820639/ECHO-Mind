@@ -24,7 +24,7 @@
 | 图标密度 | 无图标堆叠 | — | ✅ 达标 |
 | 标签/指标密度 | BaselineProgress「已积累 N/7 天」+ 覆盖率 % | 早期分支 | ✅ 仅在学习期出现，可接受 |
 
-## 3. 本次已修复（Round 1）
+## 3. 本次已修复（Round 1 + ERA 31 Round 1）
 
 1. **AI 叙事不再覆盖确定性 headline**（ERA 20 §9）：`EchoSceneUiState` 改为三层结构——
    - Layer 1 = 确定性 headline（产品真值，永远保留）；
@@ -34,10 +34,9 @@
 3. **基线解锁仪式去庆祝化**：UnlockBanner 从 primaryContainer 卡片改为安静一行字。
 4. **周小结消息去卡化**。
 5. **成熟度单一真值**：ECHO Scene 的 maturity 改为来自 Presence（日历语义），修复 weekday 分桶下 MATURE 永不可达的问题。
+6. **ERA 31：Scene 信息密度复审**——Journey 入口与「问 ECHO」入口 OutlinedButton → TextButton（安静入口，非按钮墙）；紧急支持保持常驻 OutlinedButton（安全资源，不弱化）；Why 证据卡去卡化（无边框证据行）；EchoStatusOverlay AI 提示去卡化（信任信息保留，移除卡片边框）。
 
 ## 4. 后续计划（后续 Round）
 
-- EchoStatusOverlay 去卡化（保留信任信息，去除边框）；
-- Journey/问 ECHO 入口改 TextButton；
-- Why 证据卡默认收起已达标；展开态卡片改为无边框行；
-- 紧急支持入口保持常驻（安全资源，不做视觉弱化）。
+- （原清单三项已在 ERA 31 R1 完成，见上 6）
+- 视觉评审每一轮后复查：第一视觉是否仍是 ECHO 本身（`qa/visual-review/rendered/sheets/` 人眼复核）。

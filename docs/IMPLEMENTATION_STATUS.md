@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**发布就绪全量终检收官 ✅（ADR-072 两轮结项：生成文档零漂移 + RELEASE_READINESS 移交包 + README/docs-current/ADRS 事实终检（ADR-001~072/迁移链 2→12/五套 CI）——**内部审计阶段收官**：ADR-058 起 15 个长阶段全部结项，剩余全部为外部发布门/人工确认项（后续方向记录入 ADRS））**
+**ERA 31 — Felt Product Reality R1 ✅（BATCH 1 核心交付：真实 Render Review 闭环——`qa/visual-review/` 画廊（210 场景帧 PNG + 42 参数快照 + 27 对比拼图 + index.html）全部由 production 帧管线渲染；人眼必答题机器代理（同用户主色恒同 / 跨用户结构签名 ≥4 种 / 帧非纯色）PASS；审计发现并修复两个真实视觉缺陷——① 粒子场退化（sceneRandom 丢失 index 熵，所有粒子堆叠一点，粒子纹理从未存在过）② 身份差异几乎只靠颜色（textureFamily/orbitGeometry/contrast/structureComplexity 未进帧模型——现已进入纹理族/轨道几何/结构环/对比度）；Scene 信息密度修复（Journey/问 ECHO TextButton 化 + Why 证据行与 AI 提示去卡化）；DEVELOPMENT_HEAD / LAST_RELEASE_BASELINE 正式区分（RELEASE_BASELINE.md）；QA mirror 审计报告入库；构建环境 JDK 缺口修复（Temurin 17.0.20，与 CLEAN_ROOM_REPRODUCTION 一致））**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -28,14 +28,15 @@
 - ✅ SourceIntegrityTest（Manifest 组件/Worker/包路径/引用解析/DAO/领域包/五态，7 断言）+ CI `source-integrity.yml`
 - ✅ BuildConfig 内嵌 GIT_COMMIT / BUILD_TIMESTAMP / BUILD_VERSION（Me → About 可见）
 
-## Build Status（本轮实测，clean checkout 复核 PASS）
+## Build Status（ERA 31 R1 本轮实测；clean checkout 复核为上一 Release Baseline 的结论，本 HEAD 留 release closure 重验）
 
-- Android：**844 unit tests 全绿**（ERA 83 +1：生命周期三动作落盘锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**976 unit tests 全绿**（本轮 ERA 31 R1：app 847 / feature:presence 21 / feature:qa 108——ERA 31 +9：IdentityStructureVisibilityTest 6 + VisualReviewRenderTest 3）；lintDebug / detekt 27 规则 PASS（本轮实测；assembleRelease 留下一 release closure 全量重跑，不得带旧 proof 发布）（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
 ## Completed
 
+- **ERA 31 R1 — Felt Product Reality（BATCH 1）**：产品实施宪章 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`（开发门/架构冻结/QA 原则/指标/批次）；Dev/Release 区分 `docs/release/RELEASE_BASELINE.md`（LAST_RELEASE_BASELINE=5783036）+ `docs/DEVELOPMENT_STATUS.md`；**Real Render Review 流水线**——`feature:qa` 新增 `VisualReviewRenderer`（production 帧管线 → PNG/拼图/快照/gallery，Robolectric NATIVE graphics，lockfile 同步）+ `VisualReviewRenderTest`（210 PNG + 42 快照 + 27 拼图 + index.html 落 `qa/visual-review/`，机器代理锁人眼必答题）+ `qa/visual-review/DEVICE_CHECKLIST.md`（真机 12 场景 + 5 指标采集）+ README；**真实视觉缺陷修复**——① `sceneRandom` index 熵丢失（shl 32 被 and 0x7FFFFFFF 抹平 → 所有粒子同角度堆叠，粒子场从未存在）改为金角乘法保熵；② 帧模型不消费身份结构（textureFamily 5% 微调、orbitGeometry 死存、contrast/structureComplexity 死参数）→ `seedTextureFamily`/`seedOrbitGeometry` 纯函数 + 帧模型加纹理族（柔光/微粒/流线/环晕）+ 轨道几何径向散布 + 次级结构环 + 背景对比度，Compose 与 android.graphics 双渲染器同步；回归 `IdentityStructureVisibilityTest`（5 用例：同 seed 颜色恒同而结构可分、粒子场真实散布、四族覆盖、对比度生效）；视觉黄金集 42 锚点有意更新（golden 可粘贴重生成输出）；**Scene 信息密度修复**——Journey/问 ECHO 入口 TextButton 化、Why 证据行与 EchoStatusOverlay AI 提示去卡化（紧急入口保持常驻不弱化）；QA mirror 审计 `qa/reports/QA_MIRROR_AUDIT.md`（QaPortraitMirror=必要镜像待加跨语言黄金门 / QaHeadlineEngine=真重复待 BATCH 7 下沉 / QaAskEcho=eval oracle 非 mirror）；构建环境修复（机器 JDK 缺失 → Temurin 17.0.20 落 ~/Library/Java/JavaVirtualMachines，与 CLEAN_ROOM_REPRODUCTION 一致；:feature:qa 增 robolectric）
 - v1 ERA 1-10 / v2 两轮 / ERA 12（批次 1+2+v3.1 收尾）——见 RELEASE_NOTES 与 ADR-001~024
 - **ERA 12.6/12.7 Source Closure**：交付元数据重建、provenance、BuildConfig、SourceIntegrityTest、CI gate、文档归档
 - **ERA 12.8 Distribution Closure**：runtime 入库、manifest=git、确定性归档、终态验证门禁、root APK provenance 绑定、release-closure CI

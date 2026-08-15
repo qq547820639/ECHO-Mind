@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.presence
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -158,15 +159,30 @@ object EchoVisualMapper {
 
 // ===== EchoSceneModel：共享帧模型（确定性；Compose / Wallpaper / Dream 三个渲染器共用） =====
 
-/** 粒子（帧内坐标，0..1 归一化）。 */
+/** 粒子（帧内坐标，0..1 归一化；streakLength > 0 时渲染为沿切线的短流线）。 */
 data class SceneParticle(
     val x: Float,
     val y: Float,
     val radiusFraction: Float,
     val alpha: Float,
+    /** 流线方向（单位向量；纹理族 2 使用）。 */
+    val streakDirX: Float = 0f,
+    val streakDirY: Float = 0f,
+    val streakLength: Float = 0f,
 )
 
-/** 一帧的完整视觉状态（纯数据；渲染器只负责把帧画出来）。 */
+/** 次级同心环（结构丰富度 / 环晕纹理产生；主环在 [EchoSceneFrame.ringRadiusFraction]）。 */
+data class FrameRing(
+    val radiusFraction: Float,
+    val alpha: Float,
+)
+
+/**
+ * 一帧的完整视觉状态（纯数据；渲染器只负责把帧画出来）。
+ *
+ * ERA 31：纹理族与次级环进入帧模型——用户差异来自 texture/structure，
+ * 不只是颜色（Part 17）。
+ */
 data class EchoSceneFrame(
     val backgroundCenterColor: Int,
     val backgroundEdgeColor: Int,
@@ -175,11 +191,22 @@ data class EchoSceneFrame(
     val ringAlpha: Float,
     val accentColor: Int,
     val particles: List<SceneParticle>,
+    /** 身份纹理族 0..3（0 柔光 / 1 微粒 / 2 流线 / 3 环晕）。 */
+    val textureFamily: Int = 0,
+    /** 次级环（结构丰富度 + 环晕纹理；可为空 = 仅主环）。 */
+    val extraRings: List<FrameRing> = emptyList(),
+    /** 帧对比度 0..1（背景边缘加深强度）。 */
+    val contrast: Float = 0f,
 )
 
-/** 确定性伪随机（LCG，seed + 序号 → 0..1；保证同一 identity/day/state 画面可复现）。 */
+/**
+ * 确定性伪随机（LCG，seed + 序号 → 0..1；保证同一 identity/day/state 画面可复现）。
+ * ERA 31 修复：旧实现 `index.toLong() shl 32` 在 `and 0x7FFFFFFF` 后丢失全部 index 熵
+ * （shl 32 的低 32 位为 0）——所有粒子拿到同一随机数、堆叠在同一位置，
+ * 粒子场从未在视觉上存在过。改为乘以金角常数保留全 64 位 index 熵。
+ */
 fun sceneRandom(seed: Long, index: Int): Float {
-    var x = seed xor (index.toLong() shl 32) and 0x7FFFFFFF
+    var x = seed xor index.toLong() * -7046029254386353131L
     if (x == 0L) x = 1L
     x = x * 48271L % 2147483647L
     return (x and 0xFFFFFF).toFloat() / 16777215f
@@ -228,19 +255,44 @@ fun computeEchoSceneFrame(
     val frac = (golden and 0xFFFFFF).toFloat() / 16777215f
     val hue = 0.45f + frac * 0.3f
 
+    // ERA 31：纹理族（seed 纯函数，与 identity 派生同源）；对比度进入背景边缘深度。
+    val texture = seedTextureFamily(seed)
     val bgCenter = hsvToArgb(hue, 0.25f, 0.10f + params.brightness * 0.10f)
-    val bgEdge = hsvToArgb(hue, 0.5f, 0.04f + params.brightness * 0.05f)
+    val bgEdge = hsvToArgb(
+        hue, 0.5f,
+        (0.04f + params.brightness * 0.05f - params.contrast * 0.05f).coerceIn(0f, 1f),
+    )
     val accent = hsvToArgb(hue, 0.7f, 0.75f, 0.25f + params.accentIntensity * 0.6f)
 
     // 呼吸相位：pulsePeriod 驱动核心缩放
     val period = params.pulsePeriodSeconds.coerceAtLeast(1f)
     val breathe = sin(timeSeconds % period / period * 2f * PI.toFloat())
     val coreRadius = 0.10f + params.coreOpenness * 0.06f + breathe * 0.02f * (1f - params.turbulence * 0.5f)
+    // 主环：dispersion 展开 + 湍流起伏 + 缓慢的流动摆动（flowSpeed 驱动，有机不抖动）
     val ringRadius = coreRadius * 1.9f + params.dispersion * 0.35f +
-        sin(timeSeconds * 0.3f) * params.turbulence * 0.04f
+        sin(timeSeconds * 0.3f) * params.turbulence * 0.04f +
+        sin(timeSeconds * 0.7f) * params.flowSpeed * 0.015f
     val ringAlpha = (0.25f + params.coherence * 0.4f).coerceIn(0f, 0.8f)
 
-    // 粒子：数量/半径/α 由 density/coherence 决定；轨道由 flowSpeed 驱动
+    // 结构丰富度：次级环数量（0..3）；环晕纹理再补两条极淡远环
+    val extraRings = ArrayList<FrameRing>()
+    val extraRingCount = (params.structureComplexity * 3f).roundToInt().coerceIn(0, 3)
+    for (k in 1..extraRingCount) {
+        extraRings += FrameRing(
+            radiusFraction = ringRadius * (1f + 0.18f * k),
+            alpha = (ringAlpha * 0.35f / k).coerceAtMost(0.35f),
+        )
+    }
+    if (texture == 3) {
+        extraRings += FrameRing(ringRadius * 1.55f, ringAlpha * 0.16f)
+        extraRings += FrameRing(ringRadius * 1.95f, ringAlpha * 0.09f)
+    }
+
+    // 轨道几何：0 = 环状（粒子紧贴主环）→ 1 = 弥散（粒子从核心向外散布 + 椭圆化）
+    val orbitMix = params.structureComplexity
+    val ellipse = 1f - 0.30f * orbitMix
+
+    // 粒子：数量/半径/α 由 density/coherence 决定；轨道由 flowSpeed 驱动；纹理族改变形态
     val count = (14 + params.particleDensity * 46).toInt()
     val particles = ArrayList<SceneParticle>(count)
     for (i in 0 until count) {
@@ -249,17 +301,38 @@ fun computeEchoSceneFrame(
         val r3 = sceneRandom(seed, i * 3 + 3)
         val orbitSpeed = params.flowSpeed * (0.15f + r2 * 0.7f)
         val angle = r1 * 2f * PI.toFloat() + timeSeconds * orbitSpeed * 0.35f
-        val orbit = coreRadius * (1.4f + r2 * params.dispersion * 3.2f)
-        val px = 0.5f + cos(angle) * orbit * (width / minDim) * 0.5f
-        val py = 0.5f + sin(angle) * orbit * (height / minDim) * 0.5f
-        particles.add(
-            SceneParticle(
-                x = px.coerceIn(-0.1f, 1.1f),
-                y = py.coerceIn(-0.1f, 1.1f),
-                radiusFraction = (0.003f + r3 * 0.008f) * (0.6f + params.depth * 0.8f),
-                alpha = (0.15f + params.coherence * 0.55f) * (0.5f + r1 * 0.5f),
+        val ringDistance = coreRadius * (1.4f + r2 * params.dispersion * 1.2f)
+        val diffuseDistance = coreRadius * (0.5f + r2 * params.dispersion * 2.8f)
+        val radial = ringDistance + (diffuseDistance - ringDistance) * orbitMix
+        val px = (0.5f + cos(angle) * radial * (width / minDim) * 0.5f).coerceIn(-0.1f, 1.1f)
+        val py = (0.5f + sin(angle) * radial * ellipse * (height / minDim) * 0.5f).coerceIn(-0.1f, 1.1f)
+
+        val sizeBase = (0.003f + r3 * 0.008f) * (0.6f + params.depth * 0.8f)
+        val alphaBase = (0.15f + params.coherence * 0.55f) * (0.5f + r1 * 0.5f)
+        val tangentX = -sin(angle)
+        val tangentY = cos(angle)
+        when (texture) {
+            // 0 柔光：现状圆点
+            0 -> particles.add(SceneParticle(px, py, sizeBase, alphaBase))
+            // 1 微粒：更小更亮
+            1 -> particles.add(
+                SceneParticle(px, py, sizeBase * 0.45f, (alphaBase * 1.35f).coerceAtMost(1f)),
             )
-        )
+            // 2 流线：沿轨道切线的短流线
+            2 -> particles.add(
+                SceneParticle(
+                    x = px, y = py,
+                    radiusFraction = sizeBase * 0.6f,
+                    alpha = (alphaBase * 0.9f).coerceAtMost(1f),
+                    streakDirX = tangentX, streakDirY = tangentY,
+                    streakLength = (0.004f + r3 * 0.012f) * (0.4f + params.flowSpeed * 0.8f),
+                ),
+            )
+            // 3 环晕：略小略淡（家族特征由次级环表达）
+            else -> particles.add(
+                SceneParticle(px, py, sizeBase * 0.8f, (alphaBase * 0.7f).coerceAtMost(1f)),
+            )
+        }
     }
 
     return EchoSceneFrame(
@@ -270,5 +343,8 @@ fun computeEchoSceneFrame(
         ringAlpha = ringAlpha,
         accentColor = accent,
         particles = particles,
+        textureFamily = texture,
+        extraRings = extraRings,
+        contrast = params.contrast,
     )
 }

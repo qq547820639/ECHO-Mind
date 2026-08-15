@@ -239,7 +239,7 @@
 
 ### ECHO Scene
 - 成熟度：MATURE
-- 一句话：**我开始认识通常的你了。**
+- 一句话：**ECHO 还在了解今天。**
 - 证据：已观察 85 分钟
 - 视觉：flow=0.18 coherence=0.50 openness=0.70 turbulence=0.14 pulse=5.4s
 

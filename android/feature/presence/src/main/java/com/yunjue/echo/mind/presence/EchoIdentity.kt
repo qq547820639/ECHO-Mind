@@ -34,6 +34,18 @@ private fun identityMix(seed: Long, salt: Int): Long {
     return x xor (x ushr 31)
 }
 
+/**
+ * ERA 31 — 身份纹理族（0..3）与轨道几何（0..1）的 seed 纯函数。
+ * 提取为独立函数：identity 派生与**帧计算**共用同一事实源——
+ * 帧渲染器不持 identityGenome，但必须消费纹理/轨道（Part 17：
+ * 用户差异来自 texture/structure，而不是只换颜色）。
+ */
+fun seedTextureFamily(seed: Long): Int =
+    ((identityMix(seed, 3) ushr 8) % 4).toInt().let { if (it < 0) it + 4 else it }
+
+/** 轨道几何（0 = 环状，1 = 弥散）。 */
+fun seedOrbitGeometry(seed: Long): Float = identityRandom(seed, 2)
+
 private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t.coerceIn(0f, 1f)
 
 /**
@@ -96,10 +108,10 @@ fun deriveIdentityGenome(
         seed = seed,
         accentHue = (identityMix(seed, 1) ushr 40 and 0xFFFFFF).toFloat() / 16777215f,
         colorFamily = ((identityMix(seed, 2) ushr 8) % 5).toInt().let { if (it < 0) it + 5 else it },
-        textureFamily = ((identityMix(seed, 3) ushr 8) % 4).toInt().let { if (it < 0) it + 4 else it },
+        textureFamily = seedTextureFamily(seed),
         coreTopology = 0.4f + 0.6f * identityRandom(seed, 0),
         symmetryTendency = 0.3f + 0.7f * identityRandom(seed, 1),
-        orbitGeometry = identityRandom(seed, 2),
+        orbitGeometry = seedOrbitGeometry(seed),
         motionPersonality = motionPersonality,
     )
 }

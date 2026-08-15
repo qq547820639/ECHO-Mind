@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -92,20 +91,22 @@ private fun EchoEvidenceCards(facts: List<PortraitFactDto>) {
             Text("暂无更多细节。", style = MaterialTheme.typography.bodySmall)
         }
         facts.forEach { fact ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (fact.label.isNotBlank()) {
-                        Text(fact.label, style = MaterialTheme.typography.titleSmall)
-                    }
-                    if (fact.todayText.isNotBlank()) {
-                        Text("今天：${fact.todayText}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (fact.baselineText.isNotBlank()) {
-                        Text("平常：${fact.baselineText}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (fact.deltaText.isNotBlank()) {
-                        Text("变化：${fact.deltaText}", style = MaterialTheme.typography.bodySmall)
-                    }
+            // ERA 31：证据行去卡化——事实属于 ECHO 的呼吸，不属于 UI 卡片
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (fact.label.isNotBlank()) {
+                    Text(fact.label, style = MaterialTheme.typography.titleSmall)
+                }
+                if (fact.todayText.isNotBlank()) {
+                    Text("今天：${fact.todayText}", style = MaterialTheme.typography.bodySmall)
+                }
+                if (fact.baselineText.isNotBlank()) {
+                    Text("平常：${fact.baselineText}", style = MaterialTheme.typography.bodySmall)
+                }
+                if (fact.deltaText.isNotBlank()) {
+                    Text("变化：${fact.deltaText}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
