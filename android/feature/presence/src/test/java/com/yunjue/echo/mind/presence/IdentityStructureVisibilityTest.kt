@@ -1,8 +1,10 @@
 package com.yunjue.echo.mind.presence
 
+import com.yunjue.echo.mind.model.EchoMaturity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 /**
  * ERA 31 — 身份结构可见性回归。
@@ -109,5 +111,24 @@ class IdentityStructureVisibilityTest {
         }
         val mean = radii.average()
         return radii.map { (it - mean) * (it - mean) }.average()
+    }
+
+    @Test
+    fun dayZeroSeedPresenceMatchesFirstRuntimeIdentity() {
+        // ERA 31 R31：苏醒瞬间与运行时第一次 Presence 必须是同一个 ECHO——
+        // dayZeroSeedPresence 的 stability 与 AmbientEngine 无数据初值同源（0f），
+        // 派生参数与 PresenceRepository Day-0 路径（deriveIdentityGenome(seed, regularity=0f, DEFAULT)）一致。
+        val seed = 987654321L
+        val fixedNow = Instant.ofEpochSecond(1753632000)
+        val presence = dayZeroSeedPresence(identitySeed = seed, now = fixedNow)
+        assertEquals(EchoMaturity.SEED, presence.maturity)
+        assertEquals(fixedNow, presence.updatedAt)
+        assertEquals(
+            "Day-0 SEED presence 的 Identity 应与运行时同参派生完全一致",
+            deriveIdentityGenome(seed = seed, baselineStability = 0f, motionPreference = PresenceMotionLevel.DEFAULT),
+            presence.identityGenome,
+        )
+        // 确定性与稳定：同 seed 重复构建恒等
+        assertEquals(presence, dayZeroSeedPresence(identitySeed = seed, now = fixedNow))
     }
 }

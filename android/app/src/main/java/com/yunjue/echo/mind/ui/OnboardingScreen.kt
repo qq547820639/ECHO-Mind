@@ -18,16 +18,11 @@ import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.model.EchoMaturity
-import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoLifeField
-import com.yunjue.echo.mind.presence.PresenceMotionLevel
-import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.util.UUID
 
 /**
@@ -358,19 +353,11 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
         onFinished()
     }
 
-    // ERA 31 R22：苏醒瞬间必须是「这个 ECHO」——Day-0 SEED presence 由真实 identitySeed
-    // 派生（与 Scene/Wallpaper 同源的 deriveIdentityGenome + production 渲染器），
-    // 不是通用占位圆（旧 P1 占位注释兑现）。
+    // ERA 31 R22/R31：苏醒瞬间必须是「这个 ECHO」——Day-0 SEED presence 由真实 identitySeed
+    // 经 dayZeroSeedPresence 单一构建点派生（R31：stability 与运行时 Day-0 同源 0f，
+    // 与随后进入的 ECHO Scene 是同一个 ECHO 的连续呼吸，不是通用占位圆）。
     val seedPresence = remember {
-        EchoPresenceState(
-            updatedAt = Instant.now(),
-            maturity = EchoMaturity.SEED,
-            identityGenome = deriveIdentityGenome(
-                seed = preferences.identitySeed,
-                baselineStability = 0.5f,
-                motionPreference = PresenceMotionLevel.DEFAULT,
-            ),
-        )
+        com.yunjue.echo.mind.presence.dayZeroSeedPresence(identitySeed = preferences.identitySeed)
     }
 
     Box(

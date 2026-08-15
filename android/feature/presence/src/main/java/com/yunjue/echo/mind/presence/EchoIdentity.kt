@@ -2,6 +2,7 @@ package com.yunjue.echo.mind.presence
 import com.yunjue.echo.mind.model.EchoDailyComposition
 import com.yunjue.echo.mind.model.EchoIdentityGenome
 import com.yunjue.echo.mind.model.EchoLifeSeason
+import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.EchoMomentState
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.model.echoMaturity
@@ -91,8 +92,7 @@ fun identityDistance(a: EchoIdentityGenome, b: EchoIdentityGenome): Float {
  * @param seed installation random seed（AppPreferences.identitySeed，一次性生成持久化）
  * @param baselineStability 长期基线稳定性 0..1（来自 AmbientVector.regularity：稳定模式缓慢塑形运动人格）
  * @param motionPreference 用户视觉偏好（QUIET/DEFAULT/LIVELY）
- */
-fun deriveIdentityGenome(
+ */fun deriveIdentityGenome(
     seed: Long,
     baselineStability: Float,
     motionPreference: PresenceMotionLevel,
@@ -121,6 +121,29 @@ fun deriveIdentityGenome(
         motionPersonality = motionPersonality,
     )
 }
+
+/**
+ * ERA 31 R31 — Day-0 SEED presence 单一构建点（AwakeningScreen 用）。
+ *
+ * 苏醒瞬间与随后进入的 ECHO Scene 必须是**同一个 ECHO**：这里用与运行时 Day-0 相同的
+ * 参数源（baselineStability = 0f = AmbientEngine 无数据时的 regularity 初值；
+ * motionPreference = 用户偏好，onboarding 完成前恒为 DEFAULT），派生出的 Identity
+ * 与 PresenceRepository 第一次刷新完全一致（accent/color/texture/topology/orbit 只依赖
+ * seed，motionPersonality 同参同值——零切换感由契约保证，而不是碰巧长得像）。
+ */
+fun dayZeroSeedPresence(
+    identitySeed: Long,
+    motionPreference: PresenceMotionLevel = PresenceMotionLevel.DEFAULT,
+    now: java.time.Instant = java.time.Instant.now(),
+): EchoPresenceState = EchoPresenceState(
+    updatedAt = now,
+    maturity = EchoMaturity.SEED,
+    identityGenome = deriveIdentityGenome(
+        seed = identitySeed,
+        baselineStability = 0f, // AmbientEngine 无数据初值 regularity = 0f（同源）
+        motionPreference = motionPreference,
+    ),
+)
 
 /** §56 — 两半窗口趋势（first half → second half；中性词表）。 */
 private fun trendLabel(
