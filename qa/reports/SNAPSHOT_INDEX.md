@@ -55,6 +55,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND27.md](ERA31_ROUND27.md) — ERA 31 R27（Journey 一条河流：河段故事并入主河流）
 - [ERA31_ROUND28.md](ERA31_ROUND28.md) — ERA 31 R28（Scene 早期状态去仪表化：进度条与覆盖率条退役）
 - [ERA31_ROUND29.md](ERA31_ROUND29.md) — ERA 31 R29（Scene Action 安静化：按钮墙折叠成单一入口）
+- [ERA31_ROUND30.md](ERA31_ROUND30.md) — ERA 31 R30（文案一致性收口：引号规范 + 重新生成按钮人话化）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

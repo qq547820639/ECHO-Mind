@@ -51,7 +51,7 @@ object LocalPortraitEngine {
 
     // ===== 固定文案（镜像 narrative.py） =====
     const val WARMING_UP_TEXT =
-        "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较“今天”和“平常的你”。"
+        "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较「今天」和「平常的你」。"
     const val LOW_CONFIDENCE_TEXT =
         "今天的数据还不够完整，暂时看不出和你平时相比有什么可靠变化。"
     const val PARTIAL_DATA_PREFIX =

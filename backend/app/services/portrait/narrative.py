@@ -78,7 +78,7 @@ DIMENSION_ORDER = (
     "STABILITY",
 )
 
-WARMING_UP_TEXT = "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较“今天”和“平常的你”。"
+WARMING_UP_TEXT = "ECHO 正在慢慢了解你的日常节奏。再积累几天，就能开始比较「今天」和「平常的你」。"
 LOW_CONFIDENCE_TEXT = "今天的数据还不够完整，暂时看不出和你平时相比有什么可靠变化。"
 PARTIAL_DATA_PREFIX = "今天的数据还不完整，以下画像仅反映已经采集到的部分。 "
 
