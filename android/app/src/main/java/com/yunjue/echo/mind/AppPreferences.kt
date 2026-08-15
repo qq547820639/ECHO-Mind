@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.yunjue.echo.mind.security.FieldCipher
 import kotlinx.coroutines.flow.Flow
@@ -421,13 +422,17 @@ class AppPreferences(
     /**
      * 最近一版 EchoPresenceState 快照（[com.yunjue.echo.mind.presence.EchoPresenceCodec] 编码）。
      * Wallpaper / Dream 进程只读此快照（不初始化业务容器）；PresenceRepository 每次刷新落盘。
+     * ERA 31 R16：apply → commit——这是进程死亡恢复锚点（crash-free Presence runtime 指标）：
+     * 硬崩溃时 apply 的排队写入可能丢失 → 重启后 ECHO 退化为中性占位长达 15 分钟。
+     * 15 分钟一次的小字符串同步写，主线程成本可忽略。
      */
+    @set:SuppressLint("ApplySharedPref")
     var echoPresenceSnapshot: String?
         get() = prefs.getString(KEY_ECHO_PRESENCE_SNAPSHOT, null)
         set(value) {
             val edit = prefs.edit()
             if (value == null) edit.remove(KEY_ECHO_PRESENCE_SNAPSHOT) else edit.putString(KEY_ECHO_PRESENCE_SNAPSHOT, value)
-            edit.apply()
+            edit.commit()
         }
 
     /** 动态程度：QUIET / DEFAULT / LIVELY（Me → Presence 设置）。 */

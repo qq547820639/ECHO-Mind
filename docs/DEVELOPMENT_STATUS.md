@@ -9,10 +9,10 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `b16fc1ce119beeaa75104a312ddc7194a2c48c98`（Product Quality Era R8 收官） |
-| 相对 Release Baseline | +10 commits（v0.9.0 发布终检之后的 Product Quality Era R1–R8）+ ERA 31 R1 |
+| HEAD（本轮起点） | `1e2aea5acf89c21dfa834c7d0a154322e8ae8d49`（ERA 31 R15 收口） |
+| 相对 Release Baseline | +7 commits（v0.10.0 Release Baseline 之后 R11–R16，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
-| 版本线 | v0.9.0（versionCode 6；下一 release 重新收口） |
+| 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
 ## 2. 最新能力（DEVELOPMENT_HEAD）
 
@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**1008 unit tests**（app 853 / feature:intelligence 20 / feature:presence 24 / feature:qa 111；ERA 31 R13 实测全绿）+ lint（4 安全规则）+
+- Android：**1010 unit tests**（app 855 / feature:intelligence 20 / feature:presence 24 / feature:qa 111；ERA 31 R16 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
@@ -46,10 +46,10 @@
 ## 4. Known Issues（如实记录）
 
 - **无真机实拍**：Wallpaper 真机电池/帧率/进程死亡场景未在真机采集（BATCH 6 执行；本环境只有 JVM/模拟器锚点；
-  清单 `qa/visual-review/DEVICE_CHECKLIST.md`）。
-- **Release 缺口**：Development HEAD 未做新一轮 Release Closure（BATCH 8 收口）。
-- **QA mirror 残余**：QaPortraitMirror / QaHeadlineEngine 与生产实现存在重复（见
-  `qa/reports/QA_MIRROR_AUDIT.md`；跨语言黄金门 + BATCH 7 下沉为待办）。
+  清单 `qa/visual-review/DEVICE_CHECKLIST.md`）。R16 已修复进程死亡的软件侧锚点（快照 commit 落盘 +
+  `EchoPresenceSnapshotRecoveryTest` 写/读进程分离回归），真机进程死亡实测仍归外部门。
+- **Release 缺口**：v0.10.0 Release Closure 已完成（R9/R10）；Development HEAD（R11–R16 打磨轮）未做新一轮
+  Release Closure，待下一 release 收口。
 - **人眼评审待确认**：机器代理全 PASS，但画廊的人眼结论（不同用户/连续性/壁纸生命感）需人打开
   `qa/visual-review/index.html` 作答（`qa/reports/ERA31_VISUAL_REVIEW_R1.md` §6）。
 - **动画捕获未做**：静态帧无法体现 motion character；短动画捕获列后续轮次（技术可行时）。
@@ -115,6 +115,11 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。下一阶段（真实 dogfood 数据回流后）**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R16）✅**：
+R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
+R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
+（快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）。
+
+**下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；
 - Affective 评估（ERA 30 前置满足后）；Production 签名与设备矩阵。
