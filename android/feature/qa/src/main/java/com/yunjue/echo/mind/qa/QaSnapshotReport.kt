@@ -134,6 +134,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND30.md](ERA31_ROUND30.md) — ERA 31 R30（文案一致性收口：引号规范 + 重新生成按钮人话化）")
         sb.appendLine("- [ERA31_ROUND31.md](ERA31_ROUND31.md) — ERA 31 R31（苏醒 = 第一次 Presence：Day-0 SEED 单一构建点）")
         sb.appendLine("- [ERA31_ROUND32.md](ERA31_ROUND32.md) — ERA 31 R32（关键验收契约锁：UI 建议同步 + 纠正复用全链）")
+        sb.appendLine("- [ERA31_ROUND33.md](ERA31_ROUND33.md) — ERA 31 R33（Release Integrity 复核：全量本地预检 + Baseline 文档对齐）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()

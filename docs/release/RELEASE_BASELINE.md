@@ -10,8 +10,9 @@
 | **DEVELOPMENT_HEAD** | 当前 git main 顶端；包含已合入但尚未发布验证的代码 | `git rev-parse HEAD` |
 | **LAST_RELEASE_BASELINE** | 最近一次完整走完发布终检（tests / product QA / Android build / backend build / archive integrity / source manifest / SBOM / provenance / artifact manifest / release package）的 commit | 本文件 |
 
-**当前 HEAD ≠ last release。** Product Quality Era（R1–R8）的新代码在 v0.9.0 发布终检之后合入，
-尚未完成新一轮 Release Closure（ERA 39 §45）。
+**当前 HEAD ≠ last release。** ERA 31 v0.10.0 后产品主链打磨轮 R11–R32（Real Render /
+Scene / Wallpaper / Reasoning / Correction Reuse / Journey / 苏醒 / 信任与安静化走查）已在
+v0.10.0 Release Closure 之后合入 main，尚未完成新一轮 Release Closure（ERA 39 §45）。
 
 ## 2. 当前锚点（2026-08-15 更新：v0.10.0 Release Closure）
 
@@ -29,7 +30,7 @@
 
 1. 任何文档说「已发布」或「release 通过」时，只对 LAST_RELEASE_BASELINE 及其发布物成立。
 2. 描述 Development HEAD 的能力时用 `docs/DEVELOPMENT_STATUS.md`，不得改写历史发布元数据。
-3. 下一次 Release Closure（BATCH 8）必须在 clean checkout 上全量重新生成
+3. 下一次 Release Closure 必须在 clean checkout 上全量重新生成
    tests / product QA / Android build / backend build / archive integrity / source manifest /
-   SBOM / provenance / artifact manifest / release package——**不得带着旧 v0.9.0 proof 发布新代码**。
+   SBOM / provenance / artifact manifest / release package——**不得带着旧 v0.10.0 proof 发布新代码**。
 4. Release Closure 通过后，把新 commit 更新为本文件的 LAST_RELEASE_BASELINE。

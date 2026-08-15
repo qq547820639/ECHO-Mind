@@ -9,8 +9,8 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `1efe508`（ERA 31 R31 收口） |
-| 相对 Release Baseline | +23 commits（v0.10.0 Release Baseline 之后 R11–R32，含本提交） |
+| HEAD（本轮起点） | `33f0efd`（ERA 31 R32 收口） |
+| 相对 Release Baseline | +24 commits（v0.10.0 Release Baseline 之后 R11–R33，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
 | 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
@@ -115,7 +115,7 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R32）✅**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R33）✅**：
 R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
 R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
 （快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）· R17 Ask ECHO 免费用户走查
@@ -134,7 +134,8 @@ R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安�
 （按钮墙折叠成单一「想做点什么？」入口，订阅槽位不再常驻）· R30 文案一致性收口
 （引号规范统一 + 「重新生成」→「重新看看今天」）· R31 苏醒 = 第一次 Presence
 （Day-0 SEED 单一构建点，苏醒与运行时 identity 逐字段一致）· R32 关键验收契约锁
-（纠正复用 production 全链 + UI 建议必须离线可答）。
+（纠正复用 production 全链 + UI 建议必须离线可答）· R33 Release Integrity 复核
+（LOCAL PREFLIGHT 全绿 + Baseline 文档对齐）。
 
 **下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；
