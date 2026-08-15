@@ -387,6 +387,10 @@ interface MemoryDao {
     @Query("UPDATE echo_memories SET content = :content, lastConfirmedAt = :now WHERE id = :id")
     suspend fun edit(id: String, content: String, now: Long)
 
+    /** ERA 82 §76：用户 pin——固定为永不过期（USER_PINNED）+ 确认时间刷新。 */
+    @Query("UPDATE echo_memories SET retentionClass = 'USER_PINNED', lastConfirmedAt = :now WHERE id = :id")
+    suspend fun pin(id: String, now: Long)
+
     /** 自动过期打标（purgeExpired）。 */
     @Query("UPDATE echo_memories SET deleted = 1 WHERE id = :id")
     suspend fun expire(id: String)

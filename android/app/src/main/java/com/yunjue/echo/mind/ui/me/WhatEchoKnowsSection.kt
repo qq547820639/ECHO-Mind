@@ -190,7 +190,7 @@ private fun ContextExceptionDialog(
     )
 }
 
-/** 单条记忆行（四权：编辑/确认/忘记；编辑为内联文本框）。 */
+/** 单条记忆行（五权：编辑/确认/固定/忘记；编辑为内联文本框）。 */
 @Composable
 private fun MemoryRow(
     label: String,
@@ -228,6 +228,7 @@ private fun MemoryRow(
                 }
                 TextButton(onClick = { editing = true; draft = memory.content }) { Text("编辑") }
                 TextButton(onClick = { onEvent(MemoryManagementEvent.Confirm(memory.id)) }) { Text("确认") }
+                TextButton(onClick = { onEvent(MemoryManagementEvent.Pin(memory.id)) }) { Text("固定") }
                 TextButton(onClick = { onEvent(MemoryManagementEvent.Forget(memory.id)) }) { Text("忘记") }
             }
         }

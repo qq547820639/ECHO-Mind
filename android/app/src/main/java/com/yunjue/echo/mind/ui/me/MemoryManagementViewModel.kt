@@ -22,8 +22,7 @@ import kotlinx.coroutines.launch
 /**
  * ERA 13.1 §36 — MemoryManagementViewModel（What ECHO Knows）。
  *
- * confirm / edit / forget / filter 全部在此；pin 属 ERA 15.5 Memory Maturity
- * （当前 EchoMemory 无 pinned 字段，不预置死事件）。
+ * confirm / edit / forget / pin / filter 全部在此（ERA 82 §76：pin 补齐第四权）。
  */
 class MemoryManagementViewModel(
     app: Application,
@@ -82,6 +81,8 @@ class MemoryManagementViewModel(
                 viewModelScope.launch { container.memoryRepository.edit(event.id, event.content) }
             is MemoryManagementEvent.Forget ->
                 viewModelScope.launch { container.memoryRepository.forget(event.id) }
+            is MemoryManagementEvent.Pin ->
+                viewModelScope.launch { container.memoryRepository.pin(event.id) }
             is MemoryManagementEvent.AddContextException ->
                 viewModelScope.launch {
                     container.memoryRepository.recordContextException(

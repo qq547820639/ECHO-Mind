@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**First-Run 纵向切面真值审计收官 ✅（ADR-068 两轮结项：Day-0 苏醒（中性非空白 + 确定性 + 种子跨时间同一 ECHO）+ Day 1-7 冷启动（第一个 READY 画像恰在第 7 有效日、第 6 日不提前））→ 下一轮：ADR-069 长阶段第 1 轮（Memory 生命周期闭环真值审计 §76）**
+**Memory 生命周期闭环真值审计第 1 轮完成 ✅（ADR-069 §76：发现并修复 pin 第四权缺失——USER_PINNED 此前零写路径（模型/UI 标签存在但永不可达）；补齐端口/仓库/DAO/事件/VM/UI 五层 pin 链 + 落盘锚定）→ 下一轮：decay/expiry/reinforce 执行链复核（维护序列既有锚定 + 检索衰减 + 强化顺延）与 ADR-069 结项 + ADR-070 选型**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**842 unit tests 全绿**（ERA 81 +1：第一个 READY 画像第 7 有效日边界锚）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**843 unit tests 全绿**（ERA 82 +1：pin 第四权落盘锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -119,6 +119,7 @@
 - **Personal Baseline 真值审计收官**：镜像一致性终检——LocalPortraitGoldenTest 001~008 与 backend test_portrait_golden.py 逐场景对齐；**锚点 +2**：confidenceFor 与 backend confidence.py 逐边界镜像（HIGH 0.7/7/无缺失、缺失源降级 MEDIUM、MEDIUM 0.3/3、边界下 LOW）/ 基线 validDays → 状态机 → echoMaturity 视觉成熟度阶梯传导（BASELINE_READY ↔ 至少 KNOWN）；**ADR-067 两轮结项** + **ADR-068 选型**：下一长阶段 = First-Run 纵向切面真值审计（FINAL PRODUCT ACCEPTANCE 首段：安装→授权→苏醒→感知→WARMING_UP→基线成型→第一个 READY 画像）
 - **First-Run 纵向切面真值审计第 1 轮**：Day-0 苏醒段审计——PresenceRepository.assemble 镜像输入复核（无授权无数据仍组装：AmbientEngine UNKNOWN 中性 → 安装种子 Identity → SEED 成熟度 → 中性视觉参数）；**锚点 +2（FirstRunVerticalTest）**：新装首帧非空白（粒子/核心/强调色存在）+ 完全确定性（同输入同帧）/ 安装种子跨时间同一 ECHO（Day 0 vs Day N 基因组相等、异种子不相等——§53/§54）；「不接模型 ECHO 仍然存在」的视觉基础具备直接锚点
 - **First-Run 纵向切面真值审计收官**：Day 1-7 冷启动段——**第一个 READY 画像恰在第 7 个有效日触发**（baselineDays == 7 + 维度非空 + headline 非空），第 6 有效日仍 EARLY_BASELINE（阶梯边界不提前）；WARMING_UP 事实句与 EARLY 无「比平常」既有 golden（005/007）复核保持；**ADR-068 两轮结项**（FINAL PRODUCT ACCEPTANCE 首段逐段可测）+ **ADR-069 选型**：下一长阶段 = Memory 生命周期闭环真值审计（§76：decay/expiry/reinforce/pin 真实执行链复核——Memory 成熟度最后一环）
+- **Memory 生命周期闭环真值审计第 1 轮**：**发现并修复 pin 第四权缺失**——USER_PINNED 此前零写路径（模型保留级别与 UI 标签「你固定的（永不自动清理）」存在，但无 pin 事件/端口/DAO，永不可达）；补齐五层链：EchoMemoryWriter.pin 端口 + MemoryDao.pin SQL（retentionClass → USER_PINNED + 确认时间刷新）+ MemoryRepository + MemoryManagementEvent.Pin + VM 接线 + WhatEchoKnowsSection「固定」按钮（五权：编辑/确认/固定/忘记）；**落盘锚定**：pin 后 retentionClass 与 lastConfirmedAt 断言 + 十年后 shouldForget == false（纯函数与落盘一致）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -164,4 +165,4 @@
 
 ## Next Highest-value Task
 
-ADR-069 长阶段第 1 轮（Memory 生命周期闭环真值审计 §76）：执行链审计（PresenceRefreshWorker 顺序 refresh → snapshotToday → purgeExpired → derivePatterns + WorkManager 调度注册）+ decay 参与检索 / expiry 软删 / reinforce 用户确认强化 / pin 永不过期 四路径端到端锚定；发现缺口以测试固定。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+ADR-069 第 2 轮（Memory 生命周期收官）：decay/expiry/reinforce 执行链复核（PresenceMaintenanceScript 顺序与 fail-closed 既有锚定 + 检索衰减分参与 + confirm 强化顺延 + 过期软删审计保留）+ 数据权利联动复核（忘记/导出/删除与软删行语义）+ ADR-069 结项 + ADR-070 选型。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。

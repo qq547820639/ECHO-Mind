@@ -32,6 +32,9 @@ interface EchoMemoryWriter {
     suspend fun forget(id: String)
 
     suspend fun edit(id: String, content: String, now: Long = System.currentTimeMillis())
+
+    /** ERA 82 §76：固定记忆（USER_PINNED 永不过期；用户控制权的第四权）。 */
+    suspend fun pin(id: String, now: Long = System.currentTimeMillis())
 }
 
 /** 纠错记忆写入端口（用户自述最高优先；UI 不得绕过）。 */

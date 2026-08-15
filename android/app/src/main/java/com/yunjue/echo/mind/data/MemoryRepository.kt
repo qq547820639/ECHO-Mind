@@ -105,6 +105,10 @@ class MemoryRepository(
         memoryDao().forget(id)
     }
 
+    override suspend fun pin(id: String, now: Long) {
+        memoryDao().pin(id, now)
+    }
+
     override suspend fun edit(id: String, content: String, now: Long) {
         if (content.isBlank()) return
         memoryDao().edit(id, content.trim(), now)

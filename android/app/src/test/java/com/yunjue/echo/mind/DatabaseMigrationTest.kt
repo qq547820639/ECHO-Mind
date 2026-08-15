@@ -10,6 +10,7 @@ import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.ConsentEntity
 import com.yunjue.echo.mind.data.DailyPortraitEntity
 import com.yunjue.echo.mind.data.EchoDatabase
+import com.yunjue.echo.mind.data.EchoMemoryEntity
 import com.yunjue.echo.mind.data.FeatureVectorEntity
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -300,6 +301,49 @@ class DatabaseMigrationTest {
         // 标记同步
         dao.markFeatureVectorSynced("feat_test_1")
         assertEquals("标记同步后应无未同步特征", 0, dao.pendingFeatureVectors().size)
+    }
+
+    @Test
+    fun memoryPinSetsPinnedRetentionAndRefreshesConfirmation() = runBlocking {
+        // ERA 82 §76：pin 写路径——USER_PINNED + 确认时间刷新（永不过期语义的落盘锚点）。
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val dao = db!!.memoryDao()
+        dao.upsert(
+            EchoMemoryEntity(
+                id = "mem_pin",
+                userId = "u_pin",
+                type = "OBSERVATION",
+                content = "周一晚睡",
+                source = "observation",
+                confidence = 0.8f,
+                createdAt = 1000L,
+                lastConfirmedAt = 1000L,
+                importance = 50,
+                retentionClass = "SHORT_TERM",
+                provenance = "observation:v1",
+            )
+        )
+        dao.pin("mem_pin", now = 5000L)
+        val pinned = dao.byId("mem_pin")
+        assertEquals("USER_PINNED", pinned?.retentionClass)
+        assertEquals(5000L, pinned?.lastConfirmedAt)
+        // 固定后永不自动过期（纯函数语义与落盘一致）
+        val domain = com.yunjue.echo.mind.memory.EchoMemory(
+            id = pinned!!.id,
+            userId = pinned.userId,
+            type = com.yunjue.echo.mind.memory.MemoryType.OBSERVATION,
+            content = pinned.content,
+            source = pinned.source,
+            confidence = pinned.confidence,
+            createdAt = pinned.createdAt,
+            lastConfirmedAt = pinned.lastConfirmedAt,
+            importance = pinned.importance,
+            retentionClass = com.yunjue.echo.mind.memory.RetentionClass.USER_PINNED,
+            provenance = pinned.provenance,
+        )
+        assertTrue(!com.yunjue.echo.mind.memory.shouldForget(domain, 5000L + 3650L * 86_400_000L))
     }
 
     @Test

@@ -33,6 +33,7 @@ class EchoCorrectionServiceTest {
         override suspend fun confirm(id: String, now: Long) = Unit
         override suspend fun forget(id: String) = Unit
         override suspend fun edit(id: String, content: String, now: Long) = Unit
+        override suspend fun pin(id: String, now: Long) = Unit
     }
 
     private class FakeCorrectionWriter : CorrectionMemoryWriter {
