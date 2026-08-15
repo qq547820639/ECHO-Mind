@@ -174,5 +174,37 @@ object QaQuestionBank {
         }
     }
 
+    /**
+     * ERA 31 BATCH 2 §20 — Core Personal Reasoning Set（26 条最高价值问题）。
+     *
+     * 从 CORE 43 条中精选：每一条都直接命中「只有我的 ECHO 才能回答」+
+     * Day 30/90/180 验收场景。人审/回答质量 review（Answer Quality A-D 四层）
+     * 以本集合为优先对象，其余题目继续存在测试但不分散开发。
+     * 选择记录与理由见 qa/reports/CORE_PERSONAL_REASONING_SET.md。
+     */
+    val CORE_PERSONAL_IDS: Set<String> = setOf(
+        // 节律漂移（Day 30 验收：「最近是不是越来越晚？」）
+        "q001", "q004", "q005", "q006",
+        // 周质量 / 碎片化（「为什么最近这么碎？」）
+        "q007", "q009", "q010",
+        // 月对比（「这个月和上个月最大的变化？」）
+        "q013", "q015", "q017",
+        // 周末 vs 工作日（「周末和平时有什么区别？」）
+        "q019", "q021", "q023",
+        // 相似日（「最近哪几天和今天最像？」）
+        "q025", "q028",
+        // 稳定性（「最近稳定下来了吗？」）
+        "q029", "q031", "q032",
+        // 今天为什么不一样（「为什么今天不一样？」）
+        "q033", "q035", "q037",
+        // 上下文 / 纠正召回（「上次我说在出差」「我纠正过你什么？」）
+        "q038", "q040", "q042", "q043",
+        // 长期变化（Day 180 验收：「这半年我有什么变化？」对应半年趋势）
+        "q014",
+    )
+
     fun byId(id: String): QuestionCase = ALL.first { it.id == id }
+
+    /** Core Personal Reasoning Set 展开（人审顺序稳定）。 */
+    val CORE_PERSONAL: List<QuestionCase> = CORE.filter { it.id in CORE_PERSONAL_IDS }
 }

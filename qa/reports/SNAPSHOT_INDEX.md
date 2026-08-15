@@ -23,5 +23,10 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [PRODUCT_SIMPLIFICATION_EVAL.md](PRODUCT_SIMPLIFICATION_EVAL.md) — 简化 / 模块卫生（ERA 26/28 / Batch 6）
 - [RELEASE_QUALITY_GATE.md](RELEASE_QUALITY_GATE.md) — 发布质量门（Batch 8 收官）
 - [../DOGFOOD_PROTOCOL.md](../DOGFOOD_PROTOCOL.md) — 30 天 dogfood 协议（ERA 29 §63）
+- [ERA31_VISUAL_REVIEW_R1.md](ERA31_VISUAL_REVIEW_R1.md) — ERA 31 Real Render Review R1（真实画面缺陷修复闭环）
+- [ERA31_ROUND2.md](ERA31_ROUND2.md) — ERA 31 R2（跨语言黄金门 + 运动序列 + Core Personal Reasoning Set）
+- [CORE_PERSONAL_REASONING_SET.md](CORE_PERSONAL_REASONING_SET.md) — BATCH 2 §20 最高价值问题集（26 条）
+- [QA_MIRROR_AUDIT.md](QA_MIRROR_AUDIT.md) — :feature:qa 与 production 重复实现审计（ERA 31 BATCH 1）
+- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 
 生成方式：`QaSnapshotSuiteTest`（:feature:qa 单元测试）确定性重放生成，可随时重复生成零漂移。

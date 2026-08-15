@@ -1,0 +1,156 @@
+{
+  "cases": [
+    {
+      "dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 0,
+          "metric": null,
+          "value": "VERY_SIMILAR",
+          "z": null
+        }
+      },
+      "name": "typical_day"
+    },
+    {
+      "dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "MORE_FRAGMENTED",
+          "z": 4.2156
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "MORE",
+          "z": 5.9018
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "LATER",
+          "z": 8.2063
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "MORE",
+          "z": 5.3959
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "LATER",
+          "z": 6.7449
+        },
+        "STABILITY": {
+          "diff_count": 5,
+          "metric": null,
+          "value": "CLEARLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "big_late_drift"
+    },
+    {
+      "dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "MORE",
+          "z": 1.1242
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 1,
+          "metric": null,
+          "value": "SLIGHTLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "missing_start"
+    },
+    {
+      "dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "LATER",
+          "z": 6.6
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 1,
+          "metric": null,
+          "value": "SLIGHTLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "near_zero_baseline"
+    },
+    {
+      "dimensions": {
+        "STABILITY": {
+          "diff_count": 0,
+          "metric": null,
+          "value": "VERY_SIMILAR",
+          "z": null
+        }
+      },
+      "name": "empty_baseline"
+    }
+  ],
+  "golden_version": 1,
+  "source": "backend/app/services/portrait/dimensions.py::compute_dimensions"
+}

@@ -39,7 +39,7 @@
 - Android：**976 unit tests**（app 847 / feature:presence 21 / feature:qa 108；ERA 31 R1 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
-- backend：pytest **1076 passed + 1 skipped**、ruff 0、mypy strict 0、uv.lock 冻结。
+- backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
 - 性能：PERFORMANCE_BASELINES 13 行预算（JVM 段）+ connected-test 设备锚点。
 - CI 五套：android-ci / backend-ci / security-ci / source-integrity / release-closure（66 uses 全 SHA 锁定）。
 
@@ -57,14 +57,14 @@
 
 ## 5. Next Product Slice（当前执行）
 
-**BATCH 1 — 真实产品明显变好**：
+**BATCH 1 ✅ 完成（R1+R2）**：架构冻结落地 / Dev-Release 区分 / QA mirror 审计 / 真实 Render Review 画廊 /
+两个真实视觉缺陷修复 / Scene 信息密度修复 / 运动序列捕获 / 跨语言黄金门。
 
-1. 架构冻结落地（`docs/product/ERA31_FELT_PRODUCT_REALITY.md`）。
-2. Development HEAD / Release Baseline 区分（本文件 + `docs/release/RELEASE_BASELINE.md`）。
-3. :feature:qa 与 production 重复实现审计。
-4. **真实 ECHO Render Review**：`qa/visual-review/` 渲染 PNG（APP / HOME_WALLPAPER / LOCK_SAFE /
-   DREAM / CANONICAL_JOURNEY × 7 profiles × Day 0/7/28/90/180）+ 参数快照 + 状态解释 + 对比拼图。
-5. Day 0/7/28/90/180 实际画面检查；双用户视觉差异；同用户长期连续性（人眼作答，非仅参数）。
-6. 真机 Wallpaper 验证清单（`qa/visual-review/DEVICE_CHECKLIST.md`）。
-7. 从真实画面修第一批视觉/交互问题。
-8. 重新审核 ECHO Scene 信息密度并落地修复。
+**BATCH 2 进行中（§20-25）**：
+
+1. ✅ Core Personal Reasoning Set 26 条（`qa/reports/CORE_PERSONAL_REASONING_SET.md`）。
+2. ⏭ 对 26 条跑真实回答链路，Answer Quality 四层人审（A Evidence / B Context / C Personal usefulness / D ECHO voice）。
+3. ⏭ Correction → Future Reasoning 真实闭环验收（q038/q040/q042）。
+4. ⏭ Context retrieval 用户自述优先复核。
+5. ⏭ Grounding overreach 检查。
+6. ⏭ Narrative Distiller / Provider persona stability。

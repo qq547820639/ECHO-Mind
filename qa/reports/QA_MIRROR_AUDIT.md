@@ -57,7 +57,11 @@ production 真实回答链路（分类→检索→Grounding→叙事）不在 QA
 
 1. ✅ 本报告入库 `qa/reports/QA_MIRROR_AUDIT.md`。
 2. ✅ `QaHeadlineEngine.learningPhase` 与 production `learningPhaseHeadline` 逐字对齐（含 KNOWN/MATURE 独立分支，MATURE 兜底「ECHO 还在了解今天。」一致）。
-3. ⏳ 跨语言黄金门（backend golden JSON → QaPortraitMirror 对拍）——下一轮优先。
+3. ✅ 跨语言黄金门已落地（ERA 31 R2）：`qa/reports/mirror_goldens/fixture.json`（语言中立 5 cases）→
+   `backend/scripts/export_mirror_golden.py` 导出 `golden.json`（backend = 产品真值）；
+   `backend/tests/test_mirror_golden.py` 保证 backend 侧提交零漂移；
+   `QaPortraitMirrorGoldenTest`（Android）用同一 fixture 对拍 mirror（value/metric/z 逐字段）。
+   实测首轮对拍即全绿（mirror 与 backend 当前语义一致）——今后任何一侧漂移都会在各自 CI 变红。
 
 ## 6. 后续（BATCH 7 收口）
 

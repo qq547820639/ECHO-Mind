@@ -1,0 +1,98 @@
+{
+  "$comment": "QaPortraitMirror 跨语言黄金 fixture（语言中立）：today = 当日聚合字段；baseline_metrics = 后端 personal_baselines.metrics 同构。golden.json 由 backend/scripts/export_mirror_golden.py 从本文件确定性导出（backend compute_dimensions = 产品真值）；Android QaPortraitMirrorGoldenTest 用同一份输入对拍 Kotlin mirror。",
+  "cases": [
+    {
+      "name": "typical_day",
+      "$comment": "全部 SIMILAR（minimum meaningful delta 内）→ STABILITY VERY_SIMILAR",
+      "today": {
+        "active_start_minute": 560,
+        "active_end_minute": 1392,
+        "movement_index": 1.2,
+        "screen_on_minutes": 310.0,
+        "late_screen_minutes": 44.0,
+        "active_hour_spread": 0.51
+      },
+      "baseline_metrics": {
+        "active_start_minute": {"median": 554.0, "mad": 12.0, "p25": 542.0, "p75": 568.0},
+        "active_end_minute": {"median": 1385.0, "mad": 9.0, "p25": 1372.0, "p75": 1398.0},
+        "movement_index": {"median": 1.15, "mad": 0.12, "p25": 1.05, "p75": 1.25},
+        "screen_on_minutes": {"median": 300.0, "mad": 25.0, "p25": 280.0, "p75": 325.0},
+        "late_screen_minutes": {"median": 40.0, "mad": 8.0, "p25": 32.0, "p75": 48.0},
+        "active_hour_spread": {"median": 0.5, "mad": 0.04, "p25": 0.46, "p75": 0.54}
+      }
+    },
+    {
+      "name": "big_late_drift",
+      "$comment": "五维全超阈值 → 全部方向词 + STABILITY CLEARLY_DIFFERENT",
+      "today": {
+        "active_start_minute": 700,
+        "active_end_minute": 1490,
+        "movement_index": 2.2,
+        "screen_on_minutes": 500.0,
+        "late_screen_minutes": 120.0,
+        "active_hour_spread": 0.75
+      },
+      "baseline_metrics": {
+        "active_start_minute": {"median": 554.0, "mad": 12.0, "p25": 542.0, "p75": 568.0},
+        "active_end_minute": {"median": 1385.0, "mad": 9.0, "p25": 1372.0, "p75": 1398.0},
+        "movement_index": {"median": 1.15, "mad": 0.12, "p25": 1.05, "p75": 1.25},
+        "screen_on_minutes": {"median": 300.0, "mad": 25.0, "p25": 280.0, "p75": 325.0},
+        "late_screen_minutes": {"median": 40.0, "mad": 8.0, "p25": 32.0, "p75": 48.0},
+        "active_hour_spread": {"median": 0.5, "mad": 0.04, "p25": 0.46, "p75": 0.54}
+      }
+    },
+    {
+      "name": "missing_start",
+      "$comment": "active_start_minute 缺失 → RHYTHM 省略（missing != irregular）；MOVEMENT 超阈值 → SLIGHTLY_DIFFERENT",
+      "today": {
+        "active_start_minute": null,
+        "active_end_minute": 1400,
+        "movement_index": 1.35,
+        "screen_on_minutes": 300.0,
+        "late_screen_minutes": 40.0,
+        "active_hour_spread": 0.5
+      },
+      "baseline_metrics": {
+        "active_start_minute": {"median": 554.0, "mad": 12.0, "p25": 542.0, "p75": 568.0},
+        "active_end_minute": {"median": 1385.0, "mad": 9.0, "p25": 1372.0, "p75": 1398.0},
+        "movement_index": {"median": 1.15, "mad": 0.12, "p25": 1.05, "p75": 1.25},
+        "screen_on_minutes": {"median": 300.0, "mad": 25.0, "p25": 280.0, "p75": 325.0},
+        "late_screen_minutes": {"median": 40.0, "mad": 8.0, "p25": 32.0, "p75": 48.0},
+        "active_hour_spread": {"median": 0.5, "mad": 0.04, "p25": 0.46, "p75": 0.54}
+      }
+    },
+    {
+      "name": "near_zero_baseline",
+      "$comment": "基线 mad≈0/p25=p75 → scale 走 MIN_ABS_DELTA floor；start +66min → LATER（z=6.6）",
+      "today": {
+        "active_start_minute": 620,
+        "active_end_minute": 1385,
+        "movement_index": 1.15,
+        "screen_on_minutes": 300.0,
+        "late_screen_minutes": 40.0,
+        "active_hour_spread": 0.5
+      },
+      "baseline_metrics": {
+        "active_start_minute": {"median": 554.0, "mad": 0.0, "p25": 554.0, "p75": 554.0},
+        "active_end_minute": {"median": 1385.0, "mad": 0.0, "p25": 1385.0, "p75": 1385.0},
+        "movement_index": {"median": 1.15, "mad": 0.0, "p25": 1.15, "p75": 1.15},
+        "screen_on_minutes": {"median": 300.0, "mad": 0.0, "p25": 300.0, "p75": 300.0},
+        "late_screen_minutes": {"median": 40.0, "mad": 0.0, "p25": 40.0, "p75": 40.0},
+        "active_hour_spread": {"median": 0.5, "mad": 0.0, "p25": 0.5, "p75": 0.5}
+      }
+    },
+    {
+      "name": "empty_baseline",
+      "$comment": "无基线 → 维度全部省略，仅 STABILITY VERY_SIMILAR（不伪造）",
+      "today": {
+        "active_start_minute": 560,
+        "active_end_minute": 1392,
+        "movement_index": 1.2,
+        "screen_on_minutes": 310.0,
+        "late_screen_minutes": 44.0,
+        "active_hour_spread": 0.51
+      },
+      "baseline_metrics": {}
+    }
+  ]
+}

@@ -19,6 +19,13 @@ maturity_APP_PROFILE_D_TRAVEL.png
 maturity_APP_PROFILE_E_PROJECT_CRUNCH.png
 maturity_APP_PROFILE_F_LOW_DATA.png
 maturity_APP_PROFILE_G_WEEKEND_DIFFERENT.png
+motion_APP_PROFILE_A_STABLE.png
+motion_APP_PROFILE_B_NIGHT_OWL.png
+motion_APP_PROFILE_C_IRREGULAR.png
+motion_APP_PROFILE_D_TRAVEL.png
+motion_APP_PROFILE_E_PROJECT_CRUNCH.png
+motion_APP_PROFILE_F_LOW_DATA.png
+motion_APP_PROFILE_G_WEEKEND_DIFFERENT.png
 users_APP_day0.png
 users_APP_day180.png
 users_APP_day7.png

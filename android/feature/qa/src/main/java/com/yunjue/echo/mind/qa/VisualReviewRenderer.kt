@@ -246,7 +246,8 @@ object VisualReviewRenderer {
         val sheetNames = listOf(
             "users_APP_day0", "users_APP_day7", "users_APP_day90", "users_APP_day180",
             "users_WALLPAPER_day7", "users_WALLPAPER_day90",
-        ) + profiles.map { "continuity_APP_${it.id}" } + profiles.map { "maturity_APP_${it.id}" }
+        ) + profiles.map { "continuity_APP_${it.id}" } + profiles.map { "maturity_APP_${it.id}" } +
+            profiles.map { "motion_APP_${it.id}" }
         for (name in sheetNames) {
             sb.appendLine("<a href=\"rendered/sheets/$name.png\"><img src=\"rendered/sheets/$name.png\" alt=\"$name\"></a>")
         }

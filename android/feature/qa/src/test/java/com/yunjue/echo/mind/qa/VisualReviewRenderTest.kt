@@ -121,10 +121,33 @@ class VisualReviewRenderTest {
             )
         }
 
+        // 4) 运动序列（Part 6「short animation captures where technically feasible」）：
+        //    静态帧无法体现 motion character，用 36s 时间序列拼图表达运动（呼吸 + 轨道 + 流线方向）
+        for (profile in QaProfiles.ALL) {
+            val snap = snapshot(profile, 90)
+            val params = com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+                snap.presence, 12f, com.yunjue.echo.mind.presence.SurfaceMode.APP,
+            )
+            val cells = (0 until 12).map { step ->
+                val time = step * 3f
+                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                    params, snap.identity.seed, time, 1080f, 2340f,
+                )
+                VisualReviewRenderer.SheetCell("t=${step * 3}s", renderPng(frame))
+            }
+            writeSheet(
+                cells = cells,
+                columns = 6,
+                title = "${profile.id} · APP · 36s 运动序列（3s/帧）",
+                file = File(sheets, "motion_APP_${profile.id}.png"),
+            )
+        }
+
         val manifest = StringBuilder()
         sheets.listFiles()?.sortedBy { it.name }?.forEach { manifest.appendLine(it.name) }
         File(sheets, "_MANIFEST.txt").writeText(manifest.toString())
         assertTrue("拼图已生成", File(sheets, "users_APP_day90.png").exists())
+        assertTrue("运动序列已生成", File(sheets, "motion_APP_PROFILE_A_STABLE.png").exists())
     }
 
     @Test
@@ -155,6 +178,35 @@ class VisualReviewRenderTest {
         assertTrue(
             "7 个用户的结构签名至少 4 种（差异来自 texture/structure，不是只换颜色）：$structureKeys",
             structureKeys.size >= 4,
+        )
+
+        // e) 运动：粒子随时间真实移动（生命感机器代理），且不同用户运动幅度不同（motion personality）
+        val displacements = HashMap<String, Double>()
+        for (profile in QaProfiles.ALL) {
+            val snap = snapshot(profile, 90)
+            val params = com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+                snap.presence, 12f, com.yunjue.echo.mind.presence.SurfaceMode.APP,
+            )
+            val t0 = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                params, snap.identity.seed, 0f, 1080f, 2340f,
+            )
+            val t6 = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
+                params, snap.identity.seed, 6f, 1080f, 2340f,
+            )
+            val meanDisp = t0.particles.indices.sumOf { i ->
+                val a = t0.particles[i]
+                val b = t6.particles[i]
+                val dx = a.x.toDouble() - b.x
+                val dy = a.y.toDouble() - b.y
+                kotlin.math.sqrt(dx * dx + dy * dy)
+            } / t0.particles.size
+            displacements[profile.id] = meanDisp
+            assertTrue("${profile.id} 6 秒内粒子真实移动（disp=$meanDisp）", meanDisp > 0.0005)
+        }
+        val distinctDisp = displacements.values.map { (it * 1000).toInt() }.toSet()
+        assertTrue(
+            "不同用户运动幅度不同（motion personality 可见）：$displacements",
+            distinctDisp.size >= 3,
         )
     }
 
