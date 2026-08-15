@@ -36,7 +36,7 @@ cb7b4a4ac1797cd145806574a514156f32ea151eba10a320fac62ab2dcc00e69  android/app/sr
 416d0f1073056a343824cc61aaf27104d34c730fefac8f13ea0ef067c427d22b  android/app/src/debug/res/xml/network_security_config.xml
 c911184a2e79c2a752e055ec07209503dda41dae793debdb6ac661fc4d8f404a  android/app/src/main/AndroidManifest.xml
 01343b3e28ef738123b0542bfb76adf54cafc7ad7d5a40c5489ff24ba252943c  android/app/src/main/java/com/yunjue/echo/mind/AppContainer.kt
-d8fb0b7b22e5b4522ad57c3e3c7e4229ed9844d06c4447e3481449cbb11eb50d  android/app/src/main/java/com/yunjue/echo/mind/AppPreferences.kt
+1e45a3f5b0fff61d66440df9f0a8c79bfc6b4243c1bf0da2ea44b6a0085487a9  android/app/src/main/java/com/yunjue/echo/mind/AppPreferences.kt
 c36e0e73b4e33456c87e0b5f41c8bcfd34dd46d6b5632d4a25649f36f56f2d40  android/app/src/main/java/com/yunjue/echo/mind/EchoMindApplication.kt
 1c3bbdc8ec77643579557c207cc75dcc45cc7dc83525df26447b21b042e749cd  android/app/src/main/java/com/yunjue/echo/mind/MainActivity.kt
 3fe1154a58d7f42f5108cf1da84c12f3d8b2ead979a7b4ed8e91ac16b060d847  android/app/src/main/java/com/yunjue/echo/mind/PassiveSensingPrefs.kt
@@ -70,7 +70,7 @@ ba93e34ce79f6177df45fed34ef5a96565f0817450dfb8d6a67e8b1db52a98d8  android/app/sr
 ecc3158182204df660535beb7766b02bce69ca8f113400f6d72eede7d48b86d9  android/app/src/main/java/com/yunjue/echo/mind/data/outbox/Outbox.kt
 2f131a97f78eaac80cdfbb879579425020bfc785b63aec57f7434838f0e5bac1  android/app/src/main/java/com/yunjue/echo/mind/di/EchoContainers.kt
 1ac0ea52dd2e88f76ad9529e990b0fb557f7610253e53a09c62ea0d07ae58261  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyMemoryRepository.kt
-7465ac8c4c54ccb4630b2b4940b8d91d8e03cc3f0b71300e022742e030e3a3a9  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyRepository.kt
+91345d815429294b5f0e3ad04fc952ef5c62c92f7d5150f8aff3c8083e3a1e00  android/app/src/main/java/com/yunjue/echo/mind/journey/JourneyRepository.kt
 fef22d35f7debbad6489b5291b417a1bffb05d827c8032ea6ff464a0f1947366  android/app/src/main/java/com/yunjue/echo/mind/me/FlowCombine.kt
 400eb3f2cea6e7dcbfb0b84c76b7e80590602ec3938843cffd74df1bf0dbc48d  android/app/src/main/java/com/yunjue/echo/mind/me/MeEvent.kt
 7122ce0a1829f37c26ea1b119460877e1d46d6a2ec98dd312b09a84ba3b2b7d2  android/app/src/main/java/com/yunjue/echo/mind/me/MeUiState.kt
@@ -80,7 +80,7 @@ b53805f3bdd876bb6e21c202a75061d5fb3e6426bb0be88867149eeab8d89946  android/app/sr
 135ac6686dbea740bb3f13cf003b5056cb16943b15a454d864f816cc4fb34181  android/app/src/main/java/com/yunjue/echo/mind/presence/EchoWallpaperService.kt
 876cee597ef354a3c4dd68380b89bba115dd12281d409cc207d7e5ce6c9c6f29  android/app/src/main/java/com/yunjue/echo/mind/runtime/EchoRuntimeCoordinator.kt
 bee98d99a9283f2647219d218e209cc449d8452243ac982d5bc2401b625c4fc4  android/app/src/main/java/com/yunjue/echo/mind/security/PreferencesDatabaseSecretStorage.kt
-419ef4ec0430dd783880609c9f3b99d5b8d7e6ebf655cfe4dbf619fca4e8e899  android/app/src/main/java/com/yunjue/echo/mind/sensing/MicCollector.kt
+cf0a883caa95dff44872aa4c05970fb74a0db0951c38492061b566484bb2b54a  android/app/src/main/java/com/yunjue/echo/mind/sensing/MicCollector.kt
 3609f306363646365d48143a707312b42fefd97b64f6703a9efe964db61e7bc6  android/app/src/main/java/com/yunjue/echo/mind/sensing/PassiveSensingService.kt
 35ad15cb9bed19b5e608a5492a8b373cf06191bc417ca64e5b5087a347155a4b  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoActionOverlay.kt
 752a93d459cf921299f11ae42a738dc8a6bcd6bdfe91cabc95463f0ffcba0f49  android/app/src/main/java/com/yunjue/echo/mind/ui/EchoMindApp.kt
@@ -187,7 +187,7 @@ a2f1b798c5438a73891e15a24effcaf5903cba798ebcf7cb0e8ab354799f70be  android/app/sr
 8b2070f04f594f5f9337d6d928d94128142e952129a9def33ef141fca7331b59  android/app/src/test/java/com/yunjue/echo/mind/SyncWorkerStateMachineTest.kt
 5ae358095e13d88da541e0c1b4f57aee996bee2de88f27b4a5c6763ea0146255  android/app/src/test/java/com/yunjue/echo/mind/TrendDataSourceTest.kt
 3035c844fba95a39928a0ebb199d38c5e339bf99a09d2c523e36557bf52cbe6c  android/app/src/test/java/com/yunjue/echo/mind/VisualProfileTest.kt
-2dac6580d606fc8bc67a6017ed3bf420a1231eefb08921fe844a46a123b8d50c  android/app/src/test/java/com/yunjue/echo/mind/WindowAckTest.kt
+1634a40e618c808730d9b4113afa75cca46e7ef6a62bdb94517701f959d7ddc0  android/app/src/test/java/com/yunjue/echo/mind/WindowAckTest.kt
 4fc2be625e389228c67b0ccd686f1eb17560bfead2b6df28884a30119a733cdf  android/app/src/test/java/com/yunjue/echo/mind/WindowCarryStateTest.kt
 ff3069c4aa0edaf8fe51b41ab9c161daea2ec91f7a90a9b2f1cffb5433d9e6e2  android/app/src/test/java/com/yunjue/echo/mind/data/LocalPortraitDataSourceTest.kt
 97de29942a8403a32d6ca52a01e0c7683768fc748cfdba1a05f8e3e4b608e63b  android/app/src/test/java/com/yunjue/echo/mind/data/PresenceMaintenanceScriptTest.kt
@@ -206,6 +206,7 @@ fdaaad1326eb1aba795223564f837aa3cc03c1f30fe3b8b1a3d418357afef598  android/app/sr
 ae80353ecef212ab7e5868ce813f6703238b685fa8f4c5c3b9e55b63fa519e5d  android/app/src/test/java/com/yunjue/echo/mind/journey/JourneyUiStateAssemblyTest.kt
 4ce36bc6736f457f96c4c42f3e909b954e37af1d7e182ad745bd206d43b2ce66  android/app/src/test/java/com/yunjue/echo/mind/journey/JourneyYearViewTest.kt
 d04a5de8d6176ebd81e094ffb04fdae78a08ebf9c740760b7cab5e07de6794c6  android/app/src/test/java/com/yunjue/echo/mind/journey/LifeSeasonJourneyBindingTest.kt
+5457d7949b841d93fefdbc8aff62a2eea97b392167efecf443c340feb1742908  android/app/src/test/java/com/yunjue/echo/mind/journey/ResolveSensingPermissionEnabledTest.kt
 0a236b81e7cfa92b3175811fb4e1cf2f97d24c31955e261971a2edceb51582ab  android/app/src/test/java/com/yunjue/echo/mind/localportrait/BaselineConductionTest.kt
 acf94e7e2a0228953430c8b9a1a61ca9c8f44d48bf66b5ff03bb49dfd234fe50  android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitDigestTest.kt
 d3ebcf89fdfe763a226420577392805448774f0856d8ff8be5f92c6d07d13b54  android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitGoldenTest.kt
@@ -328,7 +329,7 @@ b7ad9b3148557d8f59fbf59759b3deb7c7c73b3202c9daad267e9893de588e1f  android/featur
 ac8df09a303aa66fa8b03d614d5e833b63bfd50e6245a9031acbc17519999dbe  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyRiver.kt
 c2564c69e9bcd0079f613242124b394fb5506dfb95d4ecd5d72d66bc07ed3624  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneySeasonNarrative.kt
 6cb9e10b95ccd681c16c8db940c17987adff4a4d61a5ed8222734bd515a682df  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyStory.kt
-6e24935aed2b6113d43a5070953f3ad262e9428416734326d347957925bb6dde  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyTrendState.kt
+4a8ba0d696d194eb7731b5d07f23c5c44a8419de934b17b74a4f80f149142810  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyTrendState.kt
 4a2a4709c2b88b116c3cfff9fbee7bc0626f17c0c933f3845ec8fbb34472d942  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyUiState.kt
 709da851b11084f1332a1d50e659d2b4a39ae15b60ef6dd9c7b76755321fbe11  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyVisuals.kt
 64000a01fd7d46e9e0243b712c9589ba7356051a19bba04df70dd2610ef96282  android/feature/journey/src/main/java/com/yunjue/echo/mind/journey/JourneyYearView.kt
@@ -616,7 +617,7 @@ dfef72508afcc7121ebc0dd0b5fbeeb774edc5407469850ae9458ce12e14de26  docs/CHANGELOG
 b451ce30093b67dffa508dea68514bafb32398beec61a33b161671e82783bcef  docs/CHANGELOG/README_AUTHORITY_legacy.md
 12c1a23e40aeec33411ce287b7e6f8ec4db32790cfb745a3cc8471db7c972e0c  docs/CHANGELOG/RELEASE_READINESS_v0.9.0.md
 78e03aab19e5743237a453d370a0c799bb65acc17912ec1f7dec1a3f1f7322db  docs/RELEASE_BASELINE.md
-d40133f5e60d0f72e5922817bff4f8465035463de80456adc5bfebfc79a00510  docs/STATUS.md
+57b98f8dd2fb4b8cb778c0e5bad147da33821b3d66dc4d4ea294b65741baddac  docs/STATUS.md
 f071a1f1c9bcb3127ecf470099a06d197739aba1f4c74d5f20c5469c44f9efe0  docs/architecture/ADRS.md
 455249fc665de07e36d711605a88217404a5a1ec463240a734b69f88b36d6f0f  docs/architecture/ANDROID_CODE_INVENTORY.md
 41be3e6754a62b2ebd02e1246af270836c0b9b1c50845006593daaa5f6015f2b  docs/architecture/ANDROID_DEPENDENCY_GRAPH.md

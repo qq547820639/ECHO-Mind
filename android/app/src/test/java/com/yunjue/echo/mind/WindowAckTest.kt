@@ -196,7 +196,7 @@ class WindowAckTest {
     // ===== callback 失败（调度器层） =====
 
     @Test
-    fun callbackFailureIsRetryableAndObservable() = kotlinx.coroutines.test.runTest {
+    fun callbackFailureIsRetryableAndObservable() = runBlocking {
         val hub = SensingEventHub.getInstance()
         val start = Instant.parse("2026-08-01T12:00:00Z")
         // 样本时间戳落在 [12:00, 12:05) 窗口内（Phase 4.1 精确归属）

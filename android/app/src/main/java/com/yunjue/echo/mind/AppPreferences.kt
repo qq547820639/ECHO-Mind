@@ -39,10 +39,14 @@ class AppPreferences(
 
     var accessToken: String?
         get() = prefs.getString("access_token_ciphertext", null)?.let { runCatching { cipher.decrypt(it) }.getOrNull() }
-        set(value) = prefs.edit().apply {
-            if (value.isNullOrBlank()) remove("access_token_ciphertext")
-            else putString("access_token_ciphertext", cipher.encrypt(value))
-        }.apply()
+        set(value) {
+            prefs.edit().apply {
+                if (value.isNullOrBlank()) remove("access_token_ciphertext")
+                else putString("access_token_ciphertext", cipher.encrypt(value))
+            }.apply()
+            // ERA 32 R20：订阅/退订翻转 localMode——联动流供 UI 权限判定观察（与服务门控同构）。
+            _localModeFlow.value = value.isNullOrBlank()
+        }
 
     // ===== Skill 卡片下发缓存（T11.4） =====
     // 用 SharedPreferences 缓存 GET /v1/skills 的原始 JSON + 时间戳，避免 Room 迁移。
@@ -361,6 +365,10 @@ class AppPreferences(
 
     val localMode: Boolean
         get() = accessToken.isNullOrBlank()
+
+    /** ERA 32 R20：本地模式流（accessToken 写入时联动更新；Journey 权限判定与服务门控同构消费）。 */
+    private val _localModeFlow = MutableStateFlow(localMode)
+    val localModeFlow: Flow<Boolean> = _localModeFlow
 
     // ===== 分析消息（v0.7 拉取式推送过渡） =====
     // 已读小结的幂等 id（新 id 才发本地通知；本地模式小结仅展示不通知）。

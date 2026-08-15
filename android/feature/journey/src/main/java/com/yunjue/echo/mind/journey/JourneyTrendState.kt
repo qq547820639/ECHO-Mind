@@ -57,6 +57,17 @@ fun resolveTrendState(
 }
 
 /**
+ * ERA 32 R20 — 感知权限可用判定（与感知服务门控同构）：
+ * consent granted 且（本地模式放行 || 租户 flag 开启）。
+ *
+ * 本地模式（v0.7 本地优先：未订阅、数据不出设备）不依赖远端 flag：
+ * 无网首启时 flag 缓存为空（fail-closed false），若不放行本地模式，
+ * 旅程页会在感知实际运行的情况下误报「被动感知已关闭或权限被撤」。
+ */
+fun resolveSensingPermissionEnabled(consent: Boolean, localMode: Boolean, flagEnabled: Boolean?): Boolean =
+    consent && (localMode || flagEnabled == true)
+
+/**
  * NO_DATA 原因解析纯函数（T02 七态细化；输入为 [PortraitAvailability] + [SensingDiagnostics]）：
  * - sensing 未激活（consent/总开关关闭）→ CLOSED
  * - SENSOR 能力被拒 → PERMISSION

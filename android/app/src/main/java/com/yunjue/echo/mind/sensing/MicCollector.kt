@@ -114,9 +114,13 @@ class MicCollector(
         recordJob = scope.launch {
             val chunkSize = SAMPLE_RATE / 10 // 100ms = 1600 samples @ 16kHz
             val chunk = ShortArray(chunkSize)
-            record.startRecording()
             var lastPermissionCheckMs = System.currentTimeMillis()
             try {
+                // ERA 32 R20：startRecording 在音频服务异常/竞态（及测试环境无音频栈）时会抛
+                // IllegalStateException——此前它在 try 之外，异常逃逸出采集协程直达全局异常
+                // 处理器（发布版=进程被杀；单测=污染后续用例的 UncaughtExceptionsBeforeTest）。
+                // 麦克风是可选模块：失败必须静默跳过，绝不影响核心 sensing。
+                record.startRecording()
                 while (isActive && running) {
                     // 周期性检查 RECORD_AUDIO 是否被系统设置撤回（androidx.core 已移除权限变化监听 API）
                     val nowMs = System.currentTimeMillis()
@@ -145,6 +149,10 @@ class MicCollector(
                         Thread.sleep(5)
                     }
                 }
+            } catch (_: Exception) {
+                // 可选模块韧性：startRecording/read/extract 任一异常都不逃逸（见上）；
+                // 失败后 running=false，后续 start()（服务重启等）可再次尝试。
+                running = false
             } finally {
                 runCatching { record.stop() }
                 runCatching { record.release() }

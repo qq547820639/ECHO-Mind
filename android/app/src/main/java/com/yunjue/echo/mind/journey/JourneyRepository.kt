@@ -51,10 +51,11 @@ open class JourneyRepository(
     /** 被动感知 consent 流。 */
     override val consentFlow: Flow<Boolean> = syncStateRepository.passiveSensingConsentFlow()
 
-    /** consent + 租户 flag 联合判定（任一关闭 → permission_disabled 态；§28 由 ViewModel 注入 UI state）。 */
+    /** consent + 本地模式/租户 flag 联合判定（与感知服务门控同构；
+     *  ERA 32 R20：本地模式不依赖远端 flag，无网首启不再误报「已关闭或权限被撤」）。 */
     override val permissionEnabledFlow: Flow<Boolean> =
-        combine(consentFlow, featureFlagRepository.featureFlagsFlow) { consent, flags ->
-            consent && flags["passive_sensing_enabled"] ?: false
+        combine(consentFlow, featureFlagRepository.featureFlagsFlow, preferences.localModeFlow) { consent, flags, localMode ->
+            resolveSensingPermissionEnabled(consent, localMode, flags["passive_sensing_enabled"])
         }
 
     /** 画像时间线（窗口天数由 ViewModel 按尺度决定）。 */
