@@ -9,8 +9,8 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `873f0fd`（ERA 31 R30 收口） |
-| 相对 Release Baseline | +22 commits（v0.10.0 Release Baseline 之后 R11–R31，含本提交） |
+| HEAD（本轮起点） | `1efe508`（ERA 31 R31 收口） |
+| 相对 Release Baseline | +23 commits（v0.10.0 Release Baseline 之后 R11–R32，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
 | 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**1026 unit tests**（app 866 / feature:intelligence 23 / feature:presence 25 / feature:qa 112；ERA 31 R31 实测全绿）+ lint（4 安全规则）+
+- Android：**1028 unit tests**（app 868 / feature:intelligence 23 / feature:presence 25 / feature:qa 112；ERA 31 R32 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
@@ -115,7 +115,7 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R31）✅**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R32）✅**：
 R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
 R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
 （快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）· R17 Ask ECHO 免费用户走查
@@ -133,7 +133,8 @@ R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安�
 （基线进度条与覆盖率条退役，「它在记录」由事实句承担）· R29 Scene Action 安静化
 （按钮墙折叠成单一「想做点什么？」入口，订阅槽位不再常驻）· R30 文案一致性收口
 （引号规范统一 + 「重新生成」→「重新看看今天」）· R31 苏醒 = 第一次 Presence
-（Day-0 SEED 单一构建点，苏醒与运行时 identity 逐字段一致）。
+（Day-0 SEED 单一构建点，苏醒与运行时 identity 逐字段一致）· R32 关键验收契约锁
+（纠正复用 production 全链 + UI 建议必须离线可答）。
 
 **下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；

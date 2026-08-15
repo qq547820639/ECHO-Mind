@@ -57,6 +57,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND29.md](ERA31_ROUND29.md) — ERA 31 R29（Scene Action 安静化：按钮墙折叠成单一入口）
 - [ERA31_ROUND30.md](ERA31_ROUND30.md) — ERA 31 R30（文案一致性收口：引号规范 + 重新生成按钮人话化）
 - [ERA31_ROUND31.md](ERA31_ROUND31.md) — ERA 31 R31（苏醒 = 第一次 Presence：Day-0 SEED 单一构建点）
+- [ERA31_ROUND32.md](ERA31_ROUND32.md) — ERA 31 R32（关键验收契约锁：UI 建议同步 + 纠正复用全链）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 
