@@ -34,4 +34,6 @@ dependencies {
     implementation(project(":core:ports"))
     implementation(project(":feature:memory"))
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.junit)
 }

@@ -5,6 +5,7 @@ import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.ApiClient
 import com.yunjue.echo.mind.data.ConsentRepository
+import com.yunjue.echo.mind.data.DeterministicPersonalAnswerProvider
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.FeatureFlagRepository
@@ -109,12 +110,22 @@ class IntelligenceContainer(
     core: CoreContainer,
     observation: ObservationContainer,
     memory: MemoryContainer,
+    /** ERA 31：人生季节漂移（确定性个人回答的稳定性补充；Presence 未就绪时 0f）。 */
+    seasonDriftProvider: () -> Float,
 ) {
     val providerCredentialStore = ProviderCredentialStore(core.applicationContext, core.cipher)
     val aiProviderManager = AiProviderManager(providerCredentialStore)
+    /** ERA 31 BATCH 2：无 Provider/离线时 Ask ECHO 的确定性个人回答（免费核心承诺）。 */
+    val deterministicPersonalAnswerProvider = DeterministicPersonalAnswerProvider(
+        portraitDataSource = observation.localPortraitDataSource,
+        memoryReader = memory.memoryRepository,
+        userId = { core.preferences.userId },
+        seasonDrift = seasonDriftProvider,
+    )
     val aiNarrativeService = AiNarrativeService(
         hasProvider = { aiProviderManager.hasProvider() },
         reason = { request -> aiProviderManager.reason(request) },
+        deterministicPersonalAnswer = deterministicPersonalAnswerProvider::answer,
     )
     val contextRetriever = EchoContextRetriever(
         observationSource = observation.localPortraitDataSource,

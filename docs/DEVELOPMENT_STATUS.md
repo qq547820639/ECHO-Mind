@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**976 unit tests**（app 847 / feature:presence 21 / feature:qa 108；ERA 31 R1 实测全绿）+ lint（4 安全规则）+
+- Android：**999 unit tests**（app 850 / feature:intelligence 18 / feature:presence 21 / feature:qa 110；ERA 31 R3 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
@@ -63,8 +63,10 @@
 **BATCH 2 进行中（§20-25）**：
 
 1. ✅ Core Personal Reasoning Set 26 条（`qa/reports/CORE_PERSONAL_REASONING_SET.md`）。
-2. ⏭ 对 26 条跑真实回答链路，Answer Quality 四层人审（A Evidence / B Context / C Personal usefulness / D ECHO voice）。
-3. ⏭ Correction → Future Reasoning 真实闭环验收（q038/q040/q042）。
-4. ⏭ Context retrieval 用户自述优先复核。
-5. ⏭ Grounding overreach 检查。
-6. ⏭ Narrative Distiller / Provider persona stability。
+2. ✅ 真实回答四层人审：PersonalAnswerEngine 接入 production（无 Provider 也能回答个人问题），
+   24/26 覆盖 + 8 个 A-D 缺陷修复（`qa/reports/PERSONAL_REASONING_HUMAN_REVIEW.md`）。
+3. ✅ Correction → Future Reasoning 闭环：CORRECTION 记忆进引擎输入（q040 回放纠正）、
+   CONTEXT 记忆→上下文窗口（q038 窗口三态）+ 既有 QaCorrectionReuseTest 检索级闭环。
+4. ✅ Context retrieval 用户自述优先：出差/冲刺上下文泛化（travel 族 label 化），窗口内回答优先自述基准。
+5. ⏭ Grounding overreach 检查（引擎词表已中性；对 AI 叙事路径的 overreach 复核列下一轮）。
+6. ⏭ Narrative Distiller / Provider persona stability（Provider 路径需真实 key，列 dogfood 轮）。

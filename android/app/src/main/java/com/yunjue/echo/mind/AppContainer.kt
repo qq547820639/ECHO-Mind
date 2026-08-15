@@ -23,7 +23,10 @@ class AppContainer(context: Context) {
     val observation = com.yunjue.echo.mind.di.ObservationContainer(core)
     val presence = com.yunjue.echo.mind.di.PresenceContainer(core, observation)
     val memory = com.yunjue.echo.mind.di.MemoryContainer(core)
-    val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(core, observation, memory)
+    val intelligence = com.yunjue.echo.mind.di.IntelligenceContainer(
+        core, observation, memory,
+        seasonDriftProvider = { presence.echoStateStore.state.value?.lifeSeason?.drift ?: 0f },
+    )
     val actions = com.yunjue.echo.mind.di.ActionContainer(core)
     /** ERA 13/16：Journey 应用层容器（跨 observation/presence/intelligence/memory/core）。 */
     val journey = com.yunjue.echo.mind.di.JourneyContainer(core, observation, presence, memory, intelligence)

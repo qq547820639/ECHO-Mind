@@ -13,7 +13,19 @@ class AiNarrativeService(
     private val hasProvider: () -> Boolean,
     private val reason: suspend (EchoReasoningRequest) -> EchoReasoningResponse,
     private val networkAvailable: () -> Boolean = { true },
+    /**
+     * ERA 31 BATCH 2：确定性个人回答（PersonalAnswerEngine 的生产接入）。
+     * 无 Provider / 离线 / Provider 失败时，Ask ECHO 依然能回答
+     * 「只有我的 ECHO 才可能回答」的问题；不认识的问题返回 null → 旧诚实文案。
+     */
+    private val deterministicPersonalAnswer: suspend (String) -> DeterministicPersonalResult? = { null },
 ) {
+
+    /** 确定性个人回答结果（文本 + 依据来源类别）。 */
+    data class DeterministicPersonalResult(
+        val text: String,
+        val usedSources: List<DataSourceCategory> = emptyList(),
+    )
 
     /**
      * ERA 57（§73 审计第 3 轮）：有限重试——仅瞬态失败（网络/服务端瞬时错误）重试一次，
@@ -91,7 +103,9 @@ class AiNarrativeService(
         conversationHistory: List<EvidenceItem> = emptyList(),
     ): NarrativeResult {
         if (!hasProvider() || !networkAvailable()) {
-            return NarrativeResult(
+            return deterministicPersonalAnswer(question)?.let { det ->
+                NarrativeResult(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, det.text, det.usedSources)
+            } ?: NarrativeResult(
                 level = NarrativeFallbackLevel.OBSERVATION_FACTS,
                 text = "我现在还不能回答这个问题：还没有连接 AI，或者当前没有网络。",
                 usedSources = emptyList(),
@@ -111,7 +125,9 @@ class AiNarrativeService(
             )
         )
         if (response.status != ProviderStatus.READY) {
-            return NarrativeResult(
+            return deterministicPersonalAnswer(question)?.let { det ->
+                NarrativeResult(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, det.text, det.usedSources)
+            } ?: NarrativeResult(
                 level = NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE,
                 text = "我现在暂时想不清楚（${providerStatusText(response.status)}）。等你稍后再问，我会基于你的节律数据回答。",
                 usedSources = emptyList(),

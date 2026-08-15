@@ -143,4 +143,54 @@ class AiNarrativeServiceTest {
         assertEquals("限流立即降级（重试只会放大伤害）", NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
         assertEquals("语义失败不重试", 1, calls)
     }
+
+    // ===== ERA 31 BATCH 2：确定性个人回答钩子（无 Provider 也回答个人问题） =====
+
+    @Test
+    fun noProviderWithDeterministicHookAnswersPersonalQuestion() = runBlocking {
+        val service = AiNarrativeService(
+            hasProvider = { false },
+            reason = { _ -> EchoReasoningResponse(text = "", status = ProviderStatus.NOT_CONFIGURED) },
+            deterministicPersonalAnswer = { q ->
+                if (q == "最近我是不是越来越晚？") {
+                    AiNarrativeService.DeterministicPersonalResult(
+                        text = "是的，最近这一个月你明显开始得比前一个月晚。",
+                        usedSources = listOf(DataSourceCategory.PORTRAIT_HISTORY),
+                    )
+                } else {
+                    null
+                }
+            },
+        )
+        val result = service.answerQuestion("最近我是不是越来越晚？", evidence)
+        assertEquals("无 Provider 也应由确定性引擎回答", NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertTrue("回答来自个人数据", result.text.contains("明显开始得比前一个月晚"))
+        assertTrue("来源标注画像历史", DataSourceCategory.PORTRAIT_HISTORY in result.usedSources)
+    }
+
+    @Test
+    fun providerFailureFallsBackToDeterministicPersonalAnswer() = runBlocking {
+        val service = AiNarrativeService(
+            hasProvider = { true },
+            reason = { _ -> EchoReasoningResponse(text = "", status = ProviderStatus.PROVIDER_ERROR) },
+            deterministicPersonalAnswer = { _ ->
+                AiNarrativeService.DeterministicPersonalResult("周末比工作日晚起 60 分钟。", emptyList())
+            },
+        )
+        val result = service.answerQuestion("周末和平时有什么变化？", evidence)
+        assertEquals("Provider 失败应降级到确定性个人回答", NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertTrue(result.text.contains("晚起 60 分钟"))
+    }
+
+    @Test
+    fun unknownQuestionKeepsOldHonestFallback() = runBlocking {
+        val service = AiNarrativeService(
+            hasProvider = { false },
+            reason = { _ -> EchoReasoningResponse(text = "", status = ProviderStatus.NOT_CONFIGURED) },
+            deterministicPersonalAnswer = { null },
+        )
+        val result = service.answerQuestion("帮我写一首诗", evidence)
+        assertTrue("引擎不认识的问题保留诚实文案", result.text.contains("还没有连接 AI"))
+        assertEquals(NarrativeFallbackLevel.OBSERVATION_FACTS, result.level)
+    }
 }

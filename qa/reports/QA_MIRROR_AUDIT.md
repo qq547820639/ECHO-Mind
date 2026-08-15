@@ -38,12 +38,11 @@
 `feature:intelligence`（该模块无 ui 依赖，:feature:qa 已依赖它），:app 与 QA 同源调用；删除 QaHeadlineEngine 的文案分支，
 只保留 QA 侧证据行组装（Evidence/AI layer 的 fixture 视图）。期间先在本轮把 mirror 文案与 production 对齐（含 MATURE 兜底）。
 
-## 3. QaAskEcho（非 mirror）
+## 3. QaAskEcho（ERA 31 R3 已解决）
 
-`QaAskEcho` 是 8 条 canonical personal questions 的确定性 Expected Evidence 黄金（时间窗/基线/数字 + 中性结论），
-production 真实回答链路（分类→检索→Grounding→叙事）不在 QA module 内运行。
-判定：eval oracle 保留；**Batch 2 用真实链路回答与 oracle 对拍**（evidence 命中率 / grounding 合规 / 用户口吻），
-对拍失败时优先怀疑 production 链路而非 oracle。
+R3 起 `QaAskEcho` 改为 `PersonalAnswerEngine`（:feature:intelligence，production）的薄适配器：
+确定性个人回答引擎成为产品在无 Provider/离线时的真实回答路径，QA 捕获的回答就是用户所见。
+oracle 与产品不再存在两份实现。
 
 ## 4. 其余 fixture 资产（快检）
 

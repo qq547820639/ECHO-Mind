@@ -1,0 +1,253 @@
+package com.yunjue.echo.mind.intelligence
+
+import com.yunjue.echo.mind.model.PortraitDimensionDto
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.DayOfWeek
+import java.time.LocalDate
+
+/**
+ * ERA 31 BATCH 2 — PersonalAnswerEngine 单元测试（production 引擎 = QA oracle 同源）。
+ *
+ * 锁定的产品语义（对应 Answer Quality A Evidence / B Context / D Voice）：
+ * 证据先行、数据不足诚实、中性词表、不认识的问题返回 null（不硬凑）。
+ */
+class PersonalAnswerEngineTest {
+
+    private fun day(
+        date: LocalDate,
+        start: Int?,
+        screen: Double = 300.0,
+        dims: Map<String, PortraitDimensionDto> = emptyMap(),
+    ) = PersonalDayFacts(
+        date = date,
+        activeStartMinute = start,
+        activeEndMinute = start?.plus(900),
+        screenOnMinutes = screen,
+        lateScreenMinutes = 40.0,
+        activeHourSpread = 0.5,
+        movementIndex = 1.0,
+        dimensions = dims,
+        hasPortrait = dims.isNotEmpty(),
+    )
+
+    private fun dims(vararg pairs: Pair<String, String>) = pairs.associate { (k, v) ->
+        k to PortraitDimensionDto(value = v, metric = null, z = null)
+    }
+
+    private val epoch = LocalDate.parse("2026-01-05") // Monday
+
+    private fun series(
+        days: Int,
+        start: (Int) -> Int?,
+        screen: (Int) -> Double = { 300.0 },
+        dimsFor: (Int) -> Map<String, PortraitDimensionDto> = { emptyMap() },
+    ): List<PersonalDayFacts> =
+        (0 until days).map { i -> day(epoch.plusDays(i.toLong()), start(i), screen(i), dimsFor(i)) }
+
+    private fun inputs(days: List<PersonalDayFacts>, drift: Float = 0f, corrections: List<String> = emptyList()) =
+        PersonalAnswerInputs(
+            dayIndex = days.size - 1,
+            days = days,
+            contextWindows = emptyList(),
+            seasonDrift = drift,
+            userCorrections = corrections,
+        )
+
+    @Test
+    fun driftingLaterDetectsRealShiftWithEvidence() {
+        // 前 45 天 09:00，后 45 天 09:45（+45min）→ 明显变晚 + 证据含分钟数
+        val days = series(90, start = { i -> if (i < 45) 540 else 585 })
+        val answer = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(days))!!
+        assertTrue("回答应确认变晚：${answer.text}", answer.text.contains("明显开始得比前一个月晚"))
+        assertTrue("证据含起止分钟：${answer.evidence}", answer.evidence.contains("09:00") && answer.evidence.contains("09:45"))
+    }
+
+    @Test
+    fun driftingLaterHonestWhenInsufficientData() {
+        val days = series(10, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(days))!!
+        assertTrue("数据不足必须诚实：${answer.text}", answer.text.contains("还没攒够"))
+    }
+
+    @Test
+    fun driftingLaterSaysStableWhenNoRealShift() {
+        val days = series(90, start = { i -> 540 + i % 5 * 2 }) // 小噪声无趋势
+        val answer = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(days))!!
+        assertTrue("无趋势应说差不多：${answer.text}", answer.text.contains("差不多"))
+    }
+
+    @Test
+    fun weekendVsWeekdayComparesWeekendAgainstWeekday() {
+        // 90 天：工作日 09:00 / 周末 10:00；屏幕工作日 300 / 周末 420
+        val days = series(90, start = { i ->
+            when (epoch.plusDays(i.toLong()).dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> 600
+                else -> 540
+            }
+        }, screen = { i ->
+            when (epoch.plusDays(i.toLong()).dayOfWeek) {
+                DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> 420.0
+                else -> 300.0
+            }
+        })
+        val answer = PersonalAnswerEngine.answer("周末和平时有什么变化？", inputs(days))!!
+        assertTrue("周末晚起：${answer.text}", answer.text.contains("晚起 60 分钟"))
+        assertTrue("周末屏幕更多：${answer.text}", answer.text.contains("多 120 分钟"))
+        assertTrue("证据含两端数字：${answer.evidence}", answer.evidence.contains("09:00") && answer.evidence.contains("10:00"))
+    }
+
+    @Test
+    fun mostSimilarDaysFindsClosestDays() {
+        val days = series(30, start = { i -> if (i in 26..29) 620 else 540 }, dimsFor = { i ->
+            if (i >= 26) dims("RHYTHM" to "LATER", "STABILITY" to "SLIGHTLY_DIFFERENT")
+            else if (i in 20..22) dims("RHYTHM" to "LATER", "STABILITY" to "SLIGHTLY_DIFFERENT")
+            else dims("STABILITY" to "VERY_SIMILAR")
+        })
+        val answer = PersonalAnswerEngine.answer("最近哪几天最像今天？", inputs(days))!!
+        // 20..22 的维度与 26..29 相同 → 最相似应落在 20-22
+        val found = listOf("01-25", "01-26", "01-27").any { it in answer.text } // 20..22 → 01-25..01-27
+        assertTrue("相似日应落在维度相同段：${answer.text}", found)
+    }
+
+    @Test
+    fun stabilityUsesStabilityRatioAndSeasonDrift() {
+        val days = series(14, start = { 540 }, dimsFor = { i ->
+            if (i < 2) dims("STABILITY" to "CLEARLY_DIFFERENT") else dims("STABILITY" to "VERY_SIMILAR")
+        })
+        val stable = PersonalAnswerEngine.answer("我最近稳定了吗？", inputs(days, drift = 0.1f))!!
+        assertTrue("大多数接近 → 稳定：${stable.text}", stable.text.contains("算稳定的"))
+        assertTrue("漂移低 → 不出现漂移提示：${stable.text}", !stable.text.contains("漂移"))
+        val drifting = PersonalAnswerEngine.answer("我最近稳定了吗？", inputs(days, drift = 0.5f))!!
+        assertTrue("漂移高 → 补充提示：${drifting.text}", drifting.text.contains("漂移"))
+    }
+
+    @Test
+    fun monthVsMonthComparesTwoMonths() {
+        // 60 天：前 30 天 09:00/300min，后 30 天 09:30/390min
+        val days = series(60, start = { i -> if (i < 30) 540 else 570 }, screen = { i -> if (i < 30) 300.0 else 390.0 })
+        val answer = PersonalAnswerEngine.answer("这个月和上个月最大的区别是什么？", inputs(days))!!
+        assertTrue("月对比含晚与屏幕：${answer.text}", answer.text.contains("晚一些") && answer.text.contains("屏幕时间比上个月多"))
+    }
+
+    @Test
+    fun whyTodayDifferentNamesTheStrongestDimension() {
+        val days = series(20, start = { 540 }, dimsFor = { i ->
+            if (i == 19) dims("RHYTHM" to "LATER", "STABILITY" to "CLEARLY_DIFFERENT")
+            else dims("STABILITY" to "VERY_SIMILAR")
+        })
+        val answer = PersonalAnswerEngine.answer("为什么你觉得今天不一样？", inputs(days))!!
+        assertTrue("命名最强维度：${answer.text}", answer.text.contains("开始活跃的时间比平时晚"))
+        assertTrue("证据含维度名：${answer.evidence}", answer.evidence.contains("RHYTHM"))
+    }
+
+    @Test
+    fun travelContextUsesUserContextOverRawObservation() {
+        // 出差窗口 20..39（含今天）：起点 07:00（平时 09:00）
+        val days = series(40, start = { i -> if (i in 20..39) 420 else 540 })
+        val withContext = inputs(days).copy(
+            contextWindows = listOf(PersonalContextWindow(20, 39, "出差")),
+            baselineWakeMinute = 540.0,
+        )
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", withContext)!!
+        assertTrue("应承认影响：${answer.text}", answer.text.contains("有影响"))
+        assertTrue("证据含窗口与分钟：${answer.evidence}", answer.evidence.contains("出差") && answer.evidence.contains("07:00"))
+    }
+
+    @Test
+    fun travelContextHonestWhenNoWindow() {
+        val days = series(40, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", inputs(days))!!
+        assertTrue("无上下文诚实：${answer.text}", answer.text.contains("没有找到"))
+    }
+
+    @Test
+    fun halfYearChangeComparesSixMonths() {
+        val days = series(181, start = { i -> if (i < 60) 540 else 570 }, screen = { i -> if (i < 60) 300.0 else 400.0 })
+        val answer = PersonalAnswerEngine.answer("这半年我有什么变化？", inputs(days))!!
+        assertTrue("半年晚起：${answer.text}", answer.text.contains("比半年前晚了约 30 分钟"))
+        assertTrue("半年屏幕更多：${answer.text}", answer.text.contains("多了约 100 分钟"))
+    }
+
+    @Test
+    fun correctionsRecallReplaysUserCorrections() {
+        val days = series(10, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("我纠正过你的那次，后来你改了吗？",
+            inputs(days, corrections = listOf("我最近在出差，不是变晚了")))!!
+        assertTrue("回放纠正内容：${answer.text}", answer.text.contains("我最近在出差，不是变晚了"))
+        val none = PersonalAnswerEngine.answer("我纠正过你的那次，后来你改了吗？", inputs(days))!!
+        assertTrue("无纠正诚实：${none.text}", none.text.contains("还没有纠正过"))
+    }
+
+    @Test
+    fun unknownQuestionReturnsNullForHonestAiFallback() {
+        assertNull(PersonalAnswerEngine.answer("帮我写一首诗", inputs(series(5, start = { 540 }))))
+    }
+
+    @Test
+    fun endDriftAnswersAboutEndTimeNotStartTime() {
+        // 起点恒定 09:00，结束时间 22:00 → 23:00（+60min）→ 必须说结束时间变晚
+        val days = series(90, start = { 540 }, dimsFor = { emptyMap() }).mapIndexed { i, d ->
+            d.copy(activeEndMinute = if (i < 45) 1320 else 1380)
+        }
+        val answer = PersonalAnswerEngine.answer("这段时间我的晚上结束时间有什么趋势？", inputs(days))!!
+        assertTrue("应说结束时间变晚：${answer.text}", answer.text.contains("结束时间在慢慢变晚"))
+        assertTrue("证据是结束时间而非起点：${answer.evidence}", answer.evidence.contains("结束时间中位数 22:00 → 23:00"))
+    }
+
+    @Test
+    fun screenMonthDeltaAlwaysGivesNumbers() {
+        // 差 15 分钟（小于 30 阈值）也必须给出具体数字
+        val days = series(60, start = { 540 }, screen = { i -> if (i < 30) 300.0 else 315.0 })
+        val answer = PersonalAnswerEngine.answer("上个月和这个月我的屏幕时间差多少？", inputs(days))!!
+        assertTrue("回答必须含数字：${answer.text}", answer.text.contains("15 分钟"))
+        assertTrue("证据含两个月数字：${answer.evidence}", answer.evidence.contains("300 分钟") && answer.evidence.contains("315 分钟"))
+    }
+
+    @Test
+    fun weekSummaryComparesThisWeekWithLastWeek() {
+        // 本周起点 +30min、屏幕 +60min、零散日 4 天 vs 上周 1 天（dayIndex=27：上周=14..20，本周=21..27）
+        val days = series(28, start = { i -> if (i < 14) 540 else 570 }, screen = { i -> if (i < 14) 300.0 else 360.0 },
+            dimsFor = { i ->
+                if (i in 24..27) dims("DAY_STRUCTURE" to "MORE_FRAGMENTED", "STABILITY" to "SLIGHTLY_DIFFERENT")
+                else if (i == 15) dims("DAY_STRUCTURE" to "MORE_FRAGMENTED", "STABILITY" to "SLIGHTLY_DIFFERENT")
+                else dims("STABILITY" to "VERY_SIMILAR")
+            })
+        val answer = PersonalAnswerEngine.answer("为什么这个星期特别碎？", inputs(days))!!
+        assertTrue("应提到零散日变多：${answer.text}", answer.text.contains("零散的日子比上周多"))
+        assertTrue("证据含零散日计数：${answer.evidence}", answer.evidence.contains("零散日 1 → 4"))
+    }
+
+    @Test
+    fun fragmentedTodayQuestionIsHonestWhenNotFragmented() {
+        val days = series(20, start = { 540 }, dimsFor = { i ->
+            if (i == 19) dims("SCREEN_AMOUNT" to "MORE", "STABILITY" to "CLEARLY_DIFFERENT")
+            else dims("STABILITY" to "VERY_SIMILAR")
+        })
+        val answer = PersonalAnswerEngine.answer("今天为什么这么碎？", inputs(days))!!
+        assertTrue("今天不碎必须诚实，不能拿屏幕时间顶替：${answer.text}", answer.text.contains("不算特别零散"))
+    }
+
+    @Test
+    fun allCoreSetPhrasingsRouteToFamilies() {
+        val covered = listOf(
+            "最近一个月我明显变晚了吗？",
+            "这段时间我的晚上结束时间有什么趋势？",
+            "工作日和周末我的节奏差多少？",
+            "我的周末和工作日像两个人吗？",
+            "今天最像最近什么时候的我？",
+            "我最近是不是波动很大？",
+            "和上个月比，我这个月更规律了吗？",
+            "上个月和这个月我的屏幕时间差多少？",
+            "今天的状态和平时有什么不同？",
+            "今天为什么这么碎？",
+            "我之前跟你说过我在出差，还记得吗？",
+            "我的活跃起点和半年前一样吗？",
+        )
+        val days = series(30, start = { 540 }, dimsFor = { dims("STABILITY" to "VERY_SIMILAR") })
+        for (q in covered) {
+            assertTrue("Core Set 问法应被引擎覆盖：$q", PersonalAnswerEngine.answer(q, inputs(days)) != null)
+        }
+    }
+}
