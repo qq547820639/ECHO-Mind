@@ -49,8 +49,8 @@ android {
         applicationId = "com.yunjue.echo.mind"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.9.0"
+        versionCode = 7
+        versionName = "0.10.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")

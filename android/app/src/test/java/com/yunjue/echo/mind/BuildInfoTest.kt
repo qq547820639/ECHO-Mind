@@ -13,7 +13,7 @@ class BuildInfoTest {
 
     @Test
     fun versionMatchesReleaseVersion() {
-        assertEquals("0.9.0", BuildConfig.BUILD_VERSION)
+        assertEquals("0.10.0", BuildConfig.BUILD_VERSION)
     }
 
     @Test
