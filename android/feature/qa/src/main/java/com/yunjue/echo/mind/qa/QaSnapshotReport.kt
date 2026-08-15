@@ -151,6 +151,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND46.md](ERA31_ROUND46.md) — ERA 31 R46（Release Set 复核：v0.10.0 发布包 6/6 + dev head 发布就绪总表）")
         sb.appendLine("- [ERA31_ROUND47.md](ERA31_ROUND47.md) — ERA 31 R47（文档锚点对齐：政策宪章状态段 + README 开发头标注）")
         sb.appendLine("- [ERA31_ROUND48.md](ERA31_ROUND48.md) — ERA 31 R48（Fresh Clone 完整性验证：清单重生成纪律修复）")
+        sb.appendLine("- [ERA31_ROUND49.md](ERA31_ROUND49.md) — ERA 31 R49（终局复核：全门禁 + 画廊清单 + 自主实施收官）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()
