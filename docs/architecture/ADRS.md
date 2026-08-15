@@ -676,3 +676,15 @@
 - **决策**：Memory 生命周期闭环（ADR-069）结项后，下一长阶段选定 **全仓冻结契约一致性终检**——逐条对照冻结契约与实现/测试锚点：ECHO_PRODUCT_CONSTITUTION / PORTRAIT_CONTRACT / PERSONAL_INTELLIGENCE_CONTRACT / AFFECTIVE_CONTRACT（§8/§9/§10 保持冻结不绕过）/ PERSONA contract（编译器 system 指令）；产出 CONTRACT_COMPLIANCE 报告，发现缺口即以测试固定。不选 CI 模拟器矩阵扩展（连续八轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：冻结契约是用户信任的最终法律/产品基础；此前各审计轮按主题逐项覆盖，但无「契约条款 → 实现 → 测试」三级对照总表；作为审计阶段的收口，确保无条款仅有文档存在而无实现/锚点（宪法「禁止文档完成主义」的总执行）。
 - **后果**：每轮维持全门禁 + 发布链；条款级缺口修复或明确标记外部依赖；Affective §8/§9/§10 复核即止于冻结状态断言，不实施。结项标准：契约条款清单 → 锚点映射表（docs/contracts/CONTRACT_COMPLIANCE.md）+ 缺口闭环 + ADR-070 结项记录。
+
+### ADR-070 结项记录（ERA 85，两轮结论）
+
+- 第 1 轮：三级对照总表 docs/contracts/CONTRACT_COMPLIANCE.md（宪法 10 条 + Portrait 4 类 + PI 12 条 + Affective 11 条）+ scripts/contract_compliance_check.py（22 锚点机器校验，入 CI source-integrity）；自查修复 6 处过期锚点。
+- 第 2 轮：条款复核第二轮——后端镜像锚点复核（test_immutability_v03 / test_portrait_golden / test_version_consistency 在 backend 全量套件执行中）；待办收敛：Engagement 禁令与十二问固化为流程/人工评审项、Affective §8-§10 固化为外部门（BLOCKED 不绕过）、feature_vectors 留存裁剪固化为阻塞条件 1 待办。
+- 结论：冻结契约逐条具备「实现 + 测试」或「明确冻结/外部」两种诚实状态；对照表由 CI 机器防漂移——「禁止文档完成主义」的契约层总执行完成。
+
+## ADR-071：下一长阶段选型——Pilot-candidate 发布准备终检（Institutional Support 纵向切面，ERA 86）
+
+- **决策**：契约一致性终检（ADR-070）结项后，下一长阶段选定 **Pilot-candidate 发布准备终检**——Institutional Support 支柱的端到端纵向切面：机构激活 → 订阅绑定 → 升级上报 → 服务端 receipt（delivery_confirmed / human_acknowledged 未确认不早宣称）→ 数据权利请求（DSR）→ 危机/安全响应入口；配合 pilot-pack 治理模板（责任矩阵/单独同意/PIPIA/演练/Go-NoGo）一致性复核。外部发布门（真实设备构建、合规审批、独立渗透测试、真实试点）如实保持外部门，不伪造。不选 CI 模拟器矩阵扩展（连续九轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：README 当前状态 pilot-candidate；Institutional Support 是宪法 Backend 部分六支柱之一且各轮已建（激活 42 / DSR 49 / escalation receipt），但无端到端纵向审计；试点发布准备是当前产品阶段的自然下一步（User trust 1：机构与用户双边的诚实状态呈现）。
+- **后果**：每轮维持全门禁 + 发布链；外部发布门保持外部门记录；Affective 冻结不受影响。结项标准：激活→订阅→升级→receipt→DSR 纵向锚点 + pilot-pack 一致性复核 + ADR-071 结项记录。
