@@ -700,3 +700,15 @@
 - **决策**：Pilot-candidate 发布准备（ADR-071）结项后，下一长阶段选定 **发布就绪全量终检**——作为内部审计阶段的收官：全量生成文档再生成零漂移（SOURCE_REALITY_REPORT / ANDROID_DEPENDENCY_GRAPH / openapi 导出）、clean-clone 全 Gate 复核、发布门证据汇总表（RELEASE_READINESS：内部证据 ↔ 外部发布门映射）、README/状态/ADRS 事实终检。不选 CI 模拟器矩阵扩展（连续十轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：所有主题审计（ADR-058~071）已结项；外部发布门（真实设备/合规/渗透/真实试点）无法在本环境执行，内部可做的最后一块即「发布就绪全量终检」——把全部内部证据汇总为对外部门的移交包；宪法优先级 Distribution integrity / Source integrity（2/3）。
 - **后果**：每轮维持全门禁 + 发布链；发现漂移即修复；Affective 冻结不受影响。结项标准：生成文档零漂移 + RELEASE_READINESS 移交包 + ADR-072 结项记录。
+
+### ADR-072 结项记录（ERA 89，两轮结论）
+
+- 第 1 轮：生成文档重生成零漂移（SOURCE_REALITY / dependency graph 计数刷新后提交；openapi 零漂移；workflow pins 66/66）；RELEASE_READINESS 移交包（内部证据 11 项 ↔ 外部发布门 8 项）。
+- 第 2 轮：README/docs-current/ADRS 事实终检——ADR 计数 057/058 → 072、迁移链 2→11 → 2→12（真机+单元覆盖注记）、三套 → 五套 CI 门禁同步。
+- 结论：**内部审计阶段收官**——自 ADR-058 起的 15 个长阶段（Identity / 解释链 / What ECHO Knows / Memory §109 / Me 数据权利 / Journey 年视图 / §108 / Presence 功耗 / Correction 环路 / Baseline / First-Run / Memory 生命周期 / 契约终检 / Pilot 准备 / 发布就绪）全部结项。剩余项全部为外部发布门或人工确认项，如实保持外部门。
+
+## 后续方向记录（ERA 89，审计阶段收官后的状态）
+
+- **外部门移交**：RELEASE_READINESS 外部发布门 8 项（真实设备 ≥8 台回归 / 责任矩阵 / 临床签署 / 法务定稿 / 外部渗透 / 值班演练 / 生产域 / 伦理审查）由运营/法务/临床/安全主体执行。
+- **冻结不绕过**：Affective §8/§9/§10 人工评审；feature_vectors 留存裁剪（阻塞条件 1）；osv-scanner 本地首跑（CDN 可达后执行，CI 已强制）。
+- **内部剩余候选**（外部门完成前保持现状）：CI 模拟器矩阵扩展（无本地验证手段）；设备性能实测（CI connected-test 承接）。

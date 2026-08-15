@@ -16,7 +16,7 @@
 | 版本事实源 | `scripts/version_source.json` | 0.9.0（Android versionCode 6） |
 | 产品 README | `README.md` | v0.9.0 |
 | 发布说明 | `RELEASE_NOTES_v0.9.0.md` | 本版本 |
-| 架构决策 | `docs/architecture/ADRS.md` | ADR-001~058 |
+| 架构决策 | `docs/architecture/ADRS.md` | ADR-001~072 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
 | Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |
 | Presence 基准 | `docs/performance/PRESENCE_BENCHMARKS.md` | FROZEN（ERA 14） |

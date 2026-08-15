@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**发布就绪全量终检第 1 轮完成 ✅（ADR-072：全量生成文档再生成（SOURCE_REALITY 151→153 kt / 7→8 VM 等计数刷新后零漂移 + dependency graph 边缘计数 + openapi 零漂移 + 66 workflow pins）+ RELEASE_READINESS 移交包（内部证据 11 项 ↔ 外部发布门 8 项映射））→ 下一轮：README/状态/ADRS 事实终检 + ADR-072 结项（内部审计阶段收官）+ 后续方向记录**
+**发布就绪全量终检收官 ✅（ADR-072 两轮结项：生成文档零漂移 + RELEASE_READINESS 移交包 + README/docs-current/ADRS 事实终检（ADR-001~072/迁移链 2→12/五套 CI）——**内部审计阶段收官**：ADR-058 起 15 个长阶段全部结项，剩余全部为外部发布门/人工确认项（后续方向记录入 ADRS））**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -126,6 +126,7 @@
 - **Pilot-candidate 发布准备终检第 1 轮**：升级 receipt 语义双端复核（后端 delivery_confirmed_at 接收即写、human_acknowledged 仅显式 ack/takeover；Android 映射 DELIVERED/TAKEN_OVER 不早宣称「人工已收到」）；**发现并修复 pilot-pack 总控表陈旧**（v0.2 时代描述：未生成 APK/AES-256-GCM/781 测试/3 条 CI——与 final distributed state 严重漂移）→ 刷新为 ERA 86 实测（v0.9.0 signed APK + provenance、844+1076 测试、Room v12、HKDF+Keystore、5 条 CI、发布链、契约校验 22 锚点；Path-A 专项材料保持草案、外部阻断项保持外部门不伪造）；CONTRACT_COMPLIANCE 增 Institutional 纵切段（**24 锚点** PASS）
 - **Pilot-candidate 发布准备终检收官**：激活/订阅/DSR 纵向复核——backend（test_activation_codes 三维限速+tenant / test_subscription bind / test_dsr_matrix / test_e2e_privacy）与 Android（SubscriptionViewModelTest + SubscriptionContentSmokeTest）全部在既有套件执行、无缺口；pilot-pack 其余模板（责任矩阵/危机脚本/Go-NoGo）无版本漂移（02 同意版本号保持草案标识语义）；**ADR-071 两轮结项**（试点仅剩外部发布门：真实设备/法务临床定稿/渗透/演练/伦理审查）+ **ADR-072 选型**：下一长阶段 = 发布就绪全量终检（生成文档零漂移 + RELEASE_READINESS 移交包 + clean-clone 全 Gate 复核——内部审计阶段的收官）
 - **发布就绪全量终检第 1 轮**：全量生成文档再生成——SOURCE_REALITY_REPORT（kt 151→153、ViewModel 7→8 补 SubscriptionViewModel 等计数刷新后提交零漂移）/ ANDROID_DEPENDENCY_GRAPH（presence 10→11、ui 35→36 边缘计数刷新）/ openapi 重导出零漂移 / workflow pins（5 条、66 uses 全部 immutable SHA）PASS；**RELEASE_READINESS 移交包**（docs/release/RELEASE_READINESS.md）：内部证据 11 项（844+1076 测试/发布链/APK 绑定/16+7+9 门/24 契约锚点/13 行预算等）↔ 外部发布门 8 项（真实设备/责任矩阵/临床/法务/渗透/演练/生产域/伦理）映射；冻结与阻塞项保持不绕过
+- **发布就绪全量终检收官**：README/docs-current/ADRS 事实终检——ADR 计数 057/058 → **072**、迁移链 2→11 → **2→12**（真机+单元覆盖注记）、三套 → **五套 CI 门禁**；**ADR-072 两轮结项**（**内部审计阶段收官**：ADR-058 起 15 个长阶段全部结项）+ **后续方向记录**（外部门移交 8 项 / 冻结不绕过 3 项 / 内部剩余候选 2 项如实保持现状）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -171,4 +172,4 @@
 
 ## Next Highest-value Task
 
-ADR-072 第 2 轮（发布就绪终检收官）：README/状态/ADRS 事实终检（版本/测试数/ADR 计数/Room v12/性能行数全仓一致性）+ ADR-072 结项记录（内部审计阶段收官）+ 后续方向记录（外部门移交后的剩余内部候选：CI 模拟器矩阵 / osv-scanner / 留存裁剪均保持现状）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+内部审计阶段已收官（ADR-072）。后续工作全部为外部门移交（RELEASE_READINESS 8 项外部发布门）或人工确认项：Affective §8/§9/§10 人工评审（冻结不绕过）；feature_vectors 留存裁剪（阻塞条件 1，待人工确认）；osv-scanner 本地首跑（GitHub release CDN 可达后执行，CI 已强制）；CI 模拟器矩阵与设备性能实测（外部门完成前保持现状）。外部门完成后回到内部时，按宪法优先级从冻结方向继续选型。
