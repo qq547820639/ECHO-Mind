@@ -640,3 +640,15 @@
 - **决策**：Personal Correction 环路（ADR-066）结项后，下一长阶段选定 **Personal Baseline 端到端真值审计**——宪法第一组件（Personal Baseline + Context + Memory + …）与 Ground Truth Layer 的核心：validDays 连续有效日语义 / 缺失源覆盖与置信 / 冷启动阶梯（WARMING_UP→READY）/ 本地引擎与后端镜像一致性（同算法镜像契约）/ 基线→画像→ECHO 成熟度传导。不选 CI 模拟器矩阵扩展（连续五轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：基线是「ECHO 区分你的平常与今天变化」的唯一事实基础（解释链/画像/Journey/Intelligence 全部依赖）；此前各轮只间接触及（ADR-058 Identity / ADR-059 解释链），无独立审计阶段；本地 JVM + Robolectric 全链可测。
 - **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：validDays 语义/缺失源/冷启动/镜像一致性锚点 + ADR-067 结项记录。
+
+### ADR-067 结项记录（ERA 79，两轮结论）
+
+- 第 1 轮：基线三路径（画像/基线状态/Presence 输入）窗口化加载——纠正第 73 轮「streak 需全历史」误判（基线窗口实为固定 28 天）；窗口边界/覆盖阈值/状态阶梯 golden 锚定。
+- 第 2 轮：镜像一致性终检——本地 LocalPortraitGoldenTest 001~008 与 backend test_portrait_golden.py 逐场景对齐；confidenceFor 与 backend baseline/confidence.py 逐边界镜像（HIGH 0.7/7/无缺失、MEDIUM 0.3/3、缺失源降级）；基线 validDays → 状态机 → echoMaturity 视觉成熟度阶梯传导锚定（BASELINE_READY ↔ 至少 KNOWN）。
+- 结论：Personal Baseline 端到端完成——「ECHO 区分你的平常与今天的变化」的事实基础在窗口语义、覆盖阈值、状态机、置信与视觉传导全链具备本地-后端双锚点。
+
+## ADR-068：下一长阶段选型——First-Run 纵向切面真值审计（FINAL PRODUCT ACCEPTANCE 首段，ERA 80）
+
+- **决策**：Personal Baseline 审计（ADR-067）结项后，下一长阶段选定 **First-Run 纵向切面真值审计**——FINAL PRODUCT ACCEPTANCE 首段的端到端切面：新用户安装 → 授权（同意/权限矩阵）→ ECHO 当场苏醒（首帧/中性占位不编造）→ 感知启动（capability 检测）→ WARMING_UP（事实句获得感）→ 7 天基线成型 → 第一个 READY 画像（「你的平常」首次成形）。不选 CI 模拟器矩阵扩展（连续六轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：FINAL PRODUCT ACCEPTANCE 是产品验收的冻结终态描述，其首段（安装→授权→苏醒）尚无独立审计阶段；各环节均有既有实现与测试（Onboarding smoke / 权限矩阵 / 冷启动文案 / 状态机），审计成本低而验收真值高（User trust 1）；全链本地可测。
+- **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：Day 0→7 切面逐段锚点（安装/授权/苏醒/感知/基线成型/READY 首画像）+ ADR-068 结项记录。
