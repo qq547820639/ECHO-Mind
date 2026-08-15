@@ -76,7 +76,8 @@ fun buildSelfModel(
  */
 fun echoKnowsLines(model: EchoSelfModel, maxLines: Int = 6): List<String> = buildList {
     model.confirmedPatterns.take(2).forEach { p ->
-        add("我观察到：${p.content}（已持续 ${p.occurrenceCount} 次观察）")
+        // ERA 31 R11：人类语言复核——「已持续 N 次观察」→「看到过 N 次」（计数保留信任，措辞更口语）
+        add("我观察到：${p.content}（看到过 ${p.occurrenceCount} 次）")
     }
     model.challengedPatterns.take(1).forEach { p ->
         add("之前关于「${p.content}」的判断最近有些出入，我还在观察。")

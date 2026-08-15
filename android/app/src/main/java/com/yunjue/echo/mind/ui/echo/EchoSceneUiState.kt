@@ -64,9 +64,11 @@ fun assembleEchoSceneUiState(
     // Layer 1 = 确定性 headline（产品真值；学习期用学习期文案）
     // Layer 2 = facts 证据（Why 层）
     // AI 层 = 仅当 AI 叙事与确定性 headline 不同且过门禁时，作为增量理解展示
+    // ERA 31 R11（§11）：Headline 不是数据摘要——自然句 summary 优先于标签列表
+    // （「偏晚 · 多屏」是数据摘要；「今天开始活跃的时间比你最近的习惯稍晚。」才是 ECHO 口吻）。
     val deterministicHeadline = when {
-        !portrait?.headline.isNullOrEmpty() -> portrait!!.headline.joinToString(" · ")
         !portrait?.summary.isNullOrBlank() -> portrait!!.summary
+        !portrait?.headline.isNullOrEmpty() -> portrait!!.headline.joinToString(" · ")
         else -> learningPhaseHeadline(maturity)
     }
     val aiLine = narrative?.takeIf {

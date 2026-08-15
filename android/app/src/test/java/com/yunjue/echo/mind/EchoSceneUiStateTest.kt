@@ -71,7 +71,8 @@ class EchoSceneUiStateTest {
             now = 0L,
         )
         // ERA 20 §9：AI 不覆盖确定性 headline；作为增量 AI 层展示（三层区分）
-        assertEquals("开始得比平常晚", state.headline)
+        // ERA 31 R11：确定性 headline 优先自然句 summary（非标签列表）
+        assertEquals("今天开始活跃的时间比平常晚一些。", state.headline)
         assertEquals("今天开始得比平常晚一些。", state.aiLayer)
         assertEquals(NarrativeFallbackLevel.AI_NARRATIVE, state.headlineLevel)
         assertEquals(listOf(DataSourceCategory.TODAY_AGGREGATE), state.headlineSources)
@@ -81,7 +82,7 @@ class EchoSceneUiStateTest {
     fun aiLayerIsSuppressedWhenIdenticalToDeterministicHeadline() {
         val narrative = AiNarrativeService.NarrativeResult(
             level = NarrativeFallbackLevel.AI_NARRATIVE,
-            text = "开始得比平常晚", // 与确定性 headline 完全相同 → 不重复展示
+            text = "今天开始活跃的时间比平常晚一些。", // 与确定性 headline 完全相同 → 不重复展示
             usedSources = listOf(DataSourceCategory.TODAY_AGGREGATE),
         )
         val state = assembleEchoSceneUiState(
@@ -93,7 +94,7 @@ class EchoSceneUiStateTest {
             suggestionsEnabled = true,
             now = 0L,
         )
-        assertEquals("开始得比平常晚", state.headline)
+        assertEquals("今天开始活跃的时间比平常晚一些。", state.headline)
         assertEquals(null, state.aiLayer)
         assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, state.headlineLevel)
     }
@@ -101,14 +102,36 @@ class EchoSceneUiStateTest {
     @Test
     fun deterministicHeadlineFallsBack() {
         val state = assembleEchoSceneUiState(
-            portraitState = portraitState(),
+            portraitState = PortraitUiState(
+                status = PortraitStatus.READY,
+                portrait = portrait(headline = listOf("偏晚", "多屏"), summary = ""),
+            ),
             presence = presence(),
             sensing = SensingRuntimeStatus.ACTIVE,
             narrative = null,
             intelligenceAvailable = false,
             suggestionsEnabled = true,
         )
-        assertEquals("开始得比平常晚", state.headline)
+        // 无自然句 summary → 标签列表兜底（保持既有语义）
+        assertEquals("偏晚 · 多屏", state.headline)
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, state.headlineLevel)
+    }
+
+    @Test
+    fun naturalSummaryWinsOverTagListHeadline() {
+        // ERA 31 R11（§11）：Headline 不是数据摘要——自然句优先，标签列表只作兜底
+        val state = assembleEchoSceneUiState(
+            portraitState = PortraitUiState(
+                status = PortraitStatus.READY,
+                portrait = portrait(headline = listOf("偏晚", "多屏"), summary = "今天开始活跃的时间比你最近的习惯稍晚。"),
+            ),
+            presence = presence(),
+            sensing = SensingRuntimeStatus.ACTIVE,
+            narrative = null,
+            intelligenceAvailable = false,
+            suggestionsEnabled = true,
+        )
+        assertEquals("今天开始活跃的时间比你最近的习惯稍晚。", state.headline)
         assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, state.headlineLevel)
     }
 
