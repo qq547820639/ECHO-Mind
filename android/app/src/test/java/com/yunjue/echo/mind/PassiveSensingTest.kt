@@ -1,9 +1,12 @@
 package com.yunjue.echo.mind
 
+import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.hardware.Sensor
+import android.Manifest
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -365,6 +368,44 @@ class PassiveSensingTest {
             )
             assertTrue("已运行时仍保持运行", service.isSensingRunning())
             assertFalse("已运行时不重复 stopSelf", shadow.isStoppedBySelf)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    // ===== ERA 32 R21：后台持续录音（microphone FGS 类型 + mic reconcile 动作） =====
+
+    @Test
+    fun foregroundServiceTypesIncludeMicrophoneOnlyWhenReady() {
+        val specialUse = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        val microphone = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        assertEquals("mic 未就绪时只声明 specialUse", specialUse, PassiveSensingService.foregroundServiceTypes(false))
+        assertEquals(
+            "mic 就绪时叠加 microphone（后台持续录音的系统前提）",
+            specialUse or microphone,
+            PassiveSensingService.foregroundServiceTypes(true)
+        )
+    }
+
+    @Test
+    fun micReconcileActionsAreDeclared() {
+        assertEquals("com.yunjue.echo.mind.action.START_MIC", PassiveSensingService.ACTION_START_MIC)
+        assertEquals("com.yunjue.echo.mind.action.STOP_MIC", PassiveSensingService.ACTION_STOP_MIC)
+    }
+
+    @Test
+    fun micReadyRequiresPrefEnabledAndRecordPermission() = runBlocking {
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        try {
+            val prefs = PassiveSensingPrefs(context)
+            prefs.setMicEnabled(true)
+            assertFalse("无 RECORD_AUDIO 时不应就绪（API 34+ 声明 mic 类型会 SecurityException）", service.micReadyToStart())
+            val app = ApplicationProvider.getApplicationContext<Application>()
+            Shadows.shadowOf(app).grantPermissions(Manifest.permission.RECORD_AUDIO)
+            assertTrue("开关 + 权限齐备时应就绪", service.micReadyToStart())
+            prefs.setMicEnabled(false)
+            assertFalse("开关关闭时不应就绪", service.micReadyToStart())
         } finally {
             controller.destroy()
         }

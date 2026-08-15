@@ -131,6 +131,12 @@ class MicCollector(
                             onPermissionRevoked()
                             break
                         }
+                        // ERA 32 R21：支持页关闭麦克风开关 → 采集循环自行退出
+                        // （不触发权限撤回回调：consent 已由开关路径写入）。
+                        if (!prefs.micEnabled.first()) {
+                            stop()
+                            break
+                        }
                     }
                     val read = record.read(chunk, 0, chunkSize)
                     if (read > 0) {

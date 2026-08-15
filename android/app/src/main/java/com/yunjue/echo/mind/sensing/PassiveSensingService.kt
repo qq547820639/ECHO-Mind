@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -15,6 +16,8 @@ import android.os.Looper
 import android.os.Process
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import android.Manifest
 import com.yunjue.echo.mind.EchoMindApplication
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.enqueueSync
@@ -52,6 +55,9 @@ class PassiveSensingService : Service() {
     /** 权限撤回回调协程 scope：SupervisorJob 避免单次回调异常影响后续。 */
     private val revokeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** 主线程 handler：门控结果回主线程执行 startForeground/传感器注册（ERA 32 R21 提升为字段供 mic reconcile 复用）。 */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -87,17 +93,45 @@ class PassiveSensingService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            // ERA 32 R21（后台持续录音闭环）：麦克风开关在支持页实时开/关——
+            // 感知服务运行中按需 reconcile 麦克风采集器与 FGS 类型，无需重启整个感知。
+            ACTION_START_MIC -> {
+                if (!started) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                sensingScope.launch {
+                    val ready = runCatching { micReadyToStart() }.getOrDefault(false)
+                    mainHandler.post {
+                        if (started && ready) {
+                            startForegroundWithTypes(buildNotification(), micReady = true)
+                            micCollector?.let { mic -> sensingScope.launch { mic.start() } }
+                        }
+                    }
+                }
+                return START_STICKY
+            }
+            ACTION_STOP_MIC -> {
+                if (!started) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                micCollector?.stop()
+                micCollector?.clearBuffer()
+                startForegroundWithTypes(buildNotification(), micReady = false)
+                return START_STICKY
+            }
             else -> {
                 // 已运行时不重复启动（幂等）
                 if (started) return START_STICKY
-                // 三重门控含 DataStore 异步读（consent）：不能在主线程 runBlocking（ANR/死锁风险）。
+                // 三重门控含 DataStore 异步读（consent/micEnabled）：不能在主线程 runBlocking（ANR/死锁风险）。
                 // 门控在后台协程执行，结果回主线程处理；门控不通过则 stopSelf（fail-closed），
                 // startSensing 仍回主线程执行（startForeground/传感器注册）。
-                val mainHandler = Handler(Looper.getMainLooper())
                 sensingScope.launch {
                     val allowed = runCatching { canStartSensing() }.getOrDefault(false)
+                    val micReady = if (allowed) runCatching { micReadyToStart() }.getOrDefault(false) else false
                     mainHandler.post {
-                        if (allowed) startSensing() else stopSelf()
+                        if (allowed) startSensing(micReady) else stopSelf()
                     }
                 }
             }
@@ -154,14 +188,47 @@ class PassiveSensingService : Service() {
         runCatching { PassiveSensingPrefs(this@PassiveSensingService).passiveSensingEnabled.first() }
             .getOrDefault(false)
 
-    internal fun startSensing() {
-        if (started) return
-        val notification = buildNotification()
+    /**
+     * ERA 32 R21：麦克风就绪判定（FGS microphone 类型的运行时前提）——
+     * micEnabled 开关开启 且 RECORD_AUDIO 已授予；任一不满足即不声明 mic 类型
+     * （API 34+ 在无 RECORD_AUDIO 时声明 mic 类型会直接 SecurityException 杀服务）。
+     */
+    internal suspend fun micReadyToStart(): Boolean {
+        val enabled = runCatching {
+            PassiveSensingPrefs(this@PassiveSensingService).micEnabled.first()
+        }.getOrDefault(false)
+        return enabled && hasRecordAudioPermission()
+    }
+
+    private fun hasRecordAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
+     * startForeground（micReady 时叠加 microphone 类型）。
+     * 权限竞态兜底：mic 类型启动失败（RECORD_AUDIO 在检查后被撤）→ 退回 specialUse，
+     * 可选麦克风模块绝不能拖垮核心感知服务。
+     */
+    private fun startForegroundWithTypes(notification: Notification, micReady: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            val withMic = micReady && hasRecordAudioPermission()
+            val ok = runCatching {
+                startForeground(NOTIFICATION_ID, notification, foregroundServiceTypes(withMic))
+            }.isSuccess
+            if (!ok) {
+                runCatching {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                }
+            }
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+    }
+
+    internal fun startSensing(micReady: Boolean = false) {
+        if (started) return
+        val notification = buildNotification()
+        startForegroundWithTypes(notification, micReady)
         sensorCollector?.start()
         screenCollector?.start()
         appActivityCollector?.start()
@@ -234,6 +301,28 @@ class PassiveSensingService : Service() {
 
         const val ACTION_START = "com.yunjue.echo.mind.action.START_SENSING"
         const val ACTION_STOP = "com.yunjue.echo.mind.action.STOP_SENSING"
+
+        /** ERA 32 R21：麦克风模块的实时开/关（感知服务运行中 reconcile，不重启感知）。 */
+        const val ACTION_START_MIC = "com.yunjue.echo.mind.action.START_MIC"
+        const val ACTION_STOP_MIC = "com.yunjue.echo.mind.action.STOP_MIC"
+
+        /** API 34+ 前台服务类型位：核心 specialUse；micReady 时叠加 microphone（后台持续录音的系统前提）。 */
+        @androidx.annotation.RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        internal fun foregroundServiceTypes(micReady: Boolean): Int =
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                if (micReady) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+
+        /** 打开麦克风采集（感知服务运行中生效；未运行则 no-op）。 */
+        fun startMic(context: Context) {
+            val intent = Intent(context, PassiveSensingService::class.java).setAction(ACTION_START_MIC)
+            context.startForegroundService(intent)
+        }
+
+        /** 关闭麦克风采集（感知服务运行中生效；未运行则 no-op）。 */
+        fun stopMic(context: Context) {
+            val intent = Intent(context, PassiveSensingService::class.java).setAction(ACTION_STOP_MIC)
+            context.startService(intent)
+        }
 
         /**
          * 核心门控纯函数（Phase 6.1 Permission Degraded）：flag + consent + 核心传感器可用。
