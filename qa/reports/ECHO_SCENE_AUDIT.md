@@ -36,6 +36,15 @@
 5. **成熟度单一真值**：ECHO Scene 的 maturity 改为来自 Presence（日历语义），修复 weekday 分桶下 MATURE 永不可达的问题。
 6. **ERA 31：Scene 信息密度复审**——Journey 入口与「问 ECHO」入口 OutlinedButton → TextButton（安静入口，非按钮墙）；紧急支持保持常驻 OutlinedButton（安全资源，不弱化）；Why 证据卡去卡化（无边框证据行）；EchoStatusOverlay AI 提示去卡化（信任信息保留，移除卡片边框）。
 
+## 3.5 ERA 31 R12 走查发现并修复
+
+全链路走查（首次启动→授权→Awakening→ECHO→Why→Ask→Action→Journey→返回）：
+- **发现**：Scene 第二项是大字号日期「今天 · MM月dd日」（headlineMedium）——与 ECHO 抢第一视觉，
+  Dashboard 式元数据噪音（§9/§10）。
+- **修复**：降为 labelMedium 安静时间锚；第一视觉链条保持 ECHO → 安静日期 → 自然句 headline → Why → Ask。
+- 其余步骤复核通过：授权不停留（R6）、学习期进度仅早期可见（R1）、状态提示非 ACTIVE 才可见、
+  AI 提示去卡化（R1）、Journey 入口 TextButton（R1）、紧急入口常驻不弱化。
+
 ## 4. 后续计划（后续 Round）
 
 - （原清单三项已在 ERA 31 R1 完成，见上 6）

@@ -236,9 +236,11 @@ fun EchoSceneContent(
             Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. ECHO 视觉主体
+            // 1. ECHO 视觉主体（第一视觉永远是 ECHO——§9）
             item { visualSurface() }
-            item { Text("今天 · $todayMd", style = MaterialTheme.typography.headlineMedium) }
+            // 1.5 日期只是安静的时间锚（ERA 31 R12：headlineMedium → labelMedium——
+            // 大字号日期会与 ECHO 抢第一视觉，属 Dashboard 式元数据噪音；§10 信息量压缩）
+            item { Text("今天 · $todayMd", style = MaterialTheme.typography.labelMedium) }
 
             // 2. 状态透明（非 ACTIVE 才可见）+ 初次 AI 提示
             item {
