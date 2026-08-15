@@ -127,6 +127,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND23.md](ERA31_ROUND23.md) — ERA 31 R23（Day-7 Why 可懂：开始活跃的「变化」直接说分钟数）")
         sb.appendLine("- [ERA31_ROUND24.md](ERA31_ROUND24.md) — ERA 31 R24（Ask ECHO 依据诚实化：不再一律「参考了：历史画像」）")
         sb.appendLine("- [ERA31_ROUND25.md](ERA31_ROUND25.md) — ERA 31 R25（Ask ECHO 证据说人话：z 分数与工程键退役）")
+        sb.appendLine("- [ERA31_ROUND26.md](ERA31_ROUND26.md) — ERA 31 R26（Me 检查台走查：麦克风双控制去重）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()

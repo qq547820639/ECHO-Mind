@@ -170,13 +170,8 @@ fun DataAndSensingContent(
                 recoveryLabel = "开启通知使用权",
                 onRecover = onRecoverNotificationAccess
             )
-            CapabilityStatusRow(
-                state = state.capabilityStates[SensingCapability.MIC] ?: CapabilityState.DENIED,
-                name = "麦克风",
-                description = "麦克风未开启（可选）。这不影响每日画像的生成。",
-                recoveryLabel = "开启麦克风（可选）",
-                onRecover = { onEvent(DataAndSensingEvent.ToggleMic(true)) }
-            )
+            // ERA 31 R26：麦克风不再进能力行——下方「麦克风」分项已有完整控制
+            // （状态 + 说明 + 开关 + 二次确认），同一屏幕两个麦克风控制是重复噪音（§10）。
             // 采集/同步时间观测（事实陈述，非工程噪音——这是信任控制中心，职责在此）
             Text("最近成功采集：${formatTimestamp(state.lastCollectionTs)}")
             Text("最近持久化失败：${formatTimestamp(state.lastPersistenceFailureTs ?: 0L)}")
@@ -200,7 +195,8 @@ fun DataAndSensingContent(
 
     // 麦克风分项
     Text("麦克风", style = MaterialTheme.typography.titleMedium)
-    Text("麦克风采集为可选项，默认关闭。开启后仅在本地处理，不会上传录音。")
+    // ERA 31 R26：合并被移除的能力行说明——不开启也不影响每日画像（控制 + 安心一句在此）
+    Text("麦克风采集为可选项，默认关闭。开启后仅在本地处理，不会上传录音；不开启也不影响每日画像。")
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,

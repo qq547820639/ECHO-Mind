@@ -99,10 +99,12 @@ class DataAndSensingContentSmokeTest {
         compose.onNodeWithText("数据与感知").assertExists()
         compose.onNodeWithText("设备不支持").assertExists()
         compose.onNodeWithText("已开启").assertExists()
-        // USAGE + NOTIFICATION + MIC 三行均为「未开启」
-        compose.onAllNodesWithText("未开启").assertCountEquals(3)
+        // USAGE + NOTIFICATION 两行均为「未开启」（ERA 31 R26：麦克风行已并入下方麦克风分项）
+        compose.onAllNodesWithText("未开启").assertCountEquals(2)
         compose.onNodeWithText("开启使用情况访问").assertExists()
         compose.onNodeWithText("开启通知使用权").assertExists()
+        // 麦克风只在分项出现一次（不再有第二个「开启麦克风」恢复按钮）
+        compose.onNodeWithText("麦克风采集").assertExists()
     }
 
     @Test
