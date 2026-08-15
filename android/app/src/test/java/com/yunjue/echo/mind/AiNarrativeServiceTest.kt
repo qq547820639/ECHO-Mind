@@ -92,4 +92,55 @@ class AiNarrativeServiceTest {
         assertEquals(NarrativeFallbackLevel.AI_NARRATIVE, result.level)
         assertTrue(result.usedSources.isNotEmpty())
     }
+
+    // ===== ERA 57（§73 审计第 3 轮）：有限重试（仅瞬态失败，共 2 次尝试） =====
+
+    @Test
+    fun transientFailureRetriesOnceThenSucceeds() = runBlocking {
+        var calls = 0
+        val service = AiNarrativeService(
+            hasProvider = { true },
+            reason = { _ ->
+                calls++
+                if (calls == 1) {
+                    EchoReasoningResponse(text = "", status = ProviderStatus.NETWORK_ERROR)
+                } else {
+                    EchoReasoningResponse(text = "今天和平时很接近。", structuredJson = "{\"statement\":\"今天和平时很接近。\"}", status = ProviderStatus.READY)
+                }
+            },
+        )
+        val result = service.nowNarrative(evidence, "确定性叙事", "事实")
+        assertEquals("瞬态失败应重试一次后成功", NarrativeFallbackLevel.AI_NARRATIVE, result.level)
+        assertEquals("重试成功后应取第二次结果", 2, calls)
+    }
+
+    @Test
+    fun transientFailureRetriesOnceThenFallsBack() = runBlocking {
+        var calls = 0
+        val service = AiNarrativeService(
+            hasProvider = { true },
+            reason = { _ ->
+                calls++
+                EchoReasoningResponse(text = "", status = ProviderStatus.PROVIDER_ERROR)
+            },
+        )
+        val result = service.nowNarrative(evidence, "确定性叙事", "事实")
+        assertEquals("两次瞬态失败后降级确定性叙事", NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("共 2 次尝试（1 次重试），不无限重试", 2, calls)
+    }
+
+    @Test
+    fun semanticFailureDoesNotRetry() = runBlocking {
+        var calls = 0
+        val service = AiNarrativeService(
+            hasProvider = { true },
+            reason = { _ ->
+                calls++
+                EchoReasoningResponse(text = "", status = ProviderStatus.RATE_LIMITED)
+            },
+        )
+        val result = service.nowNarrative(evidence, "确定性叙事", "事实")
+        assertEquals("限流立即降级（重试只会放大伤害）", NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("语义失败不重试", 1, calls)
+    }
 }

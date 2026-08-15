@@ -15,6 +15,19 @@ class AiNarrativeService(
     private val networkAvailable: () -> Boolean = { true },
 ) {
 
+    /**
+     * ERA 57（§73 审计第 3 轮）：有限重试——仅瞬态失败（网络/服务端瞬时错误）重试一次，
+     * 共 2 次尝试；配额/限流/认证/模型不存在等语义失败立即降级（重试只会放大伤害）。
+     * 结构化输出失败由 validator 修复链处理；本层不无限重试。
+     */
+    private suspend fun reasonWithSingleRetry(request: EchoReasoningRequest): EchoReasoningResponse {
+        val first = reason(request)
+        if (first.status != ProviderStatus.NETWORK_ERROR && first.status != ProviderStatus.PROVIDER_ERROR) {
+            return first
+        }
+        return reason(request)
+    }
+
     /** 叙事结果：层级（供 UI 决定是否展示 AI 徽标）+ 文本 + 依据来源。 */
     data class NarrativeResult(
         val level: NarrativeFallbackLevel,
@@ -39,7 +52,7 @@ class AiNarrativeService(
         }
 
         val compiled = EchoContextCompiler.compile(ReasoningTaskId.GENERATE_NOW_INTERPRETATION, evidence)
-        val response = reason(
+        val response = reasonWithSingleRetry(
             EchoReasoningRequest(
                 task = ReasoningTaskId.GENERATE_NOW_INTERPRETATION.name,
                 systemInstruction = compiled.systemInstruction,
@@ -90,7 +103,7 @@ class AiNarrativeService(
             all,
             question = question,
         )
-        val response = reason(
+        val response = reasonWithSingleRetry(
             EchoReasoningRequest(
                 task = ReasoningTaskId.ANSWER_PERSONAL_QUESTION.name,
                 systemInstruction = compiled.systemInstruction,
@@ -135,7 +148,7 @@ class AiNarrativeService(
             )
         }
         val compiled = EchoContextCompiler.compile(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, evidence)
-        val response = reason(
+        val response = reasonWithSingleRetry(
             EchoReasoningRequest(
                 task = ReasoningTaskId.FIND_LONGITUDINAL_PATTERN.name,
                 systemInstruction = compiled.systemInstruction,
