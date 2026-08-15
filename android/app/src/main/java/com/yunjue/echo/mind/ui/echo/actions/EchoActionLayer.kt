@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.ui.echo.actions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -51,42 +52,55 @@ fun EchoActionLayerContent(
     onStartAction: (EchoActionKind) -> Unit,
     skillsSection: @Composable () -> Unit,
 ) {
+    // ERA 31 R29（§10：Action 只有真正相关时出现）：默认只留一个安静的「想做点什么？」
+    // 入口——呼吸/暂停按钮、L2 建议、订阅槽位不再常驻 Scene（旧版 4 个常驻控件是按钮墙）。
+    var actionsExpanded by remember { mutableStateOf(false) }
     var skillsExpanded by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("想做点什么？", style = MaterialTheme.typography.titleMedium)
-        // Intervention Policy L2：打开时建议（运行时统一裁决；L0/L1 不打扰）
-        if (availability.suggested) {
-            Text(
-                "从今天的数据看，让自己慢一点可能有帮助。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { onStartAction(EchoActionKind.BREATHING) },
-                modifier = Modifier.weight(1f)
-            ) { Text("1 分钟呼吸") }
-            OutlinedButton(
-                onClick = { onStartAction(EchoActionKind.PAUSE) },
-                modifier = Modifier.weight(1f)
-            ) { Text("短暂离开屏幕") }
-        }
-        // 「什么也不做」永远是合法选项（产品宪法：不需要喂 ECHO）
         TextButton(
-            onClick = { skillsExpanded = false },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) { Text("什么也不做") }
-        HorizontalDivider()
-        // 订阅能力分区（不在免费行动里混排）
-        TextButton(
-            onClick = { skillsExpanded = !skillsExpanded },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
+            onClick = { actionsExpanded = !actionsExpanded },
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(if (skillsExpanded) "收起更多能力（订阅）" else "更多能力（订阅）")
+            Text(if (actionsExpanded) "收起" else "想做点什么？")
+        }
+        if (actionsExpanded) {
+            // Intervention Policy L2：打开时建议（运行时统一裁决；L0/L1 不打扰）
+            if (availability.suggested) {
+                Text(
+                    "从今天的数据看，让自己慢一点可能有帮助。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { onStartAction(EchoActionKind.BREATHING) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("1 分钟呼吸") }
+                OutlinedButton(
+                    onClick = { onStartAction(EchoActionKind.PAUSE) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("短暂离开屏幕") }
+            }
+            // 「什么也不做」永远是合法选项（产品宪法：不需要喂 ECHO）
+            TextButton(
+                onClick = {
+                    actionsExpanded = false
+                    skillsExpanded = false
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) { Text("什么也不做") }
+            HorizontalDivider()
+            // 订阅能力分区（不在免费行动里混排）
+            TextButton(
+                onClick = { skillsExpanded = !skillsExpanded },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(if (skillsExpanded) "收起更多能力（订阅）" else "更多能力（订阅）")
+            }
         }
     }
-    if (skillsExpanded) {
+    if (actionsExpanded && skillsExpanded) {
         skillsSection()
     }
 }

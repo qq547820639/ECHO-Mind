@@ -130,6 +130,7 @@ object QaSnapshotReport {
         sb.appendLine("- [ERA31_ROUND26.md](ERA31_ROUND26.md) — ERA 31 R26（Me 检查台走查：麦克风双控制去重）")
         sb.appendLine("- [ERA31_ROUND27.md](ERA31_ROUND27.md) — ERA 31 R27（Journey 一条河流：河段故事并入主河流）")
         sb.appendLine("- [ERA31_ROUND28.md](ERA31_ROUND28.md) — ERA 31 R28（Scene 早期状态去仪表化：进度条与覆盖率条退役）")
+        sb.appendLine("- [ERA31_ROUND29.md](ERA31_ROUND29.md) — ERA 31 R29（Scene Action 安静化：按钮墙折叠成单一入口）")
         sb.appendLine("- [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）")
         sb.appendLine("- [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）")
         sb.appendLine()
