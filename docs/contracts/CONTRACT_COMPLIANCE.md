@@ -62,3 +62,10 @@
 - §6 Engagement 禁令：无自动锚点（复核无违规）——记录为人工评审待办。
 - Affective §8/§9/§10：人工评审门（不绕过）。
 - feature_vectors 留存裁剪：阻塞条件 1（不可逆删除真实用户数据），非人工确认不自主执行。
+
+## E. Institutional Support 纵向切面（ERA 86 / ADR-071）
+
+| 条款 | 实现锚点 | 测试锚点 |
+|---|---|---|
+| 升级上报 receipt 诚实（送达 ≠ 人工已收到） | `android/app/src/main/java/com/yunjue/echo/mind/data/EscalationRepository.kt` + `backend/app/api/escalations.py`（delivery_confirmed_at 接收即写；human_acknowledged 仅显式 ack/takeover） | backend 全量套件（escalation/receipt 用例）+ Android SupportSection 语义 |
+| 试点就绪总控表与 final distributed state 对齐 | `pilot-pack/00_试点就绪总控表.md`（ERA 86 刷新：v0.9.0/provenance/测试数/5 条 CI；外部阻断项保持外部门） | `scripts/contract_compliance_check.py`（本文件锚点校验） |
