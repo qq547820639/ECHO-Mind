@@ -5,19 +5,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -25,10 +18,16 @@ import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.presence.EchoLifeField
+import com.yunjue.echo.mind.presence.PresenceMotionLevel
+import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -150,7 +149,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     }
 
     if (awakening) {
-        AwakeningScreen(onFinished = {
+        AwakeningScreen(preferences = preferences, onFinished = {
             scope.launch { finishOnboarding(sensingOn = true) }
         })
         return
@@ -347,24 +346,32 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
 
 /**
  * ECHO 苏醒过渡（Master Prompt PART 63）：最后核心授权成功后
- * 按钮消失 → ECHO 图形开始缓慢呼吸 →「ECHO 已开始了解你」→ 短暂停留后自动进入主界面。
+ * 按钮消失 → **真实的这个 ECHO**（identitySeed 派生的生产视觉）开始缓慢呼吸 →
+ * 「ECHO 已开始了解你」→ 短暂停留后自动进入主界面。
  * 没有 DONE 页、没有「进入应用」——真正准备好的不是用户，是 ECHO。
  */
 @Composable
-private fun AwakeningScreen(onFinished: () -> Unit) {
+private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit) {
     // 短暂视觉过渡后自动完成 onboarding 并进入 ECHO Scene
     LaunchedEffect(Unit) {
         delay(AWAKENING_DURATION_MS)
         onFinished()
     }
 
-    val transition = rememberInfiniteTransition(label = "awakening")
-    val scale by transition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
-        label = "awakeningScale"
-    )
+    // ERA 31 R22：苏醒瞬间必须是「这个 ECHO」——Day-0 SEED presence 由真实 identitySeed
+    // 派生（与 Scene/Wallpaper 同源的 deriveIdentityGenome + production 渲染器），
+    // 不是通用占位圆（旧 P1 占位注释兑现）。
+    val seedPresence = remember {
+        EchoPresenceState(
+            updatedAt = Instant.now(),
+            maturity = EchoMaturity.SEED,
+            identityGenome = deriveIdentityGenome(
+                seed = preferences.identitySeed,
+                baselineStability = 0.5f,
+                motionPreference = PresenceMotionLevel.DEFAULT,
+            ),
+        )
+    }
 
     Box(
         Modifier.fillMaxSize().background(
@@ -381,20 +388,10 @@ private fun AwakeningScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ECHO 的生命场雏形：呼吸状圆形光斑（P1 换 Generative Visual Engine）
-            Box(
-                Modifier
-                    .size(120.dp)
-                    .scale(scale)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            )
-                        ),
-                        shape = CircleShape
-                    )
+            // ECHO 生命场（production 帧管线：同一个 ECHO 的第一次呼吸）
+            EchoLifeField(
+                presence = seedPresence,
+                modifier = Modifier.size(220.dp),
             )
             Text(
                 "ECHO 已开始了解你",

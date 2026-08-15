@@ -9,8 +9,8 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `f9b2c94`（ERA 31 R20 收口） |
-| 相对 Release Baseline | +12 commits（v0.10.0 Release Baseline 之后 R11–R21，含本提交） |
+| HEAD（本轮起点） | `a41769e`（ERA 31 R21 收口） |
+| 相对 Release Baseline | +13 commits（v0.10.0 Release Baseline 之后 R11–R22，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
 | 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
@@ -115,7 +115,7 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R21）✅**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R22）✅**：
 R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
 R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
 （快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）· R17 Ask ECHO 免费用户走查
@@ -123,7 +123,8 @@ R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安�
 （上下文类纠正 → CONTEXT 记忆 → 未来回答自然融入，不再只剩机械回放）· R19 Journey 第一眼走查
 （免费用户叙事说人话 + DAY 河流锚定真实数据）· R20 Wallpaper 运动现实检查
 （4fps 静态期实测=缓慢呼吸非跳帧 + 真实帧率人眼证据入画廊）· R21 What ECHO Knows 10 秒可读
-（chip 与分组行同源同一词表，人称方向统一）。
+（chip 与分组行同源同一词表，人称方向统一）· R22 Day-0 苏醒
+（identitySeed 派生的真实 ECHO 第一次呼吸，占位圆退役）。
 
 **下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；
