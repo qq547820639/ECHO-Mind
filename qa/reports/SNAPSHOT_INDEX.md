@@ -48,6 +48,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND20.md](ERA31_ROUND20.md) — ERA 31 R20（Wallpaper 运动现实检查：4fps 静态期实测 + 真实帧率人眼证据）
 - [ERA31_ROUND21.md](ERA31_ROUND21.md) — ERA 31 R21（What ECHO Knows 10 秒可读：人称与方向统一）
 - [ERA31_ROUND22.md](ERA31_ROUND22.md) — ERA 31 R22（Day-0 苏醒：第一次见面就是「这个 ECHO」）
+- [ERA31_ROUND23.md](ERA31_ROUND23.md) — ERA 31 R23（Day-7 Why 可懂：开始活跃的「变化」直接说分钟数）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

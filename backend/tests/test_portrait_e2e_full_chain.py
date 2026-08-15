@@ -182,6 +182,10 @@ def test_full_chain_later_rhythm(client, user_headers, passive_sensing_consent):
     assert body["status"] == "READY"
     rhythm = body["dimensions"].get("RHYTHM", {})
     assert rhythm.get("value") == "LATER", f"RHYTHM should be LATER, got {rhythm}"
+    # ERA 31 R23：开始活跃事实的「变化」直接说「晚 180 分钟」（§11 +53 min 示例同型），
+    # 不再让用户心算 11:00 与 08:00 之差。
+    start_fact = next(f for f in body["facts"] if f["label"] == "开始活跃")
+    assert start_fact["delta_text"] == "晚 180 分钟", f"got {start_fact}"
 
 
 def test_full_chain_less_movement_and_later_screen(client, user_headers, passive_sensing_consent):

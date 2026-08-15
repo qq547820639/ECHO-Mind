@@ -430,6 +430,19 @@ class LocalPortraitGoldenTest {
     }
 
     @Test
+    fun startTimeDeltaIsHumanReadableMinutes() {
+        // active_start_minute 用圆周中位数（LocalBaselineCalculator CIRCULAR_METRICS）：
+        // 基线 480..510 阶梯（×4）→ 圆周中位数 490；阈值 max(10, 490*0.05=24.5) ≈ 24.5 分钟
+        // ERA 31 R23：开始活跃的「变化」直接说「晚/早 N 分钟」，不再让用户心算（§11 示例 +53 min）
+        val later = generate(makeToday(activeStart = 540, movement = 0.5), makeBaselineRows())
+        assertEquals("晚 50 分钟", later.facts.first { it.label == "开始活跃" }.deltaText)
+        val near = generate(makeToday(activeStart = 500, movement = 0.5), makeBaselineRows())
+        assertEquals("和近期接近", near.facts.first { it.label == "开始活跃" }.deltaText)
+        val earlier = generate(makeToday(activeStart = 450, movement = 0.5), makeBaselineRows())
+        assertEquals("早 40 分钟", earlier.facts.first { it.label == "开始活跃" }.deltaText)
+    }
+
+    @Test
     fun warmingUpDayOneShowsFactsForImmediateFeedback() {
         // v0.7.4 UX：第 1 天（WARMING_UP）即给出当天事实句，让「它在记录」立刻可感
         val dto = generate(makeToday(activeStart = 495, movement = 1.06, pad = 20), emptyList())

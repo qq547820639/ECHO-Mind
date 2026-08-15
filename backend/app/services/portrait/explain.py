@@ -69,12 +69,28 @@ def build_facts(today: dict[str, Any], baseline_metrics: dict[str, Any]) -> list
     start_stats = baseline_metrics.get("active_start_minute") or {}
     if start is not None:
         baseline_text = "暂无基线"
+        delta_text = ""
         if start_stats.get("median") is not None:
-            baseline_text = f"约 {_hhmm(start_stats['median'])}"
+            median = start_stats["median"]
+            baseline_text = f"约 {_hhmm(median)}"
+            # ERA 31 R23：开始活跃的「变化」说成人话（§11 示例「10:14 通常 09:21 +53 min」），
+            # 不再让用户心算两时刻之差；阈值与 RHYTHM 维度同源（MIN_ABS_DELTA / MIN_REL_DELTA）。
+            diff = start - median
+            threshold = max(
+                MIN_ABS_DELTA.get("active_start_minute", 0.0),
+                abs(median) * MIN_REL_DELTA,
+            )
+            if abs(diff) < threshold:
+                delta_text = "和近期接近"
+            elif diff > 0:
+                delta_text = f"晚 {int(round(abs(diff)))} 分钟"
+            else:
+                delta_text = f"早 {int(round(abs(diff)))} 分钟"
         facts.append({
             "label": "开始活跃",
             "today_text": _hhmm(start),
             "baseline_text": baseline_text,
+            "delta_text": delta_text,
         })
 
     movement = today.get("movement_index")

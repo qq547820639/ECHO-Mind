@@ -427,12 +427,26 @@ object LocalPortraitEngine {
         val startStats = baselineMetrics["active_start_minute"]
         if (start != null) {
             val baselineText = if (startStats?.median != null) "约 ${hhmm(startStats.median)}" else "暂无基线"
+            // ERA 31 R23：开始活跃的「变化」说成人话（§11 示例「10:14 通常 09:21 +53 min」）——
+            // 此前 delta 留空，用户要自己心算 10:14 与 09:21 的差；现在直接「晚 53 分钟」。
+            val startDelta = startStats?.median?.let { median ->
+                val diff = start.toDouble() - median
+                val threshold = maxOf(
+                    MIN_ABS_DELTA["active_start_minute"] ?: 0.0,
+                    kotlin.math.abs(median) * MIN_REL_DELTA,
+                )
+                when {
+                    kotlin.math.abs(diff) < threshold -> "和近期接近"
+                    diff > 0 -> "晚 ${kotlin.math.round(kotlin.math.abs(diff)).toInt()} 分钟"
+                    else -> "早 ${kotlin.math.round(kotlin.math.abs(diff)).toInt()} 分钟"
+                }
+            } ?: ""
             facts.add(
                 PortraitFactDto(
                     label = "开始活跃",
                     todayText = hhmm(start.toDouble()),
                     baselineText = baselineText,
-                    deltaText = ""
+                    deltaText = startDelta
                 )
             )
         }
