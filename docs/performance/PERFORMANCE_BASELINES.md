@@ -21,6 +21,9 @@
 | Presence 装配全链（Identity + LifeSeason + Daily + Moment + 平滑） | 200 次（60 天窗口） | < 2000 ms | PART PERFORMANCE「Presence assembly」 |
 | Context 编译（§68 排序 + §69 三重预算 + token 截断；含禁止数据剔除路径） | 500 条证据 × 20 次 | < 2000 ms | PART PERFORMANCE「Context retrieval」纯函数段 |
 | ECHO Scene 帧计算（VisualMapper → 确定性帧；渲染器只画帧） | 1000 帧 | < 2000 ms | PART PERFORMANCE「first meaningful frame」JVM 代表项 |
+| Memory 排序（JVM 重排）· 五千级 | 5000 条 | < 5000 ms | ERA 63（§109 审计）：千级之上防数量级退化护栏 |
+| Memory 过期判定扫掠（shouldForget） | 5000 条 | < 5000 ms | ERA 63（§109 审计）：维护路径全量扫描修复后的护栏 |
+| Derived Pattern 派生 · 五千级 | 5000 条观察 | < 5000 ms | ERA 64（§109 审计）：唯一内容零派生顺手锚定幂等语义 |
 
 ## 长历史策略（§108/§109 已落地）
 

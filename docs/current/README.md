@@ -32,7 +32,7 @@
 | Journey 长期记忆 | `android/feature/journey/.../JourneyCanonical.kt`（Room v10）+ River/YearView | ERA 16 完成（§81-§87） |
 | Security Hardening | `android/core/security/.../HkdfSha256.kt` + `DatabaseOpenOrchestrator.kt`（Room v11） | ERA 17 完成（§88-§92：HKDF + 旧库迁移链） |
 | Reproducible Release | `docs/architecture/CLEAN_ROOM_REPRODUCTION.md` + `scripts/verify_workflow_pins.py` + `scripts/test_release_set.py`（64+ actions pin SHA / Gradle+uv 双锁） | ERA 18 完成（§93-§96） |
-| 性能防退化预算 | `docs/performance/PERFORMANCE_BASELINES.md`（九行预算表） | CURRENT（JVM 可代表项） |
+| 性能防退化预算 | `docs/performance/PERFORMANCE_BASELINES.md`（十二行预算表） | CURRENT（JVM 可代表项） |
 | Affective 评估框架（预备） | `scripts/affective_eval.py` + `docs/intelligence/AI_EVAL.md`（mock/回放/真 Provider 三模式） | 预备完成；激活被 §8/§9/§10 评审冻结（affectiveState 恒 null 测试强制） |
 | 依赖锁定 | `backend/uv.lock` + `android/**/gradle.lockfile`（uv --frozen / dependency locking） | CURRENT（CI 锁定执行） |
 | Legacy 移除计划 | `docs/migrations/LEGACY_REMOVAL_PLAN.md` | CURRENT |
