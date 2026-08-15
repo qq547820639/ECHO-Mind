@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
                         onFailure = { e ->
                             ContainerInitFailedScreen(
                                 errorClass = e.javaClass.simpleName.ifBlank { "初始化失败" },
+                                errorDetail = e.message?.take(200).orEmpty(),
                                 onRetry = { recreate() },
                                 onExit = { finishAffinity() },
                             )
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ContainerInitFailedScreen(
     errorClass: String,
+    errorDetail: String = "",
     onRetry: () -> Unit,
     onExit: () -> Unit,
 ) {
@@ -61,9 +63,14 @@ fun ContainerInitFailedScreen(
         Text("ECHO 没能安全地启动", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
         Text(
-            "本机安全存储初始化失败（$errorClass）。你的数据没有丢失，也没有被降级处理。\n" +
-                "请重试；若反复出现，请把这一行信息反馈给开发团队。",
+            "本机安全存储初始化失败（$errorClass${if (errorDetail.isNotBlank()) "：$errorDetail" else ""}）。你的数据没有丢失，也没有被降级处理。\n" +
+                "请把这一行完整信息反馈给开发团队；重试可能无法解决，需按设备针对性修复。",
             style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "设备：${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}（API ${android.os.Build.VERSION.SDK_INT}）",
+            style = MaterialTheme.typography.bodySmall,
         )
         Spacer(Modifier.height(20.dp))
         OutlinedButton(onClick = onRetry) { Text("重试") }

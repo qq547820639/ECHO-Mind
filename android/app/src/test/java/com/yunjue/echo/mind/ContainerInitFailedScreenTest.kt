@@ -36,7 +36,8 @@ class ContainerInitFailedScreenTest {
             }
         }
         compose.onNodeWithText("ECHO 没能安全地启动").assertExists()
-        compose.onNodeWithText("本机安全存储初始化失败（KeyStoreException）。你的数据没有丢失，也没有被降级处理。\n请重试；若反复出现，请把这一行信息反馈给开发团队。").assertExists()
+        compose.onNodeWithText("本机安全存储初始化失败（KeyStoreException）。你的数据没有丢失，也没有被降级处理。\n请把这一行完整信息反馈给开发团队；重试可能无法解决，需按设备针对性修复。").assertExists()
+        compose.onNodeWithText("设备：", substring = true).assertExists()
         compose.onNodeWithText("重试").performClick()
         compose.onNodeWithText("退出").performClick()
         assertTrue("重试回调应触发", retried)
