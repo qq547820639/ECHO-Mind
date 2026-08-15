@@ -383,6 +383,10 @@ interface MemoryDao {
     /** 本地数据权利：物理删除某用户全部记忆。 */
     @Query("DELETE FROM echo_memories WHERE userId = :userId")
     suspend fun deleteByUser(userId: String)
+
+    /** ERA 66（ADR-062 第 1 轮）：存储足迹计数（含软删行——数据权利体检按存储真值报告）。 */
+    @Query("SELECT COUNT(*) FROM echo_memories WHERE userId = :userId")
+    suspend fun countAllByUser(userId: String): Int
 }
 
 /**

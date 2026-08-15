@@ -116,4 +116,24 @@ class LocalDataRights(
             db.journeyCanonicalDao().deleteByUser(userId)
         }
     }
+
+    /** ERA 66（ADR-062 第 1 轮）：五域存储足迹（体检台输入；计数按存储真值——记忆含软删行）。 */
+    suspend fun footprintSummary(userId: String): DataFootprint = DataFootprint(
+        featureWindows = db.dao().countFeatureVectorsByUser(userId),
+        portraits = db.portraitDao().countPortraitsByUser(userId),
+        consents = db.consentDao().allByUser(userId).size,
+        memories = db.memoryDao().countAllByUser(userId),
+        journeyCanonicalDays = db.journeyCanonicalDao().countByUser(userId),
+    )
+}
+
+/** ERA 66（ADR-062 第 1 轮）：本机数据足迹（五域计数；无内容、无推导）。 */
+data class DataFootprint(
+    val featureWindows: Int = 0,
+    val portraits: Int = 0,
+    val consents: Int = 0,
+    val memories: Int = 0,
+    val journeyCanonicalDays: Int = 0,
+) {
+    val total: Int get() = featureWindows + portraits + consents + memories + journeyCanonicalDays
 }

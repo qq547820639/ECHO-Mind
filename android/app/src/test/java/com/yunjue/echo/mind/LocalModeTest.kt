@@ -200,4 +200,56 @@ class LocalModeTest {
         assertEquals("删除后无记忆", 0, db.memoryDao().allByUser(userId).size)
         assertEquals("删除后无 Canonical 快照", 0, db.journeyCanonicalDao().countByUser(userId))
     }
+
+    @Test
+    fun footprintSummaryCountsFiveDomains() = runBlocking {
+        // ERA 66（ADR-062 第 1 轮）：数据权利体检台五域足迹（存储真值计数）
+        val cipher = JvmTestFieldCipher()
+        val userId = "u_footprint"
+        preferences.userId = userId
+        db.dao().insertFeatureVector(
+            FeatureVectorEntity(
+                id = "fv_fp", userId = userId, schemaVersion = "passive-core-v1", source = "accel",
+                windowStart = 0L, windowEnd = 300_000L, summaryCiphertext = cipher.encrypt("x"),
+                vector = "[0.1]", synced = false, createdAt = 1L, sourcesPresentJson = """["accel"]"""
+            )
+        )
+        db.portraitDao().insert(
+            DailyPortraitEntity(
+                id = "2026-08-10_u_footprint", localDate = "2026-08-10", userId = userId,
+                status = "READY", confidence = "MEDIUM", headlineJson = "[]", summary = "x",
+                dimensionsJson = "{}", factsJson = "[]", coverageJson = null, timezoneUsed = null, fetchedAt = 1L
+            )
+        )
+        db.consentDao().insertConsent(
+            ConsentEntity(
+                eventId = "c_fp", userId = userId, consentType = "passive_sensing",
+                version = "v", granted = true, grantedAt = 1L, evidenceHash = "h"
+            )
+        )
+        db.memoryDao().upsert(
+            com.yunjue.echo.mind.data.EchoMemoryEntity(
+                id = "m_fp", userId = userId, type = "CONTEXT", content = "出差", source = "ui",
+                confidence = 1f, createdAt = 1L, lastConfirmedAt = 1L, importance = 50,
+                retentionClass = "LONG_TERM", provenance = "ctx", deleted = false
+            )
+        )
+        db.journeyCanonicalDao().upsert(
+            com.yunjue.echo.mind.data.JourneyCanonicalDayEntity(
+                id = "cd_fp", userId = userId, localDate = "2026-08-10", payload = "{}", createdAtEpochMs = 1L
+            )
+        )
+
+        val rights = LocalDataRights(db, cipher)
+        val footprint = rights.footprintSummary(userId)
+        assertEquals(1, footprint.featureWindows)
+        assertEquals(1, footprint.portraits)
+        assertEquals(1, footprint.consents)
+        assertEquals(1, footprint.memories)
+        assertEquals(1, footprint.journeyCanonicalDays)
+        assertEquals(5, footprint.total)
+
+        rights.deleteLocalData(userId)
+        assertEquals("删除后足迹应归零", 0, rights.footprintSummary(userId).total)
+    }
 }

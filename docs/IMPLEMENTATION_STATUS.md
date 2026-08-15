@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Memory 长历史性能与正确性收官 ✅（万级三路径护栏 + PERFORMANCE_BASELINES 9→12 行 + ADR-061 三轮结项——§109「避免 SELECT everything → JVM sort」具备查询级与算法级双重证据）→ 下一轮：下一长阶段选型（ADR-062）**
+**Me 数据权利检查台第 1 轮完成 ✅（ADR-062 选定用户信任层；五域存储足迹落地——DataFootprint + footprintSummary + 记忆软删行计数 + LocalModeTest 五域契约）→ 下一轮：检查台第 2 轮（DataAndSensing 状态接入 + UI 检查台卡片 + 导出/删除动作归位）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**805 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**806 unit tests 全绿**（ERA 40-48 契约增量：Provider 私网边界 / 维护序列锚点 +3 / outbox 速率槽位 +3 等）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -103,6 +103,7 @@
 - **Memory 长历史性能与正确性第 1 轮**：ADR-061 选定下一长阶段（§109 审计——数据真值 > 视觉打磨；不选 Year 视图深化与数据权利检查台）；**发现并修复真实缺陷**：purgeExpired 用 topByUser(limit=500) 按重要度截断——低重要度短时记忆（恰是最可能过期的一类）被遗漏在过期扫描之外；修复：MemoryDao 增 allNonDeletedByUser（无 LIMIT 维护专用全量查询），purgeExpired 切换全量扫描（shouldForget 单一事实源不变）；**JVM 代表性基准**：MemoryScaleBenchmarkTest 2 用例（rankMemories 1000/5000 条排序 <5000ms 且不丢条目 / shouldForget 5000 条扫掠 <5000ms 且样本含可过期命中）
 - **Memory 长历史性能与正确性第 2 轮**：检索 limit 语义复核 PASS（topMemories 取 limit×3 候选 → JVM rankMemories → take(limit)——§109「query ranking」的既定实现，与编译器策略 maxMemories 双层收紧一致）；**derivePatterns 五千级锚点**（5000 条 <5000ms；唯一内容样本零派生顺手锚定幂等语义）；**维护 Worker 单轮成本上限**：purgeExpired 增 MAX_PURGE_PER_ROUND=2000（万级记忆时单轮 UPDATE 数有界，剩余过期项下轮继续——软删幂等无顺序依赖）
 - **Memory 长历史性能与正确性收官**：万级护栏（rankMemories / shouldForget 扫掠 / derivePatterns 各 10000 条 <8000ms——预算宽于五千级以区分真数量级退化）；PERFORMANCE_BASELINES 9 → **12 行**（Memory 长历史三行入表：五千级排序 / 五千级扫掠 / 五千级派生），README「12 行性能防退化预算」与 docs/current 事实表同步；**ADR-061 三轮结项**：§109 具备查询级（userId+LIMIT+复合索引 v11）与算法级（万级护栏）双重证据
+- **Me 数据权利检查台第 1 轮**：ADR-062 选定下一长阶段（User trust/User control 直接受益；复用 47/49 五域导出删除与 61 轮能力边界事实）；**五域存储足迹落地**：DataFootprint（派生特征窗口 / 画像缓存 / 同意记录 / 记忆存储行 / Journey Canonical 快照 + total），LocalDataRights.footprintSummary（计数查询聚合；MemoryDao 增 countAllByUser——记忆按存储真值计数含软删审计行，语义在 UI 层明确标注）；**新锚点**：LocalModeTest +1（五域各 1 → total 5 → 删除后归零）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -148,4 +149,4 @@
 
 ## Next Highest-value Task
 
-下一长阶段选型（ADR-062）：候选 ①Journey Year 视图深化（§86 长期转变点与上下文时期标注）②Me 数据权利检查台（端侧一键体检：导出/删除/权限/基线逐项状态——47/49 轮底层已齐，缺聚合呈现）③CI 模拟器矩阵扩展（connected-test API 33 低端机型 + 冷启动宏基准采样）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+检查台第 2 轮：DataAndSensingViewModel 接入 footprintSummary（StateFlow 刷新：页面可见与导出/删除后自动重算）+ UI 检查台卡片（五域足迹行 + 记忆含软删行标注 + 导出/删除按钮归位到同卡）+ 权限/基线状态复用 EchoDoesNotKnow 事实聚合呈现。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
