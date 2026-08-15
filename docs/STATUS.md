@@ -26,11 +26,11 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `57ba3c4`，2026-08-15 20:23 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `65aa9f5`，2026-08-15 20:39 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1031 全绿**（app 871 / feature:intelligence 23 / feature:presence 25 / feature:qa 112） |
+| Android 单测（testDebugUnitTest） | **1036 全绿**（app 871 / feature:intelligence 28 / feature:presence 25 / feature:qa 112） |
 | backend pytest | **1077 passed + 1 skipped**（全绿） |
 | Production Kotlin | 165 |
 | Test Kotlin | 122 |
@@ -57,8 +57,9 @@
   （clean checkout / 全测试 / SBOM / provenance / final package）。发起条件与纪律见 `docs/RELEASE_BASELINE.md`。
 - **外部发布门未执行**：真实设备回归 / 责任矩阵 / 临床签署 / 法务定稿 / 外部渗透 / 值班演练 / 生产域 /
   伦理审查——见 `docs/CHANGELOG/RELEASE_READINESS_v0.9.0.md`（移交包），不由代码生成替代。
-- **PersonalAnswerEngine 复杂度**：626 行 / 15 回答族单 object，已审计——三层拆分暂不必要，触发条件与结论见
-  `qa/reports/PERSONAL_ANSWER_ENGINE_AUDIT.md`。
+- **PersonalAnswerEngine 复杂度**：626 行 / 16 回答族单 object，已审计——三层拆分暂不必要（触发条件入册），
+  ERA 32 R02 答案复核轮修复 3 个真实缺陷（q032 答非所问 / z 距离泄漏 / 无变化结论不可验证）；
+  见 `qa/reports/PERSONAL_ANSWER_ENGINE_AUDIT.md`。
 - **QA mirror 漂移面**：QaPortraitMirror 是必要镜像（跨语言黄金门已锁）；QaHeadlineEngine 文案重复已消除
   （learningPhaseHeadline 单点）；结论见 `qa/reports/QA_MIRROR_AUDIT.md`。
 
@@ -68,8 +69,9 @@
 2. **真机验证**（Batch B）：fresh install / Time-to-ECHO / 授权自动推进 / Wallpaper lifecycle / 24h 运行 /
    电池采样——本环境无真机，保持协议与清单，可用设备立即执行。
 3. **真实 Dogfood**（Batch D）：30 天真实使用 → 六类缺陷回流 → 修产品 → fixture 化 regression。
-4. **Personal Reasoning / Correction Loop**（Batch C）：真实数据下检查 26 条 Core Set、Correction reuse、
-   false interpretation；PersonalAnswerEngine 触发条件满足时才拆分。
+4. **Personal Reasoning / Correction Loop**（Batch C）：26 条 Core Set 四层复核 ✅（R02：q032 答非所问、
+   z 距离泄漏、无变化结论不可验证三缺陷已修）；下一轮 Context retrieval 深度走查 + Correction reuse 全链复验；
+   PersonalAnswerEngine 触发条件满足时才拆分。
 5. **Journey / Memory**（Batch E/F）：以真实长期数据评估 Visual Memory River、Landmarks、consolidation。
 6. **Release Candidate**（Batch H）：真实体验明显升级后，全量重跑发布链并切版本（0.10.1 / 0.11.0 自决）。
 
@@ -88,6 +90,7 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 
 

@@ -75,9 +75,9 @@ object PersonalAnswerEngine {
 
     /** 问题 → 回答族（严格表；未收录 → null，诚实交回 AI 路径）。 */
     private enum class Family {
-        DRIFTING_LATER, END_DRIFT, WEEKEND, SIMILAR_DAYS, STABILITY, MONTH_VS_MONTH,
-        SCREEN_MONTH_DELTA, WEEK_SUMMARY, WHY_TODAY, WHY_TODAY_FRAGMENTED, TRAVEL_CONTEXT,
-        HALF_YEAR, CORRECTIONS_RECALL, CONFIRMED_RECALL, CONFIRMED_WEEKEND_CHECK,
+        DRIFTING_LATER, END_DRIFT, WEEKEND, SIMILAR_DAYS, STABILITY, STABILITY_MONTH_COMPARE,
+        MONTH_VS_MONTH, SCREEN_MONTH_DELTA, WEEK_SUMMARY, WHY_TODAY, WHY_TODAY_FRAGMENTED,
+        TRAVEL_CONTEXT, HALF_YEAR, CORRECTIONS_RECALL, CONFIRMED_RECALL, CONFIRMED_WEEKEND_CHECK,
     }
 
     /** 确定性覆盖表：canonical 问法 + Core Set 变体（同一族不同窗口）。 */
@@ -101,7 +101,8 @@ object PersonalAnswerEngine {
         // 稳定性
         "我最近稳定了吗？" to (Family.STABILITY to 14),
         "我最近是不是波动很大？" to (Family.STABILITY to 14),
-        "和上个月比，我这个月更规律了吗？" to (Family.STABILITY to 28),
+        // ERA 32：月 vs 月规律度对比是独立计算（此前错挂 STABILITY 单窗口——回答的不是问题问的）
+        "和上个月比，我这个月更规律了吗？" to (Family.STABILITY_MONTH_COMPARE to 56),
         // 月对比
         "这个月和上个月最大的区别是什么？" to (Family.MONTH_VS_MONTH to 60),
         "最近两个月我最大的改变是什么？" to (Family.MONTH_VS_MONTH to 60),
@@ -165,6 +166,7 @@ object PersonalAnswerEngine {
             Family.WEEKEND -> weekendVsWeekday(safe)
             Family.SIMILAR_DAYS -> mostSimilarDays(safe)
             Family.STABILITY -> stability(safe, window)
+            Family.STABILITY_MONTH_COMPARE -> stabilityMonthCompare(safe)
             Family.MONTH_VS_MONTH -> monthVsMonth(safe)
             Family.SCREEN_MONTH_DELTA -> screenMonthDelta(safe)
             Family.WEEK_SUMMARY -> weekSummary(safe)
@@ -215,11 +217,11 @@ object PersonalAnswerEngine {
         val delta = second - first
         return when {
             delta >= 12 -> PersonalAnswer(
-                "是的，最近这一个月你明显开始得比前一个月晚。",
+                "是的，和前半段相比，你最近开始得明显更晚。",
                 "活跃起点中位数 ${minuteText(first)} → ${minuteText(second)}（后移 ${delta.toInt()} 分钟）",
             )
             delta <= -12 -> PersonalAnswer(
-                "没有，反而是更早了。",
+                "没有，反而更早了。",
                 "活跃起点中位数 ${minuteText(first)} → ${minuteText(second)}（提前 ${(-delta).toInt()} 分钟）",
             )
             else -> PersonalAnswer(
@@ -313,9 +315,11 @@ object PersonalAnswerEngine {
             if (zSum == 0.0 && other.dimensions.none { it.key != "STABILITY" }) null else d to zSum
         }.sortedBy { it.second }.take(3)
         if (scored.isEmpty()) return PersonalAnswer("最近没有足够相似的日子可比。", "无候选")
+        // ERA 32：证据不再泄露 z 距离工程数值（对用户不可解读）；给出人话的相似度排序。
+        val dates = scored.map { days[it.first].date.toString().takeLast(5) }
         return PersonalAnswer(
-            "最像的是 ${scored.joinToString("、") { days[it.first].date.toString().takeLast(5) }}。",
-            scored.joinToString(" · ") { "${days[it.first].date.toString().takeLast(5)}（z 距离 ${"%.2f".format(it.second)}）" },
+            "最像的是 ${dates.joinToString("、")}。",
+            "更接近今天 → 稍远：${dates.joinToString("、")}",
         )
     }
 
@@ -335,6 +339,33 @@ object PersonalAnswerEngine {
             else "最近两周变化的日子偏多，还在波动中。$driftLine".trimEnd(),
             "近 $windowDays 天：接近通常 ${similar}/${statuses.size} 天 · $driftEvidence",
         )
+    }
+
+    /** ERA 32：这个月 vs 上个月规律度（接近通常占比对比；独立计算，不再借用单窗口稳定性）。 */
+    private fun stabilityMonthCompare(inputs: PersonalAnswerInputs): PersonalAnswer {
+        val days = inputs.days
+        val dayIndex = inputs.dayIndex
+        if (dayIndex < 56) return PersonalAnswer("我们认识还不到两个月，先继续积累。", "第 ${dayIndex + 1} 天")
+
+        fun rate(range: IntRange): Pair<Int, Int>? {
+            val statuses = range.mapNotNull { days.getOrNull(it)?.dimensions?.get("STABILITY")?.value }
+            if (statuses.size < 7) return null
+            val similar = statuses.count { it == "VERY_SIMILAR" || it == "SLIGHTLY_DIFFERENT" }
+            return similar to statuses.size
+        }
+
+        val thisMonth = rate(dayIndex - 27..dayIndex)
+            ?: return PersonalAnswer("这个月的有效画像还不够，先继续积累。", "有效画像不足")
+        val prevMonth = rate(dayIndex - 55..dayIndex - 28)
+            ?: return PersonalAnswer("上个月的有效画像还不够，先继续积累。", "上个月有效画像不足")
+        val thisRatio = thisMonth.first.toDouble() / thisMonth.second
+        val prevRatio = prevMonth.first.toDouble() / prevMonth.second
+        val evidence = "接近通常：这个月 ${thisMonth.first}/${thisMonth.second} 天 · 上个月 ${prevMonth.first}/${prevMonth.second} 天"
+        return when {
+            thisRatio - prevRatio >= 0.1 -> PersonalAnswer("这个月比上个月更规律了。", evidence)
+            prevRatio - thisRatio >= 0.1 -> PersonalAnswer("这个月比上个月波动多了一些。", evidence)
+            else -> PersonalAnswer("和上个月比，这个月的规律程度差不多。", evidence)
+        }
     }
 
     /** 月 vs 月（活跃起点 + 屏幕时间两线；变化不足 → 诚实说接近）。 */
@@ -362,10 +393,15 @@ object PersonalAnswerEngine {
             diffs += if (sDelta > 0) "屏幕时间比上个月多" else "屏幕时间比上个月少"
             ev += "屏幕 ${screenPrev?.toInt()} → ${screenLast?.toInt()} 分钟"
         }
-        if (diffs.isEmpty()) return PersonalAnswer(
-            "这两个月的节奏很接近，没有明显差别。",
-            "活跃起点/屏幕时间的月间差都在日常波动范围内",
-        )
+        if (diffs.isEmpty()) {
+            // ERA 32：「没有明显差别」也要给出具体对照数字——用户要的是自己的事实，不是结论句。
+            val evParts = mutableListOf<String>()
+            wakeLast?.let { a -> wakePrev?.let { b -> evParts += "活跃起点 ${minuteText(b)} → ${minuteText(a)}" } }
+            screenLast?.let { a -> screenPrev?.let { b -> evParts += "屏幕 ${b.toInt()} → ${a.toInt()} 分钟" } }
+            val evidence = if (evParts.isEmpty()) "活跃起点/屏幕时间的月间差都在日常波动范围内"
+            else evParts.joinToString(" · ") + "（都在日常波动内）"
+            return PersonalAnswer("这两个月的节奏很接近，没有明显差别。", evidence)
+        }
         return PersonalAnswer(diffs.joinToString("；") + "。", ev.joinToString(" · "))
     }
 
@@ -430,10 +466,14 @@ object PersonalAnswerEngine {
             lines += "零散的日子比上周多"
             ev += "零散日 ${fragPrev} → $fragNow 天"
         }
-        if (lines.isEmpty()) return PersonalAnswer(
-            "这一周和上一周的节奏很接近，没有明显变化。",
-            "起点/屏幕/零散日三项周间差都在日常波动内",
-        )
+        if (lines.isEmpty()) {
+            // ERA 32：「没有明显变化」也给出三项具体对照数字。
+            val evParts = mutableListOf<String>()
+            wakeNow?.let { a -> wakePrev?.let { b -> evParts += "活跃起点 ${minuteText(b)} → ${minuteText(a)}" } }
+            screenNow?.let { a -> screenPrev?.let { b -> evParts += "屏幕 ${b.toInt()} → ${a.toInt()} 分钟" } }
+            evParts += "零散日 ${fragPrev} → $fragNow 天"
+            return PersonalAnswer("这一周和上一周的节奏很接近，没有明显变化。", evParts.joinToString(" · "))
+        }
         return PersonalAnswer(lines.joinToString("；") + "。", ev.joinToString(" · "))
     }
 
@@ -553,10 +593,18 @@ object PersonalAnswerEngine {
             else "每天屏幕时间比半年前少了约 ${(-sDelta).toInt()} 分钟"
             ev += "屏幕 ${screenEarly?.toInt()} → ${screenLate?.toInt()} 分钟"
         }
-        if (lines.isEmpty()) return PersonalAnswer(
-            "半年前后你的核心节奏非常接近——这是属于你的稳定，不一定是没变化。",
-            "活跃起点/屏幕时间的半年差都在日常波动内",
-        )
+        if (lines.isEmpty()) {
+            // ERA 32：「非常接近」也给出半年两端的实际数字——「接近」要可验证。
+            val evParts = mutableListOf<String>()
+            wakeEarly?.let { a -> wakeLate?.let { b -> evParts += "活跃起点 ${minuteText(a)} → ${minuteText(b)}" } }
+            screenEarly?.let { a -> screenLate?.let { b -> evParts += "屏幕 ${a.toInt()} → ${b.toInt()} 分钟" } }
+            val evidence = if (evParts.isEmpty()) "活跃起点/屏幕时间的半年差都在日常波动内"
+            else evParts.joinToString(" · ") + "（半年差都在日常波动内）"
+            return PersonalAnswer(
+                "半年前后你的核心节奏非常接近——这是属于你的稳定，不一定是没变化。",
+                evidence,
+            )
+        }
         return PersonalAnswer(lines.joinToString("；") + "。", ev.joinToString(" · "))
     }
 

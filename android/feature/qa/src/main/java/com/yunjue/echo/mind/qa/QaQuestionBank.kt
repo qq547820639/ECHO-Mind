@@ -56,7 +56,7 @@ object QaQuestionBank {
         QuestionCase("q005", "这段时间我的晚上结束时间有什么趋势？",
             expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 90, baseline = true)),
         QuestionCase("q006", "我的活跃起点和半年前一样吗？",
-            expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 90, baseline = true)),
+            expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 180, baseline = true)),
 
         // ===== 2. 周质量（碎片化） =====
         QuestionCase("q007", "为什么这个星期特别碎？",
@@ -118,7 +118,7 @@ object QaQuestionBank {
         QuestionCase("q031", "我最近是不是波动很大？",
             expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 28, baseline = true)),
         QuestionCase("q032", "和上个月比，我这个月更规律了吗？",
-            expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 90, baseline = true)),
+            expect(ReasoningTaskId.FIND_LONGITUDINAL_PATTERN, 56, baseline = true)),
 
         // ===== 7. 今天为什么不一样 =====
         QuestionCase("q033", "为什么你觉得今天不一样？",

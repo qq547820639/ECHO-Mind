@@ -37,6 +37,11 @@ class PersonalAnswerEngineTest {
         k to PortraitDimensionDto(value = v, metric = null, z = null)
     }
 
+    /** 带 z 值的维度（相似日检索需要真实 z 距离）。 */
+    private fun dimsZ(vararg pairs: Pair<String, Double>) = pairs.associate { (k, z) ->
+        k to PortraitDimensionDto(value = "SIMILAR", metric = null, z = z)
+    }
+
     private val epoch = LocalDate.parse("2026-01-05") // Monday
 
     private fun series(
@@ -61,7 +66,7 @@ class PersonalAnswerEngineTest {
         // 前 45 天 09:00，后 45 天 09:45（+45min）→ 明显变晚 + 证据含分钟数
         val days = series(90, start = { i -> if (i < 45) 540 else 585 })
         val answer = PersonalAnswerEngine.answer("最近我是不是越来越晚？", inputs(days))!!
-        assertTrue("回答应确认变晚：${answer.text}", answer.text.contains("明显开始得比前一个月晚"))
+        assertTrue("回答应确认变晚：${answer.text}", answer.text.contains("明显更晚"))
         assertTrue("证据含起止分钟：${answer.evidence}", answer.evidence.contains("09:00") && answer.evidence.contains("09:45"))
     }
 
@@ -113,6 +118,15 @@ class PersonalAnswerEngineTest {
     }
 
     @Test
+    fun similarDaysEvidenceSpeaksHumanNotZDistance() {
+        // ERA 32：q025/q028 证据不再泄露 z 距离工程数值（同类缺陷：R25 whyToday / R40 QA 快照）
+        val days = series(30, start = { 540 }, dimsFor = { i -> dimsZ("RHYTHM" to 1.0 + i * 0.1) })
+        val answer = PersonalAnswerEngine.answer("最近哪几天最像今天？", inputs(days))!!
+        assertTrue("证据是人话排序：${answer.evidence}", answer.evidence.contains("更接近今天"))
+        assertTrue("不泄露 z 距离：${answer.evidence}", !answer.evidence.contains("z"))
+    }
+
+    @Test
     fun stabilityUsesStabilityRatioAndSeasonDrift() {
         val days = series(14, start = { 540 }, dimsFor = { i ->
             if (i < 2) dims("STABILITY" to "CLEARLY_DIFFERENT") else dims("STABILITY" to "VERY_SIMILAR")
@@ -125,11 +139,42 @@ class PersonalAnswerEngineTest {
     }
 
     @Test
+    fun stabilityMonthCompareAnswersTheQuestionAsked() {
+        // ERA 32：q032 曾错挂单窗口 STABILITY（答「最近两周算稳定」而非月间对比）
+        // 60 天：前 28 天波动（6/28 接近），后 28 天规律（28/28）→ 必须答「这个月更规律了」
+        val days = series(60, start = { 540 }, dimsFor = { i ->
+            if (i < 32) {
+                if (i % 5 == 0) dims("STABILITY" to "VERY_SIMILAR") else dims("STABILITY" to "CLEARLY_DIFFERENT")
+            } else {
+                dims("STABILITY" to "VERY_SIMILAR")
+            }
+        })
+        val answer = PersonalAnswerEngine.answer("和上个月比，我这个月更规律了吗？", inputs(days))!!
+        assertTrue("回答月间对比：${answer.text}", answer.text.contains("这个月比上个月更规律了"))
+        assertTrue("证据含两个月占比：${answer.evidence}",
+            answer.evidence.contains("这个月") && answer.evidence.contains("上个月"))
+        assertTrue("不再错答单窗口稳定性：${answer.text}", !answer.text.contains("最近两周"))
+
+        val early = PersonalAnswerEngine.answer("和上个月比，我这个月更规律了吗？", inputs(series(30, start = { 540 })))!!
+        assertTrue("不足两个月诚实：${early.text}", early.text.contains("不到两个月"))
+    }
+
+    @Test
     fun monthVsMonthComparesTwoMonths() {
         // 60 天：前 30 天 09:00/300min，后 30 天 09:30/390min
         val days = series(60, start = { i -> if (i < 30) 540 else 570 }, screen = { i -> if (i < 30) 300.0 else 390.0 })
         val answer = PersonalAnswerEngine.answer("这个月和上个月最大的区别是什么？", inputs(days))!!
         assertTrue("月对比含晚与屏幕：${answer.text}", answer.text.contains("晚一些") && answer.text.contains("屏幕时间比上个月多"))
+    }
+
+    @Test
+    fun monthVsMonthNoChangeShowsNumbers() {
+        // ERA 32：「没有明显差别」也要给出具体对照数字——结论可验证
+        val days = series(60, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("这个月和上个月最大的区别是什么？", inputs(days))!!
+        assertTrue("接近结论：${answer.text}", answer.text.contains("很接近"))
+        assertTrue("证据含具体数字：${answer.evidence}",
+            answer.evidence.contains("09:00") && answer.evidence.contains("300"))
     }
 
     @Test
@@ -171,6 +216,16 @@ class PersonalAnswerEngineTest {
         val answer = PersonalAnswerEngine.answer("这半年我有什么变化？", inputs(days))!!
         assertTrue("半年晚起：${answer.text}", answer.text.contains("比半年前晚了约 30 分钟"))
         assertTrue("半年屏幕更多：${answer.text}", answer.text.contains("多了约 100 分钟"))
+    }
+
+    @Test
+    fun halfYearNoChangeStillShowsRealNumbers() {
+        // ERA 32：半年「非常接近」也要给出两端实际数字——「接近」要可验证
+        val days = series(181, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("这半年我有什么变化？", inputs(days))!!
+        assertTrue("稳定结论：${answer.text}", answer.text.contains("非常接近"))
+        assertTrue("证据含具体数字：${answer.evidence}",
+            answer.evidence.contains("09:00") && answer.evidence.contains("300"))
     }
 
     @Test
@@ -270,6 +325,15 @@ class PersonalAnswerEngineTest {
         val answer = PersonalAnswerEngine.answer("为什么这个星期特别碎？", inputs(days))!!
         assertTrue("应提到零散日变多：${answer.text}", answer.text.contains("零散的日子比上周多"))
         assertTrue("证据含零散日计数：${answer.evidence}", answer.evidence.contains("零散日 1 → 4"))
+    }
+
+    @Test
+    fun weekSummaryNoChangeShowsNumbers() {
+        // ERA 32：「没有明显变化」也给出三项具体对照数字
+        val days = series(14, start = { 540 })
+        val answer = PersonalAnswerEngine.answer("这一周和上一周有什么变化？", inputs(days))!!
+        assertTrue("接近结论：${answer.text}", answer.text.contains("很接近"))
+        assertTrue("证据含三项数字：${answer.evidence}", answer.evidence.contains("零散日 0 → 0 天"))
     }
 
     @Test
