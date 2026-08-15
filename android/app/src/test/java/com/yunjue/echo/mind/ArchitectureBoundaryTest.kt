@@ -17,19 +17,22 @@ class ArchitectureBoundaryTest {
 
     private val srcRoot = File("src/main/java/com/yunjue/echo/mind")
 
-    /** ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）。 */
-    private val moduleRoots = listOf(
-        srcRoot,
-        File("../feature/actions/src/main/java/com/yunjue/echo/mind"),
-        File("../core/security/src/main/java/com/yunjue/echo/mind"),
-        File("../core/model/src/main/java/com/yunjue/echo/mind"),
-        File("../feature/memory/src/main/java/com/yunjue/echo/mind"),
-        File("../feature/observation/src/main/java/com/yunjue/echo/mind"),
-        File("../feature/presence/src/main/java/com/yunjue/echo/mind"),
-        File("../core/ports/src/main/java/com/yunjue/echo/mind"),
-        File("../feature/intelligence/src/main/java/com/yunjue/echo/mind"),
-        File("../feature/journey/src/main/java/com/yunjue/echo/mind"),
-    )
+    /**
+     * ERA 32 R10：production 模块源码根自动发现自 settings.gradle.kts（与 Source Reality 生成器同源纪律），
+     * 禁止手写模块清单；:feature:qa 不属于 Production Runtime，不进入扫描根。
+     */
+    private val moduleRoots: List<File> = run {
+        val settings = File("../settings.gradle.kts").readText()
+        Regex("""include\("?([\w:]+)"?\)""").findAll(settings)
+            .map { it.groupValues[1].substringAfter(':') }
+            .filter { it != "feature:qa" && it != "qa" }
+            .map { name ->
+                if (name == "app") File("src/main/java/com/yunjue/echo/mind")
+                else File("..", name.replace(':', '/') + "/src/main/java/com/yunjue/echo/mind")
+            }
+            .filter { it.isDirectory }
+            .toList()
+    }
 
     private fun filesUnder(relativeDir: String): List<File> =
         moduleRoots.map { File(it, relativeDir) }.filter { it.isDirectory }
@@ -150,6 +153,21 @@ class ArchitectureBoundaryTest {
                 offendingLines(t, forbiddenConstructors),
             forbiddenConstructors.none { it in t }
         )
+    }
+
+    @Test
+    fun productionModulesNeverDependOnQaPackage() {
+        // ERA 32 R10（§35/§6）：QA 不属于 Production Runtime——任何 production 模块不得引用
+        // com.yunjue.echo.mind.qa（QA 代码不得进入正式 APK；dependency + 包引用双保险）。
+        for (root in moduleRoots) {
+            for (f in root.walkTopDown()) {
+                if (!f.isFile || f.extension != "kt") continue
+                assertTrue(
+                    "production/${f.name} 不得引用 com.yunjue.echo.mind.qa",
+                    "com.yunjue.echo.mind.qa" !in f.readText(),
+                )
+            }
+        }
     }
 
     private fun offendingLines(text: String, needles: List<String>): String =
