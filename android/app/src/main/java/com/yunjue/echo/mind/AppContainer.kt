@@ -11,7 +11,7 @@ import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler
 import com.yunjue.echo.mind.sensing.SensorCollector
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 class AppContainer(context: Context) {
     /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
@@ -113,7 +113,7 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                 MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
             )
-            .openHelperFactory(SupportFactory(passphrase))
+            .openHelperFactory(SupportOpenHelperFactory(passphrase))
             .build()
 
     return com.yunjue.echo.mind.security.DatabaseOpenOrchestrator.open(
