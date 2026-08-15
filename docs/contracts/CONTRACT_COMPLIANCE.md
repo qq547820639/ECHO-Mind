@@ -8,7 +8,7 @@
 
 | 条款 | 实现锚点 | 测试锚点 |
 |---|---|---|
-| §0 产品最终定义（Personal Ambient Intelligence） | `android/feature/presence/src/main/java/com/yunjue/echo/mind/presence/EchoPresenceState.kt` | `android/app/src/test/java/com/yunjue/echo/mind/presence/FirstRunVerticalTest.kt`（Day-0 苏醒/确定性） |
+| §0 产品最终定义（Personal Ambient Intelligence） | `android/core/model/src/main/java/com/yunjue/echo/mind/model/EchoPresenceState.kt`（ERA 31 R8 下沉 core:model） | `android/app/src/test/java/com/yunjue/echo/mind/presence/FirstRunVerticalTest.kt`（Day-0 苏醒/确定性） |
 | §1 产品顺序 Ambient→…→Intervene | `android/app/src/main/java/com/yunjue/echo/mind/ui/echo/EchoSceneViewModel.kt`（InterventionPolicy L2 opt-in） | `android/app/src/test/java/com/yunjue/echo/mind/ui/EchoSceneContentSmokeTest.kt` |
 | §2 三个世界（ECHO/Journey/Me） | `android/app/src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt` / `android/app/src/main/java/com/yunjue/echo/mind/ui/journey/JourneyScreen.kt` / `android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt` | `EchoSceneContentSmokeTest` / `JourneyScreenSmokeTest` / `MeStateAssemblyTest` |
 | §3 第一原则（模型不是 ECHO 等） | fallback 链 `android/feature/intelligence/src/main/java/com/yunjue/echo/mind/intelligence/AiNarrativeService.kt`；Journey Canonical `JourneyYearView.kt` | `android/app/src/test/java/com/yunjue/echo/mind/intelligence/IntelligenceChainTruthTest.kt` / `JourneyYearViewTest` / `CorrectionLoopChainTest` |

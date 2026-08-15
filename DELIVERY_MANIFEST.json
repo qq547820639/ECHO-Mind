@@ -2,7 +2,7 @@
   "project": "ECHO Mind Personal Ambient Intelligence",
   "version": "0.10.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-08-15T15:06:03Z",
+  "generated_at": "2026-08-15T18:37:31Z",
   "branch": "main",
   "git_ref": "personal-ambient-intelligence-v0.10.0",
   "scope": [
@@ -13,10 +13,10 @@
     "tests, safety corpus, CI/CD, SBOM and pilot governance pack"
   ],
   "validation": {
-    "backend_tests_passed": 1076,
+    "backend_tests_passed": 1077,
     "backend_tests_failed": 0,
     "backend_tests_skipped": 1,
-    "android_gradle_build": "testDebugUnitTest+assembleDebug+lintDebug PASS / assembleRelease SUCCESS (signed v2,v3 local test key; -PECHO_GIT_COMMIT=6e84086 钉定)",
+    "android_gradle_build": "not_run_in_this_pipeline",
     "synthetic_safety_cases": 650,
     "content_packs_validated": 4,
     "alembic_roundtrip": "passed",

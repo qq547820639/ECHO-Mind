@@ -68,6 +68,7 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [ERA31_ROUND39.md](ERA31_ROUND39.md) — ERA 31 R39（AI 设置界面标签中文化：混合语言退役）
 - [ERA31_ROUND40.md](ERA31_ROUND40.md) — ERA 31 R40（QA 镜像产品快照同口径：z 分数不再泄漏）
 - [ERA31_ROUND41.md](ERA31_ROUND41.md) — ERA 31 R41（Release Build Readiness：R8 全量构建通过）
+- [ERA31_ROUND42.md](ERA31_ROUND42.md) — ERA 31 R42（CI 完整性审计：契约锚点修复 + SOURCE_MANIFEST 重生成）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

@@ -9,8 +9,8 @@
 
 | 字段 | 值 |
 |---|---|
-| HEAD（本轮起点） | `8952a4c`（ERA 31 R40 收口） |
-| 相对 Release Baseline | +32 commits（v0.10.0 Release Baseline 之后 R11–R41，含本提交） |
+| HEAD（本轮起点） | `6ffb376`（ERA 31 R41 收口） |
+| 相对 Release Baseline | +33 commits（v0.10.0 Release Baseline 之后 R11–R42，含本提交） |
 | 当前时代 | ERA 31 — Felt Product Reality（政策见 `docs/product/ERA31_FELT_PRODUCT_REALITY.md`） |
 | 版本线 | v0.10.0（versionCode 7；下一 release 重新收口） |
 
@@ -115,7 +115,7 @@
 4. ✅ LAST_RELEASE_BASELINE 更新为 6e84086；RELEASE_NOTES_v0.10.0。
 5. ⏳ Device smoke test + 生产签名 + 30 天 dogfood：外部门执行（协议/清单/脚本就绪）。
 
-**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R41）✅**：
+**ERA 31 全部 Batch 1-8 完成。v0.10.0 后产品主链打磨轮（R11–R42）✅**：
 R11 Headline 自然句优先 + What ECHO Knows 人类语言 · R12 ECHO Scene 全链路走查（日期降噪）·
 R13/R14 Wallpaper/Dream 自适应帧率（§16 电池现实）· R15 Why 层安静化 · R16 进程死亡恢复锚点
 （快照 commit 落盘 + 写/读进程分离回归——重启后同一个 ECHO）· R17 Ask ECHO 免费用户走查
@@ -143,7 +143,8 @@ R37 纠正/确认回放说人话（记忆内部格式退役）· R38 上下文�
 （「出差的这几天」不再被空格切断）· R39 AI 设置标签中文化
 （Current provider/Model/Status/Advanced → 中文，协议专名保留）· R40 QA 镜像快照同口径
 （产品预览的 z 分数泄漏清零，全仓缺陷类别终扫完成）· R41 Release Build Readiness
-（assembleRelease + R8 全量通过，dev head 可发布）。
+（assembleRelease + R8 全量通过，dev head 可发布）· R42 CI 完整性审计
+（契约锚点修复 + SOURCE_MANIFEST 1064 重生成，五套 workflow 全绿恢复）。
 
 **下一阶段（真实 dogfood 数据回流后）**：
 - BATCH 6 缺陷回流 → fixture 化 → 修复 → 回归；
