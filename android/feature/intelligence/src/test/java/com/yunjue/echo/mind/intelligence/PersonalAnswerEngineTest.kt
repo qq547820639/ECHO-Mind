@@ -140,7 +140,7 @@ class PersonalAnswerEngineTest {
         })
         val answer = PersonalAnswerEngine.answer("为什么你觉得今天不一样？", inputs(days))!!
         assertTrue("命名最强维度：${answer.text}", answer.text.contains("开始活跃的时间比平时晚"))
-        assertTrue("证据含维度名：${answer.evidence}", answer.evidence.contains("RHYTHM"))
+        assertTrue("证据是人话维度（ERA 31 R25，不泄露 RHYTHM/z 分数）：${answer.evidence}", answer.evidence.contains("作息（偏晚）"))
     }
 
     @Test

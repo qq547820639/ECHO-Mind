@@ -1,6 +1,8 @@
 package com.yunjue.echo.mind.intelligence
 
 import com.yunjue.echo.mind.model.PortraitDimensionDto
+import com.yunjue.echo.mind.model.dimensionDisplayName
+import com.yunjue.echo.mind.model.dimensionValueText
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.math.abs
@@ -326,10 +328,12 @@ object PersonalAnswerEngine {
         val similar = statuses.count { it == "VERY_SIMILAR" || it == "SLIGHTLY_DIFFERENT" }
         val ratio = similar.toDouble() / statuses.size
         val driftLine = if (inputs.seasonDrift > 0.3f) "不过这段时间的整体节奏有些漂移，我在慢慢观察。" else ""
+        // ERA 31 R25：证据不泄露无意义的原始漂移浮点（0.42 对用户不可解读），说人话
+        val driftEvidence = if (inputs.seasonDrift > 0.3f) "整体节律有轻微漂移" else "整体节律稳定"
         return PersonalAnswer(
             if (ratio >= 0.7) "最近两周里大多数日子都和你的通常状态接近，算稳定的。$driftLine".trimEnd()
             else "最近两周变化的日子偏多，还在波动中。$driftLine".trimEnd(),
-            "近 $windowDays 天：接近通常 ${similar}/${statuses.size} 天 · 节律漂移 ${"%.2f".format(inputs.seasonDrift)}",
+            "近 $windowDays 天：接近通常 ${similar}/${statuses.size} 天 · $driftEvidence",
         )
     }
 
@@ -454,9 +458,9 @@ object PersonalAnswerEngine {
         }
         if (diff == null) {
             return if (preferFragment) {
-                PersonalAnswer("其实今天不算特别零散，和平时接近。", "STABILITY = ${today.dimensions["STABILITY"]?.value}")
+                PersonalAnswer("其实今天不算特别零散，和平时接近。", "整体节律：与平时接近")
             } else {
-                PersonalAnswer("其实今天和你的通常节奏很接近，我没觉得特别不一样。", "STABILITY = ${today.dimensions["STABILITY"]?.value}")
+                PersonalAnswer("其实今天和你的通常节奏很接近，我没觉得特别不一样。", "整体节律：与平时接近")
             }
         }
         val (dim, value) = diff
@@ -470,7 +474,12 @@ object PersonalAnswerEngine {
             "DAY_STRUCTURE" to "MORE_FRAGMENTED" -> "主要是一天被切得比较碎"
             else -> "差别来自今天的整体节奏"
         }
-        return PersonalAnswer("$reason。", "维度 $dim = ${value.value}（z=${"%.1f".format(value.z ?: 0.0)}）")
+        // ERA 31 R25：证据说人话（维度中文名 + 取值中文），不再泄露
+        // 「维度 RHYTHM = LATER（z=1.2）」类工程键与 z 分数。
+        return PersonalAnswer(
+            "$reason。",
+            "今天差异最大的维度：${dimensionDisplayName(dim)}（${dimensionValueText(dim, value.value)}）",
+        )
     }
 
     /** 出差上下文：窗口内当前节奏 vs 平时基准（用户自述优先于被动观察）。 */

@@ -183,66 +183,66 @@
 - 引擎覆盖：是
 - 期望证据：task=FIND_LONGITUDINAL_PATTERN · 窗口 28d · baseline=true · context=false · correction=false
 - **PROFILE_A_STABLE · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。
-  - 证据：近 14 天：接近通常 12/14 天 · 节律漂移 0.30
+  - 证据：近 14 天：接近通常 12/14 天 · 整体节律稳定
 - **PROFILE_D_TRAVEL · Day 90**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 14 天：接近通常 10/14 天 · 节律漂移 0.35
+  - 证据：近 14 天：接近通常 10/14 天 · 整体节律有轻微漂移
 - **PROFILE_F_LOW_DATA · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 14 天：接近通常 12/14 天 · 节律漂移 0.33
+  - 证据：近 14 天：接近通常 12/14 天 · 整体节律有轻微漂移
 
 ## q031 我最近是不是波动很大？
 
 - 引擎覆盖：是
 - 期望证据：task=FIND_LONGITUDINAL_PATTERN · 窗口 28d · baseline=true · context=false · correction=false
 - **PROFILE_A_STABLE · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。
-  - 证据：近 14 天：接近通常 12/14 天 · 节律漂移 0.30
+  - 证据：近 14 天：接近通常 12/14 天 · 整体节律稳定
 - **PROFILE_D_TRAVEL · Day 90**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 14 天：接近通常 10/14 天 · 节律漂移 0.35
+  - 证据：近 14 天：接近通常 10/14 天 · 整体节律有轻微漂移
 - **PROFILE_F_LOW_DATA · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 14 天：接近通常 12/14 天 · 节律漂移 0.33
+  - 证据：近 14 天：接近通常 12/14 天 · 整体节律有轻微漂移
 
 ## q032 和上个月比，我这个月更规律了吗？
 
 - 引擎覆盖：是
 - 期望证据：task=FIND_LONGITUDINAL_PATTERN · 窗口 90d · baseline=true · context=false · correction=false
 - **PROFILE_A_STABLE · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。
-  - 证据：近 28 天：接近通常 21/28 天 · 节律漂移 0.30
+  - 证据：近 28 天：接近通常 21/28 天 · 整体节律稳定
 - **PROFILE_D_TRAVEL · Day 90**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 28 天：接近通常 22/28 天 · 节律漂移 0.35
+  - 证据：近 28 天：接近通常 22/28 天 · 整体节律有轻微漂移
 - **PROFILE_F_LOW_DATA · Day 180**：最近两周里大多数日子都和你的通常状态接近，算稳定的。不过这段时间的整体节奏有些漂移，我在慢慢观察。
-  - 证据：近 28 天：接近通常 20/27 天 · 节律漂移 0.33
+  - 证据：近 28 天：接近通常 20/27 天 · 整体节律有轻微漂移
 
 ## q033 为什么你觉得今天不一样？
 
 - 引擎覆盖：是
 - 期望证据：task=EXPLAIN_CURRENT_STATE · 窗口 7d · baseline=true · context=true · correction=false
 - **PROFILE_A_STABLE · Day 180**：主要是晚间屏幕比平时更晚。
-  - 证据：维度 SCREEN_TIMING = LATER（z=4.2）
+  - 证据：今天差异最大的维度：屏幕时段（偏晚）
 - **PROFILE_D_TRAVEL · Day 90**：其实今天和你的通常节奏很接近，我没觉得特别不一样。
-  - 证据：STABILITY = VERY_SIMILAR
+  - 证据：整体节律：与平时接近
 - **PROFILE_F_LOW_DATA · Day 180**：主要是屏幕时间比平时长。
-  - 证据：维度 SCREEN_AMOUNT = MORE（z=1.4）
+  - 证据：今天差异最大的维度：屏幕总量（较多）
 
 ## q035 今天的状态和平时有什么不同？
 
 - 引擎覆盖：是
 - 期望证据：task=EXPLAIN_CURRENT_STATE · 窗口 7d · baseline=true · context=true · correction=false
 - **PROFILE_A_STABLE · Day 180**：主要是晚间屏幕比平时更晚。
-  - 证据：维度 SCREEN_TIMING = LATER（z=4.2）
+  - 证据：今天差异最大的维度：屏幕时段（偏晚）
 - **PROFILE_D_TRAVEL · Day 90**：其实今天和你的通常节奏很接近，我没觉得特别不一样。
-  - 证据：STABILITY = VERY_SIMILAR
+  - 证据：整体节律：与平时接近
 - **PROFILE_F_LOW_DATA · Day 180**：主要是屏幕时间比平时长。
-  - 证据：维度 SCREEN_AMOUNT = MORE（z=1.4）
+  - 证据：今天差异最大的维度：屏幕总量（较多）
 
 ## q037 今天为什么这么碎？
 
 - 引擎覆盖：是
 - 期望证据：task=EXPLAIN_CURRENT_STATE · 窗口 7d · baseline=true · context=true · correction=false
 - **PROFILE_A_STABLE · Day 180**：其实今天不算特别零散，和平时接近。
-  - 证据：STABILITY = CLEARLY_DIFFERENT
+  - 证据：整体节律：与平时接近
 - **PROFILE_D_TRAVEL · Day 90**：其实今天不算特别零散，和平时接近。
-  - 证据：STABILITY = VERY_SIMILAR
+  - 证据：整体节律：与平时接近
 - **PROFILE_F_LOW_DATA · Day 180**：其实今天不算特别零散，和平时接近。
-  - 证据：STABILITY = SLIGHTLY_DIFFERENT
+  - 证据：整体节律：与平时接近
 
 ## q038 我说过最近在出差，这有没有影响？
 
