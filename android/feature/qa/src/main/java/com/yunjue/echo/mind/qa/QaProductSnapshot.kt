@@ -126,7 +126,9 @@ object QaProductSnapshot {
         }.sortedByDescending { d -> timeline.portraitFor(d.first)?.dimensions?.get(d.second)?.z?.let { abs(it) } ?: 0.0 }
             .take(2)
             .map { (d, dim, value) ->
-                "${timeline.dateOf(d)}：${dimName(dim)}${valueName(value)}（z=${"%.1f".format(timeline.portraitFor(d)?.dimensions?.get(dim)?.z ?: 0.0)}）"
+                // ERA 31 R40：镜像与 production 同口径——变化日证据说人话，
+                // 不泄露 z 分数（R25 已把生产引擎证据人话化，此处同步）。
+                "${timeline.dateOf(d)}：${dimName(dim)}${valueName(value)}"
             }
         val season = snap.season
         val seasonLine = when {
