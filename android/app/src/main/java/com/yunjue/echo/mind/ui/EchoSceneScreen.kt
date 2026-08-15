@@ -160,6 +160,12 @@ fun EchoSceneScreen(
                 onDone = viewModel::stopAction,
             )
         },
+        qualityFeedback = {
+            com.yunjue.echo.mind.ui.echo.components.InternalQualityFeedback(
+                preferences = container.preferences,
+                headline = uiState.headline,
+            )
+        },
     )
 }
 
@@ -218,6 +224,7 @@ fun EchoSceneContent(
     visualSurface: @Composable () -> Unit,
     actionLayer: @Composable () -> Unit,
     actionOverlay: @Composable () -> Unit,
+    qualityFeedback: @Composable () -> Unit = {},
 ) {
     val uiState = state.uiState
     val portrait = state.portrait
@@ -321,6 +328,9 @@ fun EchoSceneContent(
                     }
                 }
             }
+
+            // 4.5 ERA 29 §64：内部质量反馈（仅 DEBUG 构建渲染，正式用户不可见）
+            item { qualityFeedback() }
 
             // 5. Journey 入口（Layer 3 证据/长期趋势）
             item {

@@ -780,3 +780,9 @@
 - Batch 8 收官：`qa/DOGFOOD_PROTOCOL.md`（30 天真实使用协议：visual/headline/unexpected/battery/wallpaper/useful/bad/correction 每日模板 + §65 匿名化回流映射）+ `qa/reports/dogfood/DAY_TEMPLATE.md`（fixture 化样例）+ `qa/reports/RELEASE_QUALITY_GATE.md`（A 产品质量门 8 项 / B 质量指标 12 项 / C 工程门 / D 外部发布门保持外部门）。
 - 门禁：app 844 / qa 92 / presence 16 全绿 + detekt；backend 1076（无变更）。
 - **Batch 1-8 全部完成**：Affective 保持冻结（ERA 30 前置未满足：需真实用户 dogfood 数据回流后才评估）。
+
+### ADR-073 第 8 轮记录（Product Quality Era Round 8 — §64/视觉回归收官）
+
+- §64 In-App 内部质量反馈落地：`InternalQualityFeedback`（仅 BuildConfig.DEBUG 渲染；「这个 ECHO 今天真实吗/这条解释有用吗/这个变化明显吗」三问 yes/no 本地翻转记录，AppPreferences JSON，不产生网络、不污染正式 UI）+ Robolectric smoke。
+- 视觉回归黄金集：`VisualRegressionGoldenTest`——7 profile × 6 锚点日 = 42 帧 FNV-1a 黄金哈希锁定跨版本视觉血缘（渲染改动必须有意为之并同步更新黄金值）。
+- **Batch 1-8 全部完成**。ERA 30 Affective 保持冻结（默认 OFF；等真实 dogfood 数据回流 + 人工评审后评估——「不要因为架构成熟就急着启用」）。

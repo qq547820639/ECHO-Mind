@@ -87,6 +87,30 @@ class AppPreferences(
         }.getOrDefault(null)
     }
 
+    // ===== ERA 29 §64：内部质量反馈（仅调试构建使用；dogfood 回填源） =====
+    // 结构：{"2026-08-15": ["echoReal_yes", "explanationUseful_no", ...]}；
+    // 每次点击翻转对应字段，不产生网络请求，不进正式 UI 数据流。
+
+    /** 当日某字段是否已记录（翻转语义由 UI 层控制）。 */
+    fun internalFeedbackFor(date: String): Set<String> {
+        val json = prefs.getString(KEY_INTERNAL_FEEDBACK, null) ?: return emptySet()
+        return runCatching {
+            val o = JSONObject(json)
+            val arr = o.optJSONArray(date) ?: return emptySet()
+            (0 until arr.length()).mapNotNull { arr.optString(it) }.toSet()
+        }.getOrDefault(emptySet())
+    }
+
+    /** 翻转某日某字段（存在则移除，不存在则加入）。 */
+    fun recordInternalFeedback(date: String, field: String) {
+        val current = runCatching { JSONObject(prefs.getString(KEY_INTERNAL_FEEDBACK, null)) }
+            .getOrElse { JSONObject() }
+        val fields = internalFeedbackFor(date).toMutableSet()
+        if (field in fields) fields.remove(field) else fields.add(field)
+        current.put(date, org.json.JSONArray(fields.toList()))
+        prefs.edit().putString(KEY_INTERNAL_FEEDBACK, current.toString()).apply()
+    }
+
     // ===== P5 灰度回滚：feature flags 缓存（SharedPreferences） =====
     // 移动端拉取 GET /v1/config/flags 后缓存，端侧灰度联动：
     // - passive_sensing_enabled=false → PassiveSensingService 不启动
@@ -436,6 +460,7 @@ class AppPreferences(
         const val PREFS_FILE = "echo_mind_app_state"
 
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
+        private const val KEY_INTERNAL_FEEDBACK = "internal_quality_feedback_json"
 
         /** Presence 快照键（Wallpaper/Dream 进程经原始 SharedPreferences 直读）。 */
         const val KEY_ECHO_PRESENCE_SNAPSHOT = "echo_presence_snapshot"
