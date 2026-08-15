@@ -254,6 +254,20 @@ internal val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+/**
+ * v11 → v12 迁移（§108 Journey Long History）：feature_vectors 复合索引
+ * (userId, schemaVersion, windowStart)——时间线窗口查询直查索引，不再全表扫描。
+ * 纯增量 CREATE INDEX IF NOT EXISTS（幂等），无数据改写。
+ */
+internal val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_feature_vectors_userId_schemaVersion_windowStart " +
+                "ON feature_vectors (userId, schemaVersion, windowStart)"
+        )
+    }
+}
+
 class AppContainer(context: Context) {
     /** v3 §41：Application 级上下文（ViewModel/Worker/Service 所有权基础）。 */
     val applicationContext: Context = context.applicationContext
@@ -349,7 +363,7 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
         Room.databaseBuilder(context, EchoDatabase::class.java, "echo-mind.db")
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11
+                MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
             )
             .openHelperFactory(SupportFactory(passphrase))
             .build()

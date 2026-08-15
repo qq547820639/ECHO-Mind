@@ -152,6 +152,54 @@ class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migration1112CreatesFeatureVectorCompositeIndex() {
+        // 用 v11 库执行 MIGRATION_11_12，验证 feature_vectors 复合索引创建且数据零改写
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-1112-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(11) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) {
+                        sqLiteDatabase.execSQL(
+                            """CREATE TABLE feature_vectors (
+                                id TEXT NOT NULL PRIMARY KEY,
+                                userId TEXT NOT NULL,
+                                schemaVersion TEXT NOT NULL,
+                                source TEXT NOT NULL,
+                                windowStart INTEGER NOT NULL,
+                                windowEnd INTEGER NOT NULL,
+                                summaryCiphertext TEXT NOT NULL,
+                                vector TEXT NOT NULL,
+                                synced INTEGER NOT NULL DEFAULT 0,
+                                createdAt INTEGER NOT NULL,
+                                sourcesPresentJson TEXT
+                            )"""
+                        )
+                        sqLiteDatabase.execSQL(
+                            "INSERT INTO feature_vectors (id, userId, schemaVersion, source, windowStart, windowEnd, summaryCiphertext, vector, synced, createdAt) " +
+                                "VALUES ('fv_keep', 'u1', 'passive-core-v1', 'accel', 1000, 2000, 'enc', '[0.1]', 0, 1500)"
+                        )
+                    }
+
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            MIGRATION_11_12.migrate(rawDb)
+            val indexFound = rawDb.query(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name='index_feature_vectors_userId_schemaVersion_windowStart'"
+            ).use { it.moveToFirst() }
+            assertTrue("MIGRATION_11_12 应创建 feature_vectors 复合索引", indexFound)
+            rawDb.query("SELECT id FROM feature_vectors WHERE id='fv_keep'").use {
+                assertTrue("迁移不得改写数据", it.moveToFirst())
+            }
+        } finally {
+            rawDb.close()
+        }
+    }
+
     private fun hasTable(db: SupportSQLiteDatabase, table: String): Boolean {
         db.query(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",

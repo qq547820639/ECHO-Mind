@@ -74,8 +74,13 @@ data class OutboxEventEntity(
  * v8（离线画像引擎）：新增 sourcesPresentJson（窗口实际信号源 JSON 数组）。
  * 端侧本地画像聚合需要该字段还原 missing_sources 与 confidence；
  * 迁移 7→8 为纯加列（可空），旧行回退按 source 单元素集合解释。
+ * v12（§108 Journey Long History）：复合索引 (userId, schemaVersion, windowStart)
+ * ——时间线窗口查询不再全表扫描（MIGRATION_11_12 CREATE INDEX，纯增量）。
  */
-@Entity(tableName = "feature_vectors")
+@Entity(
+    tableName = "feature_vectors",
+    indices = [Index(value = ["userId", "schemaVersion", "windowStart"])]
+)
 data class FeatureVectorEntity(
     @PrimaryKey val id: String,
     val userId: String,
@@ -141,6 +146,12 @@ interface EchoDao {
     /** 离线画像引擎：某用户全部 passive-core-v1 窗口（按窗口起点升序）。 */
     @Query("SELECT * FROM feature_vectors WHERE userId = :userId AND schemaVersion = 'passive-core-v1' ORDER BY windowStart ASC")
     suspend fun allPassiveCoreRows(userId: String): List<FeatureVectorEntity>
+    /** §108 Journey Long History：窗口化查询（时间线只载入所需日期范围，复合索引直查）。 */
+    @Query(
+        "SELECT * FROM feature_vectors WHERE userId = :userId AND schemaVersion = 'passive-core-v1' " +
+            "AND windowStart >= :fromMs AND windowStart <= :toMs ORDER BY windowStart ASC"
+    )
+    suspend fun passiveCoreRowsBetween(userId: String, fromMs: Long, toMs: Long): List<FeatureVectorEntity>
     /** 本地数据权利：按用户删除全部派生特征窗口（本地模式删除用）。 */
     @Query("DELETE FROM feature_vectors WHERE userId = :userId")
     suspend fun deleteFeatureVectorsByUser(userId: String)
@@ -449,7 +460,7 @@ interface JourneyCanonicalDao {
         EchoMemoryEntity::class,
         JourneyCanonicalDayEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 abstract class EchoDatabase : RoomDatabase() {

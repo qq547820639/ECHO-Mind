@@ -131,6 +131,25 @@ class LocalPortraitDataSourceTest {
     }
 
     @Test
+    fun windowedCoreRowQueryExcludesOutOfRangeRows() = runBlocking {
+        // ERA 73 §108：窗口化查询只返回日期范围内的行（旧历史/他用户零混入）。
+        val user = "u_windowed"
+        val other = "u_windowed_other"
+        val today = LocalDate.of(2026, 8, 10)
+        insertWindow(user, today.minusDays(400), 8 * 60, "screen", MutableList(22) { 0f })
+        insertWindow(user, today, 8 * 60, "screen", MutableList(22) { 0f }.also { it[14] = 1f })
+        insertWindow(user, today, 9 * 60, "screen", MutableList(22) { 0f }.also { it[14] = 1f })
+        insertWindow(other, today, 8 * 60, "screen", MutableList(22) { 0f }.also { it[14] = 1f })
+        val fromMs = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val toMs = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val rows = db.dao().passiveCoreRowsBetween(user, fromMs, toMs)
+        assertEquals(2, rows.size)
+        assertTrue(rows.all { it.userId == user && it.windowStart in fromMs..toMs })
+        // 全量查询仍可用于基线（streak 语义）：旧行保留
+        assertEquals(3, db.dao().allPassiveCoreRows(user).size)
+    }
+
+    @Test
     fun userIsolationInLocalQueries() = runBlocking {
         val userA = "u_iso_a"
         val userB = "u_iso_b"

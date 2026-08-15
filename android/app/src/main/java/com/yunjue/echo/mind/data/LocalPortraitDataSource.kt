@@ -32,16 +32,20 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
 
     /** 读取某用户全部 passive-core-v1 窗口行（按窗口起点升序）。 */
     suspend fun passiveCoreRows(userId: String): List<LocalWindowRow> =
-        db.dao().allPassiveCoreRows(userId).map { entity ->
-            LocalWindowRow(
-                windowStartMs = entity.windowStart,
-                schemaVersion = entity.schemaVersion,
-                source = entity.source,
-                vector = parseVectorJson(entity.vector),
-                // v7 旧行无该列：回退按 source 单元素集合解释（覆盖度语义不变，confidence 保守）
-                sourcesPresent = parseSourcesJson(entity.sourcesPresentJson, entity.source)
-            )
-        }
+        db.dao().allPassiveCoreRows(userId).map { it.toLocalWindowRow() }
+
+    /** §108 Journey Long History：窗口化加载（时间线只载入所需日期范围；复合索引直查）。 */
+    suspend fun passiveCoreRows(userId: String, fromMs: Long, toMs: Long): List<LocalWindowRow> =
+        db.dao().passiveCoreRowsBetween(userId, fromMs, toMs).map { it.toLocalWindowRow() }
+
+    private fun FeatureVectorEntity.toLocalWindowRow(): LocalWindowRow = LocalWindowRow(
+        windowStartMs = windowStart,
+        schemaVersion = schemaVersion,
+        source = source,
+        vector = parseVectorJson(vector),
+        // v7 旧行无该列：回退按 source 单元素集合解释（覆盖度语义不变，confidence 保守）
+        sourcesPresent = parseSourcesJson(sourcesPresentJson, source),
+    )
 
     /** 按本地日分组计算聚合（单遍扫描；基线窗口过滤在 buildLocalBaseline 内部完成）。 */
     private fun aggregatesByDay(
@@ -70,7 +74,11 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
         endDate: LocalDate,
         zoneId: ZoneId
     ): List<DailyPortraitDto> {
-        val rows = passiveCoreRows(userId)
+        // §108：窗口化加载——只载入窗口日期范围的行（复合索引直查），不全量扫描历史
+        val fromDate = endDate.minusDays((days - 1).toLong())
+        val fromMs = fromDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val toMs = endDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1
+        val rows = passiveCoreRows(userId, fromMs, toMs)
         val aggregates = aggregatesByDay(rows, zoneId)
         return (0 until days).map { i ->
             val date = endDate.minusDays((days - 1 - i).toLong())

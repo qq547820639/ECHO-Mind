@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Journey 长历史性能审计第 1 轮完成 ✅（ADR-064：§108 结构缺陷修复——两段式装配（assembleJourneyMemoryState + VM distinctUntilChanged 缓存）：evidence 折叠/叙事到达/运行时刷新等轻量输入变化不再触发 365 天全量重算（实例级锚定）；+4 测试 + 预算表第 13 行）→ 下一轮：§108 审计第 2 轮（时间线查询路径与 canonical 预聚合复核 + ADR-064 结项）**
+**Journey 长历史性能审计收官 ✅（ADR-064 两轮结项：§108 双层证据——计算层两段式装配缓存（轻量输入零重算）+ 数据层 feature_vectors 复合索引 v12 与窗口化时间线查询（旧历史/他用户零混入）；→ 下一轮：ADR-065 长阶段第 1 轮（Presence 性能与功耗真值审计 §64/§65）**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**819 unit tests 全绿**（ERA 72 +4：§108 两段式装配结构锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**821 unit tests 全绿**（ERA 73 +2：§108 数据层锚点——v12 迁移索引 + 窗口化查询）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -110,6 +110,7 @@
 - **Journey 年视图深化第 2 轮**：转变点 §87 中性解释绑定——JourneyMajorShift 增 beforeDate（前聚合段末日），shiftExplanationLines = explainPeriodChange（时间范围 + 用户可读解释）+ 无显著单维变化时「整体视觉风格转变」诚实兜底（不再泄漏 flow/coherence 技术维度名）；身份演化逐点呈现——identityEvolutionLines（每月快照日期 + 与上一记录一致/细微调整标注，仅比较基因组字段零推断）；YearViewSection 渲染换用两条纯函数；**锚点 +4**：beforeDate 填充 / 解释行时间范围与中性词绑定（技术名零泄漏断言）/ 兜底行 / 身份一致性标注 + JourneyYearViewSmokeTest（季节行·特殊阶段·转变解释·身份演化标题与逐点行）
 - **Journey 年视图深化收官**：365 天窗口装配级回归（2025-08-15 → 2026-08-14 经 assembleJourneyUiState：双 SUMMER 分桶 + sumOf dayCount == 365 无重无漏 + 桶日期单调）；**ADR-063 三轮结项**（§86/§87 真值审计完成）+ **ADR-064 选型**：下一长阶段 = §108 Journey 长历史性能与正确性审计（镜像 ADR-061 方法；PERFORMANCE_BASELINES 12 行将补 Journey 长历史行；不选 CI 模拟器矩阵——连续三轮理由不变）
 - **Journey 长历史性能审计第 1 轮**：**发现并修复 §108 结构缺陷**——原 VM 九流 combine 链使 evidence 折叠/叙事到达/运行时快照刷新等轻量输入变化每次都触发 365 天全量重算；改为**两段式装配**：assembleJourneyMemoryState（周期/河流/年视图/生活阶段解释）只在窗口/时间线/Canonical/例外/选中日期变化时执行（distinctUntilChanged 缓存），assembleJourneyUiState(memoryState,…) 轻量段保持既有单段契约（等价性测试锚定零行为漂移）；**锚点 +4**：VM 实例级（evidence/叙事变化后 yearView 同实例 + 窗口切换正确失效）/ 单段↔两段等价 / 记忆装配确定性 / 记忆装配 365 天 <2000ms（PERFORMANCE_BASELINES **13 行**入表）
+- **Journey 长历史性能审计收官**：**发现并修复 §108 数据级缺陷**——feature_vectors 无索引且时间线查询全表扫描（allPassiveCoreRows 无限历史）；**Room v11→v12** 复合索引 (userId, schemaVersion, windowStart)（MIGRATION_11_12 纯增量幂等，迁移测试锚定数据零改写）+ passiveCoreRowsBetween 窗口化查询接入 computeTimeline（**锚点 +2**：旧历史/他用户零混入；computeToday/baselineStatus 保留全量扫描——基线连续有效日 streak 语义需全历史，增长边界另立审计项）；canonical 预聚合路径复核通过（≤365 行参数行，无逐日重算）；**ADR-064 两轮结项** + **ADR-065 选型**：下一长阶段 = Presence 性能与功耗真值审计（§64/§65：渲染循环可见性 + 低功耗降级路径本地 JVM 锚定，设备段 CI 承接）
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -155,4 +156,4 @@
 
 ## Next Highest-value Task
 
-§108 审计第 2 轮（ADR-064 收官）：时间线查询路径复核（365 天窗口 DB 查询与索引；尺度切换加载边界）+ canonical 快照预聚合路径复核（年视图读取 vs 逐日重算）+ ADR-064 结项记录 + ADR-065 下一长阶段选型。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。
+ADR-065 长阶段第 1 轮（Presence 性能与功耗真值审计 §64/§65）：渲染循环可见性/生命周期审计（不可见时 continuous rendering = 0 的硬锚点）+ 低功耗/降级路径审计（reduced motion / low-power / 后台暂停）+ 状态装配与帧计算成本复核；设备实测数字维持 CI connected-test 矩阵承接（不本地伪造）。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）。

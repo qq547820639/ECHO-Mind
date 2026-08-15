@@ -604,3 +604,15 @@
 - **决策**：Journey 年视图深化（ADR-063）结项后，下一长阶段选定 **§108 Journey 长历史性能与正确性审计**——365 天窗口全路径实测（时间线加载 / 视觉日装配 / 河流 / 年视图 / 生活阶段计算）与修复（§108 明确「禁止每次全量实时计算 365 天；允许 preaggregation / canonical snapshots / cache / lazy composition」）。不选 CI 模拟器矩阵扩展（连续三轮理由不变：基础设施无直接收益、本环境无模拟器无法本地验证 CI-only 循环）。
 - **理由**：宪法优先级 Performance（15）> 基础设施；与 ADR-061（Memory §109）镜像——同审计方法（本地 JVM 锚定 + 宽预算护栏区分真退化）；刚完成的 Journey 年视图阶段天然暴露 365 天装配路径为下一个性能真值缺口；PERFORMANCE_BASELINES 12 行将补 Journey 长历史行。
 - **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：365 天装配 JVM 锚点入预算表 + 任何发现的全量重算路径修复或论证为已预聚合 + ADR-064 结项记录。
+
+### ADR-064 结项记录（ERA 73，两轮结论）
+
+- 第 1 轮：结构缺陷修复——九流 combine 使 UI 轻量输入（evidence/叙事/运行时快照）每次触发 365 天全量重算；两段式装配（assembleJourneyMemoryState + VM distinctUntilChanged 缓存）后轻量变化零重算（实例级锚定）；单段↔两段契约等价 + 确定性 + 记忆装配预算行（13 行）。
+- 第 2 轮：数据级缺陷修复——feature_vectors 无索引且时间线查询全表扫描（allPassiveCoreRows 无限历史）；v11→v12 复合索引 (userId, schemaVersion, windowStart)（MIGRATION_11_12 纯增量幂等）+ passiveCoreRowsBetween 窗口化查询接入 computeTimeline（旧历史/他用户零混入锚定）；computeToday/baselineStatus 保留全量扫描（基线连续有效日 streak 语义需要全历史——剩余增长边界另立审计项）。
+- 结论：§108 Journey 长历史审计完成——计算层（两段式缓存）与数据层（索引 + 窗口化查询）双重证据；「禁止每次全量实时计算 365 天」具备结构性与查询级两层保障。
+
+## ADR-065：下一长阶段选型——Presence 性能与功耗真值审计（§65/§64，ERA 74）
+
+- **决策**：Journey 长历史审计（ADR-064）结项后，下一长阶段选定 **Presence 性能与功耗真值审计**——§65 Wallpaper benchmark（CPU/GPU/frame time/memory/wakeups/battery、不可见时 continuous rendering = 0）与 §64 Surface 功耗预算（privacy/layout/animation strength/interaction/power budget）的代码真值审计：JVM 可测段（渲染帧成本/状态装配/平滑插值/低功耗降级路径）本地锚定，设备段维持 CI connected-test 矩阵承接（不本地伪造）。
+- **理由**：PART PERFORMANCE 首个未审计域（Wallpaper/Dream 功耗是「桌面 ECHO 在」的产品承诺成本）；§65「不可见：continuous rendering = 0」是可代码审计的硬指标（渲染循环生命周期 + 低功耗降级），本地 JVM 可锚定；User trust（功耗透明）> 剩余候选。
+- **后果**：每轮维持全门禁 + 发布链；设备实测数字仍由 CI 真机矩阵执行（本环境无模拟器不伪造）；Affective 冻结不受影响。结项标准：渲染循环可见性/生命周期锚点 + 低功耗降级路径锚点 + ADR-065 结项记录。
