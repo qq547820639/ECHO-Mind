@@ -664,3 +664,15 @@
 - **决策**：First-Run 纵向切面（ADR-068）结项后，下一长阶段选定 **Memory 生命周期闭环真值审计（§76）**——decay（衰减分参与检索）/ expiry（自动过期软删）/ reinforce（用户确认强化）/ pin（固定永不过期）在真实执行链（PresenceRefreshWorker 顺序：refresh → snapshotToday → purgeExpired → derivePatterns；确认/编辑/忘记入口）的端到端复核与锚定；「生命周期真正运行」是 Memory 成熟度的最后一环（§75 排序、§77 派生、§109 长历史均已审计）。不选 CI 模拟器矩阵扩展（连续七轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
 - **理由**：宪法「Memory 是长期 Personal Intelligence 的核心资产」需要生命周期闭环证据；User control（忘记/固定）与 Personal continuity（强化顺延）直接受益；全链本地可测。
 - **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：执行链顺序/调度锚点 + decay/expiry/reinforce/pin 全路径锚点 + ADR-069 结项记录。
+
+### ADR-069 结项记录（ERA 83，两轮结论）
+
+- 第 1 轮：pin 第四权补齐——USER_PINNED 此前零写路径（模型/标签存在但永不可达）；端口/DAO/仓库/事件/VM/UI 五层链 + 落盘锚定（retentionClass/lastConfirmedAt + 十年 shouldForget=false）。
+- 第 2 轮：生命周期三动作落盘锚定——confirm（重要度 +10 封顶 100 + 确认时间刷新）/ forget（软删审计保留）/ expire（自动过期软删打标）DAO 级测试；decay（衰减分参与检索排序）、维护序列（refresh → snapshotToday → purgeExpired → derivePatterns fail-closed）、数据权利联动（软删行入导出与足迹计数）既有锚定复核保持。
+- 结论：§76 Memory 生命周期闭环完成——decay/expiry/reinforce/pin 全部具备「纯函数语义 + 落盘语义」双层锚点；Memory 成熟度四支柱（§75/§76/§77/§109）全部审计完毕。
+
+## ADR-070：下一长阶段选型——全仓冻结契约一致性终检（ERA 84）
+
+- **决策**：Memory 生命周期闭环（ADR-069）结项后，下一长阶段选定 **全仓冻结契约一致性终检**——逐条对照冻结契约与实现/测试锚点：ECHO_PRODUCT_CONSTITUTION / PORTRAIT_CONTRACT / PERSONAL_INTELLIGENCE_CONTRACT / AFFECTIVE_CONTRACT（§8/§9/§10 保持冻结不绕过）/ PERSONA contract（编译器 system 指令）；产出 CONTRACT_COMPLIANCE 报告，发现缺口即以测试固定。不选 CI 模拟器矩阵扩展（连续八轮理由不变）与 feature_vectors 留存裁剪（阻塞条件 1）。
+- **理由**：冻结契约是用户信任的最终法律/产品基础；此前各审计轮按主题逐项覆盖，但无「契约条款 → 实现 → 测试」三级对照总表；作为审计阶段的收口，确保无条款仅有文档存在而无实现/锚点（宪法「禁止文档完成主义」的总执行）。
+- **后果**：每轮维持全门禁 + 发布链；条款级缺口修复或明确标记外部依赖；Affective §8/§9/§10 复核即止于冻结状态断言，不实施。结项标准：契约条款清单 → 锚点映射表（docs/contracts/CONTRACT_COMPLIANCE.md）+ 缺口闭环 + ADR-070 结项记录。

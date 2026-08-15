@@ -347,6 +347,35 @@ class DatabaseMigrationTest {
     }
 
     @Test
+    fun memoryLifecycleDaoSemanticsConfirmForgetExpire() = runBlocking {
+        // ERA 83（ADR-069 收官）：confirm 强化（+10 封顶 100）/ forget 软删（审计保留）/
+        // expire 软删打标——生命周期三动作的落盘锚点。
+        db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val dao = db!!.memoryDao()
+        fun entity(id: String) = EchoMemoryEntity(
+            id = id, userId = "u_lc", type = "OBSERVATION", content = "内容",
+            source = "observation", confidence = 0.8f, createdAt = 1000L,
+            lastConfirmedAt = 1000L, importance = 95, retentionClass = "SHORT_TERM",
+            provenance = "observation:v1",
+        )
+        dao.upsert(entity("mem_lc"))
+        // confirm：重要度 +10 封顶 100 + 确认时间刷新
+        dao.confirm("mem_lc", now = 2000L)
+        val confirmed = dao.byId("mem_lc")
+        assertEquals(100, confirmed?.importance)
+        assertEquals(2000L, confirmed?.lastConfirmedAt)
+        // forget：软删（行仍在，可审计）
+        dao.forget("mem_lc")
+        assertTrue(dao.byId("mem_lc")?.deleted == true)
+        // expire：自动过期同为软删打标
+        dao.upsert(entity("mem_exp"))
+        dao.expire("mem_exp")
+        assertTrue(dao.byId("mem_exp")?.deleted == true)
+    }
+
+    @Test
     fun consentDaoWorksThroughMainDatabase() = runBlocking {
         db = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
