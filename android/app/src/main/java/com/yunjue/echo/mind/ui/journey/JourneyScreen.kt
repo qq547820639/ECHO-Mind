@@ -71,10 +71,6 @@ fun JourneyScreenContent(
     val context = LocalContext.current
 
     Page("旅程 · 我的时间") {
-        // 契约点 2 固定免责文案（单测锚点）
-        Text(TREND_DISCLAIMER)
-        HorizontalDivider()
-
         // 时间尺度选择器（Day/Week/Month/Season/Year）
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -114,6 +110,11 @@ fun JourneyScreenContent(
             TrendUiState.FRESH, TrendUiState.PARTIAL ->
                 JourneyContent(state = state, onEvent = onEvent, feedback = feedback)
         }
+
+        // 契约点 2 固定免责文案（单测锚点）——ERA 31 BATCH 4：移到页面底部安静呈现，
+        // 第一视觉留给视觉记忆河流（§30「看见自己的时间」，不是先读法律文案）。
+        HorizontalDivider()
+        Text(TREND_DISCLAIMER, style = MaterialTheme.typography.bodySmall)
     }
 }
 

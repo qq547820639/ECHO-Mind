@@ -28,7 +28,8 @@ Product Quality Era（ERA 19）确定性 fixture：7 个 profile × Day 0/3/7/28
 - [CORE_PERSONAL_REASONING_SET.md](CORE_PERSONAL_REASONING_SET.md) — BATCH 2 §20 最高价值问题集（26 条）
 - [QA_MIRROR_AUDIT.md](QA_MIRROR_AUDIT.md) — :feature:qa 与 production 重复实现审计（ERA 31 BATCH 1）
 - [PERSONAL_REASONING_HUMAN_REVIEW.md](PERSONAL_REASONING_HUMAN_REVIEW.md) — BATCH 2 真实回答四层人审（R3/R4）
-- [SELF_MODEL_VALUE_AUDIT.md](SELF_MODEL_VALUE_AUDIT.md) — BATCH 3 Self Model 价值审计（R4）
+- [SELF_MODEL_VALUE_AUDIT.md](SELF_MODEL_VALUE_AUDIT.md) — BATCH 3 Self Model 价值审计（R4/R5）
+- [ERA31_ROUND5.md](ERA31_ROUND5.md) — ERA 31 R5（BATCH 3 收口 / Journey 第一视觉修复）
 - [personal_answer_review/answers.md](personal_answer_review/answers.md) — Core Set 26 问真实回答捕获（机器生成）
 - [../visual-review/index.html](../visual-review/index.html) — ERA 31 真实渲染画廊（浏览器打开直接看 ECHO）
 

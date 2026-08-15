@@ -250,6 +250,28 @@ class QaMemorySelfModelTest {
         assertTrue(lines.single().contains("慢慢积累"))
     }
 
+    @Test
+    fun outdatedPatternIsPresentedAsChallengedNotCurrentTruth() {
+        // §27 用户可见验收：人类模式改变后，ECHO 忘掉「过去的我」——
+        // 旧模式 60+ 天无新证据且曾被纠正 → OUTDATED → knowsLines 说「有些出入」，
+        // 不再把旧模式当当前事实说「我观察到」。
+        val now = t0 + 90 * dayMs
+        val oldPattern = "工作日晚间结束时间持续后移"
+        val model = buildSelfModel(
+            listOf(
+                observation("o1", oldPattern),
+                observation("o2", oldPattern),
+                observation("o3", oldPattern),
+                correction("c1", "$oldPattern——那是赶项目期间，不是常态"),
+            ),
+            now,
+        )
+        val lines = echoKnowsLines(model)
+        assertTrue("旧模式必须以「有些出入」呈现：$lines", lines.any { it.contains("有些出入") })
+        assertFalse("旧模式不得再以当前事实呈现：$lines",
+            lines.any { it.contains("我观察到：") && it.contains("晚结束") })
+    }
+
     // ===== §37 敏感度 + 上下文例外质量 =====
 
     @Test

@@ -36,7 +36,9 @@
 
 ## 下一步（BATCH 3 剩余）
 
-- §27 Pattern contradiction：真实人类模式改变时「忘掉过去的我」——已有生命周期；下一轮用 fixture 验证
-  contradiction → challengedPatterns 展示路径。
-- §29 Memory consolidation：`consolidateObservations` 已有实现，需确认生产调用点（Worker）并做规模测试。
+- ✅ §27 Pattern contradiction（ERA 31 R5）：用户可见验收测试落地——`QaMemorySelfModelTest.outdatedPatternIsPresentedAsChallengedNotCurrentTruth`
+  （旧模式 60+ 天无新证据且曾被纠正 → OUTDATED → knowsLines「有些出入」，不再当当前事实展示）。
+- §29 Memory consolidation：**决策 = 暂不接线**。`consolidateObservations` 保持纯函数 + 测试；
+  现有 decay/expiry/purge Worker 已保证记忆不无限增长；语义合成属于 SYNTHESIZE_MEMORY（AI 层）。
+  触发条件：dogfood 实测 OBSERVATION 记忆数量成为真实问题（如 >1k 且检索变慢）时再接线，不提前建设。
 - What ECHO Knows 人类语言 / edit·forget·confirm UX：列 Batch 3 后续。

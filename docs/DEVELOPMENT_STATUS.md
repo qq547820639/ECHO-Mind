@@ -36,7 +36,7 @@
 
 ## 3. 当前 QA
 
-- Android：**1001 unit tests**（app 850 / feature:intelligence 20 / feature:presence 21 / feature:qa 110；ERA 31 R4 实测全绿）+ lint（4 安全规则）+
+- Android：**1002 unit tests**（app 850 / feature:intelligence 20 / feature:presence 21 / feature:qa 111；ERA 31 R5 实测全绿）+ lint（4 安全规则）+
   detekt 27 规则（本轮全模块 PASS）+ instrumentation 4 组（迁移链/设备锚点）+ Compose smoke 测试三世界全覆盖。
 - feature:qa：7 profile 长期 fixture（Day 0–180）+ 视觉回归黄金集（42 帧哈希）+ 快照套件 + 产品审计报告。
 - backend：pytest **1077 passed + 1 skipped**（含 mirror golden 漂移门）、ruff 0、mypy strict 0、uv.lock 冻结。
@@ -69,9 +69,17 @@
 5. ✅ Grounding overreach 门禁：26×3 回答强制词表 + 监视语言双门禁（确定性层）。
 6. ⏸ Narrative Distiller / Provider persona stability——Provider 路径需真实 key，列 dogfood 轮（BATCH 6）。
 
-**BATCH 3 进行中（§26-29）**：
+**BATCH 3 ✅ 收口（§26-29）**：
 
-1. ✅ Self Model value audit（`qa/reports/SELF_MODEL_VALUE_AUDIT.md`）——interactionPreferences 死数据已删。
-2. ⏭ Pattern contradiction 真值验证（challengedPatterns 展示路径）。
-3. ⏭ Memory consolidation 生产调用点确认 + 规模测试。
-4. ⏭ What ECHO Knows 人类语言复核 + edit / forget / confirm UX。
+1. ✅ Self Model value audit——interactionPreferences 死数据已删。
+2. ✅ Pattern contradiction 用户可见验收（OUTDATED →「有些出入」，不再当当前事实）。
+3. ✅ Memory consolidation 决策：暂不接线（decay/expiry/purge 已限增长；触发条件 = dogfood 实测记忆成为真实问题）。
+4. ⏭ What ECHO Knows 人类语言复核 + edit / forget / confirm UX（列 BATCH 6 dogfood 轮并行推进）。
+
+**BATCH 4 进行中（§30-34）**：
+
+1. ✅ Journey 第一视觉修复：免责文案移到页底，打开 Journey = 视觉记忆河流第一眼。
+2. ⏭ Significant Change 精简复核。
+3. ⏭ Landmark quality 复核。
+4. ⏭ Month/Season/Year visual story 复审。
+5. ⏭ 删除无意义自动总结（如有）。
