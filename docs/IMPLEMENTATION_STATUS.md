@@ -6,7 +6,7 @@
 
 ## Current Era
 
-**Personal Correction 环路真值审计收官 ✅（ADR-066 两轮结项：捕获段层标签真值修复 + 链段锚定（CorrectionLoopChainTest：映射→头位→编译注入→用户可见归因））→ 下一轮：ADR-067 长阶段第 1 轮（Personal Baseline 端到端真值审计）**
+**Personal Baseline 真值审计第 1 轮完成 ✅（ADR-067：画像/基线/Presence 输入三路径改基线窗口加载（[today-28, today] 29 天，窗口外历史零加载——纠正第 73 轮「streak 需全历史」的误判）+ 窗口边界/覆盖阈值/状态阶梯 golden 锚定 +3）→ 下一轮：镜像一致性复核（本地 golden ↔ 后端 test_baseline 逐场景）+ 缺失源/置信传导 + ADR-067 结项 + ADR-068 选型**
 
 ## Distribution Closure Status（ERA 12.8 实测）
 
@@ -30,7 +30,7 @@
 
 ## Build Status（本轮实测，clean checkout 复核 PASS）
 
-- Android：**834 unit tests 全绿**（ERA 77 +3：Correction 环路收官链锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
+- Android：**837 unit tests 全绿**（ERA 78 +3：基线窗口语义 golden 锚点）；lintDebug / detekt 27 规则 / assembleRelease PASS（lint 4 条 error 级安全规则固化：UnspecifiedImmutableFlag / UnspecifiedRegisterReceiverFlag / SetJavaScriptEnabled / RtlHardcoded；app + 九模块聚合，Gradle dependency locking 生效；Corretto-17 + SDK 36）；signed APK（v2,v3）生成并绑定 provenance（内嵌 commit == provenance.git_commit，绑定测试强制）；affective_eval 9 用例 + release set 6/6 + distribution 10/10
 - backend：pytest **1076 passed + 1 skipped**（ERA 45 激活码 TTL 毫秒边界契约 +1）；ruff 0 / **mypy strict 0**（ERA 34：`strict = true` + `ignore_missing_imports = false`——探测显示全部依赖自带类型零豁免，89 处裸 dict/list 精确化：dimensions stats `dict[str, float]`、baseline_metrics `dict[str, dict[str, float]]`、安全特征 `list[Any]`，其余 `dict[str, Any]`；新增代码裸泛型/未标注/未使用 ignore = CI 红）；alembic roundtrip / openapi 导出 / content-packs / claim scan / dynamic code / safety / contract drift / fault injection 18/18 全 PASS（release_preflight 真全绿）
 - Distribution：SOURCE_MANIFEST verify PASS；source archive（zip+tar.gz）构建+解包验证 PASS；test_source_archive 10/10；final release package §18 终态门禁 PASS；**clean checkout 全 Gate PASS**
 
@@ -115,6 +115,7 @@
 - **Presence 性能与功耗真值审计收官**：APP 表面复核与统一——echoVisualSurfaceConfig 委托 resolveSurfaceConfig（APP/Wallpaper/Dream 三表面唯一映射真值，等价矩阵锚定）；**发现并修复行动层缺口**——EchoActionOverlay 忽略用户偏好（现在以同一配置渲染；呼吸引导文字不受减少动画影响）；设备段交接复核（android-ci reactivecircus pinned SHA + connectedDebugAndroidTest；设备基准与 PRESENCE_BENCHMARKS 声明一致，本地不伪造）；**ADR-065 两轮结项** + **ADR-066 选型**：下一长阶段 = Personal Correction 环路端到端真值审计（宪法组件 Correction：捕获→记忆层→检索优先级→编译注入→解释归因）；**feature_vectors 留存裁剪显式排除**——会不可逆删除真实用户数据（阻塞条件 1，非人工确认不得自主执行，记录为待办）
 - **Personal Correction 环路真值审计第 1 轮**：捕获段审计——**发现并修复 §80 层标签缺陷**（对话「像我」正向反馈原写入 CORRECTION 层，冒充纠错；改为 USER_CONFIRMED——正向确认与纠错分层真值）；EchoCorrectionService 此前零测试 → **锚点 +4**：画像纠错写 CORRECTION（日期/原因/原判断）/ 对话「像我」写 USER_CONFIRMED 置信 1 / 对话「不太像」写纠错携带原回答 / 无原因兜底「其他」；§75 检索优先级与 §77 派生既有锚定复核保持
 - **Personal Correction 环路真值审计收官**：链段锚定——**CorrectionLoopChainTest +3**：纠错记忆 → 证据映射（correction / USER_CORRECTIONS / SENSITIVE / 「你纠正过我」）→ ContextRanker 头位（「纠正永远最高」）→ EchoContextCompiler 注入（userContent 含纠正内容与来源标签）；**ADR-066 两轮结项**（捕获→分层→检索头位→编译注入→用户可见归因全链可测）+ **ADR-067 选型**：下一长阶段 = Personal Baseline 端到端真值审计（宪法第一组件与 Ground Truth 核心：validDays 语义/缺失源/冷启动阶梯/本地与后端镜像一致性/基线→画像→成熟度传导）
+- **Personal Baseline 真值审计第 1 轮**：**发现并修复基线路径无界扫描**——computeToday/baselineStatus/presenceInputs 三路径原加载全历史窗口行（第 73 轮「streak 需全历史」判断有误：基线窗口实为固定 28 天）；改为 baselineWindowRows（[today-28, today] 29 天窗口化加载，复用 v12 复合索引），零行为变化（buildLocalBaseline 内部同窗过滤不变）；**golden 锚定 +3**：窗口边界（today/today-29 零计入 + windowStart/End 精确）/ 覆盖阈值（0.25 恰计入、0.249 排除）/ 状态阶梯（2/3/6/7 边界）；镜像语义复核：本地与 backend calculator.py（WINDOW_DAYS/MIN_COVERAGE/MIN_BUCKET_DAYS/状态机/圆周统计）逐项一致
 - **发布门禁自愈轮（ERA 32 同轮）**：package_release.sh 预检故障注入矩阵 16/18 暴露两个死锚点——ERA 13.5 模块化后 fault_injection_check.py 仍指向旧路径 `android/app/.../sensing/SensingEventHub.kt`/`SensingWindowScheduler.kt`（实际已迁 :feature:observation，`_read` 返回空串 → 条件恒 False）→ 路径修复后 18/18 PASS；README 措辞改动被 test_README_pytest_count_matches_collection 契约测试当场拦截（`**N 项全绿**` 模式冻结）→ 已恢复——发布链预检从此真全绿
 
 ## In Progress
@@ -160,4 +161,4 @@
 
 ## Next Highest-value Task
 
-ADR-067 长阶段第 1 轮（Personal Baseline 端到端真值审计）：validDays 连续有效日语义（中断/回补/边界）审计 + 缺失源覆盖与置信传导 + 冷启动阶梯（WARMING_UP→READY 触发条件）+ 本地引擎与后端镜像一致性锚点；发现缺陷以测试固定。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。
+ADR-067 第 2 轮（Personal Baseline 收官）：镜像一致性复核（LocalPortraitGoldenTest 与 backend test_portrait_golden.py/test_baseline.py 逐场景对齐复核）+ 缺失源覆盖与置信传导（confidenceFor / missingSources → LOW/MEDIUM/HIGH 镜像）+ 基线→画像→成熟度传导锚点 + ADR-067 结项 + ADR-068 选型。Affective §8/§9/§10 仍处人工评审等待（冻结不绕过）；osv-scanner 本地首跑待 GitHub release CDN 可达（CI 已强制）；feature_vectors 留存裁剪待人工确认（阻塞条件 1，不自主执行）。

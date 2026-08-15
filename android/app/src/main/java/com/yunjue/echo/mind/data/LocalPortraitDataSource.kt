@@ -62,8 +62,7 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
         today: LocalDate,
         zoneId: ZoneId
     ): DailyPortraitDto {
-        val rows = passiveCoreRows(userId)
-        val aggregates = aggregatesByDay(rows, zoneId)
+        val aggregates = aggregatesByDay(baselineWindowRows(userId, today, zoneId), zoneId)
         return LocalPortraitEngine.generate(today, zoneId, aggregates[today], aggregates.values.toList())
     }
 
@@ -92,8 +91,7 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
         today: LocalDate,
         zoneId: ZoneId
     ): BaselineStatusDto {
-        val rows = passiveCoreRows(userId)
-        val aggregates = aggregatesByDay(rows, zoneId)
+        val aggregates = aggregatesByDay(baselineWindowRows(userId, today, zoneId), zoneId)
         val todayAgg = aggregates[today]
         val todayCoverage = todayAgg?.coverageScore ?: 0.0
         val snapshot = com.yunjue.echo.mind.localportrait.buildLocalBaseline(today, aggregates.values.toList())
@@ -123,12 +121,27 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
         today: LocalDate,
         zoneId: ZoneId
     ): PresenceInputs {
-        val rows = passiveCoreRows(userId)
-        val aggregates = aggregatesByDay(rows, zoneId)
+        val aggregates = aggregatesByDay(baselineWindowRows(userId, today, zoneId), zoneId)
         return PresenceInputs(
             today = aggregates[today],
             baseline = com.yunjue.echo.mind.localportrait.buildLocalBaseline(today, aggregates.values.toList()),
         )
+    }
+
+    /**
+     * ERA 78 §108 同族（Personal Baseline 审计）：基线窗口行加载——
+     * 画像/基线/存在输入只载入 [today-28, today]（29 天），窗口外历史零加载。
+     * buildLocalBaseline 内部再过滤 [today-28, today-1]（镜像后端 SQL 语义）。
+     */
+    private suspend fun baselineWindowRows(
+        userId: String,
+        today: LocalDate,
+        zoneId: ZoneId
+    ): List<LocalWindowRow> {
+        val fromMs = today.minusDays(com.yunjue.echo.mind.localportrait.LocalBaselineCalculator.WINDOW_DAYS)
+            .atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val toMs = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1
+        return passiveCoreRows(userId, fromMs, toMs)
     }
 
     companion object {

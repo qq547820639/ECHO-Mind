@@ -276,6 +276,61 @@ class LocalPortraitGoldenTest {
         assertEquals("all_days", snap2.bucket)
     }
 
+    /** ERA 78（ADR-067）：单日聚合构造器（仅基线窗口语义测试所需字段）。 */
+    private fun agg(date: LocalDate, coverage: Double = 0.8) = LocalDayAggregate(
+        localDate = date,
+        timezone = "Asia/Shanghai",
+        coverageScore = coverage,
+        validWindowCount = 230,
+        expectedWindowCount = 288,
+        movementIndex = 1.0,
+        movementVariability = 0.02,
+        screenOnMinutes = 120.0,
+        screenOpenCount = 30,
+        lateScreenMinutes = 20.0,
+        appSwitchCount = 40,
+        notificationCount = 10,
+        activeStartMinute = 480,
+        activeEndMinute = 1320,
+        activeHourSpread = 0.16,
+        sourcesPresent = listOf("screen"),
+        missingSources = emptyList()
+    )
+
+    @Test
+    fun baselineWindowEdgesExcludeTodayAndBeforeWindow() {
+        // 窗口 = [today-28, today-1]：today 与 today-29 均不计入 validDays（镜像后端 SQL 过滤）
+        val snap = buildLocalBaseline(
+            today,
+            makeBaselineRows() + listOf(agg(today), agg(today.minusDays(29))),
+        )
+        // 今天周一 → weekday 桶 20 个有效日（新增 today/today-29 行不得膨胀计数）
+        assertEquals(20, snap.validDays)
+        assertEquals(today.minusDays(28), snap.windowStart)
+        assertEquals(today.minusDays(1), snap.windowEnd)
+    }
+
+    @Test
+    fun baselineCoverageBoundaryIncludesExactlyThreshold() {
+        // coverage 恰 0.25 计入；0.249 排除（与后端 MIN_COVERAGE 语义一致）
+        val snap = buildLocalBaseline(
+            today,
+            listOf(
+                agg(today.minusDays(1), coverage = 0.25),
+                agg(today.minusDays(2), coverage = 0.249),
+            ),
+        )
+        assertEquals(1, snap.validDays)
+    }
+
+    @Test
+    fun baselineStateLadderBoundaries() {
+        assertEquals("WARMING_UP", LocalBaselineCalculator.baselineState(2))
+        assertEquals("EARLY_BASELINE", LocalBaselineCalculator.baselineState(3))
+        assertEquals("EARLY_BASELINE", LocalBaselineCalculator.baselineState(6))
+        assertEquals("BASELINE_READY", LocalBaselineCalculator.baselineState(7))
+    }
+
     @Test
     fun narrativeHeadlineAtMostThree() {
         val dto = generate(
