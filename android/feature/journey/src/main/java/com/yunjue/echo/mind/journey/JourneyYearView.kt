@@ -184,8 +184,9 @@ fun buildContextPeriods(contextExceptions: Map<String, String>): List<JourneyCon
 }
 
 /**
- * 长期转变检测：相邻聚合段的视觉距离超过阈值 → 转变点。
+ * 长期转变检测：相邻聚合段的视觉距离 + 行为方向性偏差（§40）超过阈值 → 转变点。
  * 返回的 [JourneyMajorShift.date] 为后段的起始日期。
+ * 同一变化在滑动窗口下产生的相邻转变点合并（间隔 ≤ chunkDays 且上下文一致）。
  */
 fun detectMajorShifts(
     days: List<JourneyDay>,
@@ -200,7 +201,7 @@ fun detectMajorShifts(
         val before = journeyAggregateOfDays(chunks[i - 1])
         val after = journeyAggregateOfDays(chunks[i])
         if (before == null || after == null) continue
-        val distance = visualDistance(before, after)
+        val distance = maxOf(visualDistance(before, after), directionalDeviation(chunks[i - 1], chunks[i]))
         if (distance >= threshold) {
             shifts.add(
                 JourneyMajorShift(
@@ -214,7 +215,22 @@ fun detectMajorShifts(
             )
         }
     }
-    return shifts
+    // 同一变化相邻块重复命中 → 合并（保留最早日期与最大距离）
+    val merged = mutableListOf<JourneyMajorShift>()
+    for (shift in shifts) {
+        val last = merged.lastOrNull()
+        val close = last != null && runCatching {
+            java.time.temporal.ChronoUnit.DAYS.between(
+                java.time.LocalDate.parse(last.date), java.time.LocalDate.parse(shift.date),
+            )
+        }.getOrDefault(Long.MAX_VALUE) <= chunkDays
+        if (close) {
+            if (shift.distance > last.distance) merged[merged.size - 1] = shift.copy(date = last.date)
+        } else {
+            merged.add(shift)
+        }
+    }
+    return merged
 }
 
 /**

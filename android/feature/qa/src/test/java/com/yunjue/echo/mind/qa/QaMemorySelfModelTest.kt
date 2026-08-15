@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.memory.EchoMemory
-import com.yunjue.echo.mind.memory.EchoSelfModel
 import com.yunjue.echo.mind.memory.MemorySensitivity
 import com.yunjue.echo.mind.memory.MemoryType
 import com.yunjue.echo.mind.memory.PatternState
@@ -293,5 +292,4 @@ class QaMemorySelfModelTest {
         assertTrue(echoKnowsLines(model).any { it.contains("出差") || it.contains("旅行") })
     }
 
-    private fun EchoSelfModel.dump(): String = "rhythm=${rhythmPatterns.size} ctx=${contexts.size}"
 }

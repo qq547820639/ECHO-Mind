@@ -748,3 +748,12 @@
 - Memory Privacy（§37）：EchoMemory 新增 sensitivity（CORRECTION → SENSITIVE 仓储默认）；echoKnowsLines 过滤敏感内容。
 - 上下文例外质量：格式往返/非法日期不伪造/fixture 出差窗口日期覆盖 → 模式置信打折。
 - 门禁：app 844 / qa 76 / presence 16 全绿 + detekt 干净；backend 无变更。
+
+### ADR-073 第 4 轮记录（Product Quality Era Round 4 — Batch 4 Journey 情感价值）
+
+- JourneyStory 层：buildPeriodStory（≤3 真变化，无变化一句平稳）/ journeyYearStory（阶段故事非 12 月报）/ buildLandmarks（基线成熟/明显变化/特殊时期/用户确认阶段四类地标）。
+- §40 显著变化：视觉距离 + 方向性偏差（(维度,取值)占比翻转 ≥0.4 且一侧主导 ≥0.5；排除早期基线噪声）+ 持续 ≥14 天 + 上下文标注 + 置信度；滑动窗口重复候选合并（≤2 窗口 + 变化面重叠）。
+- §43 storyRestraintCheck：情绪判断禁词 0 命中（7 profile 全量）。
+- 修复 DRIFT 误报：isDriftStep（单步无符号距离）→ isDriftChain（两步同向点积>0）；A 稳定用户河流恢复以 STABLE 为主。
+- fixture 驱动：E 冲刺期=1 个变化（含「项目冲刺」上下文标注）；D 出差期变化全部上下文化；年故事「冬平稳/春冲刺/夏 1 次明显变化」；7 profile × Day90 canonical 重建与当日渲染同帧。
+- 门禁：app 844 / qa 84 / presence 16 全绿 + detekt；backend 无变更。

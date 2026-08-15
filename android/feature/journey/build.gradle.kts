@@ -32,5 +32,6 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":feature:presence"))
     implementation(project(":feature:intelligence"))
+    implementation(project(":feature:memory"))
     implementation(libs.kotlinx.coroutines.core)
 }

@@ -116,7 +116,7 @@ fun buildVisualMemoryRiver(
             chunk.special -> RiverSegmentKind.SPECIAL
             stepIn >= RIVER_TRANSITION_DISTANCE || stepOut >= RIVER_TRANSITION_DISTANCE ->
                 RiverSegmentKind.TRANSITION
-            isDriftStep(prev, chunk) || isDriftStep(chunk, next) -> RiverSegmentKind.DRIFT
+            isDriftChain(prev, chunk, next) -> RiverSegmentKind.DRIFT
             chunk.activity >= RIVER_DENSE_ACTIVITY -> RiverSegmentKind.DENSE
             else -> RiverSegmentKind.STABLE
         }
@@ -190,10 +190,35 @@ private fun aggregateParams(params: List<EchoVisualParameters>): EchoVisualParam
     )
 }
 
-/** 漂移步判定：两段都有参数且距离 ≥ 漂移阈值但 < 转变阈值（缓慢连续移动，而非突变）。 */
-private fun isDriftStep(a: RiverChunk?, b: RiverChunk?): Boolean {
-    val pa = a?.params ?: return false
-    val pb = b?.params ?: return false
-    val d = visualDistance(pa, pb)
-    return d >= RIVER_DRIFT_STEP && d < RIVER_TRANSITION_DISTANCE
+/**
+ * ERA 24 修复 — 漂移链判定：连续两步都在漂移区间**且方向一致**（12 维 delta 点积 > 0）。
+ * 旧 isDriftStep 只看单步无符号距离——稳定用户每周聚合的随机晃动（方向来回）
+ * 会被误判成 DRIFT（A fixture 实测 5 段中仅 2 段 STABLE）。
+ */
+private fun isDriftChain(prev: RiverChunk?, chunk: RiverChunk?, next: RiverChunk?): Boolean {
+    val pa = prev?.params ?: return false
+    val pc = chunk?.params ?: return false
+    val pn = next?.params ?: return false
+    val d1 = visualDistance(pa, pc)
+    val d2 = visualDistance(pc, pn)
+    if (d1 < RIVER_DRIFT_STEP || d1 >= RIVER_TRANSITION_DISTANCE) return false
+    if (d2 < RIVER_DRIFT_STEP || d2 >= RIVER_TRANSITION_DISTANCE) return false
+    // 方向一致性：12 维 delta 点积
+    val dims1 = listOf(
+        pc.flowSpeed - pa.flowSpeed, pc.coherence - pa.coherence, pc.turbulence - pa.turbulence,
+        pc.particleDensity - pa.particleDensity, pc.coreOpenness - pa.coreOpenness,
+        pc.dispersion - pa.dispersion, pc.pulsePeriodSeconds - pa.pulsePeriodSeconds,
+        pc.depth - pa.depth, pc.brightness - pa.brightness, pc.contrast - pa.contrast,
+        pc.accentIntensity - pa.accentIntensity, pc.structureComplexity - pa.structureComplexity,
+    )
+    val dims2 = listOf(
+        pn.flowSpeed - pc.flowSpeed, pn.coherence - pc.coherence, pn.turbulence - pc.turbulence,
+        pn.particleDensity - pc.particleDensity, pn.coreOpenness - pc.coreOpenness,
+        pn.dispersion - pc.dispersion, pn.pulsePeriodSeconds - pc.pulsePeriodSeconds,
+        pn.depth - pc.depth, pn.brightness - pc.brightness, pn.contrast - pc.contrast,
+        pn.accentIntensity - pc.accentIntensity, pn.structureComplexity - pc.structureComplexity,
+    )
+    var dot = 0f
+    for (i in dims1.indices) dot += dims1[i] * dims2[i]
+    return dot > 0f
 }

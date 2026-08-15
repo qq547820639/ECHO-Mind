@@ -90,6 +90,10 @@ class QaTimeline(
     fun portraitsUpTo(dayIndex: Int): List<DailyPortraitDto> =
         (0..dayIndex).mapNotNull { portraitFor(it) }.takeLast(60)
 
+    /** 全历史画像时间线（年视图等长窗口场景；不截断）。 */
+    fun allPortraitsUpTo(dayIndex: Int): List<DailyPortraitDto> =
+        (0..dayIndex).mapNotNull { portraitFor(it) }
+
     /** 绝对活跃起点序列（date, minute），60 天窗口；喂给 computeLifeSeason 的慢漂移检测。 */
     fun wakeSeriesUpTo(dayIndex: Int): List<Pair<String, Double>> =
         (0..dayIndex).mapNotNull { i ->
