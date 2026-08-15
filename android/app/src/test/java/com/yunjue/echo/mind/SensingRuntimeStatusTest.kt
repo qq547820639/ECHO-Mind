@@ -1,11 +1,11 @@
 package com.yunjue.echo.mind
 
-import com.yunjue.echo.mind.sensing.RUNTIME_COPY_SYSTEM_PAUSED
-import com.yunjue.echo.mind.sensing.RUNTIME_COPY_USER_PAUSED
-import com.yunjue.echo.mind.sensing.SensingRuntimeInputs
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
-import com.yunjue.echo.mind.sensing.resolveSensingRuntimeStatus
-import com.yunjue.echo.mind.sensing.sensingRuntimeStatusText
+import com.yunjue.echo.mind.model.RUNTIME_COPY_SYSTEM_PAUSED
+import com.yunjue.echo.mind.model.RUNTIME_COPY_USER_PAUSED
+import com.yunjue.echo.mind.model.SensingRuntimeInputs
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.resolveSensingRuntimeStatus
+import com.yunjue.echo.mind.model.sensingRuntimeStatusText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

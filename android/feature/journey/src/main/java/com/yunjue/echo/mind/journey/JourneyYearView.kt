@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.journey
+import com.yunjue.echo.mind.model.EchoIdentityGenome
 
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import java.time.LocalDate
 

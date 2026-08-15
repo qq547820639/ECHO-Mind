@@ -1,4 +1,7 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoMomentState
+import com.yunjue.echo.mind.model.EchoDailyComposition
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto

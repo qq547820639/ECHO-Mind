@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.ui.echo.why
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.hasClickAction
@@ -10,8 +11,7 @@ import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.intelligence.NarrativeFallbackLevel
 import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStatus
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import org.junit.Assert.assertTrue
 import org.junit.Rule

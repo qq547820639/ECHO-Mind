@@ -1,8 +1,8 @@
 package com.yunjue.echo.mind.journey
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.SurfaceMode
 import org.junit.Assert.assertEquals

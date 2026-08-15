@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.presence.AmbientVector
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
@@ -38,12 +38,12 @@ class IdentityDiversityEvalTest {
         }
     }
 
-    private fun genomes(): List<com.yunjue.echo.mind.presence.EchoIdentityGenome> =
+    private fun genomes(): List<com.yunjue.echo.mind.model.EchoIdentityGenome> =
         seeds().map { deriveIdentityGenome(it, 0.6f, PresenceMotionLevel.DEFAULT) }
 
     private fun hueOnlyDistance(
-        a: com.yunjue.echo.mind.presence.EchoIdentityGenome,
-        b: com.yunjue.echo.mind.presence.EchoIdentityGenome,
+        a: com.yunjue.echo.mind.model.EchoIdentityGenome,
+        b: com.yunjue.echo.mind.model.EchoIdentityGenome,
     ): Float {
         val d = abs(a.accentHue - b.accentHue) % 1f
         return minOf(d, 1f - d) * 0.10f

@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.echoMaturity
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
@@ -14,7 +15,6 @@ import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.WallpaperRenderController
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
-import com.yunjue.echo.mind.presence.echoMaturity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -65,7 +65,7 @@ class EchoSceneFrameDeviceBenchmarkInstrumentedTest {
 
     @Test
     fun sceneFrameComputationDeviceAnchor() {
-        val state = com.yunjue.echo.mind.presence.EchoPresenceState(
+        val state = com.yunjue.echo.mind.model.EchoPresenceState(
             updatedAt = java.time.Instant.EPOCH,
             maturity = echoMaturity(30),
             identityGenome = deriveIdentityGenome(42L, 0.6f, PresenceMotionLevel.DEFAULT),

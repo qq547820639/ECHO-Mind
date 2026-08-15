@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.localportrait
+import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.model.EchoMaturity
 
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.echoMaturity
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoPresenceState
 
 import android.content.Context
 import android.content.SharedPreferences

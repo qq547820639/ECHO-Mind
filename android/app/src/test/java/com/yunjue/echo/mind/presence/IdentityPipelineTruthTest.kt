@@ -1,4 +1,13 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoMomentState
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoLifeSeason
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.EchoDailyComposition
+import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.journey.JourneyCanonicalCodec
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS

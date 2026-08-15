@@ -21,9 +21,9 @@ import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.baselineProgressText
 import com.yunjue.echo.mind.model.todayCoveragePercent
-import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_BODY
-import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_TITLE
-import com.yunjue.echo.mind.presence.presenceSeedRuntimeText
+import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_BODY
+import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_TITLE
+import com.yunjue.echo.mind.model.presenceSeedRuntimeText
 
 /**
  * v3 §9 — EchoPortraitStates：画像九态的子组件（SEED 画报/基线进度/覆盖度/解锁仪式）。

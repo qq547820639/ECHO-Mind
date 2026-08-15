@@ -1,6 +1,14 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoDailyComposition
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.EchoLifeSeason
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoMomentState
+import com.yunjue.echo.mind.model.BehaviorState
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoPresenceState
 
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import java.time.Instant
 
 /**

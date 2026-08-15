@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.qa
+import com.yunjue.echo.mind.model.EchoMaturity
 
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.SurfaceMode
 import kotlin.math.abs
 

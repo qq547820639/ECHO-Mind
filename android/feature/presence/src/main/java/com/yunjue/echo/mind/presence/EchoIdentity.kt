@@ -1,4 +1,10 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoDailyComposition
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.EchoLifeSeason
+import com.yunjue.echo.mind.model.EchoMomentState
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.echoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import kotlin.math.abs

@@ -21,7 +21,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.NEUTRAL_VISUAL_PARAMS
 import com.yunjue.echo.mind.presence.drawEchoFrame

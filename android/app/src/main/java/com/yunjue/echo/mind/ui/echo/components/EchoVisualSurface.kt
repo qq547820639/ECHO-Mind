@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.EchoLifeField

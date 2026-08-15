@@ -5,6 +5,7 @@
 ## Kotlin 包
 - `com.yunjue.echo.mind`
 - `com.yunjue.echo.mind.data`
+- `com.yunjue.echo.mind.data.database`
 - `com.yunjue.echo.mind.data.outbox`
 - `com.yunjue.echo.mind.di`
 - `com.yunjue.echo.mind.journey`
@@ -29,14 +30,14 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：153
+- Kotlin 文件：164
 - Python 文件：68
 - Manifest Components：5（缺失源类：1）
 - Worker：5（缺失实现：0）
 - Repository：13
 - Runtime/Coordinator：4
 - ViewModel：8
-- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'feature:journey', 'core:security', 'core:model', 'core:ports']
+- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'feature:journey', 'feature:qa', 'core:security', 'core:model', 'core:ports']
 
 ## Manifest Components
 - `.main.MainActivity` ✅

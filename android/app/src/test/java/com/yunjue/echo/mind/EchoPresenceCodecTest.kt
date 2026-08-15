@@ -1,18 +1,18 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoMomentState
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoLifeSeason
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.EchoDailyComposition
+import com.yunjue.echo.mind.model.BehaviorState
 
-import com.yunjue.echo.mind.presence.BehaviorState
-import com.yunjue.echo.mind.presence.EchoDailyComposition
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
-import com.yunjue.echo.mind.presence.EchoLifeSeason
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.EchoMomentState
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
-import com.yunjue.echo.mind.presence.RhythmState
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

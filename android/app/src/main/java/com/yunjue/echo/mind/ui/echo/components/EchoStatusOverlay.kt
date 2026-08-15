@@ -13,8 +13,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
-import com.yunjue.echo.mind.sensing.sensingRuntimeStatusText
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.sensingRuntimeStatusText
 
 /**
  * v3 §9 — EchoStatusOverlay：感知六态的可信呈现（非 ACTIVE 才可见，非工程噪音）。

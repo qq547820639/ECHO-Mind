@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.qa
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.learningPhaseHeadline
 
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.qa.QaPortraitMirror.minuteText
 import kotlin.math.abs
 
@@ -52,7 +53,7 @@ object QaHeadlineEngine {
             else -> "已观察 $observedMinutes 分钟"
         }
         return QaHeadline(
-            public = com.yunjue.echo.mind.presence.learningPhaseHeadline(snap.presence.maturity),
+            public = com.yunjue.echo.mind.model.learningPhaseHeadline(snap.presence.maturity),
             evidence = evidence,
             aiLayer = null,
         )

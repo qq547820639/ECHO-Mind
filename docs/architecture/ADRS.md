@@ -786,3 +786,16 @@
 - §64 In-App 内部质量反馈落地：`InternalQualityFeedback`（仅 BuildConfig.DEBUG 渲染；「这个 ECHO 今天真实吗/这条解释有用吗/这个变化明显吗」三问 yes/no 本地翻转记录，AppPreferences JSON，不产生网络、不污染正式 UI）+ Robolectric smoke。
 - 视觉回归黄金集：`VisualRegressionGoldenTest`——7 profile × 6 锚点日 = 42 帧 FNV-1a 黄金哈希锁定跨版本视觉血缘（渲染改动必须有意为之并同步更新黄金值）。
 - **Batch 1-8 全部完成**。ERA 30 Affective 保持冻结（默认 OFF；等真实 dogfood 数据回流 + 人工评审后评估——「不要因为架构成熟就急着启用」）。
+
+### ADR-073 第 8 轮记录（ERA 31 Felt Product Reality R8 — core:ports 依赖倒置收官）
+
+- ERA 40 §46 完成：`EchoPresenceState.kt`（EchoPresenceState/EchoMaturity/echoMaturity/learningPhaseHeadline/
+  EchoLifeSeason/EchoDailyComposition/EchoMomentState/EchoIdentityGenome/RhythmState/BehaviorState + SEED 文案常量）
+  与 `SensingRuntimeStatus.kt`（六态 enum/Inputs/resolve/文案）下沉 `core:model`（package 同步改为
+  com.yunjue.echo.mind.model）；全仓 70+ 文件 import 重写，presence/journey/qa/app 编译期收敛。
+- **core:ports 不再依赖任何 feature 模块**（build.gradle 仅 core:model；源码 import 仅 model）——
+  core → feature 依赖全部清零；按 §46 约定：模块化工作到此停止，不再继续拆 module。
+- 依赖图实测（ANDROID_DEPENDENCY_GRAPH 重生成）：ports ──► {observation? 仅 model}；data 增 intelligence/ports 边；
+  cycle=False；SOURCE_REALITY_REPORT 重生成（kt 153→164，含 feature:qa 模块补录）。
+- 门禁：Android 1004 全绿（app 852 / intelligence 20 / presence 21 / qa 111）+ compileDebugAndroidTestKotlin +
+  detekt 27 规则 + lintDebug PASS；快照/黄金套件零漂移（纯搬移，行为不变）。

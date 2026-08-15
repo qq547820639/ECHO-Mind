@@ -30,6 +30,5 @@ detekt {
 
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":feature:presence"))
     implementation(libs.kotlinx.coroutines.core)
 }

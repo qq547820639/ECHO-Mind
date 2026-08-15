@@ -97,10 +97,17 @@
 2. ✅ `scripts/collect_wallpaper_metrics.sh`（真机 CPU/mem/帧/battery 采样，部署侧执行）。
 3. ⏳ 30 天 dogfood + 真机 Wallpaper battery：外部门执行（协议/清单/脚本已就绪）。
 
-**BATCH 7 进行中（§39-41）**：
+**BATCH 7 ✅ 收口（§39-41）**：
 
-1. ✅ Delete Audit（`qa/reports/DELETE_AUDIT.md`）：核心 UI 已干净、无删除；临床量表移交外部门复核。
-2. ✅ Subscription gating 审计：订阅只 gate 云端同步+专业支持，免费核心全部本地（符合 §40）。
-3. ✅ QA mirror cleanup 收尾：learningPhaseHeadline 下沉 feature:presence 单点，QA 副本删除（三项 mirror 全部闭环）。
-4. ⏭ core:ports dependency cleanup（ERA 40 §46 审计）。
-5. ⏭ App/UI complexity cleanup。
+1. ✅ Delete Audit：核心 UI 已干净；临床量表移交外部门复核。
+2. ✅ Subscription gating 审计（符合 §40）。
+3. ✅ QA mirror cleanup 收尾（三项 mirror 全部闭环）。
+4. ✅ core:ports dependency cleanup（ERA 40 §46 收官）：EchoPresenceState/SensingRuntimeStatus 下沉 core:model，
+   core 不再依赖任何 feature；模块化工作停止（§46 约定）。
+5. ✅ App/UI complexity cleanup：无 God Screen 发现（三大世界根页面均已 state-in/event-out 可测）。
+
+**BATCH 8 准备中（release candidate）**：
+
+1. ⏭ clean checkout 全 Gate 重跑（tests / product QA / Android build / backend build）。
+2. ⏭ 发布链全量重生成（archive integrity / source manifest / SBOM / provenance / artifact manifest / release package）。
+3. ⏭ Device smoke test（外部门执行件已就绪）。

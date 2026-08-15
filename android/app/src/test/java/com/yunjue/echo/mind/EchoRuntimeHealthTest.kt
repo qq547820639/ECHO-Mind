@@ -1,12 +1,12 @@
 package com.yunjue.echo.mind
 
 import com.yunjue.echo.mind.intelligence.ProviderStatus
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.runtime.RuntimeComponentStatus
 import com.yunjue.echo.mind.runtime.computeEchoRuntimeHealth
 import com.yunjue.echo.mind.runtime.providerComponentHealth
 import com.yunjue.echo.mind.runtime.sensingComponentHealth
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant

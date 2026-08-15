@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.ports
 
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import kotlinx.coroutines.flow.StateFlow
 
 /**

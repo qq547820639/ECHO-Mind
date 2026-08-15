@@ -1,4 +1,7 @@
 package com.yunjue.echo.mind.ui.echo
+import com.yunjue.echo.mind.model.learningPhaseHeadline
+import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import com.yunjue.echo.mind.actions.InterventionInputs
 import com.yunjue.echo.mind.actions.InterventionLevel
@@ -9,11 +12,8 @@ import com.yunjue.echo.mind.intelligence.NarrativeFallbackLevel
 import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.learningPhaseHeadline
-import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.presence.echoMaturity
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 
 /**
  * ECHO Scene 统一 UI 状态（Master Prompt v2 §16）：

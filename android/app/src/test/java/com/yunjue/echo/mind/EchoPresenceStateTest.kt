@@ -1,11 +1,11 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import com.yunjue.echo.mind.model.containsBlockedVocabulary
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_BODY
-import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_TITLE
-import com.yunjue.echo.mind.presence.echoMaturity
-import com.yunjue.echo.mind.presence.presenceSeedRuntimeText
+import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_BODY
+import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_TITLE
+import com.yunjue.echo.mind.model.presenceSeedRuntimeText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test

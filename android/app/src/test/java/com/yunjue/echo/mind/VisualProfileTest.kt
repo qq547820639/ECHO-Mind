@@ -1,17 +1,17 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.BehaviorState
 
-import com.yunjue.echo.mind.presence.BehaviorState
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.presence.RhythmState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeVisualParameters
 import com.yunjue.echo.mind.presence.dayBrightnessCurve
 import com.yunjue.echo.mind.presence.hsvToArgb
 import com.yunjue.echo.mind.presence.maturityOpenness
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue

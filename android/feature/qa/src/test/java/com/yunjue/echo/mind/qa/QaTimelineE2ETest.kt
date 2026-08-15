@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.qa
+import com.yunjue.echo.mind.model.EchoMaturity
 
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import com.yunjue.echo.mind.presence.identityDistance
 import org.junit.Assert.assertEquals

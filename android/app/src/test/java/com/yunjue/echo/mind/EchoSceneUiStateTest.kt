@@ -1,4 +1,8 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.DataSourceCategory
@@ -7,12 +11,8 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitFactDto
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.presence.BehaviorState
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.presence.RhythmState
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.ui.echo.assembleEchoSceneUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

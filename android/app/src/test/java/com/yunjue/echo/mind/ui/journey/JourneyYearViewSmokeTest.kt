@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.ui.journey
+import com.yunjue.echo.mind.model.EchoIdentityGenome
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,7 +11,6 @@ import com.yunjue.echo.mind.journey.JourneySeasonSummary
 import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.JourneyYearView
 import com.yunjue.echo.mind.journey.SEASON_SPRING
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

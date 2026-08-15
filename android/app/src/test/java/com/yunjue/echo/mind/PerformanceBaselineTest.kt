@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind
+import com.yunjue.echo.mind.model.echoMaturity
 
 import com.yunjue.echo.mind.intelligence.DataSourceCategory
 import com.yunjue.echo.mind.intelligence.EchoContextCompiler
@@ -14,13 +15,12 @@ import com.yunjue.echo.mind.memory.rankMemories
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.presence.AmbientVector
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.buildMomentState
 import com.yunjue.echo.mind.presence.computeLifeSeason
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
-import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.presence.smoothPresenceState
 import org.junit.Assert.assertTrue
 import org.junit.Test

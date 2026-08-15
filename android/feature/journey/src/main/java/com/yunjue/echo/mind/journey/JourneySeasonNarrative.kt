@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.journey
+import com.yunjue.echo.mind.model.EchoLifeSeason
 
-import com.yunjue.echo.mind.presence.EchoLifeSeason
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 
 /**

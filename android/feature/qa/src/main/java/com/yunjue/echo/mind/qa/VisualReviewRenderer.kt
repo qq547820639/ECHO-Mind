@@ -190,10 +190,10 @@ object VisualReviewRenderer {
     private fun explanationFor(snap: QaDaySnapshot, headline: QaHeadline): String {
         val lines = mutableListOf<String>()
         lines += when (snap.presence.maturity) {
-            com.yunjue.echo.mind.presence.EchoMaturity.SEED ->
+            com.yunjue.echo.mind.model.EchoMaturity.SEED ->
                 "Day 0：ECHO 刚苏醒，还没有基线——画面来自安装种子与此刻的少量观察，中性、克制。"
-            com.yunjue.echo.mind.presence.EchoMaturity.DISCOVERING,
-            com.yunjue.echo.mind.presence.EchoMaturity.EMERGING ->
+            com.yunjue.echo.mind.model.EchoMaturity.DISCOVERING,
+            com.yunjue.echo.mind.model.EchoMaturity.EMERGING ->
                 "基线正在形成（${snap.baseline?.validDays ?: 0} 个有效日）。ECHO 开始看到节奏，但视觉仍以学习期的安静为主。"
             else ->
                 "基线已形成（${snap.baseline?.validDays ?: 0} 个有效日）。画面由「通常的你」参照驱动：${headline.public}"

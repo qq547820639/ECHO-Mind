@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.ui
+import com.yunjue.echo.mind.model.echoMaturity
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,9 +27,8 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_TITLE
-import com.yunjue.echo.mind.presence.echoMaturity
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_TITLE
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoPresenceState
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable

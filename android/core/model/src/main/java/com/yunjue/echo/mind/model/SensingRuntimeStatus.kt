@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind.sensing
+package com.yunjue.echo.mind.model
 
 /**
  * ERA 1 — 统一感知运行时状态（Sensing Runtime Status）。

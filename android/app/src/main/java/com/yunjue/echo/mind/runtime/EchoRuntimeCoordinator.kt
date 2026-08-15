@@ -6,12 +6,12 @@ import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.PresenceRepository
 import com.yunjue.echo.mind.intelligence.AiProviderManager
 import com.yunjue.echo.mind.intelligence.ProviderStatus
-import com.yunjue.echo.mind.presence.EchoPresenceState
-import com.yunjue.echo.mind.sensing.SensingRuntimeInputs
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.SensingRuntimeInputs
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import com.yunjue.echo.mind.sensing.hasMicPermissionGranted
-import com.yunjue.echo.mind.sensing.resolveSensingRuntimeStatus
+import com.yunjue.echo.mind.model.resolveSensingRuntimeStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first

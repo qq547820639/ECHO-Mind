@@ -6,9 +6,9 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.yunjue.echo.mind.sensing.RUNTIME_COPY_STARTING
-import com.yunjue.echo.mind.sensing.RUNTIME_COPY_SYSTEM_PAUSED
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
+import com.yunjue.echo.mind.model.RUNTIME_COPY_STARTING
+import com.yunjue.echo.mind.model.RUNTIME_COPY_SYSTEM_PAUSED
+import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test

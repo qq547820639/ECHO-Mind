@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.ui
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +48,6 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.todayPortraitStateText
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneViewModel
 import com.yunjue.echo.mind.ui.echo.actions.EchoActionLayer

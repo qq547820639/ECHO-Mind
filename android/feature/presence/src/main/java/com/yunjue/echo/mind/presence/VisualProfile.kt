@@ -1,4 +1,6 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.EchoPresenceState
 
 import kotlin.math.PI
 import kotlin.math.cos

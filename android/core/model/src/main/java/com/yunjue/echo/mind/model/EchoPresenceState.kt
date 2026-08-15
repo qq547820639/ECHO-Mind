@@ -1,6 +1,5 @@
-package com.yunjue.echo.mind.presence
+package com.yunjue.echo.mind.model
 
-import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
 import java.time.Instant
 
 /**

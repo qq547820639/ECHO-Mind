@@ -21,7 +21,7 @@ class QaDailyMomentAuditTest {
             val timeline = QaTimeline(profile)
             val gate = DailyCompositionGate()
             // 模拟一天内 24 次分钟级 refresh：today 向量随窗口累积变化
-            var first: com.yunjue.echo.mind.presence.EchoDailyComposition? = null
+            var first: com.yunjue.echo.mind.model.EchoDailyComposition? = null
             for (refresh in 0 until 24) {
                 val snap = timeline.snapshotAt(30)
                 val composition = gate.compositionFor(snap.date) { snap.presence.dailyComposition }

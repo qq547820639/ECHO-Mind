@@ -7,16 +7,16 @@
 ## 1. 领域包图（com.yunjue.echo.mind.*，顶层领域聚合）
 
 ```text
-data ──► memory, observation, presence, root, security
+data ──► intelligence, memory, observation, ports, presence, root, security
 di ──► data, intelligence, journey, presence, root, security
 intelligence ──► memory, observation, ports, security
-journey ──► data, intelligence, observation, presence, root
+journey ──► data, intelligence, memory, observation, presence, root
 me ──► data, memory, observation
 memory ──► ports
 observation ──► root
-ports ──► memory, observation, presence
+ports ──► observation
 presence ──► observation, root
-runtime ──► data, intelligence, observation, presence, root
+runtime ──► data, intelligence, observation, root
 security ──► root
 ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root
 ```
@@ -26,23 +26,25 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | 领域 | Kotlin 文件数 |
 |---|---|
 | actions | 2 |
-| data | 25 |
+| data | 27 |
 | di | 1 |
-| intelligence | 16 |
-| journey | 14 |
+| intelligence | 18 |
+| journey | 15 |
 | me | 3 |
-| memory | 4 |
-| observation | 23 |
+| memory | 6 |
+| observation | 25 |
 | ports | 3 |
-| presence | 11 |
+| presence | 12 |
 | runtime | 1 |
 | security | 8 |
-| ui | 36 |
+| ui | 37 |
 
 ## 3. 跨领域边清单
 
+- data → intelligence
 - data → memory
 - data → observation
+- data → ports
 - data → presence
 - data → root
 - data → security
@@ -58,6 +60,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - intelligence → security
 - journey → data
 - journey → intelligence
+- journey → memory
 - journey → observation
 - journey → presence
 - journey → root
@@ -66,15 +69,12 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - me → observation
 - memory → ports
 - observation → root
-- ports → memory
 - ports → observation
-- ports → presence
 - presence → observation
 - presence → root
 - runtime → data
 - runtime → intelligence
 - runtime → observation
-- runtime → presence
 - runtime → root
 - security → root
 - ui → actions

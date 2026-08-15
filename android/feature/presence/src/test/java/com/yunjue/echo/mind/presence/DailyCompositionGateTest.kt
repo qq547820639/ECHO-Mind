@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoDailyComposition
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame

@@ -1,12 +1,12 @@
 package com.yunjue.echo.mind.journey
+import com.yunjue.echo.mind.model.EchoMaturity
+import com.yunjue.echo.mind.model.echoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
-import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.EchoSceneFrame
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.presence.maturityOpenness
 import kotlin.math.abs
 import kotlin.math.max

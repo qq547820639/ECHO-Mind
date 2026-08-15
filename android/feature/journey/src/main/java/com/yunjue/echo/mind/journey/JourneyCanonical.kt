@@ -1,9 +1,9 @@
 package com.yunjue.echo.mind.journey
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.EchoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
-import com.yunjue.echo.mind.presence.EchoMaturity
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoSceneFrame
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.EchoVisualParameters

@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoLifeSeason
 
 import java.time.LocalDate
 import kotlin.math.min

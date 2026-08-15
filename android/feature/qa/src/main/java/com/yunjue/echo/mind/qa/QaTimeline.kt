@@ -1,4 +1,9 @@
 package com.yunjue.echo.mind.qa
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.model.BehaviorState
+import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.model.EchoLifeSeason
 
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.localportrait.LocalBaselineSnapshot
@@ -7,21 +12,16 @@ import com.yunjue.echo.mind.localportrait.buildLocalBaseline
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.presence.AmbientEngine
 import com.yunjue.echo.mind.presence.AmbientResult
-import com.yunjue.echo.mind.presence.BehaviorState
-import com.yunjue.echo.mind.presence.EchoIdentityGenome
-import com.yunjue.echo.mind.presence.EchoLifeSeason
-import com.yunjue.echo.mind.presence.EchoPresenceState
+import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.LifeSeasonTracker
-import com.yunjue.echo.mind.presence.RhythmState
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.buildMomentState
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeLifeSeason
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
-import com.yunjue.echo.mind.presence.echoMaturity
 import java.time.LocalDate
 import java.time.ZoneId
 
