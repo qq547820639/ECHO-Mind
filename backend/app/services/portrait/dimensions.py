@@ -37,11 +37,13 @@ MIN_REL_DELTA = 0.05
 Z_SIMILAR = 0.7
 
 
-def _scale(stats: dict[str, float]) -> float:
+def _scale(stats: dict[str, float], metric: str | None = None) -> float:
+    # ERA 21 修复：下限 = 该指标最小有意义差（早期基线 mad/IQR≈0 时 z 不再爆炸到数千万）
     mad_v = stats.get("mad") or 0.0
     p25 = stats.get("p25") or 0.0
     p75 = stats.get("p75") or 0.0
-    return max(mad_v * 1.4826, (p75 - p25) / 2.0, 1e-6)
+    floor = MIN_ABS_DELTA.get(metric, 1e-6) if metric else 1e-6
+    return max(mad_v * 1.4826, (p75 - p25) / 2.0, floor)
 
 
 def _below_min_delta(value: float, stats: dict[str, float], metric: str) -> bool:
@@ -60,7 +62,7 @@ def _z(value: float, stats: dict[str, float], metric: str | None = None) -> floa
     if metric is not None and _below_min_delta(value, stats, metric):
         # 差异小于最小有意义差 → 视为接近（z=0，避免 near-zero baseline 的巨大 z）
         return 0.0
-    return (value - med) / _scale(stats)
+    return (value - med) / _scale(stats, metric)
 
 
 def _classify(value: float, stats: dict[str, float], lower: str, higher: str, metric: str) -> str:

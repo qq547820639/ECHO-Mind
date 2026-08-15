@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,7 +89,10 @@ fun CoverageRow(coverage: Map<String, Any>?) {
     }
 }
 
-/** 基线解锁仪式（首次 READY 只出现一次）。 */
+/**
+ * 基线成型提示（首次 READY 只出现一次；ERA 20 §10：不是庆祝横幅，
+ * 只是一句安静的过渡表达——ECHO 自然进入「认识通常的你」阶段）。
+ */
 @Composable
 fun UnlockBanner(consumeUnlocked: () -> Boolean, state: PortraitUiState) {
     if (state.portrait?.baselineDays ?: 0 < 7) return
@@ -102,16 +103,12 @@ fun UnlockBanner(consumeUnlocked: () -> Boolean, state: PortraitUiState) {
         }
     }
     if (show) {
-        Card(
-            Modifier.fillMaxWidth().padding(top = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        ) {
-            Text(
-                PORTRAIT_COPY_BASELINE_UNLOCKED,
-                modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+        Text(
+            PORTRAIT_COPY_BASELINE_UNLOCKED,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }
 

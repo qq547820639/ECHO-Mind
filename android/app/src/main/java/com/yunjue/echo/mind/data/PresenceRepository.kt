@@ -15,6 +15,8 @@ import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoStateStore
 import com.yunjue.echo.mind.presence.RhythmState
 import com.yunjue.echo.mind.presence.echoMaturity
+import com.yunjue.echo.mind.localportrait.LocalDayAggregate
+import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.sensing.SensingRuntimeInputs
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import com.yunjue.echo.mind.sensing.hasMicPermissionGranted
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 /**
@@ -72,7 +75,12 @@ class PresenceRepository(
 
         // 2. Ambient：中性状态向量（数据不足 → UNKNOWN，不硬判）
         val ambient = AmbientEngine.compute(inputs.today, inputs.baseline)
-        val baselineDays = inputs.baseline?.validDays ?: 0
+
+        // 成长成熟度（ERA 21 修复）：baseline.validDays 是 28 天窗口内的分桶有效日
+        // （weekday 桶 ≤ 20），用它判断 MATURE（≥28）永远达不到。
+        // 成熟度语义 = 「认识你多久」→ 自苏醒锚点（awakenedAtEpochMs）起的日历天数。
+        val calendarDays = maturityCalendarDays(preferences.awakenedAtEpochMs, today, zone)
+            .coerceAtLeast(0)
 
         // 3. 感知运行时：系统真实状态为输入；「关闭」只能来自用户行为
         val micEnabled = passiveSensingPrefs.micEnabled.first()
@@ -102,15 +110,21 @@ class PresenceRepository(
             },
         )
         // Life Season（§56/§57：近 60 天画像时间线；中性词表）
-        val portraits = runCatching {
-            dataSource.computeTimeline(
+        // ERA 21 §16：同时取绝对活跃起点分钟——画像维度相对基线，慢漂移需绝对序列才能看见
+        val timeline = runCatching {
+            dataSource.computeTimelineWithAggregates(
                 userId = preferences.userId,
                 days = 60,
                 endDate = today,
                 zoneId = zone,
             )
-        }.getOrDefault(emptyList())
-        val season = computeLifeSeason(portraits)
+        }.getOrDefault(Pair(emptyList<DailyPortraitDto>(), emptyMap<LocalDate, LocalDayAggregate>()))
+        val portraits = timeline.first
+        val wakeMinutes = timeline.second
+            .filterValues { it.activeStartMinute != null }
+            .toSortedMap()
+            .map { (date, agg) -> date.toString() to agg.activeStartMinute!!.toDouble() }
+        val season = computeLifeSeason(portraits, wakeMinutes, calendarDays = calendarDays)
         // Daily Composition（§58：日级稳定）+ Moment Modulation（§59：分钟级）
         val hourOfDay = now.atZone(zone).hour + now.atZone(zone).minute / 60f
         val daily = buildDailyComposition(identity, ambient.vector)
@@ -119,7 +133,7 @@ class PresenceRepository(
         val assembled = EchoPresenceState(
             updatedAt = now,
             sensingStatus = runtime,
-            maturity = echoMaturity(baselineDays),
+            maturity = echoMaturity(calendarDays),
             rhythmState = RhythmState(
                 activityLevel = ambient.vector.activation,
                 rhythmDelta = season.drift, // §61：真实跨日节律漂移（ERA 14 起非 0）
@@ -140,5 +154,12 @@ class PresenceRepository(
 
         // §60：视觉层平滑（interpolation；不瞬切）
         return smoothPresenceState(_state.value, assembled, alpha = 0.35f)
+    }
+
+    /** 自苏醒锚点起的日历天数（锚点缺失 = 0，成熟度保持 SEED 语义）。 */
+    private fun maturityCalendarDays(awakenedAtEpochMs: Long, today: LocalDate, zone: ZoneId): Int {
+        if (awakenedAtEpochMs <= 0L) return 0
+        val awakenedDate = Instant.ofEpochMilli(awakenedAtEpochMs).atZone(zone).toLocalDate()
+        return java.time.temporal.ChronoUnit.DAYS.between(awakenedDate, today).toInt()
     }
 }

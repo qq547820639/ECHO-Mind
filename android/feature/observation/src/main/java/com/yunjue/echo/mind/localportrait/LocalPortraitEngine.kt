@@ -227,12 +227,18 @@ object LocalPortraitEngine {
         return "LOW"
     }
 
-    /** z 的 scale（镜像 dimensions._scale）。 */
-    fun scaleOf(stats: LocalMetricStats): Double {
+    /**
+     * z 的 scale（镜像 dimensions._scale）。
+     * ERA 21 修复：scale 下限 = 该指标的最小有意义差（MIN_ABS_DELTA），
+     * 而不是 1e-6——早期基线（2-3 天近重复样本 → mad/IQR≈0）曾产生数千万量级的
+     * 荒谬 z，污染 Why 证据与 Journey 变化排名。
+     */
+    fun scaleOf(stats: LocalMetricStats, metric: String? = null): Double {
         val madV = stats.mad ?: 0.0
         val p25 = stats.p25 ?: 0.0
         val p75 = stats.p75 ?: 0.0
-        return maxOf(madV * 1.4826, (p75 - p25) / 2.0, 1e-6)
+        val floor = metric?.let { MIN_ABS_DELTA[it] } ?: 1e-6
+        return maxOf(madV * 1.4826, (p75 - p25) / 2.0, floor)
     }
 
     /** 最小有意义绝对差判定（镜像 dimensions._below_min_delta）。 */
@@ -247,7 +253,7 @@ object LocalPortraitEngine {
     fun zOf(value: Double, stats: LocalMetricStats, metric: String? = null): Double? {
         val med = stats.median ?: return null
         if (metric != null && belowMinDelta(value, stats, metric)) return 0.0
-        return (value - med) / scaleOf(stats)
+        return (value - med) / scaleOf(stats, metric)
     }
 
     /** 方向分类（镜像 dimensions._classify）。 */
@@ -402,7 +408,7 @@ object LocalPortraitEngine {
         val absDelta = kotlin.math.abs(value - med)
         val threshold = maxOf(MIN_ABS_DELTA[metric] ?: 0.0, kotlin.math.abs(med) * MIN_REL_DELTA)
         if (absDelta < threshold) return "和近期水平接近"
-        val z = (value - med) / scaleOf(stats)
+        val z = (value - med) / scaleOf(stats, metric)
         val direction = if (value < med) "少" else "多"
         if (kotlin.math.abs(med) < COARSE_BASELINE_THRESHOLDS[metric] ?: 0.0) {
             // 近零基线：百分比无意义（如 +900%），用粗粒度措辞

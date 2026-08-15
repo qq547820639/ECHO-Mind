@@ -43,6 +43,7 @@ class EchoWhyLayerSmokeTest {
         sensing = SensingRuntimeStatus.ACTIVE,
         headline = headline,
         headlineLevel = level,
+        aiLayer = null,
         headlineSources = sources,
         facts = facts,
         portraitStatus = PortraitStatus.READY,

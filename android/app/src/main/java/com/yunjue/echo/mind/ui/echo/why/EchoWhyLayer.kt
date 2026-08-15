@@ -36,12 +36,20 @@ fun EchoWhyLayer(
     onGoToJourney: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Layer 1：一句话（装配结果；AI 层附依据行）
+        // Layer 1：确定性一句话（产品真值）
         Text(
             uiState.headline,
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary
         )
+        // ERA 20 §9 AI 层：与确定性 headline 不同的增量理解（克制展示，附依据）
+        uiState.aiLayer?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
         if (uiState.headlineLevel == NarrativeFallbackLevel.AI_NARRATIVE &&
             uiState.headlineSources.isNotEmpty()
         ) {

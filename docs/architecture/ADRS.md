@@ -712,3 +712,20 @@
 - **外部门移交**：RELEASE_READINESS 外部发布门 8 项（真实设备 ≥8 台回归 / 责任矩阵 / 临床签署 / 法务定稿 / 外部渗透 / 值班演练 / 生产域 / 伦理审查）由运营/法务/临床/安全主体执行。
 - **冻结不绕过**：Affective §8/§9/§10 人工评审；feature_vectors 留存裁剪（阻塞条件 1）；osv-scanner 本地首跑（CDN 可达后执行，CI 已强制）。
 - **内部剩余候选**（外部门完成前保持现状）：CI 模拟器矩阵扩展（无本地验证手段）；设备性能实测（CI connected-test 承接）。
+
+## ADR-073：下一长阶段选型——Product Quality Era（ERA 90 起）
+
+- **决策**：内部审计阶段（ADR-058~072）收官后，下一长阶段选定 **Product Quality Era**——核心问题从「ECHO 有没有这些能力」切换为「这些能力有没有让用户产生：这是我的 ECHO，它真的懂我」。执行方式为 Batch 1-8（长期 fixture → Identity 质量 → Life Season 质量 → ECHO Scene 质量 → Wallpaper 质量 → Personal Reasoning → Memory Self Model → Journey 情感价值 → Me 信任体验 → 简化 → 性能 → 长期产品验证）。不新增宏观架构、不增加能力面，先做体验审计与质量修复。Affective 冻结不绕过。
+- **理由**：系统 feature-complete 但 emotionally flat 是当前最大风险；宪法优先级 User trust / Personal truth / Long-term continuity 要求把工程完备性转化为可感知的产品质量。
+- **后果**：每轮维持全门禁（backend pytest + Android 单元 + detekt + 架构测试）+ 发布链；每个开发任务必须回答是否改善生命感/个人理解/长期连续性/信任/日常有用性，否则降优先级。结项标准：Batch 1-8 各自的产品质量门 + 长期验收（Day 0/7/28/90/180）全部量化达标。
+
+### ADR-073 第 1 轮记录（Product Quality Era Round 1）
+
+- 新增 `:feature:qa` 模块：7 个长期用户 fixture（A 稳定 / B 夜猫 / C 不规律 / D 出差 / E 冲刺 / F 低数据 / G 周末分化）× Day 0/3/7/28/90/180 确定性模拟（SplitMix64，逐字节可重放），输入直入生产管线（buildLocalBaseline → AmbientEngine → 画像镜像 → computeLifeSeason → Identity → 视觉映射 → 场景帧）；47 个 QA 测试。
+- 产品快照套件：`qa/reports/snapshots/` 7 文件（ECHO Scene 三层 headline / Why ≤4 证据 / Journey 里程碑 / Me What ECHO Knows / Wallpaper lock-safe / Dream / Ask ECHO 8 问）+ `PRODUCT_EXPERIENCE_REVIEW.md` + `ECHO_SCENE_AUDIT.md`。
+- 身份质量：`identityDistance`（七维）落地；100-seed 多样性门（两两 ≥0.03，纯色相 <0.005 → 多样性非仅颜色）与连续性门（同用户 <0.05，跨用户 >2×）全部绿灯；**修复身份派生只消费 seed 低 26 位的近撞脸缺陷**（SplitMix64 全熵派生）。
+- Life Season 质量：`LifeSeasonTracker`（3 天持久确认 + 5 天 drift 过渡 + 回退持久 + 同日去重 + confidence）落地并接入 PresenceRepository；**修复 computeLifeSeason 慢漂移不可见**（新增绝对活跃起点两半窗口中位数检测）与**phaseIndex 90+ 永不可达**（calendarDays 语义）。
+- ECHO Scene：三层 headline（确定性真值 + 增量 AI 层）、学习期文案（初见/开始看到节奏/开始认识通常的你）、基线解锁去庆祝化、周小结去卡化、成熟度单一真值（日历语义）。
+- 证据质量：**修复早期基线 z 爆炸到千万级**（scale 下限 1e-6 → 各指标最小有意义差；Android LocalPortraitEngine + backend dimensions.py/explain.py + fixture 镜像三处同步）。
+- Wallpaper：7 天 × 24h 长期模拟基准（不可见/熄屏触摸绘制 = 0、快照重读 ≤1/s、静止适应 <1/4 逐分钟预算、强调色 7 天恒同）。
+- 门禁：backend 1076 passed / Android 844+47+12 全绿（WindowAckTest 为既有跨测试污染 flake，单测通过）/ detekt 干净。

@@ -28,6 +28,7 @@ import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.presence.EchoMaturity
 import com.yunjue.echo.mind.presence.PRESENCE_COPY_SEED_TITLE
+import com.yunjue.echo.mind.presence.echoMaturity
 import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import org.junit.Assert.assertEquals
@@ -78,11 +79,12 @@ class EchoSceneContentSmokeTest {
         sensing = SensingRuntimeStatus.ACTIVE,
         headline = headline,
         headlineLevel = com.yunjue.echo.mind.intelligence.NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE,
+        aiLayer = null,
         headlineSources = emptyList(),
         facts = emptyList(),
         portraitStatus = PortraitStatus.READY,
         baselineDays = baselineDays,
-        maturity = EchoMaturity.KNOWN,
+        maturity = echoMaturity(baselineDays),
         intelligenceAvailable = intelligenceAvailable,
         suggestedAction = false,
     )

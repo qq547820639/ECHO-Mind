@@ -22,6 +22,11 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+    testOptions {
+        unitTests.all {
+            it.useJUnit()
+        }
+    }
 }
 
 detekt {
@@ -38,4 +43,6 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
+
+    testImplementation(libs.junit)
 }

@@ -72,17 +72,29 @@ class LocalPortraitDataSource(private val db: EchoDatabase) :
         days: Int,
         endDate: LocalDate,
         zoneId: ZoneId
-    ): List<DailyPortraitDto> {
+    ): List<DailyPortraitDto> = computeTimelineWithAggregates(userId, days, endDate, zoneId).first
+
+    /**
+     * 画像时间线 + 逐日聚合（ERA 21 §16：Life Season 慢漂移检测需要绝对活跃起点分钟）。
+     * 聚合在同一次窗口化查询内已算出，直接返回，不产生额外 IO。
+     */
+    suspend fun computeTimelineWithAggregates(
+        userId: String,
+        days: Int,
+        endDate: LocalDate,
+        zoneId: ZoneId,
+    ): Pair<List<DailyPortraitDto>, Map<LocalDate, LocalDayAggregate>> {
         // §108：窗口化加载——只载入窗口日期范围的行（复合索引直查），不全量扫描历史
         val fromDate = endDate.minusDays((days - 1).toLong())
         val fromMs = fromDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
         val toMs = endDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1
         val rows = passiveCoreRows(userId, fromMs, toMs)
         val aggregates = aggregatesByDay(rows, zoneId)
-        return (0 until days).map { i ->
+        val portraits = (0 until days).map { i ->
             val date = endDate.minusDays((days - 1 - i).toLong())
             LocalPortraitEngine.generate(date, zoneId, aggregates[date], aggregates.values.toList())
         }
+        return portraits to aggregates
     }
 
     /** 基线状态（镜像后端 GET /baseline/status 的轻量只读视图；绝不写库）。 */

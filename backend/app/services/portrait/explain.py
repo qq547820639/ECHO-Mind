@@ -50,7 +50,7 @@ def _delta_text(value: float, stats: dict[str, Any], metric: str) -> str:
     threshold = max(MIN_ABS_DELTA.get(metric, 0.0), abs(med) * MIN_REL_DELTA)
     if abs_delta < threshold:
         return "和近期水平接近"
-    z = (value - med) / _scale(stats)
+    z = (value - med) / _scale(stats, metric)
     direction = "少" if value < med else "多"
     if abs(med) < COARSE_BASELINE_THRESHOLDS.get(metric, 0.0):
         # 近零基线：百分比无意义（如 +900%），用粗粒度措辞

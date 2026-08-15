@@ -42,3 +42,6 @@ ECHO_Mind_v*.apk*
 # ERA 12.8 生成的发布归档/最终包（交付物，不入库；历史 v0.2 releases/* 保持受控）
 releases/ECHO_Mind_PortraitCore_v*
 releases/ECHO_Mind_v*.release.zip
+
+# Gradle Kotlin session dir
+**/.kotlin/

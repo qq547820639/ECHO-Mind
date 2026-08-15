@@ -70,9 +70,32 @@ class EchoSceneUiStateTest {
             suggestionsEnabled = true,
             now = 0L,
         )
-        assertEquals("今天开始得比平常晚一些。", state.headline)
+        // ERA 20 §9：AI 不覆盖确定性 headline；作为增量 AI 层展示（三层区分）
+        assertEquals("开始得比平常晚", state.headline)
+        assertEquals("今天开始得比平常晚一些。", state.aiLayer)
         assertEquals(NarrativeFallbackLevel.AI_NARRATIVE, state.headlineLevel)
         assertEquals(listOf(DataSourceCategory.TODAY_AGGREGATE), state.headlineSources)
+    }
+
+    @Test
+    fun aiLayerIsSuppressedWhenIdenticalToDeterministicHeadline() {
+        val narrative = AiNarrativeService.NarrativeResult(
+            level = NarrativeFallbackLevel.AI_NARRATIVE,
+            text = "开始得比平常晚", // 与确定性 headline 完全相同 → 不重复展示
+            usedSources = listOf(DataSourceCategory.TODAY_AGGREGATE),
+        )
+        val state = assembleEchoSceneUiState(
+            portraitState = portraitState(),
+            presence = presence(),
+            sensing = SensingRuntimeStatus.ACTIVE,
+            narrative = narrative,
+            intelligenceAvailable = true,
+            suggestionsEnabled = true,
+            now = 0L,
+        )
+        assertEquals("开始得比平常晚", state.headline)
+        assertEquals(null, state.aiLayer)
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, state.headlineLevel)
     }
 
     @Test
@@ -99,7 +122,7 @@ class EchoSceneUiStateTest {
             intelligenceAvailable = false,
             suggestionsEnabled = true,
         )
-        assertEquals("ECHO 还在了解今天。", state.headline)
+        assertEquals("初见。", state.headline)
         assertEquals(NarrativeFallbackLevel.OBSERVATION_FACTS, state.headlineLevel)
         assertEquals(EchoMaturity.SEED, state.maturity)
     }

@@ -22,10 +22,12 @@ import com.yunjue.echo.mind.sensing.SensingRuntimeStatus
 data class EchoSceneUiState(
     val presence: EchoPresenceState?,
     val sensing: SensingRuntimeStatus,
-    /** Layer 1 一句话（AI 叙事 → 确定性 headline → 观察事实 fallback 之后）。 */
+    /** Layer 1 一句话：确定性画像 headline（产品真值），AI 不再覆盖它。 */
     val headline: String,
     /** 一句话的层级（决定是否展示 AI 依据行）。 */
     val headlineLevel: NarrativeFallbackLevel?,
+    /** Layer 1.5 AI 层：仅当 AI 提供了与确定性 headline 不同的增量理解才展示（克制）。 */
+    val aiLayer: String?,
     val headlineSources: List<DataSourceCategory>,
     /** Layer 2 人类可读证据（facts 对照）。 */
     val facts: List<PortraitFactDto>,
@@ -37,6 +39,17 @@ data class EchoSceneUiState(
     /** Intervention Policy L2：是否展示「让自己慢一点」温和建议。 */
     val suggestedAction: Boolean,
 )
+
+/**
+ * ERA 20 §10 — 学习期一句话（按成熟度；禁「数据不足」文案）。
+ * SEED：初见；DISCOVERING/EMERGING：开始看到节奏；KNOWN：开始认识通常的你。
+ */
+fun learningPhaseHeadline(maturity: EchoMaturity): String = when (maturity) {
+    EchoMaturity.SEED -> "初见。"
+    EchoMaturity.DISCOVERING, EchoMaturity.EMERGING -> "我开始看到一些属于你的节奏。"
+    EchoMaturity.KNOWN -> "我开始认识通常的你了。"
+    EchoMaturity.MATURE -> "ECHO 还在了解今天。"
+}
 
 /**
  * ECHO Scene 状态装配（纯函数）：
@@ -54,20 +67,25 @@ fun assembleEchoSceneUiState(
 ): EchoSceneUiState {
     val portrait = portraitState.portrait
     val baselineDays = portrait?.baselineDays ?: 0
-    val maturity = echoMaturity(baselineDays)
+    // ERA 21：成熟度单一真值来自 Presence（日历语义）；portrait.baselineDays 仅兜底
+    val maturity = presence?.maturity ?: echoMaturity(baselineDays)
 
-    // Layer 1 一句话：AI 叙事（过门禁）> 确定性 headline > summary > 观察事实
+    // ERA 20 §9 三层结构：
+    // Layer 1 = 确定性 headline（产品真值；学习期用学习期文案）
+    // Layer 2 = facts 证据（Why 层）
+    // AI 层 = 仅当 AI 叙事与确定性 headline 不同且过门禁时，作为增量理解展示
+    val deterministicHeadline = when {
+        !portrait?.headline.isNullOrEmpty() -> portrait!!.headline.joinToString(" · ")
+        !portrait?.summary.isNullOrBlank() -> portrait!!.summary
+        else -> learningPhaseHeadline(maturity)
+    }
     val aiLine = narrative?.takeIf {
         it.level == NarrativeFallbackLevel.AI_NARRATIVE && it.text.isNotBlank()
     }
-    val headline = when {
-        aiLine != null -> aiLine.text
-        !portrait?.headline.isNullOrEmpty() -> portrait!!.headline.joinToString(" · ")
-        !portrait?.summary.isNullOrBlank() -> portrait!!.summary
-        else -> "ECHO 还在了解今天。"
-    }
+    val headline = deterministicHeadline
+    val aiLayer = aiLine?.text?.takeIf { it.isNotBlank() && it != deterministicHeadline }
     val level = when {
-        aiLine != null -> NarrativeFallbackLevel.AI_NARRATIVE
+        aiLayer != null -> NarrativeFallbackLevel.AI_NARRATIVE
         !portrait?.headline.isNullOrEmpty() || !portrait?.summary.isNullOrBlank() ->
             NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE
         else -> NarrativeFallbackLevel.OBSERVATION_FACTS
@@ -88,6 +106,7 @@ fun assembleEchoSceneUiState(
         sensing = sensing,
         headline = headline,
         headlineLevel = level,
+        aiLayer = aiLayer,
         headlineSources = aiLine?.usedSources.orEmpty(),
         facts = portrait?.facts.orEmpty(),
         portraitStatus = portraitState.status,

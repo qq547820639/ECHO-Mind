@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -246,14 +245,12 @@ fun EchoSceneContent(
                 )
             }
 
-            // 3. 周小结消息（订阅/本地镜像）
+            // 3. 周小结消息（订阅/本地镜像；ERA 20 §8 去卡化——无边框直排）
             state.message?.let { msg ->
                 item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(msg.title, style = MaterialTheme.typography.titleSmall)
-                            Text(msg.body, style = MaterialTheme.typography.bodySmall)
-                        }
+                    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(msg.title, style = MaterialTheme.typography.titleSmall)
+                        Text(msg.body, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -266,7 +263,7 @@ fun EchoSceneContent(
                     }
                 }
                 PortraitStatus.WARMING_UP -> item {
-                    if (echoMaturity(uiState.baselineDays) == EchoMaturity.SEED) {
+                    if (uiState.maturity == EchoMaturity.SEED) {
                         SeedPortraitBlock(awakenedAtEpochMs = state.awakenedAtEpochMs, state = portrait)
                     } else {
                         Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))

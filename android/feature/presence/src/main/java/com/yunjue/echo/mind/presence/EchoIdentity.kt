@@ -14,15 +14,58 @@ import kotlin.math.abs
  * 全部确定性（同输入同输出）；渲染器只消费这些层，不得自行推导身份。
  */
 
-/** 确定性伪随机（LCG；与 sceneRandom 同族但独立序列空间）。 */
+/**
+ * 确定性伪随机（SplitMix64 终混；ERA 21 修复：旧 LCG 只使用 seed 低 31 位，
+ * 100 个随机 seed 出现近撞脸概率过高——身份派生必须消费完整 64 位熵）。
+ */
 private fun identityRandom(seed: Long, index: Int): Float {
-    var x = seed xor (index.toLong() shl 32) and 0x7FFFFFFF
-    if (x == 0L) x = 1L
-    x = x * 48271L % 2147483647L
-    return (x and 0xFFFFFF).toFloat() / 16777215f
+    var x = seed + index.toLong() * -7046029254386353131L
+    x = (x xor (x ushr 30)) * -4658895280553007687L
+    x = (x xor (x ushr 27)) * -7723592293110705685L
+    x = x xor (x ushr 31)
+    return (x ushr 40 and 0xFFFFFF).toFloat() / 16777215f
+}
+
+/** 全熵混合（salt 区分同一 seed 的独立序列空间）。 */
+private fun identityMix(seed: Long, salt: Int): Long {
+    var x = seed xor (salt.toLong() shl 40)
+    x = (x xor (x ushr 30)) * -4658895280553007687L
+    x = (x xor (x ushr 27)) * -7723592293110705685L
+    return x xor (x ushr 31)
 }
 
 private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t.coerceIn(0f, 1f)
+
+/**
+ * ERA 21 §15 — 视觉身份距离（0..1，越大越不像同一个 ECHO）。
+ *
+ * 覆盖全部七维：topology / symmetry / orbit / motion personality /
+ * texture family / color family / accent hue（圆周色相差）。
+ * 拒绝「只有颜色不同」的伪多样性：单改 hue 时距离增量被限制在
+ * 颜色权重（20%）内，而拓扑/对称/轨道任一维的差异都会显著拉大距离。
+ */
+fun identityDistance(a: EchoIdentityGenome, b: EchoIdentityGenome): Float {
+    fun hueDistance(h1: Float, h2: Float): Float {
+        val d = abs(h1 - h2) % 1f
+        return minOf(d, 1f - d)
+    }
+    val topology = abs(a.coreTopology - b.coreTopology)
+    val symmetry = abs(a.symmetryTendency - b.symmetryTendency)
+    val orbit = abs(a.orbitGeometry - b.orbitGeometry)
+    val motion = abs(a.motionPersonality - b.motionPersonality)
+    val texture = abs(a.textureFamily - b.textureFamily) / 3f
+    val hue = hueDistance(a.accentHue, b.accentHue)
+    val colorFamily = abs(a.colorFamily - b.colorFamily) / 4f
+    return (
+        topology * 0.18f +
+            symmetry * 0.18f +
+            orbit * 0.18f +
+            motion * 0.14f +
+            texture * 0.12f +
+            hue * 0.10f +
+            colorFamily * 0.10f
+        ).coerceIn(0f, 1f)
+}
 
 /**
  * §53/§54 — Identity Genome 派生。
@@ -51,9 +94,9 @@ fun deriveIdentityGenome(
         ).coerceIn(0.05f, 0.95f)
     return EchoIdentityGenome(
         seed = seed,
-        accentHue = (seed and 0xFFFF).toFloat() / 65535f,
-        colorFamily = ((seed ushr 16) % 5).toInt().let { if (it < 0) it + 5 else it },
-        textureFamily = ((seed ushr 24) % 4).toInt().let { if (it < 0) it + 4 else it },
+        accentHue = (identityMix(seed, 1) ushr 40 and 0xFFFFFF).toFloat() / 16777215f,
+        colorFamily = ((identityMix(seed, 2) ushr 8) % 5).toInt().let { if (it < 0) it + 5 else it },
+        textureFamily = ((identityMix(seed, 3) ushr 8) % 4).toInt().let { if (it < 0) it + 4 else it },
         coreTopology = 0.4f + 0.6f * identityRandom(seed, 0),
         symmetryTendency = 0.3f + 0.7f * identityRandom(seed, 1),
         orbitGeometry = identityRandom(seed, 2),
@@ -88,17 +131,46 @@ private fun List<Float>.averageOrNull(): Float? = if (isEmpty()) null else avera
  *
  * 输入为画像时间线（按日期升序）；输出全部中性描述。
  */
-fun computeLifeSeason(portraits: List<DailyPortraitDto>): EchoLifeSeason {
-    val sorted = portraits.sortedBy { it.date }
-    if (sorted.isEmpty()) return EchoLifeSeason(phaseIndex = 0, drift = 0f)
+fun computeLifeSeason(portraits: List<DailyPortraitDto>): EchoLifeSeason =
+    computeLifeSeason(portraits, emptyList(), calendarDays = 0)
 
-    val baselineDays = sorted.maxOfOrNull { it.baselineDays } ?: 0
-    val phaseIndex = when {
-        baselineDays < 7 -> 0
-        baselineDays < 30 -> 1
-        baselineDays < 90 -> 2
-        else -> 3
+/**
+ * §56/§57 + ERA 21 §16 — 人生阶段计算（含绝对节律时间线）。
+ *
+ * 画像维度是「相对 28 天基线」的：基线随漂移缓慢重定位，单纯的
+ * 绝对漂移（如半年内活跃起点后移 20 分钟）在维度上可能永远显示 SIMILAR。
+ * [wakeMinutes] 提供 (date, activeStartMinute) 绝对分钟序列，
+ * 用于捕捉**相对维度看不到的慢漂移**（两半窗口中位数差 ≥ [ABS_SHIFT_MINUTES]）。
+ *
+ * [calendarDays] 为「认识你多久」（日历天数，自 ECHO 苏醒起算；>0 时驱动
+ * phaseIndex）。portrait.baselineDays 是 28 天窗口内的分桶有效日（≤20），
+ * 用它判断 90+ 阶段永远达不到——phaseIndex 的日历语义由此参数接管；
+ * 传 0 时回退旧语义（Journey 历史重建等无苏醒锚点的调用方）。
+ */
+fun computeLifeSeason(
+    portraits: List<DailyPortraitDto>,
+    wakeMinutes: List<Pair<String, Double>>,
+    calendarDays: Int = 0,
+): EchoLifeSeason {
+    val sorted = portraits.sortedBy { it.date }
+
+    val phaseIndex = if (calendarDays > 0) {
+        when {
+            calendarDays < 7 -> 0
+            calendarDays < 30 -> 1
+            calendarDays < 90 -> 2
+            else -> 3
+        }
+    } else {
+        val baselineDays = sorted.maxOfOrNull { it.baselineDays } ?: 0
+        when {
+            baselineDays < 7 -> 0
+            baselineDays < 30 -> 1
+            baselineDays < 90 -> 2
+            else -> 3
+        }
     }
+    if (sorted.isEmpty()) return EchoLifeSeason(phaseIndex = phaseIndex, drift = 0f)
 
     // RHYTHM 活跃起点：LATE/EARLY 比例漂移
     val rhythmValues = { d: DailyPortraitDto ->
@@ -109,7 +181,15 @@ fun computeLifeSeason(portraits: List<DailyPortraitDto>): EchoLifeSeason {
             else -> null
         }
     }
-    val rhythmShift = trendLabel(sorted, rhythmValues, "later", "earlier", 0.25f)
+    val relativeShift = trendLabel(sorted, rhythmValues, "later", "earlier", 0.25f)
+
+    // 绝对分钟两半窗口漂移（ERA 21 §16：慢漂移捕捉；与相对维度互相补充）
+    val absolute = absoluteWakeTrend(wakeMinutes)
+    val rhythmShift = when {
+        relativeShift != "stable" -> relativeShift
+        else -> absolute.label
+    }
+    val absDrift = absolute.drift
 
     // SCREEN_AMOUNT 碎片化
     val screenValues = { d: DailyPortraitDto ->
@@ -160,13 +240,14 @@ fun computeLifeSeason(portraits: List<DailyPortraitDto>): EchoLifeSeason {
     }
     val regularityTrend = trendLabel(sorted, regularValues, "more_regular", "less_regular", 0.2f)
 
-    // 跨日漂移幅度：两半 RHYTHM 均值差 + z 波动归一化
+    // 跨日漂移幅度：相对两半均值差 + 绝对分钟漂移（归一化）+ z 波动归一化
     val half = sorted.size / 2
     val firstRhythm = sorted.take(half).mapNotNull(rhythmValues).averageOrNull() ?: 0.5f
     val secondRhythm = sorted.drop(half).mapNotNull(rhythmValues).averageOrNull() ?: 0.5f
     val zSpread = sorted.mapNotNull { d -> d.dimensions.values.mapNotNull { it.z }.map { it.toFloat() }.averageOrNull() }
         .let { vals -> if (vals.size < 2) 0f else (vals.maxOrNull() ?: 0f) - (vals.minOrNull() ?: 0f) }
-    val drift = (abs(secondRhythm - firstRhythm) * 0.7f + zSpread.coerceIn(0f, 2f) * 0.15f).coerceIn(0f, 1f)
+    val relativeDrift = (abs(secondRhythm - firstRhythm) * 0.7f + zSpread.coerceIn(0f, 2f) * 0.15f).coerceIn(0f, 1f)
+    val drift = maxOf(relativeDrift, absDrift * 0.7f).coerceIn(0f, 1f)
 
     return EchoLifeSeason(
         phaseIndex = phaseIndex,
@@ -177,6 +258,36 @@ fun computeLifeSeason(portraits: List<DailyPortraitDto>): EchoLifeSeason {
         mobilityTrend = mobilityTrend,
         regularityTrend = regularityTrend,
     )
+}
+
+/** 绝对活跃起点两半窗口中位数漂移（ERA 21 §16：慢漂移检测）。 */
+private data class AbsoluteWakeTrend(val label: String, val drift: Float)
+
+private const val ABS_SHIFT_MINUTES = 12.0
+private const val ABS_DRIFT_NORMALIZER_MINUTES = 120.0
+
+private fun absoluteWakeTrend(wakeMinutes: List<Pair<String, Double>>): AbsoluteWakeTrend {
+    val sorted = wakeMinutes.sortedBy { it.first }
+    if (sorted.size < 8) return AbsoluteWakeTrend("stable", 0f)
+    val half = sorted.size / 2
+    val first = medianOf(sorted.take(half).map { it.second }) ?: return AbsoluteWakeTrend("stable", 0f)
+    val second = medianOf(sorted.drop(half).map { it.second }) ?: return AbsoluteWakeTrend("stable", 0f)
+    val delta = second - first
+    val label = when {
+        delta > ABS_SHIFT_MINUTES -> "later"
+        delta < -ABS_SHIFT_MINUTES -> "earlier"
+        else -> "stable"
+    }
+    val drift = (abs(delta) / ABS_DRIFT_NORMALIZER_MINUTES).toFloat().coerceIn(0f, 1f)
+    return AbsoluteWakeTrend(label, drift)
+}
+
+/** 中位数（偶长度取中间两值平均；异常日稳健）。 */
+private fun medianOf(values: List<Double>): Double? {
+    if (values.isEmpty()) return null
+    val sorted = values.sorted()
+    val n = sorted.size
+    return if (n % 2 == 1) sorted[n / 2] else (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
 }
 
 /**
