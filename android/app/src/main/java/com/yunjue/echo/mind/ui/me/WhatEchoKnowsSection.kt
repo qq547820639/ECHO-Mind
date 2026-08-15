@@ -111,15 +111,7 @@ fun WhatEchoKnowsContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState())
             ) {
-                listOf<Pair<MemoryType?, String>>(
-                    null to "全部",
-                    MemoryType.CORRECTION to "你纠正过我的",
-                    MemoryType.CONTEXT to "我告诉你的",
-                    MemoryType.USER_CONFIRMED to "我已确认的",
-                    MemoryType.PREFERENCE to "我的偏好",
-                    MemoryType.DERIVED_PATTERN to "发现的模式",
-                    MemoryType.OBSERVATION to "观察到的事实",
-                ).forEach { (type, label) ->
+                (listOf(null to "全部") + MEMORY_TYPE_LABELS).forEach { (type, label) ->
                     FilterChip(
                         selected = state.filter == type,
                         onClick = { onEvent(MemoryManagementEvent.SetFilter(type)) },
@@ -132,7 +124,7 @@ fun WhatEchoKnowsContent(
             }
             // §80 七分类分组展示（低置信的临时解释单独标注「我还不确定的」）
             val visible = if (state.filter == null) memories else memories.filter { it.type == state.filter }
-            typeGroups().forEach { (type, label) ->
+            MEMORY_TYPE_LABELS.forEach { (type, label) ->
                 val group = visible.filter { it.type == type }
                 if (group.isNotEmpty()) {
                     group.take(4).forEach { m ->
@@ -148,13 +140,18 @@ fun WhatEchoKnowsContent(
     }
 }
 
-/** §80 七分类展示顺序（Observed → User-confirmed → Context → Correction → Preference → Pattern → Temporary）。 */
-private fun typeGroups(): List<Pair<MemoryType, String>> = listOf(
+/**
+ * §80 记忆类型 → ECHO 口吻标签（过滤 chip 与记忆行分组**同源同一词表**）。
+ * ERA 31 R21：统一口径——旧 chip 是用户口吻且方向反了（CONTEXT 是「你告诉我的」，
+ * chip 却写「我告诉你的」）；现在两处一字不差，与计数行「你确认过/你告诉我的/你的偏好」
+ * 同一人称（ECHO 对你说），10 秒可读（gate #7）。
+ */
+private val MEMORY_TYPE_LABELS: List<Pair<MemoryType, String>> = listOf(
     MemoryType.OBSERVATION to "观察到的事实",
-    MemoryType.USER_CONFIRMED to "我已确认的",
-    MemoryType.CONTEXT to "我告诉你的",
+    MemoryType.USER_CONFIRMED to "你确认过的",
+    MemoryType.CONTEXT to "你告诉我的",
     MemoryType.CORRECTION to "你纠正过我的",
-    MemoryType.PREFERENCE to "我的偏好",
+    MemoryType.PREFERENCE to "你的偏好",
     MemoryType.DERIVED_PATTERN to "发现的模式",
     MemoryType.TEMPORARY_INTERPRETATION to "临时解释",
 )

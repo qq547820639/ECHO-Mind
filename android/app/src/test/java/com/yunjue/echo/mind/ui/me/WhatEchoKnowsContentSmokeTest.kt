@@ -108,8 +108,22 @@ class WhatEchoKnowsContentSmokeTest {
     fun filterChipEmitsSetFilter() {
         val events = mutableListOf<MemoryManagementEvent>()
         setContent(MemoryManagementUiState(), events)
-        compose.onNode(hasClickAction() and hasText("你纠正过我的")).performClick()
+        compose.onNode(hasClickAction() and hasText("你纠正过我的")).performScrollTo().performClick()
         assertTrue(events.contains(MemoryManagementEvent.SetFilter(MemoryType.CORRECTION)))
+    }
+
+    @Test
+    fun memoryTypeLabelsSpeakInOneEchoVoice() {
+        // ERA 31 R21：chip 与分组行同源同一词表、同一人称（ECHO 对你说）——
+        // CONTEXT 是「你告诉我的」，不允许反方向的「我告诉你的」；也不允许用户口吻的
+        // 「我已确认的 / 我的偏好」与计数行（你确认过/你的偏好）混杂。
+        setContent(MemoryManagementUiState(), mutableListOf())
+        compose.onNode(hasClickAction() and hasText("你告诉我的")).assertExists()
+        compose.onNode(hasClickAction() and hasText("你确认过的")).assertExists()
+        compose.onNode(hasClickAction() and hasText("你的偏好")).assertExists()
+        compose.onNodeWithText("我告诉你的").assertDoesNotExist()
+        compose.onNodeWithText("我已确认的").assertDoesNotExist()
+        compose.onNodeWithText("我的偏好").assertDoesNotExist()
     }
 
     @Test
