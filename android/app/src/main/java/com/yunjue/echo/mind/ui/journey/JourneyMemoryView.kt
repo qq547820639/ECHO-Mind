@@ -20,8 +20,10 @@ import com.yunjue.echo.mind.journey.JourneyCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyDay
 import com.yunjue.echo.mind.journey.JourneyRiverSegment
 import com.yunjue.echo.mind.journey.JourneyUiState
+import com.yunjue.echo.mind.journey.identityEvolutionLines
 import com.yunjue.echo.mind.journey.reconstructJourneyFrame
 import com.yunjue.echo.mind.journey.seasonLabel
+import com.yunjue.echo.mind.journey.shiftExplanationLines
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.drawEchoFrame
 
@@ -115,18 +117,15 @@ fun YearViewSection(state: JourneyUiState, seed: Long) {
             }
         }
         year.majorShifts.forEach { shift ->
-            Text(
-                "${shift.date}：${shift.changedAspects.joinToString("、")}",
-                style = MaterialTheme.typography.labelSmall
-            )
+            shiftExplanationLines(shift).forEach { line ->
+                Text(line, style = MaterialTheme.typography.labelSmall)
+            }
         }
         if (year.identityEvolution.isNotEmpty()) {
-            val first = year.identityEvolution.first()
-            val last = year.identityEvolution.last()
-            Text(
-                "身份记录：${first.date} → ${last.date}（共 ${year.identityEvolution.size} 个月份快照）",
-                style = MaterialTheme.typography.labelSmall
-            )
+            Text("身份演化（每月最近快照）", style = MaterialTheme.typography.labelSmall)
+            identityEvolutionLines(year.identityEvolution).forEach { line ->
+                Text(line, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }

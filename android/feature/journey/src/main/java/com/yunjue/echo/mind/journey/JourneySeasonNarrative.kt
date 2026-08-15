@@ -140,3 +140,13 @@ private fun aspectDirection(aspect: String, before: EchoVisualParameters, after:
     }
     return if (diff >= 0f) 1 else -1
 }
+
+/**
+ * §87 — 年视图转变点解释行：前后视觉对比中性解释（含时间范围）；
+ * 无显著单维变化时给出整体总述（诚实兜底，不列技术维度名）。
+ */
+fun shiftExplanationLines(shift: JourneyMajorShift): List<String> {
+    val lines = explainPeriodChange(shift.before, shift.after, shift.beforeDate, shift.date)
+    if (lines.isNotEmpty()) return lines
+    return listOf("${shift.date}：整体视觉风格转变")
+}

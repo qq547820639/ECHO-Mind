@@ -26,6 +26,8 @@ data class JourneyContextPeriod(
 /** 长期转变点：前后聚合视觉 + 距离 + 变化维度（§87 解释锚点）。 */
 data class JourneyMajorShift(
     val date: String,
+    /** 转变前聚合段的最后一天（§87 解释行的时间范围起点）。 */
+    val beforeDate: String? = null,
     val before: EchoVisualParameters?,
     val after: EchoVisualParameters?,
     val distance: Float,
@@ -203,6 +205,7 @@ fun detectMajorShifts(
             shifts.add(
                 JourneyMajorShift(
                     date = chunks[i].first().date,
+                    beforeDate = chunks[i - 1].last().date,
                     before = before,
                     after = after,
                     distance = distance,
@@ -212,4 +215,21 @@ fun detectMajorShifts(
         }
     }
     return shifts
+}
+
+/**
+ * §86 — 身份演化逐点说明：每月快照日期 + 与上一记录的一致性。
+ * 只比较基因组字段是否相等（稳定/细微调整），不做任何推断（§55/§57）。
+ */
+fun identityEvolutionLines(points: List<JourneyIdentityPoint>): List<String> {
+    if (points.isEmpty()) return emptyList()
+    return points.mapIndexed { index, point ->
+        val prev = points.getOrNull(index - 1)
+        val annotation = when {
+            prev == null -> ""
+            prev.identity == point.identity -> "（与上一记录一致）"
+            else -> "（较上一记录有细微调整）"
+        }
+        point.date + annotation
+    }
 }

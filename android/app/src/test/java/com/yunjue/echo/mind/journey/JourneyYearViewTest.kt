@@ -73,8 +73,64 @@ class JourneyYearViewTest {
         val shifts = detectMajorShifts(stable + changed, chunkDays = 30)
         assertEquals(1, shifts.size)
         assertEquals("2026-02-01", shifts.first().date)
+        assertEquals("2026-01-30", shifts.first().beforeDate)
         assertTrue(shifts.first().distance >= RIVER_TRANSITION_DISTANCE)
         assertTrue(shifts.first().changedAspects.isNotEmpty())
+    }
+
+    @Test
+    fun shiftExplanationLinesBindNeutralExplanationWithRange() {
+        val before = visualParams { flowSpeed = 0.35f }
+        val after = visualParams { flowSpeed = 0.9f; coherence = 0.9f }
+        val shift = JourneyMajorShift(
+            date = "2026-02-01",
+            beforeDate = "2026-01-31",
+            before = before,
+            after = after,
+            distance = 0.9f,
+            changedAspects = changedVisualAspects(before, after),
+        )
+        val lines = shiftExplanationLines(shift)
+        assertEquals(1, lines.size)
+        assertTrue(lines.first().startsWith("2026-01-31 → 2026-02-01"))
+        assertTrue(lines.first().contains("流动速度上升"))
+        // 用户可读解释不泄漏技术维度名
+        assertTrue(lines.none { it.contains("flow") || it.contains("coherence") })
+    }
+
+    @Test
+    fun shiftExplanationLinesFallBackToOverallWhenNoAspects() {
+        val shift = JourneyMajorShift(
+            date = "2026-02-01",
+            beforeDate = null,
+            before = null,
+            after = null,
+            distance = 0.9f,
+            changedAspects = emptyList(),
+        )
+        assertEquals(listOf("2026-02-01：整体视觉风格转变"), shiftExplanationLines(shift))
+    }
+
+    @Test
+    fun identityEvolutionLinesAnnotateConsistency() {
+        val same = identityGenome(seed = 42L)
+        val changed = identityGenome(seed = 42L).copy(motionPersonality = 0.8f)
+        val lines = identityEvolutionLines(
+            listOf(
+                JourneyIdentityPoint(date = "2026-03-15", identity = same),
+                JourneyIdentityPoint(date = "2026-04-15", identity = same),
+                JourneyIdentityPoint(date = "2026-05-15", identity = changed),
+            )
+        )
+        assertEquals(
+            listOf(
+                "2026-03-15",
+                "2026-04-15（与上一记录一致）",
+                "2026-05-15（较上一记录有细微调整）",
+            ),
+            lines,
+        )
+        assertTrue(identityEvolutionLines(emptyList()).isEmpty())
     }
 
     @Test
