@@ -50,7 +50,7 @@ class DataAndSensingViewModel(
     private val _showMicConfirm = MutableStateFlow(false)
     private val _showLocalDeleteConfirm = MutableStateFlow(false)
     private val _reEnabling = MutableStateFlow(container.preferences.consentSyncPending)
-    private val _localCounts = MutableStateFlow(Pair(0, 0))
+    private val _localCounts = MutableStateFlow(com.yunjue.echo.mind.data.DataFootprint())
 
     /** 本地导出 JSON 一次性事件（UI 收集后分享）。 */
     private val _exportJson = MutableSharedFlow<String>()
@@ -94,8 +94,7 @@ class DataAndSensingViewModel(
                     consecutiveFailures = container.preferences.consecutivePersistenceFailures,
                 ),
                 rights = DataRightsInputs(
-                    localWindows = counts.first,
-                    localPortraits = counts.second,
+                    footprint = counts,
                     localMode = container.preferences.localMode,
                     institutionCode = container.preferences.institutionCode,
                     userId = container.preferences.userId,
@@ -236,19 +235,15 @@ class DataAndSensingViewModel(
     private fun refreshLocalCounts() {
         viewModelScope.launch {
             val userId = container.preferences.userId
-            val counts = withContext(Dispatchers.IO) {
+            val footprint = withContext(Dispatchers.IO) {
                 if (userId.isBlank()) {
-                    Pair(0, 0)
+                    com.yunjue.echo.mind.data.DataFootprint()
                 } else {
-                    Pair(
-                        runCatching { container.database.dao().countFeatureVectorsByUser(userId) }
-                            .getOrDefault(0),
-                        runCatching { container.database.portraitDao().countPortraitsByUser(userId) }
-                            .getOrDefault(0),
-                    )
+                    runCatching { container.localDataRights.footprintSummary(userId) }
+                        .getOrDefault(com.yunjue.echo.mind.data.DataFootprint())
                 }
             }
-            _localCounts.value = counts
+            _localCounts.value = footprint
         }
     }
 

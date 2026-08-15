@@ -239,11 +239,21 @@ fun DataAndSensingContent(
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("本机保存", style = MaterialTheme.typography.titleSmall)
+            val fp = state.footprint
             Text(
-                "${state.localWindows} 个学习窗口 · ${state.localPortraits} 张画像 · " +
-                    if (state.localMode) "0 次上传（本地模式，数据不出手机）"
-                    else "云端同步已开启",
+                "${fp.featureWindows} 个学习窗口 · ${fp.portraits} 张画像 · " +
+                    "${fp.consents} 条同意记录 · ${fp.memories} 条记忆 · ${fp.journeyCanonicalDays} 天视觉快照",
                 style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                if (state.localMode) "0 次上传（本地模式，数据不出手机）"
+                else "云端同步已开启",
+                style = MaterialTheme.typography.bodySmall
+            )
+            // ERA 67（ADR-062 第 2 轮）：记忆计数按存储真值（含已忘记但保留审计的软删行）
+            Text(
+                "记忆条数包含你已选择「忘记」、但依法保留待清理的行；「删除本地数据」会一并清除。",
+                style = MaterialTheme.typography.labelSmall
             )
         }
     }

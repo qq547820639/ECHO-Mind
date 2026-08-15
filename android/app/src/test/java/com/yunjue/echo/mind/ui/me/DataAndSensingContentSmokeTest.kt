@@ -51,6 +51,10 @@ class DataAndSensingContentSmokeTest {
         showLocalDeleteConfirm = showLocalDeleteConfirm,
         localWindows = localWindows,
         localPortraits = localPortraits,
+        footprint = com.yunjue.echo.mind.data.DataFootprint(
+            featureWindows = localWindows,
+            portraits = localPortraits,
+        ),
         userId = userId,
     )
 
@@ -144,8 +148,13 @@ class DataAndSensingContentSmokeTest {
     @Test
     fun localPanelRendersCountsAndLocalModeTruth() {
         setContent(state(localWindows = 3, localPortraits = 2), mutableListOf())
-        compose.onNodeWithText("3 个学习窗口 · 2 张画像 · 0 次上传（本地模式，数据不出手机）")
+        compose.onNodeWithText("3 个学习窗口 · 2 张画像 · 0 条同意记录 · 0 条记忆 · 0 天视觉快照")
             .performScrollTo().assertExists()
+        compose.onNodeWithText("0 次上传（本地模式，数据不出手机）").assertExists()
+        // ERA 67：软删审计行语义在检查台明确标注
+        compose.onNodeWithText(
+            "记忆条数包含你已选择「忘记」、但依法保留待清理的行；「删除本地数据」会一并清除。",
+        ).assertExists()
     }
 
     @Test

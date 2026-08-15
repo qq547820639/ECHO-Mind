@@ -133,7 +133,8 @@ class MeStateAssemblyTest {
                     lastPersistenceFailureTs = 444L, consecutiveFailures = 2,
                 ),
                 rights = DataRightsInputs(
-                    localWindows = 5, localPortraits = 7, localMode = true,
+                    footprint = com.yunjue.echo.mind.data.DataFootprint(featureWindows = 5, portraits = 7),
+                    localMode = true,
                     institutionCode = "", userId = "user-1",
                 ),
                 message = "已停止",

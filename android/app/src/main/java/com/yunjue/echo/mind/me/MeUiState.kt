@@ -80,6 +80,8 @@ data class DataAndSensingUiState(
     val online: Boolean = false,
     val localWindows: Int = 0,
     val localPortraits: Int = 0,
+    /** ERA 67（ADR-062 第 2 轮）：五域存储足迹（检查台卡片数据源）。 */
+    val footprint: com.yunjue.echo.mind.data.DataFootprint = com.yunjue.echo.mind.data.DataFootprint(),
     val localMode: Boolean = true,
     val institutionCode: String = "",
     val userId: String = "",
@@ -339,8 +341,8 @@ data class MicUiInputs(
 
 /** 数据权利装配输入分组。 */
 data class DataRightsInputs(
-    val localWindows: Int = 0,
-    val localPortraits: Int = 0,
+    /** ERA 67（ADR-062 第 2 轮）：五域存储足迹（取代原 localWindows/localPortraits 双计数）。 */
+    val footprint: com.yunjue.echo.mind.data.DataFootprint = com.yunjue.echo.mind.data.DataFootprint(),
     val localMode: Boolean = true,
     val institutionCode: String = "",
     val userId: String = "",
@@ -386,8 +388,9 @@ fun assembleDataAndSensingUiState(inputs: DataAndSensingAssemblyInputs): DataAnd
         consecutiveFailures = inputs.sync.consecutiveFailures,
         syncLabel = com.yunjue.echo.mind.data.syncStateText(syncState, inputs.pendingCount),
         online = inputs.sync.networkAvailable,
-        localWindows = inputs.rights.localWindows,
-        localPortraits = inputs.rights.localPortraits,
+        localWindows = inputs.rights.footprint.featureWindows,
+        localPortraits = inputs.rights.footprint.portraits,
+        footprint = inputs.rights.footprint,
         localMode = inputs.rights.localMode,
         institutionCode = inputs.rights.institutionCode,
         userId = inputs.rights.userId,
