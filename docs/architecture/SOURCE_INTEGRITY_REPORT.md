@@ -15,7 +15,7 @@ Git source = SOURCE_MANIFEST = distributed source ZIP/tar.gz = extracted verifie
 | Unicode 文件名打包后 path mutation（#Uxxxx） | 根因：历史 `zip` CLI 打包对非 ASCII 条目不置 UTF-8 标志（消费端 cp437/乱码/libarchive #U 转义）。修复：Python 确定性打包，NFC + EFS 0x800 显式置位 + 验证门禁拒绝缺标志条目 | 已修复（test_source_archive 负例覆盖） |
 | Git checkout 与 final archive 非同一 Gate | 修复：manifest=git 受控文件集；archive 由同一文件集构建并内嵌 manifest；`verify_source_archive.py` 解包后二次校验；CI source-integrity/release-closure 同 run 执行 | 已修复 |
 | root release APK 未绑定 provenance | 修复：`BUILD_PROVENANCE` 记录 `release_apk_path/release_apk_sha256/unsigned_apk_sha256/signing_stage/signature_scheme`（schema v2） | 已修复 |
-| 文档描述打包前 worktree | 修复：本报告/IMPLEMENTATION_STATUS 只描述 git 受控状态；manifest 无法再记录未入库文件 | 已修复 |
+| 文档描述打包前 worktree | 修复：本报告/`docs/STATUS.md` 只描述 git 受控状态；manifest 无法再记录未入库文件 | 已修复 |
 
 ## 3. Kotlin / Python 包完整性
 

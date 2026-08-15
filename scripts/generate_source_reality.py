@@ -1,45 +1,88 @@
 #!/usr/bin/env python3
-"""Source Reality 报告生成（ERA 12.7 §2）：脚本辅助，非纯手写。
+"""Source Reality 报告生成（ERA 32 多模块自动发现版）：脚本辅助，非纯手写。
 
 输出 docs/architecture/SOURCE_REALITY_REPORT.md：
 Kotlin/Python package、Manifest Components、Worker/Service、Repository、Runtime、
 ViewModel、domain packages、Gradle modules、unresolved 候选、文档宣称但缺失实现候选。
+
+ERA 32 修复单 module 时代假设：
+- Gradle modules 从 android/settings.gradle.kts 自动发现（禁止手写模块清单）。
+- 每个 module 自动扫描 src/main/java 与 src/main/kotlin（test/androidTest 仅用于统计）。
+- Manifest Component 在全部 production module 的 AndroidManifest.xml 中解析，
+  源类存在性在全部 production module 源码根中判定（NotificationCollector 等
+  feature 类不再误报 Missing）。
+- :feature:qa 单独统计（QA Kotlin），明确不属于 Production Runtime。
 """
 import re
-import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ANDROID_SRC = ROOT / "android" / "app" / "src" / "main"
-JAVA = ANDROID_SRC / "java" / "com" / "yunjue" / "echo" / "mind"
-# ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）
-MODULE_JAVA_ROOTS = [
-    ROOT / "android" / "feature" / "actions" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "security" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "model" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "ports" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "memory" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "observation" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "presence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "intelligence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "journey" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-]
-MANIFEST = ANDROID_SRC / "AndroidManifest.xml"
+ANDROID = ROOT / "android"
 BACKEND = ROOT / "backend" / "app"
+QA_MODULE = "feature:qa"
+BASE_PKG = Path("com/yunjue/echo/mind")
+
+
+def gradle_modules() -> list[str]:
+    """从 settings.gradle.kts 自动发现全部 module（去掉前导冒号，稳定排序）。"""
+    settings = ANDROID / "settings.gradle.kts"
+    names = re.findall(r'include\("?([\w:]+)"?\)', settings.read_text(encoding="utf-8"))
+    return sorted({n.lstrip(":") for n in names})
+
+
+def module_dir(module: str) -> Path:
+    return ANDROID / Path(*module.split(":"))
+
+
+def production_modules() -> list[str]:
+    """Production Runtime modules；:feature:qa 单独统计，不属 Production Runtime。"""
+    return [m for m in gradle_modules() if m != QA_MODULE]
+
+
+def module_source_roots(module: str, source_set: str) -> list[Path]:
+    """src/<source_set>/java 与 src/<source_set>/kotlin 中实际存在的根。"""
+    base = module_dir(module) / "src" / source_set
+    return [d for d in (base / "java", base / "kotlin") if d.is_dir()]
+
+
+def prod_main_roots() -> list[Path]:
+    return [d for m in production_modules() for d in module_source_roots(m, "main")]
+
+
+def prod_test_roots() -> list[Path]:
+    return [d for m in production_modules() for d in module_source_roots(m, "test")]
+
+
+def qa_roots() -> list[Path]:
+    return [d for ss in ("main", "test", "androidTest") for d in module_source_roots(QA_MODULE, ss)]
+
+
+def _files(roots: list[Path]) -> list[Path]:
+    return sorted({p for root in roots for p in root.rglob("*.kt") if p.is_file()})
 
 
 def kotlin_files() -> list[Path]:
-    roots = [JAVA] + [r for r in MODULE_JAVA_ROOTS if r.is_dir()]
-    return sorted({p for root in roots for p in root.rglob("*.kt") if p.is_file()})
+    """Production Kotlin：全部 production module 的 src/main。"""
+    return _files(prod_main_roots())
+
+
+def test_kotlin_files() -> list[Path]:
+    """Test Kotlin：全部 production module 的 src/test。"""
+    return _files(prod_test_roots())
+
+
+def qa_kotlin_files() -> list[Path]:
+    """QA Kotlin：:feature:qa 全 source set（其本身就是 QA 工件）。"""
+    return _files(qa_roots())
 
 
 def python_files() -> list[Path]:
     return sorted(p for p in BACKEND.rglob("*.py") if p.is_file() and "__pycache__" not in p.parts)
 
 
-def packages(root: Path) -> list[str]:
+def packages(roots: list[Path]) -> list[str]:
     pkgs = set()
-    for f in root.rglob("*.kt"):
+    for f in _files(roots):
         for line in f.read_text(encoding="utf-8").splitlines():
             m = re.match(r"package\s+([\w.]+)", line)
             if m:
@@ -48,9 +91,23 @@ def packages(root: Path) -> list[str]:
     return sorted(pkgs)
 
 
-def manifest_components() -> list[str]:
-    text = MANIFEST.read_text(encoding="utf-8")
-    return re.findall(r'<(?:activity|service|receiver|provider)[^>]*android:name="\.([\w.]+)"', text)
+def manifest_components() -> list[tuple[str, str]]:
+    """(module, component relative name) —— 全部 production module 的 AndroidManifest.xml。"""
+    out = []
+    for m in production_modules():
+        manifest = module_dir(m) / "src" / "main" / "AndroidManifest.xml"
+        if not manifest.exists():
+            continue
+        text = manifest.read_text(encoding="utf-8")
+        for c in re.findall(r'<(?:activity|service|receiver|provider)[^>]*android:name="\.([\w.]+)"', text):
+            out.append((m, c))
+    return out
+
+
+def component_source_exists(relative_name: str) -> bool:
+    """相对名 `.a.b.C` 解析为 com/yunjue/echo/mind/a/b/C.kt，在全部 production 源码根中判定。"""
+    rel = BASE_PKG / Path(*relative_name.split(".")).with_suffix(".kt")
+    return any((root / rel).exists() for root in prod_main_roots())
 
 
 def symbol_declarations() -> dict[str, Path]:
@@ -101,51 +158,50 @@ def unresolved_candidates() -> list[tuple[str, str]]:
     return bad
 
 
-def gradle_modules() -> list[str]:
-    settings = ROOT / "android" / "settings.gradle.kts"
-    if settings.exists():
-        return re.findall(r'include\("?[:]?([\w:]+)"?\)', settings.read_text(encoding="utf-8"))
-    return [":app"]
-
-
 def main() -> None:
     kt = kotlin_files()
+    kt_test = test_kotlin_files()
+    kt_qa = qa_kotlin_files()
     py = python_files()
-    kt_pkgs = packages(JAVA)
+    kt_pkgs = packages(prod_main_roots())
     py_pkgs = sorted({".".join(p.relative_to(BACKEND).parent.parts) for p in py})
     components = manifest_components()
-    missing_components = [c for c in components if not (JAVA / (c.replace(".", "/") + ".kt")).exists()]
-    app_file = JAVA / "EchoMindApplication.kt"
-    workers = sorted(set(re.findall(r"([A-Za-z]+Worker)\b", app_file.read_text(encoding="utf-8"))))
+    missing_components = [c for _, c in components if not component_source_exists(c)]
+    app_file = next((f for f in kt if f.name == "EchoMindApplication.kt"), None)
+    workers = sorted(set(re.findall(r"([A-Za-z]+Worker)\b", app_file.read_text(encoding="utf-8")))) if app_file else []
     missing_workers = [w for w in workers if not any(f.name == f"{w}.kt" for f in kt)]
     repos = sorted({f.stem for f in kt if f.name.endswith("Repository.kt")})
     runtimes = sorted({f.stem for f in kt if "Runtime" in f.name or "Coordinator" in f.name})
     viewmodels = sorted({f.stem for f in kt if f.name.endswith("ViewModel.kt")})
     domains = ["sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime"]
     unresolved = unresolved_candidates()
+    modules = gradle_modules()
 
     lines = []
-    lines.append("# Source Reality Report —— 源码事实报告（ERA 12.7，脚本生成）\n")
+    lines.append("# Source Reality Report —— 源码事实报告（ERA 32，脚本生成 · 多模块自动发现）\n")
     lines.append(f"> 生成时间戳随提交更新；本文件由 `scripts/generate_source_reality.py` 生成，禁止手写行数。\n")
-    lines.append("## Kotlin 包")
+    lines.append(f"> Gradle modules 自动发现自 `android/settings.gradle.kts`；每 module 扫描 `src/main/java` 与 `src/main/kotlin`。\n")
+    lines.append("## Kotlin 包（Production）")
     for p in kt_pkgs:
         lines.append(f"- `{p}`")
     lines.append(f"\n## Python 包（backend/app 顶层）")
     for p in sorted({p.split(".")[0] for p in py_pkgs}):
         lines.append(f"- `{p}`")
     lines.append(f"\n## 数量事实")
-    lines.append(f"- Kotlin 文件：{len(kt)}")
+    lines.append(f"- Production Kotlin：{len(kt)}")
+    lines.append(f"- Test Kotlin：{len(kt_test)}")
+    lines.append(f"- QA Kotlin（:feature:qa，不属于 Production Runtime）：{len(kt_qa)}")
     lines.append(f"- Python 文件：{len(py)}")
     lines.append(f"- Manifest Components：{len(components)}（缺失源类：{len(missing_components)}）")
     lines.append(f"- Worker：{len(workers)}（缺失实现：{len(missing_workers)}）")
     lines.append(f"- Repository：{len(repos)}")
     lines.append(f"- Runtime/Coordinator：{len(runtimes)}")
     lines.append(f"- ViewModel：{len(viewmodels)}")
-    lines.append(f"- Gradle modules：{gradle_modules()}\n")
-    lines.append("## Manifest Components")
-    for c in components:
+    lines.append(f"- Gradle modules（自动发现）：{', '.join(modules)}\n")
+    lines.append("## Manifest Components（跨全部 production module 解析）")
+    for module, c in components:
         flag = " ✅" if c not in missing_components else " ❌ 缺源类"
-        lines.append(f"- `.main.{c}`{flag}")
+        lines.append(f"- `:{module}` `.main.{c}`{flag}")
     lines.append("\n## Worker")
     for w in workers:
         flag = "" if w not in missing_workers else " ❌ 缺实现"
@@ -155,7 +211,7 @@ def main() -> None:
     lines.append(f"- Runtime：{', '.join(runtimes) or '（无）'}")
     lines.append(f"- ViewModel：{', '.join(viewmodels) or '（无）'}")
     lines.append("\n## Domain packages（必须存在）")
-    domain_roots = [JAVA] + [r for r in MODULE_JAVA_ROOTS if r.is_dir()]
+    domain_roots = [root / BASE_PKG for root in prod_main_roots() if (root / BASE_PKG).is_dir()]
     for d in domains:
         exists = any((root / d).is_dir() for root in domain_roots)
         lines.append(f"- `{d}` {'✅' if exists else '❌ 缺失'}")
@@ -170,7 +226,11 @@ def main() -> None:
 
     out = ROOT / "docs" / "architecture" / "SOURCE_REALITY_REPORT.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"wrote {out.relative_to(ROOT)}（kt={len(kt)}, py={len(py)}, components={len(components)}, unresolved={len(unresolved)}）")
+    print(
+        f"wrote {out.relative_to(ROOT)}"
+        f"（kt={len(kt)}, test={len(kt_test)}, qa={len(kt_qa)}, py={len(py)},"
+        f" components={len(components)}, missing={len(missing_components)}, unresolved={len(unresolved)}）"
+    )
 
 
 if __name__ == "__main__":

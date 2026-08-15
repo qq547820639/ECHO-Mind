@@ -5,8 +5,9 @@
 **ECHO Mind** 是生活在手机里的**个人 AI 伴侣**：它通过持续、克制、可信的感知理解你的生活节律，并通过动态生命场、锁屏与充电屏保、时间记忆与解释，让你随时感受到——**ECHO 在这里，而且它越来越懂你**。
 
 - 版本：**v0.10.0 工程包**（Personal Ambient Intelligence · 三世界架构，尚未正式上线）
-- Development HEAD：v0.10.0 后 ERA 31 产品主链打磨轮 R11–R46（十道门 × 五时点验收映射见
-  `qa/reports/ERA31_FELT_ACCEPTANCE.md`；开发状态见 `docs/DEVELOPMENT_STATUS.md`）
+- Development HEAD：v0.10.0 后 ERA 31 产品主链打磨轮 R11–R49（十道门 × 五时点验收映射见
+  `qa/reports/ERA31_FELT_ACCEPTANCE.md`；开发状态见 `docs/STATUS.md`，发布锚点见 `docs/RELEASE_BASELINE.md`，
+  历史轮次见 `docs/CHANGELOG/`）
 
 ---
 
@@ -120,10 +121,10 @@ ECHO 无 AI 也完整（感知、画像、Presence、旅程全部本地运行）
 > 以下内容面向开发与运营部署人员，普通用户无需了解。
 
 - **产品宪法与契约**：`docs/product/ECHO_PRODUCT_CONSTITUTION.md`（产品最高原则）、`PORTRAIT_CONTRACT.md`（Observation Ground Truth，冻结）、`docs/intelligence/PERSONAL_INTELLIGENCE_CONTRACT.md`（个人智能契约）、`docs/intelligence/AFFECTIVE_CONTRACT.md`（情绪智能门槛契约）、`docs/architecture/ADRS.md`（ADR-001~072 全部架构决策）。
-- **架构**：Observation Core（被动感知 → 派生特征 → 日聚合 → 个人基线 → 画像）为 Ground Truth Layer；其上为 EchoPresenceState（单一状态：App/Wallpaper/Dream 共享）、EchoSelfModel & Memory、Context Compiler（AI 请求唯一通道）、Journey 视觉记忆、Actions 干预分级。详见 `docs/IMPLEMENTATION_STATUS.md` 与 `docs/architecture/`。
+- **架构**：Observation Core（被动感知 → 派生特征 → 日聚合 → 个人基线 → 画像）为 Ground Truth Layer；其上为 EchoPresenceState（单一状态：App/Wallpaper/Dream 共享）、EchoSelfModel & Memory、Context Compiler（AI 请求唯一通道）、Journey 视觉记忆、Actions 干预分级。详见 `docs/STATUS.md`、`docs/CHANGELOG/` 与 `docs/architecture/`。
 - **商业模式**：免费本地版（完整产品）+ 可选订阅（云端同步备份、长周期分析与消息推送、专业支持）。BYOM 模式下 AI 由用户自己的 Provider 承担，ECHO 服务端默认不知道用户 API Key。
 - **当前状态**：`pilot-candidate`（试点候选）。在完成真实设备构建、合规审批、独立渗透测试与真实试点等**外部发布门**之前，不得标记为生产上线。
-- **质量保障**：后端自动测试 **1078 项全绿**；Android 客户端 **1008 项单测全绿**（app 853 / feature:intelligence 20 / feature:presence 24 / feature:qa 111；含 ERA 31 Real Render Review 画廊 + QaPortraitMirror 跨语言黄金门 + 无 Provider 确定性个人问答引擎 26/26 + Wallpaper 自适应帧率）（含 Compose UI smoke tests：三大世界根页面状态矩阵 + ECHO 组件层 + Onboarding 三步渲染矩阵 + 13 行性能防退化预算）+ 4 组 instrumentation 用例（迁移链 2→12（真机 2→11 + v12 索引迁移单元覆盖）/ Keystore 真机路径 / 引擎设备烟测 / 设备性能锚点，CI 模拟器执行）；五套 CI 门禁（后端 / Android / 安全 / 源码完整性 / 发布闭环）；后端行覆盖率 94%。客户端本地数据库采用 Room v12。
+- **质量保障**：后端 pytest 与 Android 单测由五套 CI 门禁实测全绿，**测试计数由 `scripts/refresh_status_numbers.py` 从实测产物自动生成**（`docs/STATUS.md` §3，README 不再手写数字）。覆盖：ERA 31 Real Render Review 画廊 + QaPortraitMirror 跨语言黄金门 + 无 Provider 确定性个人问答引擎 26/26 + Wallpaper 自适应帧率；Compose UI smoke tests 三大世界全覆盖 + 性能防退化预算 + instrumentation（迁移链 / Keystore 真机路径 / 引擎设备烟测 / 设备性能锚点，CI 模拟器执行）；五套 CI 门禁（后端 / Android / 安全 / 源码完整性 / 发布闭环）。客户端本地数据库采用 Room v12。
 - **技术文档**：`docs/`（产品/智能/Provider/Presence/架构/隐私契约）、`pilot-pack/`（试点治理模板）、`scripts/`（发布门禁脚本）。安装、构建与部署细节见这些文档，本页不再展开。
 
 ---

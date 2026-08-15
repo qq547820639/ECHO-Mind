@@ -1,9 +1,9 @@
-# docs/current — 当前事实索引（ECHO Mind v0.9 · Personal Ambient Intelligence）
+# docs/current — 当前事实索引（ECHO Mind v0.10 · Personal Ambient Intelligence）
 
 > 本目录是**当前状态**的唯一事实源索引；历史 v0.2 / v0.6 / v0.7 / Path A 文档已全部归档于 `docs/archive/`。
-> 文档权威顺序见 `docs/DOCUMENT_AUTHORITY.md` / `docs/README_AUTHORITY.md`。
+> 当前状态唯一锚点 `docs/STATUS.md`；文档权威顺序见 `docs/STATUS.md` §7 Governance。
 
-## 当前事实（v0.9.0，2026-08，ERA 12.8-18 全部完成 + ERA 30-50 质量/安全/数据权利复核深化（detekt 27 规则 / lint 安全规则 / mypy strict / UI smoke tests / 设备锚点 / 迁移链 2→11 / 五域数据权利 / DSR 证据链绑定）+ Affective 预备冻结）
+## 当前事实（v0.10.0，2026-08，ERA 31 全部 Batch 1–8 完成 + v0.10.0 后打磨轮 R11–R49 + ERA 32 治理减法）
 
 | 事实 | 位置 | 状态 |
 |---|---|---|
@@ -13,9 +13,10 @@
 | 情绪智能契约（门槛） | `docs/intelligence/AFFECTIVE_CONTRACT.md` | 冻结（实现前置未满足） |
 | AI Provider 规格 | `docs/providers/AI_PROVIDER_SPEC.md` | 冻结（v1.0） |
 | Presence 架构 | `docs/presence/ECHO_PRESENCE_ARCHITECTURE.md` | 冻结（v1.0） |
-| 版本事实源 | `scripts/version_source.json` | 0.9.0（Android versionCode 6） |
-| 产品 README | `README.md` | v0.9.0 |
-| 发布说明 | `RELEASE_NOTES_v0.9.0.md` | 本版本 |
+| 版本事实源 | `scripts/version_source.json` | 0.10.0（Android versionCode 7） |
+| 产品 README | `README.md` | v0.10.0 |
+| 发布说明 | `RELEASE_NOTES_v0.10.0.md` | 本版本 |
+| 发布锚点 | `docs/RELEASE_BASELINE.md` | LAST_RELEASE_BASELINE=6e84086 |
 | 架构决策 | `docs/architecture/ADRS.md` | ADR-001~072 |
 | 源码完整性报告 | `docs/architecture/SOURCE_INTEGRITY_REPORT.md` | CURRENT（ERA 12.8 实测） |
 | Source Reality | `docs/architecture/SOURCE_REALITY_REPORT.md` | 脚本生成 |
@@ -37,8 +38,9 @@
 | 依赖锁定 | `backend/uv.lock` + `android/**/gradle.lockfile`（uv --frozen / dependency locking） | CURRENT（CI 锁定执行） |
 | Legacy 移除计划 | `docs/migrations/LEGACY_REMOVAL_PLAN.md` | CURRENT |
 | Skills→Actions | `docs/migrations/SKILLS_TO_ACTIONS.md` | CURRENT |
-| 文档权威 | `docs/DOCUMENT_AUTHORITY.md` | CURRENT |
-| 实施状态锚点 | `docs/IMPLEMENTATION_STATUS.md` | 每轮更新 |
+| 文档权威 | `docs/STATUS.md` §7 Governance | CURRENT |
+| 实施状态锚点 | `docs/STATUS.md`（§3 Build Status 自动生成） | 每轮更新 |
+| 历史轮次记录 | `docs/CHANGELOG/` | 历史（禁止作为当前要求来源） |
 
 ## 一级产品结构（当前 main 事实）
 
@@ -52,7 +54,7 @@ Me（ui/me/MeScreen + 六子领域）
 
 ## 单一版本事实源
 
-- `scripts/version_source.json`：release_version=0.9.0（CI 强制一致）
+- `scripts/version_source.json`：release_version=0.10.0（CI 强制一致）
 - 校验：`backend/tests/test_version_consistency.py` + `scripts/release_preflight.sh` + CI
 
 ## 历史文档归档

@@ -1,16 +1,23 @@
-# Source Reality Report —— 源码事实报告（ERA 12.7，脚本生成）
+# Source Reality Report —— 源码事实报告（ERA 32，脚本生成 · 多模块自动发现）
 
 > 生成时间戳随提交更新；本文件由 `scripts/generate_source_reality.py` 生成，禁止手写行数。
 
-## Kotlin 包
+> Gradle modules 自动发现自 `android/settings.gradle.kts`；每 module 扫描 `src/main/java` 与 `src/main/kotlin`。
+
+## Kotlin 包（Production）
 - `com.yunjue.echo.mind`
+- `com.yunjue.echo.mind.actions`
 - `com.yunjue.echo.mind.data`
 - `com.yunjue.echo.mind.data.database`
 - `com.yunjue.echo.mind.data.outbox`
 - `com.yunjue.echo.mind.di`
+- `com.yunjue.echo.mind.intelligence`
 - `com.yunjue.echo.mind.journey`
+- `com.yunjue.echo.mind.localportrait`
 - `com.yunjue.echo.mind.me`
 - `com.yunjue.echo.mind.memory`
+- `com.yunjue.echo.mind.model`
+- `com.yunjue.echo.mind.ports`
 - `com.yunjue.echo.mind.presence`
 - `com.yunjue.echo.mind.runtime`
 - `com.yunjue.echo.mind.security`
@@ -30,21 +37,23 @@
 - `services`
 
 ## 数量事实
-- Kotlin 文件：165
+- Production Kotlin：165
+- Test Kotlin：122
+- QA Kotlin（:feature:qa，不属于 Production Runtime）：36
 - Python 文件：68
-- Manifest Components：5（缺失源类：1）
+- Manifest Components：5（缺失源类：0）
 - Worker：5（缺失实现：0）
 - Repository：13
 - Runtime/Coordinator：4
 - ViewModel：8
-- Gradle modules：['app', 'feature:actions', 'feature:memory', 'feature:observation', 'feature:presence', 'feature:intelligence', 'feature:journey', 'feature:qa', 'core:security', 'core:model', 'core:ports']
+- Gradle modules（自动发现）：app, core:model, core:ports, core:security, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:qa
 
-## Manifest Components
-- `.main.MainActivity` ✅
-- `.main.sensing.PassiveSensingService` ✅
-- `.main.sensing.NotificationCollector` ❌ 缺源类
-- `.main.presence.EchoWallpaperService` ✅
-- `.main.presence.EchoDreamService` ✅
+## Manifest Components（跨全部 production module 解析）
+- `:app` `.main.MainActivity` ✅
+- `:app` `.main.sensing.PassiveSensingService` ✅
+- `:app` `.main.sensing.NotificationCollector` ✅
+- `:app` `.main.presence.EchoWallpaperService` ✅
+- `:app` `.main.presence.EchoDreamService` ✅
 
 ## Worker
 - `EveningReminderWorker`

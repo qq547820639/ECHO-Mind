@@ -66,3 +66,14 @@ oracle 与产品不再存在两份实现。
 
 - ✅ learningPhaseHeadline 下沉 feature:presence 单点（ERA 31 R7）；QaHeadlineEngine 文案分支删除。
 - QaPortraitMirror 继续以跨语言黄金门对拍 backend（golden 为 fixture 基线，方向不变）。
+
+## 7. ERA 32 Batch A 复核（2026-08-15）
+
+- ✅ `learningPhaseHeadline` 现为 `core:model` 单一实现（R8 随 EchoPresenceState 下沉 core:model），
+  消费方只有 :app（EchoSceneUiState）与 :feature:qa（QaHeadlineEngine）——mirror 文案重复**已消除**，
+  QaHeadlineEngine 只保留 QA 侧证据行组装（fixture 视图），不再是 production 逻辑副本。
+- ✅ QaAskEcho 保持 PersonalAnswerEngine 薄适配器（R3 起，未回退）。
+- ✅ QaPortraitMirror 黄金门在位：backend golden 导出 + `test_mirror_golden.py`（backend 提交门）+
+  `QaPortraitMirrorGoldenTest`（Android 对拍）。
+- 结论：:feature:qa 与 production 的三项 mirror 全部处于审计闭环状态，本轮无新增重复。
+

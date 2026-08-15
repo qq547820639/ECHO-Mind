@@ -13,20 +13,13 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# ERA 32：模块源码根复用 generate_source_reality 的自动发现（settings.gradle.kts → src/main/java|kotlin），
+# 单一事实源，禁止手写模块清单。
+from generate_source_reality import prod_main_roots  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
-# ERA 13.5：app + 物理模块源码根（新增模块在此登记）
-SRC_ROOTS = [
-    ROOT / "android" / "app" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "actions" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "security" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "model" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "core" / "ports" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "memory" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "observation" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "presence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "intelligence" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-    ROOT / "android" / "feature" / "journey" / "src" / "main" / "java" / "com" / "yunjue" / "echo" / "mind",
-]
+SRC_ROOTS = prod_main_roots()
 
 #: 领域聚合映射：子包 → 顶层领域（依赖图按领域展示）。
 DOMAIN_OF = {

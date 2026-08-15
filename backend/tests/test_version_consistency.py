@@ -34,21 +34,14 @@ def _collect_pytest_count() -> int:
     return len(cfg.collect_initial_items) if hasattr(cfg, "collect_initial_items") else 0
 
 
-def test_README_pytest_count_matches_collection(request):
-    """README 声称的后端测试数量 == pytest 实际收集数量（自动防漂移）。
-
-    仅在**全量运行**（tests/ 全目录收集，session.items >= 500）时生效；
-    单独跑本文件时跳过，避免收集范围不完整导致的误报。
+def test_README_delegates_counts_to_status():
+    """ERA 32：README 不再手写测试计数——数字由 scripts/refresh_status_numbers.py
+    从实测产物自动生成进 docs/STATUS.md §3（Build Status），本断言防手写数字回流。
     """
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    match = re.search(r"后端自动测试\s*\*\*(\d+)\s*项全绿", readme)
-    assert match, "README 未包含 '后端自动测试 **N 项全绿' 声明"
-    claimed = int(match.group(1))
-    actual = len(request.session.items)
-    if actual < 500:
-        # 非全量收集（如 pytest tests/test_version_consistency.py）：跳过一致性断言
-        pytest.skip(f"非全量收集（{actual} 项），跳过 README 数字一致性断言")
-    assert claimed == actual, f"README 声称 {claimed} 项，实际收集 {actual} 项（请更新 README）"
+    assert "后端自动测试 **" not in readme, "README 不得再手写后端测试计数（见 docs/STATUS.md §3）"
+    assert "项单测全绿" not in readme, "README 不得再手写 Android 单测计数（见 docs/STATUS.md §3）"
+    assert "docs/STATUS.md" in readme, "README 必须指向 docs/STATUS.md 的自动生成 Build Status"
 
 
 def test_version_fields_consistent():
