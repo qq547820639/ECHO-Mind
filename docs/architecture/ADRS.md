@@ -616,3 +616,15 @@
 - **决策**：Journey 长历史审计（ADR-064）结项后，下一长阶段选定 **Presence 性能与功耗真值审计**——§65 Wallpaper benchmark（CPU/GPU/frame time/memory/wakeups/battery、不可见时 continuous rendering = 0）与 §64 Surface 功耗预算（privacy/layout/animation strength/interaction/power budget）的代码真值审计：JVM 可测段（渲染帧成本/状态装配/平滑插值/低功耗降级路径）本地锚定，设备段维持 CI connected-test 矩阵承接（不本地伪造）。
 - **理由**：PART PERFORMANCE 首个未审计域（Wallpaper/Dream 功耗是「桌面 ECHO 在」的产品承诺成本）；§65「不可见：continuous rendering = 0」是可代码审计的硬指标（渲染循环生命周期 + 低功耗降级），本地 JVM 可锚定；User trust（功耗透明）> 剩余候选。
 - **后果**：每轮维持全门禁 + 发布链；设备实测数字仍由 CI 真机矩阵执行（本环境无模拟器不伪造）；Affective 冻结不受影响。结项标准：渲染循环可见性/生命周期锚点 + 低功耗降级路径锚点 + ADR-065 结项记录。
+
+### ADR-065 结项记录（ERA 75，两轮结论）
+
+- 第 1 轮：用户视觉偏好（减少动画/动态程度/夜间）接入 Wallpaper/Dream（resolveSurfaceConfig + 每秒节流快照解码）；REDUCED_MOTION 零流动 / QUIET·LOW_POWER 方向 / 节流边界锚点。
+- 第 2 轮：APP 表面复核与统一——echoVisualSurfaceConfig 改为委托 resolveSurfaceConfig（三表面唯一映射真值，等价矩阵锚定）；**发现并修复行动层缺口**（EchoActionOverlay 忽略偏好——行动层现在以同一配置渲染，呼吸引导文字不受减少动画影响）；设备段交接复核通过（android-ci reactivecircus pinned SHA + connectedDebugAndroidTest；EchoSceneFrameDeviceBenchmarkInstrumentedTest 与 PRESENCE_BENCHMARKS 声明一致，本地不伪造）。
+- 结论：§64/§65 真值审计完成——四个表面（APP/Wallpaper/LOCK_SAFE 派生/Dream）偏好消费同源；不可见 0 帧率硬指标保持；快照解码节流；设备实测数字由 CI 真机矩阵承接。
+
+## ADR-066：下一长阶段选型——Personal Correction 环路端到端真值审计（ERA 76）
+
+- **决策**：Presence 功耗审计（ADR-065）结项后，下一长阶段选定 **Personal Correction 环路端到端真值审计**——宪法七组件之一 Correction 的完整数据流：用户纠正捕获（画像反馈/对话纠正/记忆编辑）→ 记忆层写入与来源标注 → 检索排序优先级（§75 USER_CONFIRMED/CORRECTION/CONTEXT 优先）→ Context 编译注入 → 解释与证据呈现的纠正归因（「你纠正过我的」）。不选 CI 模拟器矩阵扩展（连续四轮理由不变）与 feature_vectors 留存裁剪（会不可逆删除真实用户数据——阻塞条件 1，非人工确认不得自主执行，仅记录为待办）。
+- **理由**：宪法组件 Correction 自 ADR-059 后无独立端到端审计阶段；User trust / Personal continuity（优先级 1/8）直接受益；全链本地可测（纯函数 + Robolectric），无需设备。
+- **后果**：每轮维持全门禁 + 发布链；发现缺陷以测试固定后修复；Affective 冻结不受影响。结项标准：纠正写入→检索优先级→编译注入→解释归因全链锚点 + ADR-066 结项记录。

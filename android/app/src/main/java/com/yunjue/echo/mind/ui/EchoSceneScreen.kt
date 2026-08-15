@@ -153,6 +153,11 @@ fun EchoSceneScreen(
                 presence = uiState.presence,
                 mode = if (runningAction == EchoActionKind.BREATHING)
                     EchoActionMode.BREATHING else EchoActionMode.PAUSE,
+                config = echoVisualSurfaceConfig(
+                    motionLevelPref = container.preferences.presenceMotionLevel,
+                    reduceMotion = container.preferences.presenceReduceMotion,
+                    nightMode = container.preferences.presenceNightMode,
+                ),
                 onDone = viewModel::stopAction,
             )
         },

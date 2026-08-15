@@ -25,9 +25,9 @@ import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.NEUTRAL_VISUAL_PARAMS
 import com.yunjue.echo.mind.presence.drawEchoFrame
-import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeVisualParameters
+import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurfaceConfig
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 
@@ -48,6 +48,7 @@ const val BREATHING_CYCLE_SECONDS = 8f // 4s 吸 + 4s 呼
 fun EchoActionOverlay(
     presence: EchoPresenceState?,
     mode: EchoActionMode,
+    config: EchoVisualSurfaceConfig,
     onDone: () -> Unit,
 ) {
     var remaining by remember { mutableIntStateOf(ACTION_DURATION_SECONDS) }
@@ -67,8 +68,9 @@ fun EchoActionOverlay(
     }
 
     val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
+    // ERA 75 §64：行动层同样尊重用户视觉偏好（减少动画 → 流动归零；呼吸引导文字不受影响）
     val baseParams = if (presence != null) {
-        computeVisualParameters(presence, hourOfDay, SurfaceMode.APP)
+        computeVisualParameters(presence, hourOfDay, config.surface, config.motionLevel, config.nightMode)
     } else {
         NEUTRAL_VISUAL_PARAMS
     }

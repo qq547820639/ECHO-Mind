@@ -9,6 +9,7 @@ import com.yunjue.echo.mind.presence.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.EchoLifeField
+import com.yunjue.echo.mind.presence.resolveSurfaceConfig
 
 /**
  * ERA 38 — EchoVisualSurface 偏好输入纯函数化：
@@ -26,15 +27,16 @@ fun echoVisualSurfaceConfig(
     motionLevelPref: String,
     reduceMotion: Boolean,
     nightMode: Boolean,
-): EchoVisualSurfaceConfig = EchoVisualSurfaceConfig(
-    motionLevel = when (motionLevelPref) {
-        "QUIET" -> PresenceMotionLevel.QUIET
-        "LIVELY" -> PresenceMotionLevel.LIVELY
-        else -> PresenceMotionLevel.DEFAULT
-    },
-    surface = if (reduceMotion) SurfaceMode.REDUCED_MOTION else SurfaceMode.APP,
-    nightMode = nightMode,
-)
+): EchoVisualSurfaceConfig {
+    // ERA 75：与 Wallpaper/Dream 共用唯一映射真值（resolveSurfaceConfig），
+    // APP 基底表面 = APP；语义保持既有契约（未知等级 fail-closed DEFAULT）。
+    val config = resolveSurfaceConfig(SurfaceMode.APP, reduceMotion, motionLevelPref, nightMode)
+    return EchoVisualSurfaceConfig(
+        motionLevel = config.motionLevel,
+        surface = config.surface,
+        nightMode = config.nightMode,
+    )
+}
 
 /**
  * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（生命场）。
