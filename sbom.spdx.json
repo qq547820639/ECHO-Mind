@@ -2,10 +2,10 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "ECHO-Mind-PortraitCore-v0.9.0-source-SBOM",
-  "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.9.0/sbom",
+  "name": "ECHO-Mind-PortraitCore-v0.10.0-source-SBOM",
+  "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.10.0/sbom",
   "creationInfo": {
-    "created": "2026-08-14T00:00:00Z",
+    "created": "2026-08-15T00:00:00Z",
     "creators": [
       "Tool: scripts/generate_sbom.py"
     ]
@@ -104,7 +104,7 @@
     {
       "SPDXID": "SPDXRef-Python-echo-mind-portrait-core",
       "name": "echo-mind-portrait-core",
-      "versionInfo": "0.9.0",
+      "versionInfo": "0.10.0",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -736,7 +736,7 @@
     {
       "annotationType": "OTHER",
       "annotator": "Tool: scripts/generate_sbom.py",
-      "annotationDate": "2026-08-14T00:00:00Z",
+      "annotationDate": "2026-08-15T00:00:00Z",
       "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
     }
   ]
