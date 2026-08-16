@@ -50,6 +50,8 @@ fun EchoOrganism(
     reducedMotion: Boolean = false,
     aggregateDescription: String = DEFAULT_DESCRIPTION,
     options: OrganismFrameComputer.EchoRenderOptions = OrganismFrameComputer.EchoRenderOptions(),
+    /** §45 Correction 脉冲触发（递增计数；只触发 transient 视觉反馈，不改任何状态层）。 */
+    correctionPulseTrigger: Int = 0,
 ) {
     var clockSeconds by remember { mutableFloatStateOf(0f) }
     // 帧钟：REDUCED_MOTION 下仍推进（低频呼吸/亮度漂移保留），运动系数在编译期已降级
@@ -65,6 +67,11 @@ fun EchoOrganism(
     }
     val genome = remember(presence, hourOfDay) {
         presence?.let { GenomeDeriver.derive(it, hourOfDay) }
+    }
+    // §45：触发沿捕获当前帧钟；每帧年龄 = clockSeconds - pulseStart
+    var pulseStartSeconds by remember { mutableFloatStateOf(Float.NaN) }
+    LaunchedEffect(correctionPulseTrigger) {
+        if (correctionPulseTrigger > 0) pulseStartSeconds = clockSeconds
     }
     val effectiveOptions = remember(options, reducedMotion, presence?.maturity, presence?.sensingStatus) {
         // §42：Sensing Disabled（USER_PAUSED / NOT_AUTHORIZED）→ motion ×.30 / detail ×.55；
@@ -89,7 +96,11 @@ fun EchoOrganism(
     ) {
         val base = genome ?: GenomeDeriver.derive(EchoPresenceState(), hourOfDay)
         val spec = SurfacePolicy.crop(base, surface, clockSeconds)
-        val frame = OrganismFrameComputer.compute(spec, size.width, size.height, effectiveOptions)
+        val pulseAge = if (pulseStartSeconds.isNaN()) null else clockSeconds - pulseStartSeconds
+        val frame = OrganismFrameComputer.compute(
+            spec, size.width, size.height,
+            effectiveOptions.copy(correctionPulseAgeSeconds = pulseAge),
+        )
         val useAgsl = agslUsable && android.os.Build.VERSION.SDK_INT >= 33 &&
             effectiveOptions.tier != com.yunjue.echo.mind.visual.render.EchoRenderTier.LEGACY
         if (useAgsl) {

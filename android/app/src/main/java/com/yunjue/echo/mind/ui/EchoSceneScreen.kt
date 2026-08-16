@@ -106,6 +106,8 @@ fun EchoSceneScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val aiPromptDismissed by viewModel.aiPromptDismissed.collectAsStateWithLifecycle()
     val wallpaperPromptDismissed by viewModel.wallpaperPromptDismissed.collectAsStateWithLifecycle()
+    // §45：Correction 成功不只 Toast——触发 organism 900ms 视觉脉冲（halo -8% + phase pause）
+    var correctionPulseTrigger by remember { mutableStateOf(0) }
 
     EchoSceneContent(
         state = EchoSceneContentState(
@@ -131,7 +133,10 @@ fun EchoSceneScreen(
             onStartAction = viewModel::startAction,
             onStopAction = viewModel::stopAction,
             onAsk = viewModel::ask,
-            onConversationFeedback = viewModel::recordConversationFeedback,
+            onConversationFeedback = { q, a, like, reason ->
+                viewModel.recordConversationFeedback(q, a, like, reason)
+                correctionPulseTrigger++
+            },
         ),
         feedbackActions = EchoSceneFeedbackActions(
             onDismissAiPrompt = viewModel::dismissAiPrompt,
@@ -142,9 +147,15 @@ fun EchoSceneScreen(
                 viewModel.dismissWallpaperPrompt()
                 selectEchoWallpaper(context)
             },
-            onPortraitLike = { viewModel.recordPortraitFeedback(it, true) },
+            onPortraitLike = {
+                viewModel.recordPortraitFeedback(it, true)
+                correctionPulseTrigger++
+            },
             onPortraitNotLike = { viewModel.recordPortraitFeedback(it, false) },
-            onPortraitCorrection = viewModel::recordPortraitCorrection,
+            onPortraitCorrection = { d, r, s2 ->
+                viewModel.recordPortraitCorrection(d, r, s2)
+                correctionPulseTrigger++
+            },
             onRebuildTodayPortrait = viewModel::rebuildTodayPortrait,
             portraitFeedbackFor = viewModel::portraitFeedback,
         ),
@@ -156,6 +167,7 @@ fun EchoSceneScreen(
                     reduceMotion = container.preferences.presenceReduceMotion,
                     nightMode = container.preferences.presenceNightMode,
                 ),
+                correctionPulseTrigger = correctionPulseTrigger,
             )
         },
         actionLayer = {
@@ -266,6 +278,10 @@ fun EchoSceneContent(
 
     val todayMd = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
     var sheet by remember { mutableStateOf(SceneSheet.NONE) }
+    // §47：选择行动后关闭 sheet → 现有 Action Runtime → action overlay
+    LaunchedEffect(state.runningAction) {
+        if (state.runningAction != null) sheet = SceneSheet.NONE
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val sceneHeight = maxHeight
@@ -582,12 +598,29 @@ private fun EchoWhySheetContent(
             Text(if (expanded) "收起依据" else "更多依据与反馈")
         }
         if (expanded) {
+            // §44 EXPANDED：5. 时间窗口 6. coverage 7. source 8. 未使用什么（全部真实字段，不猜 provenance）
+            portrait.portrait?.let { p ->
+                Text(
+                    "时间窗口：${p.date} · 基线 ${p.baselineDays} 天" +
+                        (p.baselineVersion?.let { " · 基线版本 $it" } ?: "") +
+                        (p.timezoneUsed?.let { " · 时区 $it" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                p.coverage?.takeIf { it.isNotEmpty() }?.let { cov ->
+                    Text(
+                        "数据覆盖：" + cov.entries.joinToString("、") { (k, v) -> "$k $v" },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
             if (uiState.headlineSources.isNotEmpty()) {
                 Text(
-                    "依据来源：${uiState.headlineSources.size} 类",
+                    "参考了：" + uiState.headlineSources.joinToString("、") { dataSourceLabelForSheet(it) },
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+            // 精确词表与对话层一致（原始音频/通知正文/精确位置 永不进入）
+            Text("没有使用：原始音频、通知正文、精确位置", style = MaterialTheme.typography.bodySmall)
             // 9. feedback / correction（从首页 Feed 迁入 WHY；§39）
             if (portrait.status == PortraitStatus.READY || portrait.status == PortraitStatus.PARTIAL_DATA) {
                 PortraitFeedbackContent(
@@ -616,11 +649,17 @@ private fun EchoAskSheetContent(
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().height(220.dp)) { visualSurface() }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            // §46：small identity glyph 用 identity palette primary（SAME ECHO）
+            val identityColor = state.uiState.presence?.identityGenome?.seed?.let { seed ->
+                val p = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(seed).palette.primary
+                Color(com.yunjue.echo.mind.visual.render.ColorSpace.lch(p.l, p.c, p.h))
+            } ?: MaterialTheme.colorScheme.primary
             EchoConversationLayer(
                 turns = state.turns,
                 phase = state.phase,
                 onAsk = coreActions.onAsk,
                 onFeedback = coreActions.onConversationFeedback,
+                identityColor = identityColor,
             )
         }
     }
@@ -706,3 +745,16 @@ fun PortraitFeedbackContent(
         }
     }
 }
+
+/** 数据源类别 → 用户可读标签（WHY sheet 依据展示）。 */
+private fun dataSourceLabelForSheet(category: com.yunjue.echo.mind.intelligence.DataSourceCategory): String =
+    when (category) {
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.TODAY_AGGREGATE -> "今天的活动节律"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.BASELINE -> "个人基线"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.PORTRAIT_HISTORY -> "历史画像"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.CONTEXT_EXCEPTIONS -> "你告诉我的特殊日期"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.USER_CORRECTIONS -> "你纠正过我的"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.PREFERENCES -> "你的偏好"
+        com.yunjue.echo.mind.intelligence.DataSourceCategory.CONVERSATION_HISTORY -> "我们的对话"
+        else -> "其他"
+    }

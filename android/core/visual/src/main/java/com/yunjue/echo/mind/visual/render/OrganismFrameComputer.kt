@@ -37,6 +37,8 @@ object OrganismFrameComputer {
         val motionScale: Float = 1f,
         /** §42 Sensing Disabled：detail × .55。 */
         val detailScale: Float = 1f,
+        /** §45 Correction 视觉反馈：距用户纠正的秒数（null = 无进行中脉冲）。 */
+        val correctionPulseAgeSeconds: Float? = null,
         val hdrEligible: Boolean = false,
         val interaction: EchoInteractionSpec = EchoInteractionSpec(),
     )
@@ -107,7 +109,21 @@ object OrganismFrameComputer {
         )
         val identity = packet.identity
         val field = packet.field
-        val motion = MotionEvaluator.evaluate(packet.motion, spec.clockSeconds, packet.interaction)
+        val motionBase = MotionEvaluator.evaluate(packet.motion, spec.clockSeconds, packet.interaction)
+        // §45：Correction 脉冲（halo -8% + filament phase 暂停 150ms 后 converge；identity 不变）
+        val motion = options.correctionPulseAgeSeconds?.let { ageMs ->
+            val (haloDelta, pauseSeconds) = MotionEvaluator.correctionPulse((ageMs * 1000f).toLong())
+            if (haloDelta == 0f && pauseSeconds == 0f) {
+                motionBase
+            } else {
+                val phaseOmega = TWO_PI / packet.motion.filamentPhaseSeconds.coerceAtLeast(4f) *
+                    packet.motion.filamentPhaseScale
+                motionBase.copy(
+                    haloMultiplier = motionBase.haloMultiplier * (1f + haloDelta),
+                    filamentPhase = motionBase.filamentPhase - phaseOmega * pauseSeconds,
+                )
+            }
+        } ?: motionBase
         val profile = EchoSceneCompiler.qualityProfile(quality)
         val topo = OrganismTopologyBuilder.topologyFor(identity, quality, options.maturityName)
 

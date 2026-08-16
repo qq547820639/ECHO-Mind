@@ -74,8 +74,8 @@ class EchoConversationLayerSmokeTest {
     @Test
     fun turnRendersQuestionAnswerAndBasisLists() {
         setContent(turns = listOf(turn()))
-        compose.onNodeWithText("你：最近我是不是越来越晚？").assertExists()
-        compose.onNodeWithText("ECHO：相比基线，你的入睡时间更早了。").assertExists()
+        compose.onNodeWithText("最近我是不是越来越晚？").assertExists()
+        compose.onNodeWithText("相比基线，你的入睡时间更早了。").assertExists()
         compose.onNode(hasClickAction() and hasText("依据")).performClick()
         compose.onNodeWithText("参考了：个人基线").assertExists()
         // ERA 32 R09（§52）：精确词表——「原始音频」而非「麦克风」（麦克风开启时派生特征会进聚合）

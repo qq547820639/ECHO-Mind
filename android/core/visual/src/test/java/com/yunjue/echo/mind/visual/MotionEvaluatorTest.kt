@@ -92,4 +92,21 @@ class MotionEvaluatorTest {
         assertTrue(late > 0.94f)
         assertEquals(1f, MotionEvaluator.expApproach(1f, 1f, 0f, 2.8f), 1e-4f)
     }
+
+    @Test
+    fun correctionPulseTimeline() {
+        // §45：~900ms；halo -8% 单峰；phase 前 150ms 暂停、之后平滑收敛
+        val (h0, p0) = MotionEvaluator.correctionPulse(0L)
+        assertEquals(0f, h0, 1e-4f)
+        assertEquals(0f, p0, 1e-4f)
+        val (hMid, _) = MotionEvaluator.correctionPulse(450L)
+        assertEquals(-0.08f, hMid, 0.005f) // 峰值附近约 -8%
+        val (_, pEarly) = MotionEvaluator.correctionPulse(100L)
+        assertEquals(0.10f, pEarly, 1e-3f) // 前 150ms 全停
+        val (_, pLate) = MotionEvaluator.correctionPulse(800L)
+        assertTrue("后段收敛", pLate < 0.05f)
+        val (hEnd, pEnd) = MotionEvaluator.correctionPulse(950L)
+        assertEquals(0f, hEnd, 1e-4f)
+        assertEquals(0f, pEnd, 1e-4f)
+    }
 }

@@ -79,6 +79,25 @@ object MotionEvaluator {
         return start + (target - start) * k
     }
 
+    /**
+     * §45 Correction 视觉反馈（约 900ms）：
+     * - halo -8%（包络先降后回）；- filament phase 暂停 150ms 后平滑 converge。
+     * Identity 不改变。返回 (haloDelta 乘数修正, filamentPhase 暂停秒数)。
+     */
+    fun correctionPulse(sinceMs: Long): Pair<Float, Float> {
+        if (sinceMs < 0L || sinceMs > 900L) return 0f to 0f
+        val t = sinceMs / 900f
+        // halo：先 -8% 再回（单峰正弦包络）
+        val haloDelta = -0.08f * sin(t * PI.toFloat())
+        // phase 暂停：前 150ms 全停，150–900ms 平滑 converge（暂停量衰减到 0）
+        val pause = if (sinceMs < 150L) {
+            sinceMs / 1000f
+        } else {
+            0.15f * (1f - (sinceMs - 150L) / 750f)
+        }
+        return haloDelta to pause
+    }
+
     /** §29 交互包络时间线（ms）：0–80 capture → 80–180 rise → 180–600 peak/decay → 600–1150 return。 */
     fun interactionEnvelope(sinceTouchMs: Long): Float = when {
         sinceTouchMs < 0L -> 0f

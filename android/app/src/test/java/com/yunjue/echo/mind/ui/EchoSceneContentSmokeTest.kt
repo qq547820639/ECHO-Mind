@@ -3,6 +3,8 @@ import com.yunjue.echo.mind.model.echoMaturity
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasAnyDescendant
@@ -355,5 +357,57 @@ class EchoSceneContentSmokeTest {
         // §79：fontScale ≥1.3 → ~52%
         assertEquals(0.52f, visualFractionFor(1.3f), 1e-4f)
         assertEquals(0.52f, visualFractionFor(1.5f), 1e-4f)
+    }
+
+    @Test
+    fun actionSheetClosesWhenActionStarts() {
+        var running by androidx.compose.runtime.mutableStateOf<EchoActionKind?>(null)
+        compose.setContent {
+            MaterialTheme {
+                EchoSceneContent(
+                    state = EchoSceneContentState(
+                        uiState = uiState(), portrait = portraitState(),
+                        turns = emptyList(), phase = ConversationPhase.IDLE,
+                        runningAction = running, message = null,
+                        aiPromptDismissed = true, wallpaperPromptDismissed = true,
+                    ),
+                    navigation = Recorder().navigation(),
+                    coreActions = Recorder().core(),
+                    feedbackActions = Recorder().feedback(),
+                    visualSurface = { Text("slot-visual") },
+                    actionLayer = { Text("slot-actions") },
+                    actionOverlay = { Text("slot-overlay") },
+                )
+            }
+        }
+        clickText(PORTRAIT_COPY_SECTION_ACTION)
+        compose.onNodeWithText("slot-actions").assertExists()
+        // §47：选择后关闭 sheet → 现有 Action Runtime → overlay 继续
+        running = EchoActionKind.BREATHING
+        compose.waitForIdle()
+        compose.onNodeWithText("slot-actions").assertDoesNotExist()
+        compose.onNodeWithText("slot-overlay").assertExists()
+    }
+
+    @Test
+    fun whyExpandedShowsWindowCoverageSourceNotUsed() {
+        setContent(
+            portrait = PortraitUiState(
+                status = PortraitStatus.READY,
+                portrait = DailyPortraitDto(
+                    date = "2026-08-15", status = "READY", confidence = "HIGH",
+                    baselineDays = 7, headline = listOf("接近"),
+                    summary = "今天和平时很接近。", dimensions = emptyMap(),
+                    timezoneUsed = "Asia/Shanghai",
+                    coverage = mapOf("movement" to 0.86),
+                ),
+            ),
+        )
+        clickText(PORTRAIT_COPY_SECTION_WHY)
+        clickText("更多依据与反馈")
+        // §44 EXPANDED：时间窗口 / coverage / source / 未使用什么
+        compose.onNodeWithText("时间窗口：2026-08-15 · 基线 7 天 · 时区 Asia/Shanghai").assertExists()
+        compose.onNodeWithText("数据覆盖：movement 0.86", substring = true).assertExists()
+        compose.onNodeWithText("没有使用：原始音频、通知正文、精确位置").assertExists()
     }
 }

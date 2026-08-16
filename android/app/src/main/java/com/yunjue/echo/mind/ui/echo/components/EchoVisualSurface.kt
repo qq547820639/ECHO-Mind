@@ -76,6 +76,7 @@ fun EchoVisualSurface(
     presence: EchoPresenceState?,
     config: EchoVisualSurfaceConfig,
     modifier: Modifier = Modifier,
+    correctionPulseTrigger: Int = 0,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val envOptions = remember(context) {
@@ -98,5 +99,6 @@ fun EchoVisualSurface(
             quality = envOptions.quality,
             hdrEligible = envOptions.hdrEligible,
         ),
+        correctionPulseTrigger = correctionPulseTrigger,
     )
 }
