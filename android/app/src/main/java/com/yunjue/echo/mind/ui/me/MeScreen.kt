@@ -51,37 +51,39 @@ fun MeScreen(container: AppContainer) {
     MeScreenContent(
         state = state,
         onEvent = meVm::onEvent,
-        intelligenceMap = {
-            MeIntelligenceMap(
-                presence = presence,
-                onOpenObservation = { },
-                onOpenIntelligence = { },
-                onOpenMemory = { },
-                onOpenDevices = { },
-                onOpenPresence = { },
-                organism = {
-                    com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                        presence = presence,
-                        surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                        reducedMotion = state.presence.reduceMotion,
-                    )
-                },
-            )
-        },
-        crisisCard = { CrisisCard(context) },
-        subscription = { SubscriptionSection(container) },
-        support = {
-            SupportSection(
-                escalations = state.escalations,
-                onRequestSupport = { meVm.onEvent(MeEvent.RequestSupportClicked) },
-            )
-        },
-        dataAndSensing = { DataAndSensingSection(container, context) },
-        presenceSettings = { PresenceSettingsSection(container) },
-        wrist = { WristSection(container) },
-        intelligenceSettings = { IntelligenceSettingsSection(container) },
-        whatEchoKnows = { WhatEchoKnowsSection(container) },
-        aboutCard = { AboutCard() },
+        slots = MeSectionSlots(
+            intelligenceMap = {
+                MeIntelligenceMap(
+                    presence = presence,
+                    onOpenObservation = { },
+                    onOpenIntelligence = { },
+                    onOpenMemory = { },
+                    onOpenDevices = { },
+                    onOpenPresence = { },
+                    organism = {
+                        com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                            presence = presence,
+                            surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                            reducedMotion = state.presence.reduceMotion,
+                        )
+                    },
+                )
+            },
+            crisisCard = { CrisisCard(context) },
+            subscription = { SubscriptionSection(container) },
+            support = {
+                SupportSection(
+                    escalations = state.escalations,
+                    onRequestSupport = { meVm.onEvent(MeEvent.RequestSupportClicked) },
+                )
+            },
+            dataAndSensing = { DataAndSensingSection(container, context) },
+            presenceSettings = { PresenceSettingsSection(container) },
+            wrist = { WristSection(container) },
+            intelligenceSettings = { IntelligenceSettingsSection(container) },
+            whatEchoKnows = { WhatEchoKnowsSection(container) },
+            aboutCard = { AboutCard() },
+        ),
     )
 }
 
@@ -93,16 +95,7 @@ fun MeScreen(container: AppContainer) {
 fun MeScreenContent(
     state: MeUiState,
     onEvent: (MeEvent) -> Unit,
-    crisisCard: @Composable () -> Unit,
-    subscription: @Composable () -> Unit,
-    support: @Composable () -> Unit,
-    dataAndSensing: @Composable () -> Unit,
-    presenceSettings: @Composable () -> Unit,
-    wrist: @Composable () -> Unit,
-    intelligenceSettings: @Composable () -> Unit,
-    whatEchoKnows: @Composable () -> Unit,
-    aboutCard: @Composable () -> Unit,
-    intelligenceMap: @Composable () -> Unit = {},
+    slots: MeSectionSlots,
 ) {
     if (state.showSupportConfirm) {
         AlertDialog(
@@ -126,21 +119,35 @@ fun MeScreenContent(
         // ERA 25 §44 信息架构 + §12 Personal Intelligence Map：
         // 危机入口（安全常驻，契约冻结）→ Intelligence Map（ECHO 如何认识你，首层非 Settings）→
         // ECHO Presence → What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About。
-        crisisCard()
-        intelligenceMap()
-        presenceSettings()
-        wrist()
-        whatEchoKnows()
-        intelligenceSettings()
-        dataAndSensing()
-        subscription()
-        support()
-        aboutCard()
+        slots.crisisCard()
+        slots.intelligenceMap()
+        slots.presenceSettings()
+        slots.wrist()
+        slots.whatEchoKnows()
+        slots.intelligenceSettings()
+        slots.dataAndSensing()
+        slots.subscription()
+        slots.support()
+        slots.aboutCard()
         state.message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
+
+/** Me 根页面子领域槽位集合（状态提升模式；detekt LongParameterList 收敛）。 */
+data class MeSectionSlots(
+    val crisisCard: @Composable () -> Unit,
+    val subscription: @Composable () -> Unit,
+    val support: @Composable () -> Unit,
+    val dataAndSensing: @Composable () -> Unit,
+    val presenceSettings: @Composable () -> Unit,
+    val wrist: @Composable () -> Unit,
+    val intelligenceSettings: @Composable () -> Unit,
+    val whatEchoKnows: @Composable () -> Unit,
+    val aboutCard: @Composable () -> Unit,
+    val intelligenceMap: @Composable () -> Unit = {},
+)
 
 /** v3.2 §9：About / Diagnostics —— APK 构建来源可追溯（版本/提交/时间）。 */
 @Composable

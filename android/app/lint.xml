@@ -20,4 +20,12 @@
     <issue id="UnspecifiedRegisterReceiverFlag" severity="error" />
     <issue id="SetJavaScriptEnabled" severity="error" />
     <issue id="RtlHardcoded" severity="error" />
+
+    <!-- OldTargetApi：Visual Runtime V3 冻结 targetSdk=36（compileSdk 已升 37）；
+         targetSdk 升级是独立兼容性决策，不在工具链切片内。 -->
+    <issue id="OldTargetApi" severity="ignore" />
+
+    <!-- NotShrinkingResources：release 打包行为在 v0.11.0 closure 已冻结（isMinifyEnabled 不配套
+         shrinkResources）；是否开启资源压缩属发布闭环节奏决策，非工具链升级附带变更。 -->
+    <issue id="NotShrinkingResources" severity="ignore" />
 </lint>

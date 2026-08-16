@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     // Kotlin SAST（detekt）：见下方 detekt 块；待 CI 首跑验证。
@@ -43,7 +42,7 @@ android {
         lintConfig = file("lint.xml")
     }
     namespace = "com.yunjue.echo.mind"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.yunjue.echo.mind"

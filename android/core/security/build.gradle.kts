@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.detekt)
 }
 
@@ -12,7 +11,7 @@ detekt {
 
 android {
     namespace = "com.yunjue.echo.mind.security"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26

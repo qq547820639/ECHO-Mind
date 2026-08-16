@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.detekt)
 }
 
 android {
     namespace = "com.yunjue.echo.mind.visual"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26

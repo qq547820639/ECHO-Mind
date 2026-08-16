@@ -55,15 +55,17 @@ class MeContentSmokeTest {
                 MeScreenContent(
                     state = state,
                     onEvent = { events += it },
-                    crisisCard = { Text("slot-crisis") },
-                    subscription = { Text("slot-subscription") },
-                    support = supportSlot,
-                    dataAndSensing = { Text("slot-data") },
-                    presenceSettings = { Text("slot-presence") },
-                    wrist = { Text("slot-wrist") },
-                    intelligenceSettings = { Text("slot-intelligence") },
-                    whatEchoKnows = { Text("slot-memory") },
-                    aboutCard = { Text("slot-about") },
+                    slots = MeSectionSlots(
+                        crisisCard = { Text("slot-crisis") },
+                        subscription = { Text("slot-subscription") },
+                        support = supportSlot,
+                        dataAndSensing = { Text("slot-data") },
+                        presenceSettings = { Text("slot-presence") },
+                        wrist = { Text("slot-wrist") },
+                        intelligenceSettings = { Text("slot-intelligence") },
+                        whatEchoKnows = { Text("slot-memory") },
+                        aboutCard = { Text("slot-about") },
+                    ),
                 )
             }
         }

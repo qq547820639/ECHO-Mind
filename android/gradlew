@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
-VERSION=8.13
-SHA256=20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78
+VERSION=9.5.0
+SHA256=553c78f50dafcd54d65b9a444649057857469edf836431389695608536d6b746
 BASE="${GRADLE_USER_HOME:-$HOME/.gradle}/echo-bootstrap"
 DIST="$BASE/gradle-$VERSION"
 ZIP="$BASE/gradle-$VERSION-bin.zip"
@@ -9,7 +9,9 @@ if [ ! -x "$DIST/bin/gradle" ]; then
   mkdir -p "$BASE"
   if [ ! -f "$ZIP" ]; then
     command -v curl >/dev/null 2>&1 || { echo "需要 curl 下载 Gradle" >&2; exit 1; }
-    curl -fL "https://services.gradle.org/distributions/gradle-$VERSION-bin.zip" -o "$ZIP"
+    # 官方源优先；本环境官方 307 落地主机不可达时回退镜像（完整性由下方 SHA256 钉定保证）
+    curl -fL --connect-timeout 20 "https://services.gradle.org/distributions/gradle-$VERSION-bin.zip" -o "$ZIP" ||
+      curl -fL --connect-timeout 20 "https://mirrors.cloud.tencent.com/gradle/gradle-$VERSION-bin.zip" -o "$ZIP"
   fi
   ACTUAL=$(sha256sum "$ZIP" | awk '{print $1}')
   [ "$ACTUAL" = "$SHA256" ] || { echo "Gradle 校验失败" >&2; rm -f "$ZIP"; exit 1; }

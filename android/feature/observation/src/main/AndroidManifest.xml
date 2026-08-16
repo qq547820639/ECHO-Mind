@@ -1,2 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- UsageStatsManager 轮询前台 App（本模块真实调用 queryUsageStats）；
+         特殊授权权限，运行时经系统「使用情况访问」设置页授予，非 install-time 授予。
+         compileSdk 37 lint 对 library 模块独立做 MissingPermission 分析，需在本模块声明。 -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+</manifest>

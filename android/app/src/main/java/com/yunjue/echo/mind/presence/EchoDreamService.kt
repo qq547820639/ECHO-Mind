@@ -54,6 +54,8 @@ internal class EchoDreamView(context: Context) : View(context) {
     private var lastVisualChangeMs = 0L
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     private val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
+    /** 快照缺失时的中性 Presence 兜底（预分配，避免 onDraw 内分配）。 */
+    private val fallbackPresence = EchoPresenceState()
 
     @SuppressLint("CanvasSize") // View.onDraw 的 canvas 即完整绘制面，canvas.width/height 为正确引用
     override fun onDraw(canvas: Canvas) {
@@ -92,7 +94,7 @@ internal class EchoDreamView(context: Context) : View(context) {
         val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
             spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
                 genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
-                    presence ?: EchoPresenceState(), hourOfDay,
+                    presence ?: fallbackPresence, hourOfDay,
                 ),
                 surface = com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT,
                 clockSeconds = timeSeconds,
