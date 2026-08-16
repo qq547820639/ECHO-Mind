@@ -6,6 +6,11 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,17 +18,15 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.presence.EchoLifeField
 import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -169,6 +172,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             coreChecks = coreChecks,
             notifPermAuthorized = notifPermAuthorized,
             sensorHardwareAvailable = hasCoreSensorHardware(context),
+            // V3 §51/§53：Seed ECHO 视觉（与 Awakening/Home 同一 identitySeed）
+            seedPresence = remember { com.yunjue.echo.mind.presence.dayZeroSeedPresence(preferences.identitySeed) },
         ),
         actions = OnboardingStepActions(
             onAgeConfirmed = { ageConfirmed = it },
@@ -211,6 +216,8 @@ data class OnboardingStepState(
     val coreChecks: List<Boolean>,
     val notifPermAuthorized: Boolean,
     val sensorHardwareAvailable: Boolean,
+    /** V3 §51/§53：Seed ECHO（真实 identitySeed 派生；null = 不渲染视觉，测试友好）。 */
+    val seedPresence: com.yunjue.echo.mind.model.EchoPresenceState? = null,
 )
 
 /** ERA 38 — Onboarding 步骤回调（state-in / event-out）。 */
@@ -235,9 +242,25 @@ data class OnboardingStepActions(
 @Composable
 fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepActions) {
     val allCoreChecked = state.coreChecks.all { it }
-    Page("开始使用") {
+    // V3 §50–§53：quiet 全屏场景（无 legacy Page wrapper / 无大 Card）
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Spacer(Modifier.height(20.dp))
         when (state.step) {
             OnboardingStep.WELCOME -> {
+                // §51：Seed ECHO（260–300dp）是主要视觉
+                state.seedPresence?.let { seed ->
+                    Box(
+                        Modifier.fillMaxWidth().height(280.dp).testTag("onboarding_visual"),
+                    ) {
+                        com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                            presence = seed,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
                 // ERA 1 定位句（契约锚点保留：「不会判断情绪/不做心理诊断」，单测锁定）。
                 Text(
                     ONBOARDING_WELCOME_CORE_COPY,
@@ -294,10 +317,11 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     "你可以随时撤回同意、申请导出或删除数据；撤回后 ECHO 停止学习。"
                 )
                 if (!allCoreChecked) {
+                    // §52：CTA disabled + 中性提示；不要 red blame message
                     Text(
-                        "如果不授权这些数据，ECHO 将无法生成你的每日画像。",
+                        "完成以上同意后即可继续；不授权则无法生成每日画像。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
                     )
                 }
                 Button(
@@ -309,6 +333,17 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
             }
 
             OnboardingStep.CORE_SENSING -> {
+                // §53：Seed ECHO 约 210–240dp
+                state.seedPresence?.let { seed ->
+                    Box(
+                        Modifier.fillMaxWidth().height(224.dp).testTag("onboarding_visual"),
+                    ) {
+                        com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                            presence = seed,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
                 Text("让 ECHO 开始了解你", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "ECHO 只需要最少的权限就能开始工作。以下核心能力已就绪；" +
@@ -363,48 +398,56 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
  */
 @Composable
 private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit) {
-    // 短暂视觉过渡后自动完成 onboarding 并进入 ECHO Scene
+    // V3 §54：固定 2200ms 时间线（halo/filament/ring/first-breath/headline 分段进入），
+    // 使用真实 identitySeed + dayZeroSeedPresence + production renderer（EchoOrganism）。
+    var elapsedMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(Unit) {
-        delay(AWAKENING_DURATION_MS)
-        onFinished()
+        val start = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { now -> elapsedMs = (now - start) / 1_000_000L }
+        }
+    }
+    val timeline = AwakeningTimeline.at(elapsedMs)
+    if (timeline.finished) {
+        LaunchedEffect(Unit) { onFinished() }
     }
 
-    // ERA 31 R22/R31：苏醒瞬间必须是「这个 ECHO」——Day-0 SEED presence 由真实 identitySeed
-    // 经 dayZeroSeedPresence 单一构建点派生（R31：stability 与运行时 Day-0 同源 0f，
-    // 与随后进入的 ECHO Scene 是同一个 ECHO 的连续呼吸，不是通用占位圆）。
+    // ERA 31 R22/R31 + V3 §54：苏醒瞬间必须是「这个 ECHO」——Day-0 SEED presence 由真实
+    // identitySeed 经 dayZeroSeedPresence 单一构建点派生；末帧与 Home 首帧同 identity。
     val seedPresence = remember {
         com.yunjue.echo.mind.presence.dayZeroSeedPresence(identitySeed = preferences.identitySeed)
     }
 
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.radialGradient(
-                colors = listOf(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    MaterialTheme.colorScheme.background
-                )
-            )
-        ),
-        contentAlignment = Alignment.Center
+        Modifier.fillMaxSize().background(Color(0xFF040814)),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // ECHO 生命场（production 帧管线：同一个 ECHO 的第一次呼吸）
-            EchoLifeField(
-                presence = seedPresence,
-                modifier = Modifier.size(220.dp),
-            )
+            Box(Modifier.size(280.dp).testTag("onboarding_visual")) {
+                com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                    presence = seedPresence,
+                    modifier = Modifier.fillMaxSize(),
+                    options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                        maturityName = "SEED",
+                        haloScale = timeline.haloScale,
+                        detailScale = timeline.detailScale,
+                        ringAlphaScale = timeline.ringAlphaScale,
+                        breathScaleOverride = timeline.breathScale,
+                    ),
+                )
+            }
             Text(
                 "ECHO 已开始了解你",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color(0xFFE8ECF5).copy(alpha = timeline.headlineAlpha),
             )
             Text(
                 "今天是我们认识的第一天。",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color(0xFFB9C0D4).copy(alpha = timeline.headlineAlpha),
             )
         }
     }
@@ -440,32 +483,45 @@ private fun SensingCapabilityRow(
     onAuthorize: (() -> Unit)? = null,
     onSkip: (() -> Unit)? = null
 ) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Text(
-                    statusText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+    // §53：quiet row（small status point；optional 未授权 = neutral，无红色失败语义）
+    val ready = statusText.contains("可用") || statusText.contains("已开启")
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (ready) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f),
+                        ),
                 )
+                Spacer(Modifier.width(10.dp))
+                Text(name, style = MaterialTheme.typography.titleSmall)
             }
-            Text(description, style = MaterialTheme.typography.bodySmall)
-            if (onAuthorize != null || onSkip != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    onAuthorize?.let {
-                        Button(onClick = it) { Text("授权") }
-                    }
-                    onSkip?.let {
-                        OutlinedButton(onClick = it) { Text("跳过") }
-                    }
+            Text(
+                statusText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+            )
+        }
+        Text(description, style = MaterialTheme.typography.bodySmall)
+        if (onAuthorize != null || onSkip != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                onAuthorize?.let {
+                    Button(onClick = it) { Text("授权") }
+                }
+                onSkip?.let {
+                    OutlinedButton(onClick = it) { Text("跳过") }
                 }
             }
         }
+        HorizontalDivider()
     }
 }
 

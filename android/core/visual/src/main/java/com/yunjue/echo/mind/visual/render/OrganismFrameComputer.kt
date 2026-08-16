@@ -39,6 +39,12 @@ object OrganismFrameComputer {
         val detailScale: Float = 1f,
         /** §45 Correction 视觉反馈：距用户纠正的秒数（null = 无进行中脉冲）。 */
         val correctionPulseAgeSeconds: Float? = null,
+        /** §54 Awakening 时间线：halo 0→.55 渐入（1 = 正常）。 */
+        val haloScale: Float = 1f,
+        /** §54 Awakening 时间线：outer ring alpha 0→1。 */
+        val ringAlphaScale: Float = 1f,
+        /** §54 first breath .985→1.018→1.000（覆盖呼吸缩放；null = 正常呼吸）。 */
+        val breathScaleOverride: Float? = null,
         val hdrEligible: Boolean = false,
         val interaction: EchoInteractionSpec = EchoInteractionSpec(),
     )
@@ -139,8 +145,9 @@ object OrganismFrameComputer {
         val warm = ColorSpace.lch(identity.palette.warm.l, identity.palette.warm.c, identity.palette.warm.h)
 
         // 视觉半径 R（minDim 归一化；呼吸只缩放表现，不改 identity）
+        val breathScale = options.breathScaleOverride ?: motion.breathScale
         val baseR = (0.19f + field.dispersion * 0.11f + field.coreOpenness * 0.02f) *
-            identity.membraneBias * motion.breathScale
+            identity.membraneBias * breathScale
 
         // 低数据降级（§41：颜色不变红，只降丰富度/alpha/远晕）
         val clarity = field.dataClarity.coerceIn(0f, 1f)
@@ -194,7 +201,8 @@ object OrganismFrameComputer {
                 ),
                 samples = samples, ctx = ctx,
                 // 外环更淡（视觉质量集中于 .9R 内；skeleton 仍清晰可辨）
-                baseAlpha = (0.40f + field.coherence * 0.34f) * filamentClarity * (1f - i * 0.12f),
+                baseAlpha = (0.40f + field.coherence * 0.34f) * filamentClarity * (1f - i * 0.12f) *
+                    options.ringAlphaScale.coerceIn(0f, 1f),
                 color = primary, widthFraction = 0.0028f,
             )
         }
@@ -260,13 +268,14 @@ object OrganismFrameComputer {
         val haloBase = field.halo.coerceIn(0f, 1f) * motion.haloMultiplier
         halos += Halo(
             radiusFraction = baseR * 1.24f,
-            alpha = (0.011f + haloBase * 0.028f) * (0.5f + spec.capabilities.motionComplexity * 0.5f),
+            alpha = (0.011f + haloBase * 0.028f) * (0.5f + spec.capabilities.motionComplexity * 0.5f) *
+                options.haloScale.coerceIn(0f, 1f),
             widthFraction = 0.0028f,
         )
         if (profile.farHaloEnabled && field.halo > 0.25f) {
             halos += Halo(
                 radiusFraction = baseR * 1.50f,
-                alpha = (0.007f + haloBase * 0.016f) * farHaloClarity,
+                alpha = (0.007f + haloBase * 0.016f) * farHaloClarity * options.haloScale.coerceIn(0f, 1f),
                 widthFraction = 0.0018f,
             )
         }
