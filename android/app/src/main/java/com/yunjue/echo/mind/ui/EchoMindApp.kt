@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -65,7 +65,8 @@ fun EchoMindApp(container: AppContainer) {
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "紧急支持")
+                    // ERA 32 R26：警示图标（原「+」会被误读为新增/创建，与危机入口语义不符）
+                    Icon(Icons.Filled.Warning, contentDescription = "紧急支持")
                 }
             }
         },

@@ -89,6 +89,8 @@ fun EchoSceneScreen(
     val phase by viewModel.conversation.phase.collectAsStateWithLifecycle()
     val runningAction by viewModel.actionRuntime.running.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val aiPromptDismissed by viewModel.aiPromptDismissed.collectAsStateWithLifecycle()
+    val wallpaperPromptDismissed by viewModel.wallpaperPromptDismissed.collectAsStateWithLifecycle()
 
     EchoSceneContent(
         state = EchoSceneContentState(
@@ -98,8 +100,8 @@ fun EchoSceneScreen(
             phase = phase,
             runningAction = runningAction,
             message = message,
-            aiPromptDismissed = container.preferences.aiPromptDismissed,
-            wallpaperPromptDismissed = container.preferences.wallpaperPromptDismissed,
+            aiPromptDismissed = aiPromptDismissed,
+            wallpaperPromptDismissed = wallpaperPromptDismissed,
             awakenedAtEpochMs = container.preferences.awakenedAtEpochMs,
         ),
         navigation = EchoSceneNavigation(

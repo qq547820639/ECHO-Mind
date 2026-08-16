@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -58,11 +60,18 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     val context = LocalContext.current
     val preferences = container.preferences
 
-    var ageConfirmed by remember { mutableStateOf(false) }
-    var boundaryConfirmed by remember { mutableStateOf(false) }
+    // ERA 32 R26：rememberSaveable——配置变更（旋转/深浅色）不再丢失勾选进度；
+    // 进程死亡恢复由 onboardingState（CONSENT_PENDING → 隐私承诺页）承担。
+    var ageConfirmed by rememberSaveable { mutableStateOf(false) }
+    var boundaryConfirmed by rememberSaveable { mutableStateOf(false) }
 
     // 核心数据同意：5 项（全部勾选才可继续；拒绝 = abstain）
-    var coreChecks by remember { mutableStateOf(listOf(false, false, false, false, false)) }
+    var coreChecks by rememberSaveable(
+        stateSaver = Saver(
+            save = { state -> state.joinToString("") { if (it) "1" else "0" } },
+            restore = { saved -> saved.map { it == '1' } },
+        )
+    ) { mutableStateOf(listOf(false, false, false, false, false)) }
     val allCoreChecked = coreChecks.all { it }
 
     // Android 13+ 持续通知权限（可选降级：拒绝仅通知不可见，采集继续）。
@@ -79,8 +88,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> notifPermAuthorized = granted }
 
-    var showSafety by remember { mutableStateOf(false) }
-    var step by remember {
+    var showSafety by rememberSaveable { mutableStateOf(false) }
+    var step by rememberSaveable {
         mutableStateOf(
             when (preferences.onboardingState) {
                 // 进程中断恢复：BOUND / CONSENT_PENDING 从隐私承诺页继续
@@ -92,7 +101,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     }
 
     // ===== ECHO AWAKENING 状态：苏醒过渡结束后自动完成 onboarding =====
-    var awakening by remember { mutableStateOf(false) }
+    var awakening by rememberSaveable { mutableStateOf(false) }
 
     if (showSafety) {
         SafetyScreen(
@@ -115,17 +124,15 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 onComplete()
                 return@launch
             }
-            // ERA 1：核心同意围绕被动行为节律（passive_sensing consent）。
-            if (coreChecks.all { it }) {
+            // ERA 32 R26：abstain（暂不开启）不再写 granted 同意——
+            // 同意证据只在真正开启采集时产生；旅程页「已关闭」状态如实反映 abstain。
+            if (coreChecks.all { it } && sensingOn) {
                 container.consentRepository.savePassiveSensingConsent(granted = true)
-                if (sensingOn) {
-                    container.preferences.setPassiveSensingEnabled(true)
-                    container.preferences.consentSyncPending = true
-                }
+                container.preferences.setPassiveSensingEnabled(true)
+                container.preferences.consentSyncPending = true
             }
-            preferences.onboardingState = AppPreferences.ONBOARDING_CONSENT_PENDING
-            preferences.serverActivated = false
             preferences.onboardingState = AppPreferences.ONBOARDING_READY_OFFLINE
+            preferences.serverActivated = false
             preferences.onboardingLocalSubmitted = true
             if (sensingOn) {
                 // 02b 共享知识 1：consent granted → flag（拉取失败 fail-closed）→ 真实启动服务
@@ -167,7 +174,12 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             onAgeConfirmed = { ageConfirmed = it },
             onBoundaryConfirmed = { boundaryConfirmed = it },
             onCoreCheck = { index, value -> coreChecks = coreChecks.withIndexed(value, index) },
-            onContinueToPrivacy = { step = OnboardingStep.PRIVACY_PLEDGE },
+            onContinueToPrivacy = {
+                // ERA 32 R26：进入隐私承诺页即持久化进度（进程死亡后从这里恢复，
+                // 不再回到 WELCOME 重来）
+                preferences.onboardingState = AppPreferences.ONBOARDING_CONSENT_PENDING
+                step = OnboardingStep.PRIVACY_PLEDGE
+            },
             onContinueToCoreSensing = { step = OnboardingStep.CORE_SENSING },
             onAwaken = {
                 // 苏醒瞬间锚点（Day-0 SEED 的「已观察 N 分钟」起点）

@@ -29,7 +29,6 @@ import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.drawEchoFrame
 import com.yunjue.echo.mind.ui.Page
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
-import com.yunjue.echo.mind.ui.appSettingsIntent
 import com.yunjue.echo.mind.ui.batteryOptimizationSettingsIntent
 import com.yunjue.echo.mind.ui.formatTimestamp
 import java.time.LocalDate
@@ -94,9 +93,9 @@ fun JourneyScreenContent(
             }
             TrendUiState.PERMISSION_DISABLED -> {
                 Text("被动感知已关闭或权限被撤，无法获取新的旅程数据。")
-                OutlinedButton(onClick = {
-                    runCatching { context.startActivity(appSettingsIntent(context)) }
-                }) { Text("前往系统设置修复权限") }
+                // ERA 32 R26：修复恢复路径——此前一律跳系统设置，但感知关闭/同意撤回
+                // 在系统设置页无法解决；正确入口是支持页（数据与感知开关）。
+                OutlinedButton(onClick = onGoToSupport) { Text("前往支持页重新开启") }
             }
             TrendUiState.ERROR -> {
                 Text("旅程加载失败")

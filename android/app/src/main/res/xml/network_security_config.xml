@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Release default: cleartext HTTP is forbidden. -->
+<!-- Release default: cleartext HTTP is forbidden (TLS mandatory). -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

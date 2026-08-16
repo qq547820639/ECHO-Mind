@@ -118,7 +118,8 @@ class JourneyScreenSmokeTest {
     fun permissionDisabledBranchShowsRepairEntry() {
         setJourneyContent(JourneyUiState(trendState = TrendUiState.PERMISSION_DISABLED))
         compose.onNodeWithText("被动感知已关闭或权限被撤，无法获取新的旅程数据。").assertExists()
-        compose.onNodeWithText("前往系统设置修复权限").assertExists()
+        // ERA 32 R26：恢复入口从系统设置改为支持页（同意/开关只能在应用内解决）
+        compose.onNodeWithText("前往支持页重新开启").assertExists()
     }
 
     @Test
