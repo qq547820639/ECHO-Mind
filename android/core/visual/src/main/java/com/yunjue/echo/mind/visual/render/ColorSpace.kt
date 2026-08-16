@@ -38,6 +38,38 @@ object ColorSpace {
         return this and 0x00FFFFFF or (a shl 24)
     }
 
+    /**
+     * CIELCh(D65) → ARGB（V3 §12：identity palette 的感知语义）。
+     * l 归一化 0..1（×100 得 CIE L*）；c 彩度（0..~0.4 实用区间）；h 色相角度（度）。
+     * 超色域分量裁剪到 0..1（软裁剪留给 tone pipeline，不在身份层做）。
+     */
+    fun lch(l: Float, c: Float, h: Float, alpha: Float = 1f): Argb {
+        val hr = Math.toRadians((h % 360f + 360f) % 360f.toDouble())
+        val labL = (l.coerceIn(0f, 1f) * 100f).toDouble()
+        val a = c * kotlin.math.cos(hr)
+        val b = c * kotlin.math.sin(hr)
+        // Lab → XYZ（D65 白点）
+        val fy = (labL + 16.0) / 116.0
+        val fx = fy + a / 5.0
+        val fz = fy - b / 2.0
+        fun invF(t: Double): Double {
+            val t3 = t * t * t
+            return if (t3 > 0.008856) t3 else (t - 16.0 / 116.0) / 7.787
+        }
+        val x = invF(fx) * 0.95047
+        val y = if (labL > 7.9996) fy * fy * fy else labL / 903.3
+        val z = invF(fz) * 1.08883
+        // XYZ → linear sRGB
+        val rl = 3.2406 * x - 1.5372 * y - 0.4986 * z
+        val gl = -0.9689 * x + 1.8758 * y + 0.0415 * z
+        val bl = 0.0557 * x - 0.2040 * y + 1.0570 * z
+        fun gamma(u: Double): Float {
+            val v = if (u <= 0.0031308) 12.92 * u else 1.055 * Math.pow(u, 1.0 / 2.4) - 0.055
+            return v.toFloat().coerceIn(0f, 1f)
+        }
+        return argb(alpha, gamma(rl), gamma(gl), gamma(bl))
+    }
+
     /** deep navy / OLED black 底色（宪法 §二）。 */
     val BG_CENTER = hsv(0.62f, 0.55f, 0.07f)   // ~ #0A1230
     val BG_EDGE = hsv(0.66f, 0.7f, 0.02f)       // ~ #02040C

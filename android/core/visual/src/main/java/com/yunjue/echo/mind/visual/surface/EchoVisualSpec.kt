@@ -15,6 +15,8 @@ data class EchoVisualSpec(
     val capabilities: SurfaceCapabilities,
     /** 渲染时的确定性时间基准（秒；测试注入固定值，运行时注入墙钟）。 */
     val clockSeconds: Float,
+    /** 目标 surface（V3 SceneCompiler 需要真实 surface，禁止从 capabilities 反推）。 */
+    val surface: EchoSurface = EchoSurface.APP_PRIVATE,
 )
 
 /**
@@ -37,6 +39,6 @@ object SurfacePolicy {
             haloIntensity = genome.haloIntensity * (0.5f + c * 0.5f),
             momentIntensity = genome.momentIntensity * c,
         )
-        return EchoVisualSpec(genome = scaled, capabilities = cap, clockSeconds = clockSeconds)
+        return EchoVisualSpec(genome = scaled, capabilities = cap, clockSeconds = clockSeconds, surface = surface)
     }
 }

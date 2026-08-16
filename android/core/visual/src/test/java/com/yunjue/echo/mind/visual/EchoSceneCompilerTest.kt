@@ -1,0 +1,191 @@
+package com.yunjue.echo.mind.visual
+
+import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.visual.render.DeviceRenderCapabilities
+import com.yunjue.echo.mind.visual.render.EchoRenderQuality
+import com.yunjue.echo.mind.visual.render.EchoRenderTier
+import com.yunjue.echo.mind.visual.render.EchoSceneCompiler
+import com.yunjue.echo.mind.visual.surface.EchoSurface
+import com.yunjue.echo.mind.visual.surface.SurfacePolicy
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * V3 §7/§9/§13/§27/§28/§30/§31 — SceneCompiler / RenderPacket / Capability Router 测试。
+ */
+class EchoSceneCompilerTest {
+
+    private fun specFor(seed: Long, surface: EchoSurface, clock: Float = 12f) =
+        SurfacePolicy.crop(
+            GenomeDeriver.derive(
+                EchoPresenceState(identityGenome = com.yunjue.echo.mind.model.EchoIdentityGenome(seed = seed)),
+                hourOfDay = 14f,
+            ),
+            surface,
+            clock,
+        )
+
+    @Test
+    fun packetIsDeterministicForSameInputs() {
+        val spec = specFor(99L, EchoSurface.APP_PRIVATE)
+        val a = EchoSceneCompiler.compile(spec, 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD)
+        val b = EchoSceneCompiler.compile(spec, 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD)
+        assertEquals(a, b)
+    }
+
+    @Test
+    fun identityIsStableAcrossDailyAndMomentChanges() {
+        // 同一 seed 不同时钟/surface → identity 完全一致（§11：Daily/Moment 不重新生成 Identity）
+        val day1 = EchoSceneCompiler.compile(
+            specFor(99L, EchoSurface.APP_PRIVATE, clock = 12f), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        val day2 = EchoSceneCompiler.compile(
+            specFor(99L, EchoSurface.WALLPAPER_VISUAL_ONLY, clock = 9999f), 1080f, 2340f, "MATURE", EchoRenderTier.LEGACY,
+        )
+        assertEquals(day1.identity, day2.identity)
+    }
+
+    @Test
+    fun breathWindowAndSurfaceAmplitudes() {
+        val app = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        val wallpaper = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.WALLPAPER_VISUAL_ONLY), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        val dream = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.DREAM_AMBIENT), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        // §27：period 6.8–10.8s（Dream ×1.18 放宽上限）；幅度 App 2.4% / Wallpaper 1.6% / Dream 2.0%
+        assertTrue(app.motion.breathPeriodSeconds in 6.8f..10.8f)
+        assertEquals(0.024f, app.motion.breathAmplitude, 1e-4f)
+        assertEquals(0.016f, wallpaper.motion.breathAmplitude, 1e-4f)
+        assertEquals(0.020f, dream.motion.breathAmplitude, 1e-4f)
+        assertTrue(dream.motion.breathPeriodSeconds > app.motion.breathPeriodSeconds)
+        assertTrue("brightness pulse <= ±3%", app.motion.brightnessPulse <= 0.03f)
+    }
+
+    @Test
+    fun reducedMotionExactFactors() {
+        val normal = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        val reduced = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+            reducedMotion = true,
+        )
+        // §30：particle velocity ×.08 / orbit ×.06 / filament phase ×.12 / breath amplitude .007 / period ×1.45
+        assertEquals(0.08f, reduced.motion.particleVelocity, 1e-4f)
+        assertEquals(0.06f, reduced.motion.orbitVelocity, 1e-4f)
+        assertEquals(0.12f, reduced.motion.filamentPhaseScale, 1e-4f)
+        assertEquals(0.007f, reduced.motion.breathAmplitude, 1e-4f)
+        assertEquals(normal.motion.breathPeriodSeconds * 1.45f, reduced.motion.breathPeriodSeconds, 1e-3f)
+        // identity 不因 Reduced Motion 改变
+        assertEquals(normal.identity, reduced.identity)
+    }
+
+    @Test
+    fun dreamMotionFactors() {
+        val dream = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.DREAM_AMBIENT), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        // §71：particle ×.55 / orbit ×.45 / filament ×.60
+        assertEquals(0.55f, dream.motion.particleVelocity, 1e-4f)
+        assertEquals(0.45f, dream.motion.orbitVelocity, 1e-4f)
+        assertEquals(0.60f, dream.motion.filamentPhaseScale, 1e-4f)
+    }
+
+    @Test
+    fun orbitAndFilamentPhaseWindows() {
+        val packet = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
+        )
+        // §28：主轨道 21–60 分钟；filament 相位 26–58 秒
+        assertTrue(packet.motion.orbitPeriodSeconds in 1260f..3600f)
+        assertTrue(packet.motion.filamentPhaseSeconds in 26f..58f)
+    }
+
+    @Test
+    fun maturityMultipliers() {
+        assertEquals(.42f, EchoSceneCompiler.maturityMultiplier("SEED"), 1e-4f)
+        assertEquals(.58f, EchoSceneCompiler.maturityMultiplier("DISCOVERING"), 1e-4f)
+        assertEquals(.74f, EchoSceneCompiler.maturityMultiplier("EMERGING"), 1e-4f)
+        assertEquals(.90f, EchoSceneCompiler.maturityMultiplier("KNOWN"), 1e-4f)
+        assertEquals(1.00f, EchoSceneCompiler.maturityMultiplier("MATURE"), 1e-4f)
+    }
+
+    @Test
+    fun qualityProfiles() {
+        val normal = EchoSceneCompiler.qualityProfile(EchoRenderQuality.NORMAL)
+        val conserve = EchoSceneCompiler.qualityProfile(EchoRenderQuality.CONSERVE)
+        val minimal = EchoSceneCompiler.qualityProfile(EchoRenderQuality.MINIMAL)
+        assertEquals(1f, normal.particleScale, 1e-4f)
+        assertEquals(.68f, conserve.particleScale, 1e-4f)
+        assertEquals(.76f, conserve.filamentScale, 1e-4f)
+        assertFalse(conserve.secondaryGlintsEnabled)
+        assertEquals(.34f, minimal.particleScale, 1e-4f)
+        assertEquals(.50f, minimal.filamentScale, 1e-4f)
+        assertFalse(minimal.glintsEnabled)
+        assertFalse(minimal.farHaloEnabled)
+    }
+
+    @Test
+    fun capabilityRouterTiers() {
+        // §9：LEGACY / STANDARD / ADVANCED / ULTRA 选择矩阵
+        assertEquals(
+            EchoRenderTier.LEGACY,
+            com.yunjue.echo.mind.visual.render.selectTier(DeviceRenderCapabilities(api = 28, runtimeShader = false)),
+        )
+        assertEquals(
+            EchoRenderTier.STANDARD,
+            com.yunjue.echo.mind.visual.render.selectTier(DeviceRenderCapabilities(api = 34, runtimeShader = true)),
+        )
+        assertEquals(
+            EchoRenderTier.LEGACY,
+            com.yunjue.echo.mind.visual.render.selectTier(DeviceRenderCapabilities(api = 34, runtimeShader = false)),
+        )
+        assertEquals(
+            EchoRenderTier.ADVANCED,
+            com.yunjue.echo.mind.visual.render.selectTier(DeviceRenderCapabilities(api = 36, runtimeShader = true)),
+        )
+        // ULTRA 永不只因 API>=37 自动启用：四个硬门缺一不可
+        assertEquals(
+            EchoRenderTier.ADVANCED,
+            com.yunjue.echo.mind.visual.render.selectTier(DeviceRenderCapabilities(api = 37, runtimeShader = true)),
+        )
+        assertEquals(
+            EchoRenderTier.ADVANCED,
+            com.yunjue.echo.mind.visual.render.selectTier(
+                DeviceRenderCapabilities(api = 37, runtimeShader = true, avp2025 = true, ultraBenchmarkPassed = true),
+            ),
+        )
+        assertEquals(
+            EchoRenderTier.ULTRA,
+            com.yunjue.echo.mind.visual.render.selectTier(
+                DeviceRenderCapabilities(
+                    api = 37, runtimeShader = true, avp2025 = true,
+                    ultraBenchmarkPassed = true, ultraFlag = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun hdrNeverAllowedOnWallpaper() {
+        val wallpaper = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.WALLPAPER_VISUAL_ONLY), 1080f, 2340f, "KNOWN", EchoRenderTier.ADVANCED,
+            hdrEligible = true,
+        )
+        // §23：Wallpaper 默认 HDR OFF（即使显示链路合格）
+        assertFalse(wallpaper.material.hdrAllowed)
+        val app = EchoSceneCompiler.compile(
+            specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.ADVANCED,
+            hdrEligible = true,
+        )
+        assertTrue(app.material.hdrAllowed)
+        assertTrue("HDR glint cap <= 3%", app.material.hdrGlintCap <= 0.03f)
+    }
+}
