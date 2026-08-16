@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,6 +78,19 @@ class VisualRuntimeV3RegressionTest {
         assertTrue(f115 in 0.56f..0.64f)
         assertTrue("fontScale ≥1.3 → ~52%", f13 >= 0.52f - 1e-4f && f13 < 0.56f)
         assertTrue(f15 >= 0.52f - 1e-4f && f15 < 0.56f)
+    }
+
+    @Test
+    fun singleProductionVisualPipelineNotForked() {
+        // §96：single production visual pipeline 未分叉——旧渲染器文件已删除，
+        // 唯一帧求值器 = OrganismFrameComputer（core:visual）
+        assertFalse(
+            "旧 EchoSceneRenderers 不得复活",
+            File("../feature/presence/src/main/java/com/yunjue/echo/mind/presence/EchoSceneRenderers.kt").exists(),
+        )
+        val visualRoot = File("../core/visual/src/main/java/com/yunjue/echo/mind/visual/render")
+        val computers = visualRoot.listFiles()?.filter { it.name.contains("FrameComputer") } ?: emptyList()
+        assertEquals("唯一帧求值器", 1, computers.size)
     }
 
     @Test
