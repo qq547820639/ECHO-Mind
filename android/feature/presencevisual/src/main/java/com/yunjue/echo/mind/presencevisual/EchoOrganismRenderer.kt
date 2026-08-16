@@ -97,8 +97,8 @@ fun EchoOrganism(
 /** 中性占位 genome（无 presence 时：静止、弥散、低亮度，不编造）。 */
 private fun neutralGenome() = GenomeDeriver.derive(EchoPresenceState(), hourOfDay = 12f)
 
-/** DrawScope 绘制 9 层 organism。 */
-private fun DrawScope.drawOrganism(frame: OrganismFrame) {
+/** DrawScope 绘制 9 层 organism（public：Journey 等其他 Surface 复用）。 */
+fun DrawScope.drawOrganism(frame: OrganismFrame) {
     val minDim = min(size.width, size.height)
     val center = Offset(size.width / 2f, size.height / 2f)
 

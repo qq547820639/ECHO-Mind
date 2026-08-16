@@ -78,6 +78,7 @@ class JourneyViewModel(
                     contextExceptions = exceptions,
                     selectedDayDate = selectedDate,
                 ),
+                identitySeed = journeySeed,
             )
         }.distinctUntilChanged()
 

@@ -27,6 +27,7 @@ import com.yunjue.echo.mind.journey.journeySegmentKindLabel
 import com.yunjue.echo.mind.journey.trendNoDataReasonText
 import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.drawEchoFrame
+import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.ui.Page
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
 import com.yunjue.echo.mind.ui.batteryOptimizationSettingsIntent
@@ -323,17 +324,30 @@ private fun JourneyThumbCell(
         modifier = Modifier.clickable(onClick = onClick),
     ) {
         Canvas(Modifier.size(52.dp)) {
-            val frame = journeyDay?.visualParams?.let {
-                computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
-            }
-            if (frame != null) {
-                drawEchoFrame(frame)
-            } else {
-                // 无数据日：低亮度弥散占位（Journey 的「没有记录」也是视觉记忆）
-                drawCircle(
-                    color = placeholderColor,
-                    radius = this.size.minDimension * 0.2f,
+            // visual-runtime：优先用 organism genome（9 层），fallback 旧单环渲染
+            val genome = journeyDay?.genome
+            if (genome != null) {
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        JOURNEY_CANONICAL_TIME_SECONDS,
+                    ),
+                    width = this.size.width, height = this.size.height,
                 )
+                drawOrganism(frame)
+            } else {
+                val frame = journeyDay?.visualParams?.let {
+                    computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
+                }
+                if (frame != null) {
+                    drawEchoFrame(frame)
+                } else {
+                    // 无数据日：低亮度弥散占位（Journey 的「没有记录」也是视觉记忆）
+                    drawCircle(
+                        color = placeholderColor,
+                        radius = this.size.minDimension * 0.2f,
+                    )
+                }
             }
         }
         Text(label, style = MaterialTheme.typography.labelSmall)
@@ -353,16 +367,29 @@ private fun JourneyAggregateCell(
     val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(Modifier.size(cellSize)) {
-            val frame = period.aggregateParams?.let {
-                computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
-            }
-            if (frame != null) {
-                drawEchoFrame(frame)
-            } else {
-                drawCircle(
-                    color = placeholderColor,
-                    radius = this.size.minDimension * 0.2f,
+            // visual-runtime：优先用聚合 organism genome（9 层），fallback 旧单环渲染
+            val aggGenome = period.aggregateGenome
+            if (aggGenome != null) {
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        aggGenome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        JOURNEY_CANONICAL_TIME_SECONDS,
+                    ),
+                    width = this.size.width, height = this.size.height,
                 )
+                drawOrganism(frame)
+            } else {
+                val frame = period.aggregateParams?.let {
+                    computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
+                }
+                if (frame != null) {
+                    drawEchoFrame(frame)
+                } else {
+                    drawCircle(
+                        color = placeholderColor,
+                        radius = this.size.minDimension * 0.2f,
+                    )
+                }
             }
         }
         Text(label, style = MaterialTheme.typography.labelSmall)
