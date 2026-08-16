@@ -81,22 +81,27 @@ internal class EchoDreamView(context: Context) : View(context) {
             motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
             nightMode = prefs.getBoolean("presence_night_mode", false),
         )
-        val params = if (presence != null) {
-            computeVisualParameters(presence, hourOfDay, config.surface, config.motionLevel, config.nightMode)
-        } else {
-            NEUTRAL_VISUAL_PARAMS
-        }
         if (startNanos == 0L) startNanos = System.nanoTime()
         val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-        val frame = computeEchoSceneFrame(
-            params = params,
-            seed = presence?.identityGenome?.seed ?: 0L,
-            timeSeconds = timeSeconds,
+        // visual-runtime R2：Dream 复用 core/visual 分层 organism（SAME ECHO；暖金高光仅 DREAM_AMBIENT）
+        val motionPolicy = when (config.surface) {
+            SurfaceMode.REDUCED_MOTION -> com.yunjue.echo.mind.visual.motion.MotionPolicy.REDUCED_MOTION
+            SurfaceMode.LOW_POWER -> com.yunjue.echo.mind.visual.motion.MotionPolicy.LOW_POWER
+            else -> com.yunjue.echo.mind.visual.motion.MotionPolicy.FULL
+        }
+        val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+            spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
+                    presence ?: EchoPresenceState(), hourOfDay,
+                ),
+                surface = com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT,
+                clockSeconds = timeSeconds,
+            ),
             width = w,
             height = h,
         )
-        renderEchoFrameToCanvas(canvas, frame, w, h)
-        drawPublicSafeOverlay(canvas, frame, w, h)
+        com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(canvas, frame, w, h)
+        drawPublicSafeOverlay(canvas, frame.membrane.strokeColor, w, h)
 
         // ERA 31 R14（§16）：与 Wallpaper 同款自适应帧率——过渡期 33ms / 静置期 250ms（4fps）。
         // View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止（0 残留渲染语义保持）。
@@ -111,9 +116,9 @@ internal class EchoDreamView(context: Context) : View(context) {
      * Dream 的 PUBLIC_SAFE 覆盖层：ECHO 字标 + 时间 + 日期。
      * 白名单内容（无状态词、无情绪词、无习惯异常、无支持信息）——锁屏隐私由内容本身保证。
      */
-    private fun drawPublicSafeOverlay(canvas: Canvas, frame: EchoSceneFrame, w: Float, h: Float) {
+    private fun drawPublicSafeOverlay(canvas: Canvas, accentColor: Int, w: Float, h: Float) {
         val wordmark = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = frame.accentColor
+            color = accentColor
             alpha = 0xCC
             textSize = w * 0.06f
             textAlign = Paint.Align.CENTER

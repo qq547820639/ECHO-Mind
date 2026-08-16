@@ -8,8 +8,10 @@ import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.EchoLifeField
 import com.yunjue.echo.mind.presence.resolveSurfaceConfig
+import com.yunjue.echo.mind.presencevisual.EchoOrganism
+import com.yunjue.echo.mind.visual.motion.MotionPolicy
+import com.yunjue.echo.mind.visual.surface.EchoSurface
 
 /**
  * ERA 38 — EchoVisualSurface 偏好输入纯函数化：
@@ -38,10 +40,33 @@ fun echoVisualSurfaceConfig(
     )
 }
 
+/** 旧 SurfaceMode → 新 EchoSurface（APP/EVIDENCE 私有；锁屏/壁纸/Dream 走各自 Service）。 */
+private fun SurfaceMode.toEchoSurface(): EchoSurface = when (this) {
+    SurfaceMode.APP -> EchoSurface.APP_PRIVATE
+    SurfaceMode.HOME_WALLPAPER -> EchoSurface.WALLPAPER_VISUAL_ONLY
+    SurfaceMode.LOCK_SAFE -> EchoSurface.LOCK_PUBLIC_SAFE
+    SurfaceMode.DREAM -> EchoSurface.DREAM_AMBIENT
+    SurfaceMode.LOW_POWER, SurfaceMode.REDUCED_MOTION -> EchoSurface.APP_PRIVATE
+}
+
+/** 旧 SurfaceMode → MotionPolicy（REDUCED_MOTION/LOW_POWER 降级；其余 FULL）。 */
+private fun SurfaceMode.toMotionPolicy(motionLevel: PresenceMotionLevel): MotionPolicy = when (this) {
+    SurfaceMode.REDUCED_MOTION -> MotionPolicy.REDUCED_MOTION
+    SurfaceMode.LOW_POWER -> MotionPolicy.LOW_POWER
+    else -> when (motionLevel) {
+        PresenceMotionLevel.QUIET -> MotionPolicy.LOW_POWER
+        else -> MotionPolicy.FULL
+    }
+}
+
 /**
- * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（生命场）。
+ * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（**新版分层 Organism**）。
+ *
+ * visual-runtime R2 起：内部渲染从旧 EchoLifeField（单环+圆点）切换为
+ * core/visual 的 9 层 organism（ambient/membrane/filament/orbital/particle/core/halo/ripple/warm）。
+ * 首屏 organism 占比提升（§8：第一眼是 ECHO，不是 Dashboard）。
  * 只渲染 [EchoPresenceState]；不接触 Repository / Provider / DB / Preferences。
- * 注：EchoLifeField 含无限帧动画，由构造隔离（Robolectric 不适配，设备/CI 覆盖）。
+ * 注：含无限帧动画，由构造隔离（Robolectric 不适配，设备/CI 覆盖）。
  */
 @Composable
 fun EchoVisualSurface(
@@ -49,11 +74,11 @@ fun EchoVisualSurface(
     config: EchoVisualSurfaceConfig,
     modifier: Modifier = Modifier,
 ) {
-    EchoLifeField(
+    EchoOrganism(
         presence = presence,
-        modifier = modifier.fillMaxWidth().height(260.dp),
-        surface = config.surface,
-        motionLevel = config.motionLevel,
-        nightMode = config.nightMode,
+        modifier = modifier.fillMaxWidth().height(380.dp),
+        surface = config.surface.toEchoSurface(),
+        motionPolicy = config.surface.toMotionPolicy(config.motionLevel),
+        reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
     )
 }

@@ -159,37 +159,37 @@ class EchoWallpaperService : WallpaperService() {
                 val presence = snapshot
                 val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
                 val config = surfaceConfig()
-                val params = if (presence != null) {
-                    computeVisualParameters(
-                        state = presence,
-                        hourOfDay = hourOfDay,
-                        surface = config.surface,
-                        motionLevel = config.motionLevel,
-                        nightMode = config.nightMode,
-                    )
-                } else {
-                    NEUTRAL_VISUAL_PARAMS
-                }
                 if (startNanos == 0L) startNanos = System.nanoTime()
                 val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-                // 触摸涟漪：衰减 1.2s 内的亮度/波纹增强（不改底层状态，纯表现层）
+                // 触摸涟漪：衰减 1.2s 内的瞬时强度（不改底层 identity，纯表现层）
                 val ripple = if (rippleUntilMs > System.currentTimeMillis()) {
                     (rippleUntilMs - System.currentTimeMillis()).toFloat() / RIPPLE_DURATION_MS
                 } else {
                     0f
                 }
-                val frame = computeEchoSceneFrame(
-                    params = params.copy(
-                        brightness = (params.brightness + ripple * 0.2f).coerceIn(0f, 1f),
-                        accentIntensity = (params.accentIntensity + ripple * 0.3f).coerceIn(0f, 1f),
-                        turbulence = (params.turbulence + ripple * 0.25f).coerceIn(0f, 1f),
+                // visual-runtime R2：Wallpaper 复用 core/visual 分层 organism（SAME ECHO；无文字 Public Safe）。
+                // 涟漪映射到 momentIntensity 瞬时增强（identity 不变），REDUCED_MOTION 下不增动效。
+                val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
+                    presence ?: EchoPresenceState(), hourOfDay,
+                ).let { g ->
+                    if (ripple > 0f && config.surface != SurfaceMode.REDUCED_MOTION) {
+                        g.copy(momentIntensity = (g.momentIntensity + ripple).coerceIn(0f, 1f))
+                    } else {
+                        g
+                    }
+                }
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        genome = genome,
+                        surface = com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+                        clockSeconds = timeSeconds,
                     ),
-                    seed = presence?.identityGenome?.seed ?: 0L,
-                    timeSeconds = timeSeconds,
                     width = canvas.width.toFloat(),
                     height = canvas.height.toFloat(),
                 )
-                renderEchoFrameToCanvas(canvas, frame, canvas.width.toFloat(), canvas.height.toFloat())
+                com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(
+                    canvas, frame, canvas.width.toFloat(), canvas.height.toFloat(),
+                )
             } finally {
                 runCatching { holder.unlockCanvasAndPost(canvas) }
             }
