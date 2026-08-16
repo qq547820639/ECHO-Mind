@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://echo-mind.local/integrations/answatch/ANS_FRAME_V1.schema.json",
+  "title": "ANS_FRAME_V1",
+  "description": "ANSWatch 输出帧契约 v1（schema_version 1.0）。字段逐一提取自 ANSWatch 真实输出实现 wrist_pipeline/output_schema.py（make_output + validate_output + SPEC-2 §8.1）。禁止重新设计一个看起来相似的 schema。UNKNOWN 帧：activation/stress/recovery 为 null，unknown.is_unknown=true 且 reason 必填；signal_quality 永远如实上报。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject_id",
+    "window_end_timestamp",
+    "signal_quality",
+    "physiological_arousal",
+    "stress_likelihood",
+    "confidence",
+    "recovery",
+    "physical_activity",
+    "baseline_deviation",
+    "unknown"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "subject_id": {
+      "type": "string"
+    },
+    "window_id": {
+      "type": "integer"
+    },
+    "window_end_timestamp": {
+      "type": "integer",
+      "description": "窗口结束时间，微秒"
+    },
+    "signal_quality": {
+      "type": "object",
+      "required": [
+        "sqi_eda",
+        "sqi_ppg",
+        "sqi_temp",
+        "sqi_imu",
+        "on_body",
+        "repaired"
+      ],
+      "properties": {
+        "sqi_eda": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sqi_ppg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sqi_temp": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sqi_imu": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "on_body": {
+          "type": "boolean"
+        },
+        "repaired": {
+          "type": "object",
+          "properties": {
+            "eda": {
+              "type": "boolean"
+            },
+            "ppg": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "physiological_arousal": {
+      "type": "object",
+      "required": [
+        "activation",
+        "trend_30min"
+      ],
+      "properties": {
+        "activation": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "trend_30min": {
+          "type": "string"
+        }
+      }
+    },
+    "stress_likelihood": {
+      "type": "object",
+      "required": [
+        "value",
+        "disambiguation_flags"
+      ],
+      "properties": {
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "disambiguation_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": [
+        "value",
+        "calibrated",
+        "calibration_model_id"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "calibrated": {
+          "type": "boolean"
+        },
+        "calibration_model_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "required": [
+        "active_event",
+        "tau_min",
+        "recovery_score"
+      ],
+      "properties": {
+        "active_event": {
+          "type": "boolean"
+        },
+        "tau_min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "recovery_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "physical_activity": {
+      "type": "object",
+      "required": [
+        "activity_level",
+        "motion_energy",
+        "minutes_since_vigorous"
+      ],
+      "properties": {
+        "activity_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "motion_energy": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minutes_since_vigorous": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "baseline_deviation": {
+      "type": "object",
+      "required": [
+        "z_composite",
+        "layer",
+        "baseline_ready"
+      ],
+      "properties": {
+        "z_composite": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "baseline_ready": {
+          "type": "boolean"
+        }
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "required": [
+        "is_unknown"
+      ],
+      "properties": {
+        "is_unknown": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SIGNAL_MOTION_COMPOUND",
+            "DUAL_MODALITY_DOWN",
+            "MODALITY_DOWN",
+            "OFF_BODY",
+            "CLOCK_FAULT",
+            "LOW_CONFIDENCE",
+            "CONTEXT_CONFLICT",
+            "BASELINE_NOT_READY",
+            null
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "unknown": {
+            "properties": {
+              "is_unknown": {
+                "const": true
+              }
+            },
+            "required": [
+              "is_unknown"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "unknown": {
+            "required": [
+              "reason"
+            ]
+          }
+        },
+        "required": []
+      }
+    }
+  ]
+}

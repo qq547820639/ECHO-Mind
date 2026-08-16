@@ -30,6 +30,8 @@
 - `com.yunjue.echo.mind.ui.echo.why`
 - `com.yunjue.echo.mind.ui.journey`
 - `com.yunjue.echo.mind.ui.me`
+- `com.yunjue.echo.mind.wearable`
+- `com.yunjue.echo.mind.wearable.research`
 
 ## Python 包（backend/app 顶层）
 - ``
@@ -37,17 +39,21 @@
 - `services`
 
 ## 数量事实
-- Production Kotlin：166
-- Test Kotlin：123
+- Production Kotlin：196
+- Test Kotlin：139
 - QA Kotlin（:feature:qa，不属于 Production Runtime）：36
-- Python 文件：68
+- Python 文件：69
 - Manifest Components：5（缺失源类：0）
 - Worker：5（缺失实现：0）
 - Repository：13
-- Runtime/Coordinator：4
+- Runtime/Coordinator：6
 - ViewModel：8
-- Gradle modules（自动发现）：app, core:model, core:ports, core:security, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:qa
+- Gradle modules（自动发现）：app, core:model, core:ports, core:security, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:qa, feature:wearable
 
+
+## Wearable 面（ERA 33）
+- Vela JS 源文件（wearable/xiaomi-vela/src，**.ux + **.js**）：10 —— **Vela ≠ Android Kotlin production count**（JS 快应用独立计数，不并入上文 Kotlin 数量）
+- ANS 集成 schema/golden（integrations/answatch/*.json）：3 —— ANSWatch 为 READ-ONLY 参考仓，其源码不计入本仓 Production 计数
 ## Manifest Components（跨全部 production module 解析）
 - `:app` `.main.MainActivity` ✅
 - `:app` `.main.sensing.PassiveSensingService` ✅
@@ -64,7 +70,7 @@
 
 ## Repository / Runtime / ViewModel
 - Repository：ConsentRepository, EscalationRepository, FeatureFlagRepository, JourneyMemoryRepository, JourneyRepository, MemoryRepository, MessageRepository, OnboardingRepository, PortraitRepository, PresenceRepository, SensingRepository, SkillRepository, SyncStateRepository
-- Runtime：EchoActionRuntime, EchoRuntimeCoordinator, SensingRuntimeStatus, SkillSessionCoordinator
+- Runtime：EchoActionRuntime, EchoRuntimeCoordinator, SensingRuntimeStatus, SkillSessionCoordinator, WearableRuntime, WearableRuntimeState
 - ViewModel：DataAndSensingViewModel, EchoSceneViewModel, IntelligenceSettingsViewModel, JourneyViewModel, MeViewModel, MemoryManagementViewModel, PresenceSettingsViewModel, SubscriptionViewModel
 
 ## Domain packages（必须存在）
@@ -76,6 +82,7 @@
 - `actions` ✅
 - `journey` ✅
 - `runtime` ✅
+- `wearable` ✅
 
 ## unresolved project symbol 候选（自动发现；人工复核）
 - 无

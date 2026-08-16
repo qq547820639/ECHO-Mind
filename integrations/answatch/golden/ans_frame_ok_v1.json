@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "subject_id": "P0001",
+  "window_id": 0,
+  "window_end_timestamp": 1735689600000000,
+  "signal_quality": {
+    "sqi_eda": 0.92,
+    "sqi_ppg": 0.88,
+    "sqi_temp": 0.95,
+    "sqi_imu": 0.91,
+    "on_body": true,
+    "repaired": { "eda": false, "ppg": true }
+  },
+  "physiological_arousal": { "activation": 62.5, "trend_30min": "stable" },
+  "stress_likelihood": { "value": 0.34, "disambiguation_flags": [] },
+  "confidence": { "value": 0.81, "calibrated": true, "calibration_model_id": "platt_v003" },
+  "recovery": { "active_event": false, "tau_min": null, "recovery_score": null },
+  "physical_activity": { "activity_level": 1, "motion_energy": 0.42, "minutes_since_vigorous": 240 },
+  "baseline_deviation": { "z_composite": 1.1, "layer": "work", "baseline_ready": true },
+  "unknown": { "is_unknown": false, "reason": null }
+}

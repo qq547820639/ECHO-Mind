@@ -170,6 +170,55 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    @Test
+    fun wearableDomainDependsOnlyOnCoreBoundaries() {
+        // ERA 33：:feature:wearable 只依赖 :core:model + :core:ports。
+        // 禁止：:app 数据实现（Room/EchoDatabase/data 包）、intelligence、actions、UI、
+        // 以及任何 vendor SDK 实现（vendor 适配属 :app adapter 层）。
+        for (f in filesUnder("wearable")) {
+            val t = textOf(f)
+            val forbidden = listOf(
+                "com.yunjue.echo.mind.data",
+                "androidx.room",
+                "EchoDatabase",
+                "com.yunjue.echo.mind.intelligence",
+                "com.yunjue.echo.mind.actions",
+                "com.yunjue.echo.mind.ui",
+                "com.xiaomi",
+                "xiaomi.wearable",
+            )
+            assertTrue(
+                "wearable/${f.name} 不得依赖 app/Room/intelligence/actions/UI/vendor SDK：\n" +
+                    offendingLines(t, forbidden),
+                forbidden.none { it in t },
+            )
+        }
+    }
+
+    @Test
+    fun wearableProtocolNeverSerializesPrivateState() {
+        // ERA 33 隐私边界（结构保证）：WearPresenceEnvelope 投影器不得引用
+        // privateNarrative / affectiveState / EchoMemory（手环 payload 的 PUBLIC_SAFE 白名单）。
+        // 只扫描代码行（剥离 KDoc/注释，禁令说明本身会提及这些词）。
+        for (f in filesUnder("wearable")) {
+            val t = textOf(f)
+            if (!f.name.contains("Envelope") && !f.name.contains("Projector") &&
+                !f.name.contains("Runtime") && !f.name.contains("Codec") &&
+                !f.name.contains("Policy")
+            ) {
+                continue
+            }
+            val codeLines = t.lines().filter { line ->
+                val trimmed = line.trim()
+                !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*")
+            }.joinToString("\n")
+            assertTrue(
+                "wearable/${f.name} 协议层不得序列化 privateNarrative/affectiveState/Memory",
+                listOf("privateNarrative", "affectiveState", "EchoMemory(").none { it in codeLines },
+            )
+        }
+    }
+
     private fun offendingLines(text: String, needles: List<String>): String =
         text.lines().filter { line -> needles.any { it in line } }.take(3).joinToString("\n")
 }

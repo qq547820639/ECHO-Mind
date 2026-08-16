@@ -1,0 +1,42 @@
+<script>
+const bridge = require('./common/transport/interconnect_bridge.js')
+const presenceCache = require('./common/presence/presence_cache.js')
+const accel = require('./common/sensor/accel_summary.js')
+
+const cache = presenceCache.create()
+
+export default {
+  onInit() {
+    bridge.init({
+      onMessage: (text) => {
+        const decoded = require('./common/protocol/wear_protocol.js').decodeMessage(text)
+        if (!decoded.ok) return
+        if (decoded.message.type === 'presence') {
+          cache.apply(decoded.message, Date.now())
+        }
+      },
+      onConnectionChanged: () => {
+        // 连接恢复 → 请求当前 Presence（同一 ECHO，不本地重建）
+        bridge.sendAction('REQUEST_CURRENT_PRESENCE')
+      },
+    })
+    bridge.sendAction('REQUEST_CURRENT_PRESENCE')
+    this.$app.$def.cache = cache
+  },
+  onShow() {
+    // 前台订阅加速度计（官方后台模型：传感器无后台，foreground only，不 hack 保活）。
+    // consent-first：以手机推送的 surface.motionSummaryEnabled 为准（手机 Me 显式开启后才采集）。
+    const state = cache.state(Date.now())
+    const enabled = state.phase !== 'empty' && state.envelope.surface.motionSummaryEnabled === true
+    if (enabled) {
+      accel.start({ onWindow: (summary) => bridge.sendObservation(summary) })
+    }
+  },
+  onHide() {
+    accel.stop()
+  },
+  onDestroy() {
+    accel.stop()
+  },
+}
+</script>

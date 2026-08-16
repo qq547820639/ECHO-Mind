@@ -1,0 +1,204 @@
+<template>
+  <div class="page">
+    <div class="title-row">
+      <text class="title-text">{{ $t('message.action_title') }}</text>
+    </div>
+    <div class="body-area">
+      <div class="breathing-field" if="{{ running === 'BREATHING' }}">
+        <div class="breath-core" style="width:{{ breathSize }}px;height:{{ breathSize }}px;background-color:{{ accent }};opacity:0.7;"></div>
+        <text class="body-text">{{ $t('message.action_breathing_hint') }}</text>
+        <div class="stop-button" onclick="onStop">
+          <text class="stop-text">{{ $t('message.action_stop') }}</text>
+        </div>
+      </div>
+      <div class="pause-field" elif="{{ running === 'PAUSE' }}">
+        <text class="body-text">{{ $t('message.action_pause_hint') }}</text>
+        <div class="stop-button" onclick="onStop">
+          <text class="stop-text">{{ $t('message.action_stop') }}</text>
+        </div>
+      </div>
+      <div class="menu-field" else>
+        <div class="menu-button" onclick="onBreathing">
+          <text class="menu-text">{{ $t('message.action_breathing') }}</text>
+        </div>
+        <div class="menu-button" onclick="onPause">
+          <text class="menu-text">{{ $t('message.action_pause') }}</text>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+.page {
+  flex-direction: column;
+  align-items: center;
+  background-color: #000000;
+  width: 100%;
+  height: 100%;
+}
+.title-row {
+  margin-top: 56px;
+}
+.title-text {
+  color: #6a6a62;
+  font-size: 13px;
+  letter-spacing: 4px;
+}
+.body-area {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+.breathing-field {
+  flex-direction: column;
+  align-items: center;
+}
+.breath-core {
+  border-radius: 50%;
+  margin-bottom: 28px;
+}
+.pause-field {
+  flex-direction: column;
+  align-items: center;
+}
+.body-text {
+  color: #e8e8e0;
+  font-size: 17px;
+  text-align: center;
+  line-height: 1.6;
+  max-lines: 3;
+}
+.menu-field {
+  flex-direction: column;
+}
+.menu-button {
+  width: 180px;
+  border-width: 1px;
+  border-color: #3c3c36;
+  border-radius: 28px;
+  padding-top: 18px;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  align-items: center;
+}
+.menu-text {
+  color: #e0e0d8;
+  font-size: 18px;
+}
+.stop-button {
+  margin-top: 30px;
+  border-width: 1px;
+  border-color: #3c3c36;
+  border-radius: 24px;
+  padding-left: 26px;
+  padding-right: 26px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.stop-text {
+  color: #8a8a80;
+  font-size: 15px;
+}
+</style>
+
+<script>
+const bridge = require('../../common/transport/interconnect_bridge.js')
+const cache = require('../../common/presence/presence_cache.js')
+const visual = require('../../common/visual/wear_visual.js')
+
+let breathTimer = null
+let tick = 0
+
+export default {
+  data: {
+    running: null,
+    breathSize: 44,
+    accent: 'rgb(190, 180, 160)',
+  },
+
+  onShow() {
+    const c = this.$app.$def.cache || cache.create()
+    c.load()
+    const state = c.state(Date.now())
+    if (state.phase !== 'empty') {
+      const v = visual.computeVisual(state.envelope, {})
+      this.accent = v.accent
+      this.breathSize = v.coreRadius * 2
+    }
+  },
+
+  onHide() {
+    this.stopBreathTimer()
+  },
+
+  onDestroy() {
+    this.stopBreathTimer()
+  },
+
+  /** 用户主动呼吸：同一个 BREATHING Action（手机 EchoActionRuntime 拥有）。 */
+  onBreathing() {
+    this.running = 'BREATHING'
+    bridge.sendAction('START_BREATHING')
+    this.vibrateShort()
+    this.startBreathTimer()
+  },
+
+  onPause() {
+    this.running = 'PAUSE'
+    bridge.sendAction('START_PAUSE')
+    this.vibrateShort()
+  },
+
+  onStop() {
+    this.stopBreathTimer()
+    this.running = null
+    bridge.sendAction('STOP_ACTION')
+    this.vibrateLong() // action completion confirmation（显式触觉，允许）
+  },
+
+  startBreathTimer() {
+    this.stopBreathTimer()
+    const self = this
+    const base = this.breathSize || 44
+    // 与手机 EchoActionOverlay 同参：BREATHING_CYCLE_SECONDS = 8s（4s 吸 + 4s 呼）、
+    // ACTION_DURATION_SECONDS = 60s。同一个 Action，同一条节奏；到点自动结束（完成确认轻振）。
+    breathTimer = setInterval(() => {
+      tick += 1
+      const phase = (tick % 8) / 8
+      const scale = 1 + 0.18 * Math.sin(phase * Math.PI * 2)
+      self.breathSize = Math.max(28, Math.round(base * scale))
+      if (tick >= 60) {
+        self.onStop()
+      }
+    }, 1000)
+  },
+
+  stopBreathTimer() {
+    if (breathTimer) {
+      clearInterval(breathTimer)
+      breathTimer = null
+    }
+    tick = 0
+  },
+
+  /** 只使用官方确认存在的 Band10 振动能力：short / long。 */
+  vibrateShort() {
+    try {
+      const vibrator = require('@system.vibrator')
+      vibrator.vibrate({ mode: 'short' })
+    } catch (e) {
+      // 无振动能力：静默（SILENT 默认）
+    }
+  },
+
+  vibrateLong() {
+    try {
+      const vibrator = require('@system.vibrator')
+      vibrator.vibrate({ mode: 'long' })
+    } catch (e) {
+      // 静默
+    }
+  },
+}
+</script>

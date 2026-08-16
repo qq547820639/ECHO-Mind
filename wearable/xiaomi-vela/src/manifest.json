@@ -1,0 +1,31 @@
+{
+  "package": "com.yunjue.echo.mind",
+  "name": "ECHO",
+  "icon": "/common/icon.png",
+  "versionName": "1.0",
+  "versionCode": 1,
+  "minAPILevel": 1,
+  "features": [
+    { "name": "system.sensor" },
+    { "name": "system.vibrator" },
+    { "name": "system.interconnect" },
+    { "name": "system.fetch" }
+  ],
+  "permissions": [],
+  "config": {
+    "logLevel": "off",
+    "designWidth": 212
+  },
+  "router": {
+    "entry": "echo",
+    "pages": {
+      "echo": { "component": "index" },
+      "why": { "component": "index" },
+      "action": { "component": "index" }
+    }
+  },
+  "display": {
+    "backgroundColor": "#000000"
+  },
+  "deviceTypeList": ["watch"]
+}

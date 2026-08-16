@@ -117,7 +117,7 @@ def symbol_declarations() -> dict[str, Path]:
         for line in f.read_text(encoding="utf-8").splitlines():
             m = re.match(
                 r"\s*(?:(?:public|internal|private|protected|abstract|open|sealed|data|enum|annotation|value|suspend)\s+)*"
-                r"(?:const\s+)?(?:data\s+)?(?:class|interface|object|fun|val|var|typealias|enum class)\s+"
+                r"(?:const\s+)?(?:data\s+)?(?:fun\s+interface|class|interface|object|fun|val|var|typealias|enum class)\s+"
                 r"(?:<[^>]+>\s+)?"  # 泛型函数（fun <A, B, ...> combine7）
                 r"(?:[\w.]+\.)?([A-Za-z_][\w]*)", line)
             if m:
@@ -158,6 +158,19 @@ def unresolved_candidates() -> list[tuple[str, str]]:
     return bad
 
 
+def wearable_artifacts() -> tuple[list[Path], list[Path]]:
+    """ERA 33：Vela JS（.ux/.js，非 Android Kotlin 生产计数）+ ANS 集成 schema/golden。"""
+    vela_root = ROOT / "wearable" / "xiaomi-vela" / "src"
+    vela_files = (
+        sorted(vela_root.rglob("*.ux")) + sorted(vela_root.rglob("*.js"))
+        if vela_root.is_dir()
+        else []
+    )
+    ans_root = ROOT / "integrations" / "answatch"
+    ans_files = sorted(ans_root.rglob("*.json")) if ans_root.is_dir() else []
+    return vela_files, ans_files
+
+
 def main() -> None:
     kt = kotlin_files()
     kt_test = test_kotlin_files()
@@ -173,9 +186,10 @@ def main() -> None:
     repos = sorted({f.stem for f in kt if f.name.endswith("Repository.kt")})
     runtimes = sorted({f.stem for f in kt if "Runtime" in f.name or "Coordinator" in f.name})
     viewmodels = sorted({f.stem for f in kt if f.name.endswith("ViewModel.kt")})
-    domains = ["sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime"]
+    domains = ["sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime", "wearable"]
     unresolved = unresolved_candidates()
     modules = gradle_modules()
+    vela_files, ans_files = wearable_artifacts()
 
     lines = []
     lines.append("# Source Reality Report —— 源码事实报告（ERA 32，脚本生成 · 多模块自动发现）\n")
@@ -198,6 +212,15 @@ def main() -> None:
     lines.append(f"- Runtime/Coordinator：{len(runtimes)}")
     lines.append(f"- ViewModel：{len(viewmodels)}")
     lines.append(f"- Gradle modules（自动发现）：{', '.join(modules)}\n")
+    lines.append("\n## Wearable 面（ERA 33）")
+    lines.append(
+        f"- Vela JS 源文件（wearable/xiaomi-vela/src，**.ux + **.js**）：{len(vela_files)}"
+        f" —— **Vela ≠ Android Kotlin production count**（JS 快应用独立计数，不并入上文 Kotlin 数量）"
+    )
+    lines.append(
+        f"- ANS 集成 schema/golden（integrations/answatch/*.json）：{len(ans_files)}"
+        f" —— ANSWatch 为 READ-ONLY 参考仓，其源码不计入本仓 Production 计数"
+    )
     lines.append("## Manifest Components（跨全部 production module 解析）")
     for module, c in components:
         flag = " ✅" if c not in missing_components else " ❌ 缺源类"

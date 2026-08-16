@@ -84,3 +84,11 @@
 
 - 面部情绪识别、后台录音（麦克风仅可选模块，原始音频不落盘不上云）、小米手环、iOS、开放式无限陪聊、自动诊断、自动治疗方案、自动药物建议。
 - 原始传感数据上云（仅派生特征 summary/vector 上传）。
+
+> **ERA 33 范围演进（2026-08-16 显式记录，非静默变更）**：上一条中"小米手环"仍适用于 **v0.11.0 试点版范围冻结**
+> （`pilot-pack/00_试点就绪总控表.md`，试点交付物不含手环）。ERA 33 起作为新 Product Surface
+> （ECHO Wrist / Second Body）进入开发：`:feature:wearable` + Vela 快应用 + ANS_FRAME_V1，
+> 契约见 `docs/wearable/ECHO_WRIST_CONTRACT.md`，状态见 `docs/STATUS.md`。
+> 该表面为 **Developer Preview / Integration Preview**：真机/SDK/生产签名验证前不得宣称
+> Band10 Production Verified（四个 BLOCKED_EXTERNAL_* 见能力矩阵 §4）。
+> 约束不变：手环不拥有 Memory/SelfModel/Journey/AI Provider/API Key/Identity Genome（ONE ECHO）。

@@ -8,7 +8,7 @@
 
 ```text
 data ──► intelligence, memory, observation, ports, presence, root, security
-di ──► data, intelligence, journey, presence, root, security
+di ──► data, intelligence, journey, presence, root, security, wearable
 intelligence ──► memory, observation, ports, security
 journey ──► data, intelligence, memory, observation, presence, root
 me ──► data, memory, observation
@@ -16,9 +16,10 @@ memory ──► observation, ports
 observation ──► root
 ports ──► observation
 presence ──► observation, root
+root ──► observation, ports
 runtime ──► data, intelligence, observation, root
 security ──► root
-ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root
+ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root, wearable
 ```
 
 ## 2. 领域文件数（实测）
@@ -26,18 +27,20 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | 领域 | Kotlin 文件数 |
 |---|---|
 | actions | 2 |
-| data | 27 |
-| di | 1 |
+| data | 28 |
+| di | 2 |
 | intelligence | 18 |
 | journey | 16 |
 | me | 3 |
 | memory | 7 |
-| observation | 25 |
+| observation | 26 |
 | ports | 3 |
 | presence | 12 |
+| root | 22 |
 | runtime | 1 |
-| security | 8 |
-| ui | 37 |
+| security | 9 |
+| ui | 38 |
+| wearable | 3 |
 
 ## 3. 跨领域边清单
 
@@ -54,6 +57,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - di → presence
 - di → root
 - di → security
+- di → wearable
 - intelligence → memory
 - intelligence → observation
 - intelligence → ports
@@ -73,6 +77,8 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - ports → observation
 - presence → observation
 - presence → root
+- root → observation
+- root → ports
 - runtime → data
 - runtime → intelligence
 - runtime → observation
@@ -87,10 +93,11 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - ui → observation
 - ui → presence
 - ui → root
+- ui → wearable
 
 ## 4. 循环
 
-- 无已知包级循环。
+- ⚠️ 检测到循环：observation → root → observation
 
 ## 5. 边界规则（ArchitectureBoundaryTest + CI 强制）
 

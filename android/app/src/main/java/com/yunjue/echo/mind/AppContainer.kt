@@ -30,6 +30,8 @@ class AppContainer(context: Context) {
     val actions = com.yunjue.echo.mind.di.ActionContainer(core)
     /** ERA 13/16：Journey 应用层容器（跨 observation/presence/intelligence/memory/core）。 */
     val journey = com.yunjue.echo.mind.di.JourneyContainer(core, observation, presence, memory, intelligence)
+    /** ERA 33：ECHO on Wrist（vendor 边界在 app 层；:feature:wearable 只含 domain）。 */
+    val wearable = com.yunjue.echo.mind.di.WearableContainer(core, presence, actions)
 
     // ===== 跨域编排（composition root 职责） =====
     /** v2 §13：Echo Runtime 协调器（六态/Presence/Provider 统一广播）。 */

@@ -178,6 +178,12 @@ class IntelligenceContainer(
 /** Actions：行动内容源（SkillRepository 为 Adapter；§41 未来 ActionContentSource 端口在此落地）。 */
 class ActionContainer(core: CoreContainer) {
     val skillRepository = SkillRepository(core.database, core.outbox, core.preferences, core.apiClient)
+
+    /**
+     * ERA 33：应用级 EchoActionRuntime（手机 + 手环共用的同一个 Action Runtime ——
+     * Breathing 是同一个 Action，Pause 是同一个 Action）。
+     */
+    val echoActionRuntime = com.yunjue.echo.mind.actions.EchoActionRuntime()
 }
 
 /**

@@ -29,6 +29,10 @@ jobs:
       - run: cd android && chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug lintDebug --stacktrace
       # Kotlin SAST（detekt 27 规则，maxIssues=0；本地每轮实测全绿，配置见 android/detekt.yml）
       - run: cd android && ./gradlew detekt --stacktrace
+      # ERA 33：手环端静态测试（普通 Node 即可运行，无 Vela proprietary 工具链依赖）
+      - run: cd wearable/xiaomi-vela && node tests/run.js
+      # ERA 33：ANS_FRAME_V1 黄金门（ANSWatch 真实契约 ↔ schema ↔ Kotlin decoder）
+      - run: python3 integrations/answatch/tools/verify_golden.py
       # v3.3 §13：build status 与本次 pipeline run 绑定（供 release-metadata job 消费）
       - run: echo "passed" > android-build-status.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4

@@ -9,10 +9,10 @@
 
 | 字段 | 值 |
 |---|---|
-| Product Era | ERA 32+ — Felt Product Reality / Real Product Validation（ERA 31 全部 Batch 1–8 + v0.10.0 后打磨轮 R11–R49 + ERA 32 治理/Personal Intelligence 升级均已合入） |
-| 版本线 | v0.11.0（versionCode 8） |
-| 相对 Release Baseline | closure 收口文档提交（发布内容 = LAST_RELEASE_BASELINE `88db3b9`） |
-| 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线） |
+| Product Era | ERA 33 — ECHO Wrist / Second Body（ERA 32 治理/Personal Intelligence 升级已合入；ERA 33 新增 wearable 产品面：手机 = BRAIN，手环 = BODY + PRESENCE SURFACE，ONE ECHO） |
+| 版本线 | v0.11.0（versionCode 8；开发态，不伪造已发布 v0.12.0——见 §6 批次 8） |
+| 相对 Release Baseline | closure 收口文档提交（发布内容 = LAST_RELEASE_BASELINE `88db3b9`）；ERA 33 为开发态，Release Baseline 不更新 |
+| 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线）；Wearable = Developer Preview / Integration Preview（真机验证前不得宣称 Band10 Production Verified） |
 
 ## 2. Last Verified Release
 
@@ -26,14 +26,14 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `8ead7f1`，2026-08-16 01:44 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `62e7a76`，2026-08-16 03:34 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1068 全绿**（app 898 / feature:intelligence 32 / feature:presence 25 / feature:qa 113） |
-| backend pytest | **1077 passed + 1 skipped**（全绿） |
-| Production Kotlin | 169 |
-| Test Kotlin | 129 |
+| Android 单测（testDebugUnitTest） | **1170 全绿**（app 906 / feature:intelligence 32 / feature:presence 25 / feature:qa 113 / feature:wearable 94） |
+| backend pytest | **1084 passed + 1 skipped**（全绿） |
+| Production Kotlin | 196 |
+| Test Kotlin | 139 |
 | QA Kotlin（:feature:qa，非 Production Runtime） | 36 |
 | Python | 69 |
 
@@ -50,6 +50,10 @@
 - **Affective 冻结**：AFFECTIVE_CONTRACT §8/§9/§10 人工评审门未满足（affectiveState 恒 null，测试强制），不得解除。
 - **30 天 dogfood 未开始**：协议 `qa/DOGFOOD_PROTOCOL.md` 已就绪，真实长期数据回流后才能验证
   Correction Reuse Rate / False Interpretation Rate / Wallpaper 留存等主指标。
+- **Wearable 外部门（ERA 33）**：`BLOCKED_EXTERNAL_XIAOMI_SDK`（官方穿戴 SDK AAR 未获得）、
+  `BLOCKED_EXTERNAL_BAND10_DEVICE`（无真机）、`BLOCKED_EXTERNAL_PRODUCTION_SIGNING`（签名材料不进仓库）、
+  `BLOCKED_EXTERNAL_ANS_HARDWARE`（ANS 无硬件）——每个阻塞的缺失资源/已完成测试/确切人工下一步/
+  禁止的宣称见 `docs/wearable/XIAOMI_BAND10_CAPABILITY_MATRIX.md` §4。软件侧闭环不受其影响，已全部完成。
 
 ## 5. Known Engineering Risks
 
@@ -62,6 +66,10 @@
   见 `qa/reports/PERSONAL_ANSWER_ENGINE_AUDIT.md`。
 - **QA mirror 漂移面**：QaPortraitMirror 是必要镜像（跨语言黄金门已锁）；QaHeadlineEngine 文案重复已消除
   （learningPhaseHeadline 单点）；结论见 `qa/reports/QA_MIRROR_AUDIT.md`。
+- **本机 assembleDebug 环境限制（ERA 33 实测）**：本工作区路径含空格（"ECHO Workspace"）时 AGP 8.13.2 的
+  dexing transform（DexingNoClasspathTransform）报 "file located outside the root directory"；
+  无空格路径实测 assembleDebug 全绿（APK 含 wearable dex），CI 路径无空格不受影响。
+  本地 assemble 请使用无空格路径副本（如 /private/tmp/echoverify）。
 - **字段级加密豁免（ERA 32 R26 已评审记录）**：`QuestionnaireEntity.answersJson`、
   `EchoMemoryEntity.content`、`DailyPortraitEntity.summary/headlineJson/dimensionsJson/factsJson` 与
   FeatureVector 的 `vector/sources_present` 仅由 **SQLCipher 全库加密**保护，不做第二层字段加密。
@@ -88,12 +96,24 @@
    assembleRelease 全 40 位 commit 钉定 + 测试密钥签名 v2,v3 + provenance 绑定 + final package §18 门禁 +
    test_release_set/test_source_archive 16/16（`docs/CHANGELOG/ERA32_ROUND05_RELEASE.md`）。
    下一批：真实数据回流后 Batch D/E/F；真机可用即执行 Batch B。
+8. **ECHO Wrist / Second Body**（ERA 33）✅ 软件闭环完成——`:feature:wearable` domain + Wear Protocol v1 +
+   隐私投影 + same-ECHO 投影器 + Vela 快应用（`wearable/xiaomi-vela/`）+ Android vendor boundary
+   （Noop/Fake + XiaomiWearCapabilityMapper）+ 同一 EchoActionRuntime + 腕上观察模型 +
+   ANS_FRAME_V1 schema/golden/decoder/mapper/promotion policy + Me → "ECHO on Wrist" +
+   协议/隐私/连接/视觉/黄金门测试全绿 + CI gate + Source Reality 更新。
+   契约：`docs/wearable/ECHO_WRIST_CONTRACT.md`（能力矩阵/隐私/ANS 集成同目录）。
+   外部阻塞：见 §4（四个 BLOCKED_EXTERNAL_*，软件侧全部完成）。
+   版本：开发态不动 Release Baseline；完成全部软件项后按版本纪律准备 v0.12.0 / versionCode 9，
+   真机验证前只标 Developer Preview / Integration Preview。
 
 ## 7. Governance（冻结纪律）
 
 - **架构冻结**：11 个 Gradle module 体系冻结（`:app` / `:core:model|ports|security` /
   `:feature:observation|presence|intelligence|memory|journey|actions|qa`）。不新增 module、大框架、抽象层、
   Contract 类型；只有真实 Dependency Violation 或直接阻碍用户体验/reasoning/性能/电池/安全/发布/可维护性时才调整。
+  **ERA 33 例外（一次性，已执行完毕）**：新增唯一产品边界 module `:feature:wearable`
+  （只依赖 `:core:model` + `:core:ports`），随后重新冻结（12 module）；不因 wearable 再拆子 module；
+  vendor adapter 属 `:app` adapter 层。
 - **QA 冻结**：synthetic QA 不再扩张。顺序固定为：真实产品问题 → 复现 → 修复 → 有普遍意义的 fixture 化 → regression。
   QA 必须测试 Production，不得重写 Production（mirror 审计见 `qa/reports/QA_MIRROR_AUDIT.md`）。
 - **ADR 纪律**：只有真正 Architecture Decision 才新增 ADR；每轮重构/体验修改/threshold 不再产生 ADR。
@@ -104,6 +124,12 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
+
+
+
+
+
 
 
 

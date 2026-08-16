@@ -117,6 +117,8 @@ dependencies {
     implementation(project(":core:ports"))
     implementation(project(":feature:intelligence"))
     implementation(project(":feature:journey"))
+    // ERA 33：唯一新增产品边界 module（vendor 适配在 app 层，domain 在 :feature:wearable）
+    implementation(project(":feature:wearable"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

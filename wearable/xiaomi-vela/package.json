@@ -1,0 +1,12 @@
+{
+  "name": "echo-wrist-vela",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ECHO Wrist — Xiaomi Band 10 Vela JS quick app (SAME ECHO / SECOND BODY). 构建需 Xiaomi AIoT-IDE/Vela 官方工具链（外部 proprietary tool，不进 OSS CI）。",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

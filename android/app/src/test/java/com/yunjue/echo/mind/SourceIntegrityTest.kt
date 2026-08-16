@@ -20,7 +20,7 @@ class SourceIntegrityTest {
     private val srcRoot = File("src/main/java/com/yunjue/echo/mind")
     private val manifest = File("src/main/AndroidManifest.xml")
 
-    /** ERA 13.5：物理模块源码根（app + :feature:actions + :core:security；新增模块在此登记）。 */
+    /** ERA 13.5：物理模块源码根（app + feature/core modules；新增模块在此登记）。 */
     private val moduleRoots = listOf(
         srcRoot,
         File("../feature/actions/src/main/java/com/yunjue/echo/mind"),
@@ -32,6 +32,7 @@ class SourceIntegrityTest {
         File("../core/ports/src/main/java/com/yunjue/echo/mind"),
         File("../feature/intelligence/src/main/java/com/yunjue/echo/mind"),
         File("../feature/journey/src/main/java/com/yunjue/echo/mind"),
+        File("../feature/wearable/src/main/java/com/yunjue/echo/mind"),
     )
 
     private fun allKotlinFiles(): List<File> =
@@ -97,7 +98,7 @@ class SourceIntegrityTest {
         val declarations = mutableMapOf<String, File>()
         val declPattern = Pattern.compile(
             "\\s*(?:(?:public|internal|private|protected|abstract|open|sealed|data|enum|annotation|value|suspend)\\s+)*" +
-                "(?:const\\s+)?(?:data\\s+)?(?:class|interface|object|fun|val|var|typealias|enum class)\\s+" +
+                "(?:const\\s+)?(?:data\\s+)?(?:fun\\s+interface|class|interface|object|fun|val|var|typealias|enum class)\\s+" +
                 "(?:<[^>]+>\\s+)?" + // 泛型函数（fun <A, B, ...> combine7）
                 "(?:[\\w.]+\\.)?([A-Za-z_][\\w]*)"
         )

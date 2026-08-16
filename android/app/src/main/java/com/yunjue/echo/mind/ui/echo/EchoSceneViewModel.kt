@@ -7,7 +7,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.actions.EchoActionKind
-import com.yunjue.echo.mind.actions.EchoActionRuntime
 import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
@@ -45,8 +44,8 @@ class EchoSceneViewModel(app: android.app.Application, private val container: Ap
         memoryReader = container.memoryRepository,
     )
 
-    /** Scene 内行动运行时（呼吸/暂停；建议由 InterventionPolicy 裁决）。 */
-    val actionRuntime = EchoActionRuntime()
+    /** Scene 内行动运行时（呼吸/暂停；建议由 InterventionPolicy 裁决）。ERA 33：应用级单例，手环共用同一个 Action。 */
+    val actionRuntime = container.actions.echoActionRuntime
 
     /** 今日画像原始状态（九态渲染 + 反馈对象）。 */
     val portrait: StateFlow<PortraitUiState> = container.portraitRepository.observeTodayPortrait()

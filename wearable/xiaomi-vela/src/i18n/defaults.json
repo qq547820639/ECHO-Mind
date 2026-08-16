@@ -1,0 +1,21 @@
+{
+  "message": {
+    "app_name": "ECHO",
+    "why_title": "WHY",
+    "why_fallback": "ECHO 还在了解今天。",
+    "why_no_connection": "手机不在附近时，ECHO 保持安静。",
+    "action_title": "ACTION",
+    "action_breathing": "呼吸",
+    "action_pause": "暂停",
+    "action_stop": "结束",
+    "action_breathing_hint": "跟随节奏，慢慢呼吸。",
+    "action_pause_hint": "停一下，什么都不用做。",
+    "echo_tap_hint": "轻触查看为什么",
+    "echo_time": "HH:MM",
+    "maturity_seed": "初见",
+    "maturity_discovering": "认识中",
+    "maturity_emerging": "认识中",
+    "maturity_known": "认识你",
+    "maturity_mature": "同行"
+  }
+}

@@ -58,6 +58,7 @@ fun MeScreen(container: AppContainer) {
         },
         dataAndSensing = { DataAndSensingSection(container, context) },
         presenceSettings = { PresenceSettingsSection(container) },
+        wrist = { WristSection(container) },
         intelligenceSettings = { IntelligenceSettingsSection(container) },
         whatEchoKnows = { WhatEchoKnowsSection(container) },
         aboutCard = { AboutCard() },
@@ -77,6 +78,7 @@ fun MeScreenContent(
     support: @Composable () -> Unit,
     dataAndSensing: @Composable () -> Unit,
     presenceSettings: @Composable () -> Unit,
+    wrist: @Composable () -> Unit,
     intelligenceSettings: @Composable () -> Unit,
     whatEchoKnows: @Composable () -> Unit,
     aboutCard: @Composable () -> Unit,
@@ -105,6 +107,7 @@ fun MeScreenContent(
         // Me 不是 Settings：用户的 ECHO 与它知道什么排在最前，工程配置沉底。
         crisisCard()
         presenceSettings()
+        wrist()
         whatEchoKnows()
         intelligenceSettings()
         dataAndSensing()
