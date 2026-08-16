@@ -1,0 +1,42 @@
+package com.yunjue.echo.mind.visual.surface
+
+import com.yunjue.echo.mind.visual.model.EchoVisualGenome
+
+/**
+ * EchoVisualSpec — 已按 SurfacePolicy 安全裁剪的渲染输入。
+ *
+ * Renderer 只消费本对象 + 时间 + 视口；**隐私裁剪已在 SurfacePolicy 完成**，
+ * renderer 不再接触任何原始 presence/observation 字段，从架构上杜绝隐私泄露散落。
+ */
+data class EchoVisualSpec(
+    /** 已按 surface 动效复杂度缩放后的 genome（identity 字段不被缩放）。 */
+    val genome: EchoVisualGenome,
+    /** surface 能力（renderer 据此决定是否画文字/证据/暖高光）。 */
+    val capabilities: SurfaceCapabilities,
+    /** 渲染时的确定性时间基准（秒；测试注入固定值，运行时注入墙钟）。 */
+    val clockSeconds: Float,
+)
+
+/**
+ * SurfacePolicy — 把 genome 按 surface 能力裁剪成 spec（纯函数）。
+ *
+ * 铁律：identity 相关字段（identitySeed/identityTopology/identityPhase/spectralBias）
+ * **永不缩放**；只缩放表现强度（密度/动效/亮度），保证 SAME ECHO。
+ */
+object SurfacePolicy {
+    fun crop(genome: EchoVisualGenome, surface: EchoSurface, clockSeconds: Float): EchoVisualSpec {
+        val cap = capabilitiesFor(surface)
+        val c = cap.motionComplexity
+        val scaled = genome.copy(
+            // 表现强度随 surface 缩放；identity 不变
+            particleDensity = genome.particleDensity * c,
+            filamentDensity = genome.filamentDensity * c,
+            driftRate = genome.driftRate * c,
+            turbulence = genome.turbulence * c,
+            luminance = (genome.luminance * cap.maxLuminance).coerceIn(0f, 1f),
+            haloIntensity = genome.haloIntensity * (0.5f + c * 0.5f),
+            momentIntensity = genome.momentIntensity * c,
+        )
+        return EchoVisualSpec(genome = scaled, capabilities = cap, clockSeconds = clockSeconds)
+    }
+}

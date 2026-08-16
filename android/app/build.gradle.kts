@@ -114,6 +114,8 @@ dependencies {
     implementation(project(":feature:memory"))
     implementation(project(":feature:observation"))
     implementation(project(":feature:presence"))
+    implementation(project(":feature:presencevisual"))
+    implementation(project(":core:visual"))
     implementation(project(":core:ports"))
     implementation(project(":feature:intelligence"))
     implementation(project(":feature:journey"))

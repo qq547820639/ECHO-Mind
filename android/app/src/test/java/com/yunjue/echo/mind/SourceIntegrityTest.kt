@@ -29,6 +29,8 @@ class SourceIntegrityTest {
         File("../feature/memory/src/main/java/com/yunjue/echo/mind"),
         File("../feature/observation/src/main/java/com/yunjue/echo/mind"),
         File("../feature/presence/src/main/java/com/yunjue/echo/mind"),
+        File("../feature/presencevisual/src/main/java/com/yunjue/echo/mind"),
+        File("../core/visual/src/main/java/com/yunjue/echo/mind"),
         File("../core/ports/src/main/java/com/yunjue/echo/mind"),
         File("../feature/intelligence/src/main/java/com/yunjue/echo/mind"),
         File("../feature/journey/src/main/java/com/yunjue/echo/mind"),

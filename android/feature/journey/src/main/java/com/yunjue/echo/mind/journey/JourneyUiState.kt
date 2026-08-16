@@ -125,15 +125,17 @@ fun assembleJourneyMemoryState(
     scale: JourneyScale,
     timeline: PortraitTimelineUiState,
     memory: JourneyMemoryAssemblyInputs = JourneyMemoryAssemblyInputs(),
+    identitySeed: Long = 0L,
 ): JourneyMemoryState {
-    val visualDays = buildJourneyDays(timeline.portraits)
+    // visual-runtime：携带 organism genome 装配（SAME ECHO；Journey portrait 与主 ECHO 同 identitySeed）
+    val visualDays = buildJourneyDaysWithOrganism(timeline.portraits, identitySeed)
     val visualPeriods = when (scale) {
         JourneyScale.DAY -> emptyList()
-        else -> buildJourneyPeriods(visualDays, journeyChunkDays(scale))
+        else -> buildJourneyPeriodsWithOrganism(visualDays, journeyChunkDays(scale))
     }
     val selectedPeriod = visualPeriods.lastOrNull { it.aggregateParams != null }
         ?: visualPeriods.lastOrNull()
-        ?: visualDays.lastOrNull()?.let { JourneyPeriod(listOf(it), it.visualParams, it) }
+        ?: visualDays.lastOrNull()?.let { JourneyPeriod(listOf(it), it.visualParams, it, it.genome) }
 
     val riverSegments = buildVisualMemoryRiver(
         days = visualDays,
