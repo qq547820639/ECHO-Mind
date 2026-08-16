@@ -10,10 +10,30 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,16 +91,12 @@ fun EchoMindApp(container: AppContainer) {
             }
         },
         bottomBar = {
-            NavigationBar {
-                Tab.entries.forEach { item ->
-                    NavigationBarItem(
-                        selected = tab == item,
-                        onClick = { tabName = item.name },
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) }
-                    )
-                }
-            }
+            // V3 §48：quiet three-world navigation——near-black .92 / 64dp+inset /
+            // selected = identity 高亮图标+微光+全 alpha 标签 / unselected .52 / Role.Tab / ≥48dp
+            QuietWorldBar(
+                selected = tab,
+                onSelect = { tabName = it.name },
+            )
         }
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
@@ -118,3 +134,65 @@ fun Page(title: String, content: @Composable ColumnScope.() -> Unit) {
 }
 
 fun dialIntent(number: String): Intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))
+
+/** V3 §48 — 三世界安静导航条（替换默认 Material selected pill；仅 ECHO/JOURNEY/ME）。 */
+@Composable
+private fun QuietWorldBar(selected: Tab, onSelect: (Tab) -> Unit) {
+    val bg = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+    Surface(color = bg, tonalElevation = 0.dp, shadowElevation = 0.dp) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .height(64.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Tab.entries.forEach { item ->
+                val isSelected = selected == item
+                val alpha = if (isSelected) 1f else 0.52f
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .heightIn(min = 48.dp)
+                        .selectable(
+                            selected = isSelected,
+                            onClick = { onSelect(item) },
+                            role = Role.Tab,
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (isSelected) {
+                            // small glow（identity-inspired 高亮的安静表达）
+                            Box(
+                                Modifier
+                                    .size(30.dp)
+                                    .background(
+                                        Brush.radialGradient(
+                                            listOf(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                                                Color.Transparent,
+                                            ),
+                                        ),
+                                    ),
+                            )
+                        }
+                        Icon(
+                            item.icon,
+                            contentDescription = item.label,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = alpha),
+                        )
+                    }
+                    Text(
+                        item.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+                    )
+                }
+            }
+        }
+    }
+}
