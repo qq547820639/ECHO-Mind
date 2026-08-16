@@ -28,6 +28,8 @@ typealias Argb = Int
 /** 环境背景场：中心/边缘色 + 噪声颗粒强度。 */
 data class AmbientField(
     val centerColor: Argb,
+    /** 中间过渡色（约 42% 半径处；近黑——§24 大量 black/near-black 的执行点）。 */
+    val midColor: Argb,
     val edgeColor: Argb,
     /** 环境颗粒强度 0..1（背景星尘）。 */
     val grainIntensity: Float,

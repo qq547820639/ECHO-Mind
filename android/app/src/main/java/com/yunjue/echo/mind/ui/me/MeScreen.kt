@@ -14,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -46,6 +49,12 @@ fun MeScreen(container: AppContainer) {
     val state by meVm.uiState.collectAsStateWithLifecycle()
     // visual-runtime：Me 首层 Personal Intelligence Map 的中心 organism 用全局唯一 Presence
     val presence by container.echoStateStore.state.collectAsStateWithLifecycle()
+    // V3 §33/§91：Visual Lab 仅 debug 构建可进入（debug diagnostics 入口）
+    var showVisualLab by remember { mutableStateOf(false) }
+    if (showVisualLab && com.yunjue.echo.mind.BuildConfig.DEBUG) {
+        com.yunjue.echo.mind.ui.debug.VisualLabScreen(onClose = { showVisualLab = false })
+        return
+    }
 
     // §12：节点点击进入对应领域（滚动锚点——各 Section 在 Page 内，Me 用安静滚动定位）
     MeScreenContent(
@@ -82,7 +91,7 @@ fun MeScreen(container: AppContainer) {
             wrist = { WristSection(container) },
             intelligenceSettings = { IntelligenceSettingsSection(container) },
             whatEchoKnows = { WhatEchoKnowsSection(container) },
-            aboutCard = { AboutCard() },
+            aboutCard = { AboutCard(onOpenVisualLab = { showVisualLab = true }) },
         ),
     )
 }
@@ -151,7 +160,7 @@ data class MeSectionSlots(
 
 /** v3.2 §9：About / Diagnostics —— APK 构建来源可追溯（版本/提交/时间）。 */
 @Composable
-private fun AboutCard() {
+private fun AboutCard(onOpenVisualLab: () -> Unit) {
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("About", style = MaterialTheme.typography.titleMedium)
@@ -159,6 +168,10 @@ private fun AboutCard() {
             Text("构建提交：${com.yunjue.echo.mind.BuildConfig.GIT_COMMIT}", style = MaterialTheme.typography.bodySmall)
             Text("构建时间：${com.yunjue.echo.mind.BuildConfig.BUILD_TIMESTAMP}", style = MaterialTheme.typography.bodySmall)
             Text("数据默认只保存在本机；ECHO 是支持性工具，不是医生。", style = MaterialTheme.typography.bodySmall)
+            // V3 §33/§91：ECHO Visual Lab 入口仅 debug 构建可见（debug diagnostics 入口）
+            if (com.yunjue.echo.mind.BuildConfig.DEBUG) {
+                OutlinedButton(onClick = onOpenVisualLab) { Text("ECHO Visual Lab (debug)") }
+            }
         }
     }
 }

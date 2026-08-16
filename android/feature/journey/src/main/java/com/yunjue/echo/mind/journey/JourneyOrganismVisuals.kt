@@ -77,6 +77,7 @@ object JourneyOrganismVisuals {
             coreIntensity = openness,
             haloIntensity = (0.4f + coherence * 0.5f).coerceIn(0f, 1f),
             dataClarity = (0.4f + portrait.baselineDays.coerceIn(0, 28) / 28f * 0.6f).coerceIn(0f, 1f),
+            depth = (0.3f + regularity * 0.7f).coerceIn(0f, 1f),
             momentIntensity = 0f, // Journey 缩略帧无瞬时调制
         )
     }

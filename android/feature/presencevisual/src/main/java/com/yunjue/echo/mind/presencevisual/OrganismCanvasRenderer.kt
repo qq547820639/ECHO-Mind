@@ -35,7 +35,12 @@ object OrganismCanvasRenderer {
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
                 cx, cy, minDim * 1.15f,
-                frame.ambientField.centerColor, frame.ambientField.edgeColor, Shader.TileMode.CLAMP,
+                intArrayOf(
+                    frame.ambientField.centerColor,
+                    frame.ambientField.midColor,
+                    frame.ambientField.edgeColor,
+                ),
+                floatArrayOf(0f, 0.42f, 1f), Shader.TileMode.CLAMP,
             )
         }
         canvas.drawRect(0f, 0f, widthPx, heightPx, bgPaint)
@@ -76,11 +81,11 @@ object OrganismCanvasRenderer {
             val ky = k.y * heightPx
             val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = RadialGradient(
-                    kx, ky, k.radiusFraction * minDim * 2.2f,
+                    kx, ky, k.radiusFraction * minDim * 1.4f,
                     withAlpha(k.color, k.alpha), withAlpha(k.color, 0f), Shader.TileMode.CLAMP,
                 )
             }
-            canvas.drawCircle(kx, ky, k.radiusFraction * minDim * 2.2f, knotPaint)
+            canvas.drawCircle(kx, ky, k.radiusFraction * minDim * 1.4f, knotPaint)
         }
 
         // 8. 粒子

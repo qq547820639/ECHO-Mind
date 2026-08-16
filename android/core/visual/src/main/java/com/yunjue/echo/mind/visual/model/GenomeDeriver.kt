@@ -71,6 +71,7 @@ object GenomeDeriver {
                 .let { if (it > 0f) it else maturityOpenness(state.maturity.name) },
             haloIntensity = (0.3f + coherence * 0.6f).coerceIn(0f, 1f),
             dataClarity = dataClarity,
+            depth = (0.3f + state.rhythmState.regularity * 0.7f).coerceIn(0f, 1f),
             momentIntensity = moment.noiseScale.coerceIn(0f, 1f),
             revision = EchoVisualGenome.CURRENT_REVISION,
         )

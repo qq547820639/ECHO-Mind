@@ -130,11 +130,16 @@ object OrganismFrameComputer {
         val exposure = field.exposure.coerceIn(0f, 1f)
         val ambient = AmbientField(
             centerColor = ColorSpace.lch(
-                0.045f + exposure * 0.075f,
+                0.038f + exposure * 0.045f,
                 identity.palette.primary.c * 0.55f, identity.palette.primary.h,
             ),
+            // §24：42% 半径处已落到近黑——画面质量来自大量 black + 少量真亮
+            midColor = ColorSpace.lch(
+                0.016f + exposure * 0.014f,
+                identity.palette.primary.c * 0.58f, identity.palette.primary.h,
+            ),
             edgeColor = ColorSpace.lch(
-                0.012f + exposure * 0.020f,
+                0.008f + exposure * 0.010f,
                 identity.palette.primary.c * 0.60f, identity.palette.primary.h,
             ),
             grainIntensity = (0.25f + clarity * 0.5f) * spec.capabilities.motionComplexity,
@@ -155,7 +160,7 @@ object OrganismFrameComputer {
         var touchBudget = if (ctx.touch.active) 5 else 0 // §29：最多 5 条 front filament
 
         // ---- 2. Structural Rings（identity skeleton） ----
-        val rings = topo.rings.map { ring ->
+        val rings = topo.rings.mapIndexed { i, ring ->
             sampleStroke(
                 arc = ArcSpec(
                     plane = ring.plane, arcStart = 0f, arcLength = TWO_PI,
@@ -165,7 +170,8 @@ object OrganismFrameComputer {
                     lobeCount = identity.lobeCount, lobeAmp = ring.lobeHarmonicAmp,
                 ),
                 samples = samples, ctx = ctx,
-                baseAlpha = (0.34f + field.coherence * 0.30f) * filamentClarity,
+                // 外环更淡（视觉质量集中于 .9R 内；skeleton 仍清晰可辨）
+                baseAlpha = (0.40f + field.coherence * 0.34f) * filamentClarity * (1f - i * 0.12f),
                 color = primary, widthFraction = 0.0028f,
             )
         }
@@ -183,7 +189,7 @@ object OrganismFrameComputer {
                     depthWarpAmp = f.depthWarpAmp * (0.4f + field.dispersion),
                 ),
                 samples = samples, ctx = ctx,
-                baseAlpha = (0.20f + field.coherence * 0.38f) * filamentClarity,
+                baseAlpha = (0.26f + field.coherence * 0.42f) * filamentClarity,
                 color = if (i % 3 == 2) secondary else primary,
                 widthFraction = 0.0021f, glow = 0.35f, consumeTouch = useTouch,
             )
@@ -193,7 +199,7 @@ object OrganismFrameComputer {
         val frags = topo.fragments.map { f ->
             evalFragment(
                 frag = f, phase = f.phase + dailyPhase * 0.8f + motion.filamentPhase * 0.7f,
-                ctx = ctx, baseAlpha = (0.16f + field.coherence * 0.26f) * filamentClarity,
+                ctx = ctx, baseAlpha = (0.20f + field.coherence * 0.30f) * filamentClarity,
             )
         }
 
@@ -203,7 +209,7 @@ object OrganismFrameComputer {
             radiusFraction = cavityRadius * baseR,
             darkColor = ColorSpace.lch(0.018f, identity.palette.primary.c * 0.5f, identity.palette.primary.h),
             atmosphereColor = ColorSpace.lch(
-                0.08f + field.coreOpenness * 0.08f + exposure * 0.03f,
+                0.13f + field.coreOpenness * 0.10f + exposure * 0.04f,
                 identity.palette.primary.c * 0.8f, identity.palette.primary.h,
             ),
         )
@@ -214,7 +220,7 @@ object OrganismFrameComputer {
                 y = 0.5f + p.y * baseR * ctx.sy,
                 radiusFraction = k.radiusRatio,
                 color = if (k.warm && spec.capabilities.allowWarmAccent) warm else secondary,
-                alpha = 0.55f + 0.35f * field.coreOpenness,
+                alpha = 0.42f + 0.32f * field.coreOpenness,
             )
         }
         val strands = buildCoreStrands(topo, cavityRadius, motion.breathScale, ctx)
@@ -230,23 +236,23 @@ object OrganismFrameComputer {
         val halos = ArrayList<Halo>(2)
         val haloBase = field.halo.coerceIn(0f, 1f) * motion.haloMultiplier
         halos += Halo(
-            radiusFraction = baseR * 1.38f,
-            alpha = (0.10f + haloBase * 0.22f) * (0.5f + spec.capabilities.motionComplexity * 0.5f),
+            radiusFraction = baseR * 1.24f,
+            alpha = (0.011f + haloBase * 0.028f) * (0.5f + spec.capabilities.motionComplexity * 0.5f),
             widthFraction = 0.0028f,
         )
         if (profile.farHaloEnabled && field.halo > 0.25f) {
             halos += Halo(
-                radiusFraction = baseR * 1.85f,
-                alpha = (0.05f + haloBase * 0.12f) * farHaloClarity,
+                radiusFraction = baseR * 1.50f,
+                alpha = (0.007f + haloBase * 0.016f) * farHaloClarity,
                 widthFraction = 0.0018f,
             )
         }
 
         // ---- 8. 前膜（§18 front membrane：前半球壳层微光） ----
         val frontMembrane = FrontMembrane(
-            radiusFraction = baseR * 0.995f,
+            radiusFraction = baseR * 0.94f,
             color = primary,
-            alpha = 0.07f + field.coherence * 0.08f,
+            alpha = 0.028f + field.coherence * 0.038f,
         )
 
         // ---- 9. 涟漪（§29 触摸 1 个 ripple；moment 瞬时响应保留既有语义） ----
@@ -424,7 +430,7 @@ object OrganismFrameComputer {
                 pts += StrokePoint(
                     x = 0.5f + px * ctx.baseR * ctx.sx,
                     y = 0.5f + py * ctx.baseR * ctx.sy,
-                    alpha = (0.20f + ctx.field.coreOpenness * 0.25f) *
+                    alpha = (0.30f + ctx.field.coreOpenness * 0.30f) *
                         sin(t * PI.toFloat()).coerceIn(0.2f, 1f),
                 )
             }
@@ -479,6 +485,8 @@ object OrganismFrameComputer {
             }
             var alpha = classCap * (0.45f + 0.55f * pb.sizeJitter) *
                 (0.5f + 0.5f * (p.z + 1f) * 0.5f) * (0.55f + ctx.field.coherence * 0.45f)
+            // 远壳层粒子淡出（§24 视觉质量集中于 .9R 内；粒子场拓扑不变，只降远层可见度）
+            alpha *= lerp(1f, 0.28f, smoothstep(0.68f, 1.02f, pb.shellRadius))
             if (p.z < 0f) {
                 val r2 = sqrt(p.x * p.x + p.y * p.y)
                 alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)

@@ -49,6 +49,8 @@ data class EchoVisualGenome(
     val haloIntensity: Float,
     /** 数据清晰度 0..1（data coverage；低数据更轻更模糊）。 */
     val dataClarity: Float,
+    /** 空间深度 0..1（regularity 语义；<0 = 未设置，编译期由 coherence 派生）。 */
+    val depth: Float = -1f,
     /** 当下强度 0..1（moment 调制；不改变 identity）。 */
     val momentIntensity: Float,
     /** genome 结构修订号（schema 演进用；序列化兼容锚点）。 */
@@ -59,6 +61,6 @@ data class EchoVisualGenome(
     }
 
     companion object {
-        const val CURRENT_REVISION: Int = 1
+        const val CURRENT_REVISION: Int = 2
     }
 }

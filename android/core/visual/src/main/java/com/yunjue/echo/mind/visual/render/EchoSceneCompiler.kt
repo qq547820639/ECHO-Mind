@@ -110,7 +110,7 @@ object EchoSceneCompiler {
             coherence = g.coherence,
             turbulence = g.turbulence,
             particleDensity = g.particleDensity,
-            depth = g.depth(),
+            depth = g.depthOrDerived(),
             coreOpenness = g.coreIntensity,
             dispersion = g.radialSpread,
             halo = g.haloIntensity,
@@ -156,7 +156,7 @@ object EchoSceneCompiler {
 
     private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t.coerceIn(0f, 1f)
 
-    /** genome 无 depth 字段（V3 §35 depth 语义当前由 luminance/coherence 承载前的机械映射）。 */
-    private fun EchoVisualGenome.depth(): Float =
-        (0.4f + coherence * 0.6f).coerceIn(0f, 1f)
+    /** genome.depth >= 0 时采用（regularity 语义）；否则由 coherence 派生（向后兼容）。 */
+    private fun EchoVisualGenome.depthOrDerived(): Float =
+        if (depth >= 0f) depth.coerceIn(0f, 1f) else (0.4f + coherence * 0.6f).coerceIn(0f, 1f)
 }

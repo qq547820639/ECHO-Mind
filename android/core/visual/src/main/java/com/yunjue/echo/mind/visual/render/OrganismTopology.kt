@@ -149,7 +149,7 @@ object OrganismTopologyBuilder {
             val roll = DeterministicRandom.range(seed, 310 + i, 0f, TWO_PI)
             rings += StructuralRingTopo(
                 plane = planeFromTiltRoll(tilt, roll),
-                radiusRatio = 0.94f + 0.05f * i + identity.orbitalBias,
+                radiusRatio = 0.66f + 0.045f * i + identity.orbitalBias * 0.5f,
                 lobeHarmonicAmp = 0.015f + 0.02f * DeterministicRandom.at(seed, 320 + i),
                 phase = identity.identityPhase * TWO_PI + i * 0.9f,
             )
@@ -164,7 +164,7 @@ object OrganismTopologyBuilder {
                 plane = planeFromNormal(normal),
                 arcStart = DeterministicRandom.range(seed, 400 + i * 7, 0f, TWO_PI),
                 arcLength = DeterministicRandom.range(seed, 401 + i * 7, 1.15f * PI.toFloat(), 1.95f * PI.toFloat()),
-                baseRadiusRatio = 0.88f + 0.16f * DeterministicRandom.at(seed, 402 + i * 7),
+                baseRadiusRatio = 0.64f + 0.14f * DeterministicRandom.at(seed, 402 + i * 7),
                 freqOffset = (DeterministicRandom.at(seed, 403 + i * 7) * 2.99f).toInt(), // f + 0..2
                 phase = DeterministicRandom.at(seed, 404 + i * 7) * TWO_PI,
                 depthWarpAmp = 0.10f + 0.22f * DeterministicRandom.at(seed, 405 + i * 7),
@@ -176,13 +176,13 @@ object OrganismTopologyBuilder {
         val frags = ArrayList<LocalFragmentTopo>(fragCount)
         for (i in 0 until fragCount) {
             val dir = fibDir(i * 2 + 1, fragCount * 2 + 1, identity.identityPhase * TWO_PI + 1.3f)
-            val shell = 0.55f + 0.35f * DeterministicRandom.at(seed, 500 + i * 5)
+            val shell = 0.38f + 0.26f * DeterministicRandom.at(seed, 500 + i * 5)
             frags += LocalFragmentTopo(
                 center = dir * shell,
                 plane = planeFromNormal(fibDir(i + 40, fragCount + 41, identity.identityPhase)),
                 arcStart = DeterministicRandom.range(seed, 501 + i * 5, 0f, TWO_PI),
                 arcLength = DeterministicRandom.range(seed, 502 + i * 5, 0.5f, 1.4f),
-                radiusRatio = 0.16f + 0.22f * DeterministicRandom.at(seed, 503 + i * 5),
+                radiusRatio = 0.12f + 0.16f * DeterministicRandom.at(seed, 503 + i * 5),
                 phase = DeterministicRandom.at(seed, 504 + i * 5) * TWO_PI,
             )
         }
@@ -227,7 +227,7 @@ object OrganismTopologyBuilder {
             val r = identity.coreRatio * (0.35f + 0.45f * DeterministicRandom.at(seed, 710 + i))
             knots += CoreKnotTopo(
                 offset = Vec3(cos(angle) * r, sin(angle) * r * 0.8f, 0.25f * r),
-                radiusRatio = 0.020f + 0.022f * DeterministicRandom.at(seed, 720 + i),
+                radiusRatio = 0.013f + 0.015f * DeterministicRandom.at(seed, 720 + i),
                 warm = i == 0, // 仅一个小暖结（§12 暖色面积上限由渲染执行）
             )
         }

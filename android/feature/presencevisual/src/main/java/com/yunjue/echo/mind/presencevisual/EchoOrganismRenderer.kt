@@ -89,7 +89,9 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
     // 1. Ambient field（近黑径向衰减）
     drawRect(
         brush = Brush.radialGradient(
-            colors = listOf(Color(frame.ambientField.centerColor), Color(frame.ambientField.edgeColor)),
+            0f to Color(frame.ambientField.centerColor),
+            0.42f to Color(frame.ambientField.midColor),
+            1f to Color(frame.ambientField.edgeColor),
             center = center,
             radius = minDim * 1.15f,
         ),
@@ -135,9 +137,9 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
                     Color(k.color).copy(alpha = 0f),
                 ),
                 center = Offset(k.x * size.width, k.y * size.height),
-                radius = k.radiusFraction * minDim * 2.2f,
+                radius = k.radiusFraction * minDim * 1.4f,
             ),
-            radius = k.radiusFraction * minDim * 2.2f,
+            radius = k.radiusFraction * minDim * 1.4f,
             center = Offset(k.x * size.width, k.y * size.height),
         )
     }
