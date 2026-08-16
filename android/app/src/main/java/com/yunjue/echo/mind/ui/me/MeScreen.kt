@@ -44,10 +44,30 @@ fun MeScreen(container: AppContainer) {
     val context = LocalContext.current
     val meVm: MeViewModel = viewModel(factory = MeViewModel.factory(container))
     val state by meVm.uiState.collectAsStateWithLifecycle()
+    // visual-runtime：Me 首层 Personal Intelligence Map 的中心 organism 用全局唯一 Presence
+    val presence by container.echoStateStore.state.collectAsStateWithLifecycle()
 
+    // §12：节点点击进入对应领域（滚动锚点——各 Section 在 Page 内，Me 用安静滚动定位）
     MeScreenContent(
         state = state,
         onEvent = meVm::onEvent,
+        intelligenceMap = {
+            MeIntelligenceMap(
+                presence = presence,
+                onOpenObservation = { },
+                onOpenIntelligence = { },
+                onOpenMemory = { },
+                onOpenDevices = { },
+                onOpenPresence = { },
+                organism = {
+                    com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                        presence = presence,
+                        surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        reducedMotion = state.presence.reduceMotion,
+                    )
+                },
+            )
+        },
         crisisCard = { CrisisCard(context) },
         subscription = { SubscriptionSection(container) },
         support = {
@@ -82,6 +102,7 @@ fun MeScreenContent(
     intelligenceSettings: @Composable () -> Unit,
     whatEchoKnows: @Composable () -> Unit,
     aboutCard: @Composable () -> Unit,
+    intelligenceMap: @Composable () -> Unit = {},
 ) {
     if (state.showSupportConfirm) {
         AlertDialog(
@@ -102,10 +123,11 @@ fun MeScreenContent(
     }
 
     Page("Me · 我的控制权") {
-        // ERA 25 §44 信息架构：危机入口（安全常驻，契约冻结）→ ECHO Presence →
-        // What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About。
-        // Me 不是 Settings：用户的 ECHO 与它知道什么排在最前，工程配置沉底。
+        // ERA 25 §44 信息架构 + §12 Personal Intelligence Map：
+        // 危机入口（安全常驻，契约冻结）→ Intelligence Map（ECHO 如何认识你，首层非 Settings）→
+        // ECHO Presence → What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About。
         crisisCard()
+        intelligenceMap()
         presenceSettings()
         wrist()
         whatEchoKnows()
