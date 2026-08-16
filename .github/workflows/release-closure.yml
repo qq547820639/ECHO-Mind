@@ -35,7 +35,7 @@ jobs:
         run: |
           python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.zip
           python3 scripts/verify_source_archive.py dist/ECHO_Mind_PortraitCore_v*.tar.gz
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: source-archives
           path: dist/*
@@ -53,7 +53,7 @@ jobs:
       - run: uv run --project backend --directory backend pytest -q --junitxml=backend-junit.xml
       - run: uv run --project backend --directory backend ruff check app tests
       - run: uv run --project backend --directory backend mypy app
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: backend-junit
           path: backend/backend-junit.xml
@@ -73,11 +73,11 @@ jobs:
       - name: release build（unsigned；签名在 closure job 内完成）
         run: cd android && ./gradlew assembleRelease --stacktrace -PECHO_API_BASE_URL=https://echo-mind.example.invalid
       - run: echo "passed" > android-build-status.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: android-build-status
           path: android-build-status.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: unsigned-release-apk
           path: android/app/build/outputs/apk/release/*.apk
@@ -152,7 +152,7 @@ jobs:
           python3 -m pytest scripts/test_release_set.py -q
           python3 -m pytest scripts/test_source_archive.py -q
           python3 -m pytest scripts/test_affective_eval.py -q
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: echo-mind-release-set
           path: |
