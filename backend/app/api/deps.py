@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import uuid4
 
@@ -18,7 +18,10 @@ from app.auth import (
     Principal,
     create_access_token,
     get_principal,
+    hash_refresh_token,
+    new_refresh_token,
 )
+from app.config import get_settings
 from app.database import get_db
 from app.models import Consent, Escalation, OnboardingScreening, User
 from app.schemas import OnboardingVerifyOut
@@ -206,8 +209,15 @@ def open_escalation(
 
 
 def build_verify_out(db: Session, user: User) -> OnboardingVerifyOut:
-    """按用户组装 verify-code 输出（consent_versions + l0_decision + 订阅状态）。"""
+    """按用户组装 verify-code 输出（consent_versions + l0_decision + 订阅状态）。
+
+    ERA 32 R25：同时签发轮换式刷新令牌（哈希落库 + 有效期），
+    解决 access token 60 分钟过期后无码续期锁死（P1）。
+    """
     access_token = create_access_token(subject=user.id, tenant_id=user.tenant_id, role="user")
+    refresh_token = new_refresh_token()
+    user.refresh_token_hash = hash_refresh_token(refresh_token)
+    user.refresh_expires_at = datetime.now(UTC) + timedelta(days=get_settings().refresh_token_days)
     consent_versions: dict[str, str] = {}
     for consent_type in ("psychological_data", "passive_sensing", "voice_features"):
         consent = latest_consent(db, user.tenant_id, user.id, consent_type)
@@ -224,12 +234,17 @@ def build_verify_out(db: Session, user: User) -> OnboardingVerifyOut:
     from app.services.subscription import subscription_status
 
     sub = subscription_status(user)
-    return OnboardingVerifyOut(
+    out = OnboardingVerifyOut(
         user_id=user.id,
         access_token=access_token,
+        refresh_token=refresh_token,
         consent_versions=consent_versions,
         l0_decision=l0_decision,
         restricted=False,
         subscription_expires_at=sub["expires_at"],
         subscription_plan=sub["plan"],
     )
+    # ERA 32 R25：刷新令牌哈希必须随响应一起落库——调用方（verify-code 两条分支）
+    # 都在本函数前 commit，若此处不提交，令牌变更会随请求结束被回滚丢弃。
+    db.commit()
+    return out

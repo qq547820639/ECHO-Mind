@@ -48,6 +48,9 @@ class User(Base):
     # v0.7 订阅生命周期：到期时间（NULL = 永不过期，机构旧用户向后兼容）与订阅档位。
     subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     subscription_plan: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # ERA 32 R25：轮换式刷新令牌（仅存 SHA-256 哈希；每次 refresh 换新并作废旧令牌）。
+    refresh_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    refresh_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("tenant_id", "external_ref", name="uq_user_external"),)
 

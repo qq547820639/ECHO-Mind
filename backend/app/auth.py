@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 from typing import Annotated
 
 import jwt
@@ -9,6 +11,18 @@ from app.config import get_settings
 from collections.abc import Callable
 
 bearer = HTTPBearer(auto_error=False)
+
+
+# ===== ERA 32 R25：轮换式刷新令牌 =====
+
+def new_refresh_token() -> str:
+    """生成刷新令牌（256-bit 随机，url-safe；服务端只存哈希）。"""
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    """刷新令牌 → SHA-256 hex（服务端存储形态，绝不明文落库）。"""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)

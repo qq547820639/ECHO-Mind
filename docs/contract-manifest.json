@@ -32,6 +32,11 @@
       },
       {
         "method": "POST",
+        "path": "/v1/auth/refresh",
+        "note": "ERA 32 R25 无凭证续期：refresh token 换新 access token（轮换式，旧 token 即废）"
+      },
+      {
+        "method": "POST",
         "path": "/v1/onboarding/consents",
         "note": "分项 consent（含 passive_sensing / voice_features）"
       },
@@ -195,6 +200,7 @@
       "fields": [
         "user_id",
         "access_token",
+        "refresh_token",
         "consent_versions",
         "l0_decision",
         "restricted",

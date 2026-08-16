@@ -2,7 +2,10 @@ import os
 
 # 测试默认使用 SQLite 内存库；CI 的 PostgreSQL job 通过环境变量覆盖（setdefault 不覆盖已设置的）。
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+# ERA 32 R25：全部三项秘密必须显式非默认值（validate_production_secrets 对任何环境 fail-closed）。
 os.environ.setdefault("JWT_SECRET", "test-secret-at-least-32-bytes-long")
+os.environ.setdefault("FIELD_ENCRYPTION_SECRET", "test-field-encryption-secret-not-default")
+os.environ.setdefault("BOOTSTRAP_KEY", "test-bootstrap-key-not-default")
 
 import pytest
 from fastapi.testclient import TestClient

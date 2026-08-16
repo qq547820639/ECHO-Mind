@@ -69,8 +69,15 @@ def test_consent_revocation_blocks_checkin(client, user_headers):
 
 
 def test_bootstrap_key_required_for_tenant(client):
+    # ERA 32 R25：仓库默认值被 fail-closed 禁用——测试使用 conftest 注入的非默认 BOOTSTRAP_KEY
+    from app.config import get_settings
+
     assert client.post("/v1/tenants", json={"name": "Nope"}).status_code == 403
-    ok = client.post("/v1/tenants", json={"name": "Pilot"}, headers={"X-Bootstrap-Key": "local-bootstrap-only"})
+    ok = client.post(
+        "/v1/tenants",
+        json={"name": "Pilot"},
+        headers={"X-Bootstrap-Key": get_settings().bootstrap_key},
+    )
     assert ok.status_code == 200
 
 

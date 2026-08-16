@@ -13,6 +13,8 @@ import org.json.JSONObject
 data class OnboardingVerifyResult(
     val userId: String,
     val accessToken: String,
+    /** ERA 32 R25：轮换式刷新令牌（access token 过期后无码续期凭证）。 */
+    val refreshToken: String = "",
     val consentVersions: Map<String, String> = emptyMap(),
     val l0Decision: String? = null,
     val restricted: Boolean = false,
@@ -99,13 +101,15 @@ class OnboardingRepository(
                 else -> {
                     val result = runCatching { parseVerifyCodeResponse(responseBody) }
                         .getOrElse { throw OnboardingVerifyException("malformed") }
-                    if (result.userId.isBlank() || result.accessToken.isBlank()) {
+                    if (result.userId.isBlank() || result.accessToken.isBlank() || result.refreshToken.isBlank()) {
                         throw OnboardingVerifyException("malformed")
                     }
                     // Phase 3.3（Portrait Cache User Isolation）：账户切换时清理上一账户的画像缓存。
                     val previousUserId = preferences.userId
                     preferences.userId = result.userId
                     preferences.accessToken = result.accessToken
+                    // ERA 32 R25：刷新令牌与 access token 成对存储（401 静默续期用）
+                    preferences.refreshToken = result.refreshToken
                     if (previousUserId.isNotBlank() && previousUserId != result.userId) {
                         runCatching { portraitDao.deleteByUser(previousUserId) }
                     }
@@ -130,6 +134,7 @@ class OnboardingRepository(
         return OnboardingVerifyResult(
             userId = o.optString("user_id"),
             accessToken = o.optString("access_token"),
+            refreshToken = o.optString("refresh_token"),
             consentVersions = consentVersions,
             l0Decision = o.optString("l0_decision").takeIf { it.isNotBlank() && it != "null" },
             restricted = o.optBoolean("restricted", false),

@@ -4,6 +4,7 @@ import android.content.Context
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.ApiClient
+import com.yunjue.echo.mind.data.AuthTokenRefresher
 import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.DeterministicPersonalAnswerProvider
 import com.yunjue.echo.mind.data.EchoDatabase
@@ -95,7 +96,12 @@ class CoreContainer(
     val passiveSensingPrefs = PassiveSensingPrefs(context)
     val preferences = AppPreferences(context, cipher, passiveSensingPrefs)
 
-    val apiClient = ApiClient(tokenProvider = { preferences.accessToken })
+    /** ERA 32 R25：401 静默续期（轮换式 refresh token；失败不改变状态）。 */
+    val authTokenRefresher = AuthTokenRefresher(preferences)
+    val apiClient = ApiClient(
+        tokenProvider = { preferences.accessToken },
+        onUnauthorized = { authTokenRefresher.tryRefresh() },
+    )
 
     /** 跨域共享 outbox 原语（本地模式不写入；订阅后自动恢复正常上行）。 */
     val outbox = Outbox(database, cipher, localModeProvider = { preferences.localMode })

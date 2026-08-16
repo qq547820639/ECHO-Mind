@@ -18,11 +18,13 @@ internal fun parseRetryAfterSeconds(header: String?): Int? =
  * @param tokenProvider 返回 access_token（可为 null）
  * @param connectTimeoutMs 连接超时，默认 10s
  * @param readTimeoutMs 读取超时，默认 15s
+ * @param onUnauthorized ERA 32 R25：收到 401 时尝试静默续期；返回 true 则用新 token 重试一次。
  */
 class ApiClient(
     private val tokenProvider: () -> String?,
     private val connectTimeoutMs: Int = 10_000,
-    private val readTimeoutMs: Int = 15_000
+    private val readTimeoutMs: Int = 15_000,
+    private val onUnauthorized: (() -> Boolean)? = null
 ) {
     /**
      * 统一 POST：返回 (code, body, retryAfterSeconds)。
@@ -30,8 +32,17 @@ class ApiClient(
      * 所有上行路径统一走此入口；错误 body 解析由调用方按 taxonomy 处理。
      * 预认证端点（tokenProvider 为 null）不带 Authorization 头；超时、header、
      * X-Request-ID、Authorization 行为与原 post/postWithBody/postFull 完全一致。
+     * ERA 32 R25：401 → onUnauthorized 续期成功 → 原请求重试一次（幂等事件语义安全）。
      */
     fun post(path: String, jsonBody: String): Triple<Int, String?, Int?> {
+        var result = postOnce(path, jsonBody)
+        if (result.first == 401 && onUnauthorized?.invoke() == true) {
+            result = postOnce(path, jsonBody)
+        }
+        return result
+    }
+
+    private fun postOnce(path: String, jsonBody: String): Triple<Int, String?, Int?> {
         val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "POST"
@@ -54,8 +65,17 @@ class ApiClient(
 
     /**
      * GET 请求，返回状态码 + 响应体（可能为 null）。
+     * ERA 32 R25：401 → onUnauthorized 续期成功 → 原请求重试一次（GET 幂等）。
      */
     fun get(path: String): Pair<Int, String?> {
+        var result = getOnce(path)
+        if (result.first == 401 && onUnauthorized?.invoke() == true) {
+            result = getOnce(path)
+        }
+        return result
+    }
+
+    private fun getOnce(path: String): Pair<Int, String?> {
         val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"

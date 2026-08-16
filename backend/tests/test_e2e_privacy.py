@@ -201,7 +201,9 @@ def test_ingest_schema_only_allows_defined_fields(client, user_headers, passive_
     """POST /v1/features/ingest 请求体 schema 只含定义字段，不含原始传感 payload。
 
     合法字段集合：{schema_version, source, window_start, window_end, summary, vector,
-    event_id, user_id, sources_present}（v0.6 新增 sources_present）
+    event_id, user_id, sources_present, client_time}
+    （v0.6 新增 sources_present；ERA 32 R25 新增 client_time——采集时刻元数据，
+    非原始传感数据）
     不含：audio_buffer / raw_samples / payload / sensor_data 等原始传感字段。
     """
     from app.schemas import DerivedFeatureIn
@@ -210,7 +212,7 @@ def test_ingest_schema_only_allows_defined_fields(client, user_headers, passive_
     schema_fields = set(DerivedFeatureIn.model_fields.keys())
     expected_fields = {
         "schema_version", "source", "window_start", "window_end",
-        "summary", "vector", "event_id", "user_id", "sources_present",
+        "summary", "vector", "event_id", "user_id", "sources_present", "client_time",
     }
     assert schema_fields == expected_fields, (
         f"DerivedFeatureIn 字段集合应为 {expected_fields}，实际为 {schema_fields}"

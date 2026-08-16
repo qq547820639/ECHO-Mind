@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     sandbox_rate_limit_per_hour: int = 10
     # v0.6.1：激活码默认 TTL（秒，默认 30 天）。
     activation_code_ttl_seconds: int = 30 * 24 * 3600
+    # ERA 32 R25：刷新令牌有效期（天，默认 30 天；过期后需机构重新发放激活码）。
+    refresh_token_days: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -39,15 +41,20 @@ class Settings(BaseSettings):
         return hashlib.sha256(self.field_encryption_secret.encode("utf-8")).digest()
 
     def validate_production_secrets(self) -> None:
-        if self.environment.lower() in {"production", "pilot"}:
-            weak = {
-                "dev-secret-change-me-please-32-bytes",
-                "dev-field-encryption-secret-change-me",
-                "local-bootstrap-only",
-            }
-            values = {self.jwt_secret, self.field_encryption_secret, self.bootstrap_key}
-            if values & weak:
-                raise RuntimeError("pilot/production requires externally managed secrets")
+        # ERA 32 R25：任何环境（含 local）都拒绝仓库内默认 dev 秘密——未覆盖环境变量
+        # 就启动 = 公开已知密钥 = 可伪造任意角色 JWT / 解密密文字段。fail-closed：
+        # 本地开发也必须在 .env 里显式设置非默认值。
+        weak = {
+            "dev-secret-change-me-please-32-bytes",
+            "dev-field-encryption-secret-change-me",
+            "local-bootstrap-only",
+        }
+        values = {self.jwt_secret, self.field_encryption_secret, self.bootstrap_key}
+        if values & weak:
+            raise RuntimeError(
+                "default dev secrets detected; set non-default JWT_SECRET, "
+                "FIELD_ENCRYPTION_SECRET and BOOTSTRAP_KEY in every environment"
+            )
 
 
 @lru_cache

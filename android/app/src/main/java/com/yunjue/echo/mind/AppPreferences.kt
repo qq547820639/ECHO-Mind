@@ -48,6 +48,17 @@ class AppPreferences(
             _localModeFlow.value = value.isNullOrBlank()
         }
 
+    /** ERA 32 R25：轮换式刷新令牌（与 accessToken 同等加密存储；续期时成对替换）。 */
+    var refreshToken: String?
+        get() = prefs.getString("refresh_token_ciphertext", null)
+            ?.let { runCatching { cipher.decrypt(it) }.getOrNull() }
+        set(value) {
+            prefs.edit().apply {
+                if (value.isNullOrBlank()) remove("refresh_token_ciphertext")
+                else putString("refresh_token_ciphertext", cipher.encrypt(value))
+            }.apply()
+        }
+
     // ===== Skill 卡片下发缓存（T11.4） =====
     // 用 SharedPreferences 缓存 GET /v1/skills 的原始 JSON + 时间戳，避免 Room 迁移。
     // Skill 为只读下发数据，不加密存储；过期由 [SkillRepository.fetchSkills] 判定刷新。

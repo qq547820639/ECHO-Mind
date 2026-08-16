@@ -3,7 +3,7 @@
   "info": {
     "title": "ECHO Mind Portrait Core API",
     "description": "ECHO-Mind 每日个人画像：被动行为节律 → 个人基线 → 每日画像（Me vs Me）。行为观察，不做心理诊断；非诊断、非紧急服务替代。人工支持与画像链相互独立。",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "paths": {
     "/v1/tenants": {
@@ -221,6 +221,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OnboardingVerifyOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Refresh Access Token",
+        "operationId": "refresh_access_token_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshTokenOut"
                 }
               }
             }
@@ -3560,6 +3598,18 @@
             "type": "string",
             "title": "User Id"
           },
+          "client_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Time"
+          },
           "schema_version": {
             "type": "string",
             "enum": [
@@ -4061,6 +4111,10 @@
             "type": "string",
             "title": "Access Token"
           },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
           "consent_versions": {
             "additionalProperties": {
               "type": "string"
@@ -4110,10 +4164,11 @@
         "type": "object",
         "required": [
           "user_id",
-          "access_token"
+          "access_token",
+          "refresh_token"
         ],
         "title": "OnboardingVerifyOut",
-        "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。\nv0.7 订阅：subscription_expires_at / subscription_plan（可空 = 无订阅变更/机构旧用户）。"
+        "description": "激活码交换输出契约（v0.6 final）。\n\n仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等\n内部字段（JWT 载荷内部字段对用户透明）。\nv0.7 订阅：subscription_expires_at / subscription_plan（可空 = 无订阅变更/机构旧用户）。\nERA 32 R25：refresh_token —— access token 过期后的无码续期凭证（轮换式）。"
       },
       "PortraitFeedbackIn": {
         "properties": {
@@ -4409,6 +4464,53 @@
           "answers"
         ],
         "title": "QuestionnaireCreate"
+      },
+      "RefreshTokenIn": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "User Id"
+          },
+          "refresh_token": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 16,
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "refresh_token"
+        ],
+        "title": "RefreshTokenIn",
+        "description": "无凭证续期入参：用轮换式 refresh token 换新 access token（预认证端点）。"
+      },
+      "RefreshTokenOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "RefreshTokenOut",
+        "description": "续期输出：新 access token + 新轮换 refresh token（旧 token 立即作废）。"
       },
       "SandboxRunCreate": {
         "properties": {

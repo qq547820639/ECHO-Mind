@@ -77,14 +77,31 @@ class OnboardingVerifyOut(BaseModel):
     仅返回端侧所需字段；不暴露 tenant_id / role / external_ref / bootstrap 等
     内部字段（JWT 载荷内部字段对用户透明）。
     v0.7 订阅：subscription_expires_at / subscription_plan（可空 = 无订阅变更/机构旧用户）。
+    ERA 32 R25：refresh_token —— access token 过期后的无码续期凭证（轮换式）。
     """
     user_id: str
     access_token: str
+    refresh_token: str
     consent_versions: dict[str, str] = Field(default_factory=dict)
     l0_decision: str | None = None
     restricted: bool = False
     subscription_expires_at: str | None = None
     subscription_plan: str | None = None
+
+
+class RefreshTokenIn(BaseModel):
+    """无凭证续期入参：用轮换式 refresh token 换新 access token（预认证端点）。"""
+
+    user_id: str = Field(min_length=2, max_length=80)
+    refresh_token: str = Field(min_length=16, max_length=200)
+
+
+class RefreshTokenOut(BaseModel):
+    """续期输出：新 access token + 新轮换 refresh token（旧 token 立即作废）。"""
+
+    user_id: str
+    access_token: str
+    refresh_token: str
 
 
 # ===== v0.6.1 ActivationCode（机构激活码，取代 external_ref 隐式激活语义） =====
@@ -240,6 +257,9 @@ class DerivedFeatureIn(BaseModel):
 
     event_id: str = Field(min_length=8, max_length=80)
     user_id: str
+    # ERA 32 R25：端侧 outbox 基础载荷统一携带 client_time（采集时刻元数据）——
+    # 此前 extra="forbid" 拒绝该字段导致每条 derived_feature 同步 422（云端画像链路全断）。
+    client_time: datetime | None = None
     # Phase 5：schema registry 驱动；Literal 让 OpenAPI 表达枚举契约
     # （passive-core-v1 核心 22 维 / mic-feature-v1 麦克风外围）
     schema_version: Literal["passive-core-v1", "mic-feature-v1"] = PASSIVE_CORE_V1

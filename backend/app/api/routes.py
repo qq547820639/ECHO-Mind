@@ -11,6 +11,7 @@ from fastapi import APIRouter
 
 from app.api import (
     admin,
+    auth_refresh,
     consent,
     data_rights,
     escalations,
@@ -30,6 +31,7 @@ router = APIRouter()  # 无 prefix：各子 router 自带 /v1 prefix
 
 #: 聚合顺序不影响 URL 匹配（各子 router 均无路径冲突）；保持可读性分组。
 router.include_router(onboarding.router)
+router.include_router(auth_refresh.router)
 router.include_router(consent.router)
 router.include_router(features.router)
 router.include_router(narratives.router)
