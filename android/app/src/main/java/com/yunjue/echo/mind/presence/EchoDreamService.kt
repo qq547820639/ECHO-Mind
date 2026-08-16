@@ -86,11 +86,6 @@ internal class EchoDreamView(context: Context) : View(context) {
         if (startNanos == 0L) startNanos = System.nanoTime()
         val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
         // visual-runtime R2：Dream 复用 core/visual 分层 organism（SAME ECHO；暖金高光仅 DREAM_AMBIENT）
-        val motionPolicy = when (config.surface) {
-            SurfaceMode.REDUCED_MOTION -> com.yunjue.echo.mind.visual.motion.MotionPolicy.REDUCED_MOTION
-            SurfaceMode.LOW_POWER -> com.yunjue.echo.mind.visual.motion.MotionPolicy.LOW_POWER
-            else -> com.yunjue.echo.mind.visual.motion.MotionPolicy.FULL
-        }
         val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
             spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
                 genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
@@ -103,7 +98,7 @@ internal class EchoDreamView(context: Context) : View(context) {
             height = h,
         )
         com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(canvas, frame, w, h)
-        drawPublicSafeOverlay(canvas, frame.membrane.strokeColor, w, h)
+        drawPublicSafeOverlay(canvas, frame.frontMembrane.color, w, h)
 
         // ERA 31 R14（§16）：与 Wallpaper 同款自适应帧率——过渡期 33ms / 静置期 250ms（4fps）。
         // View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止（0 残留渲染语义保持）。

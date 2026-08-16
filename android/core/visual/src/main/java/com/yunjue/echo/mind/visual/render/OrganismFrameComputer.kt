@@ -1,288 +1,502 @@
 package com.yunjue.echo.mind.visual.render
 
-import com.yunjue.echo.mind.visual.math.DeterministicRandom
-import com.yunjue.echo.mind.visual.model.EchoVisualGenome
-import com.yunjue.echo.mind.visual.noise.OrganicNoise
-import com.yunjue.echo.mind.visual.render.ColorSpace.withAlpha
+import com.yunjue.echo.mind.visual.model.EchoIdentitySpec
+import com.yunjue.echo.mind.visual.motion.EchoMotionState
+import com.yunjue.echo.mind.visual.motion.MotionEvaluator
 import com.yunjue.echo.mind.visual.surface.EchoVisualSpec
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.roundToInt
+import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * OrganismFrameComputer — 把裁剪后的 [EchoVisualSpec] 计算为确定性 [OrganismFrame]。
+ * OrganismFrameComputer — V3 帧求值器（纯函数，无 Android 依赖，JVM 可测）。
  *
- * 渲染管线的算法核心（纯函数，无 Android 依赖，JVM 可测）：
- *   输入 spec（含 genome + capabilities + clockSeconds）+ 视口 → 输出完整 9 层帧。
- * 同一 spec + 视口 → 逐值相同的帧（golden test / Journey 重建前提）。
+ * 管线：EchoVisualSpec → EchoSceneCompiler → EchoRenderPacket
+ *        →（缓存拓扑 OrganismTopology + MotionEvaluator）→ OrganismFrame。
  *
- * 层次实现对应 ECHO_VISUAL_CONSTITUTION §二：ambient field / membrane / filament /
- * orbital / particle / core glow / halo / ripple / warm accent。
+ * 确定性：同一 spec + 视口 + options → 逐值相同的帧（golden / Journey 重建前提）。
+ * 禁止 frame-random noise（§15）；一切随机源来自 identitySeed 的稳定拓扑缓存（§32）。
+ *
+ * 算法对应：§14 三层拓扑 / §15 3D filament 谐波场 / §16 behind-core 遮挡 /
+ * §17 Fibonacci 粒子 / §18 空心核 / §27 呼吸 / §28 慢轨道 / §29 触摸形变 / §41 低数据降级。
  */
 object OrganismFrameComputer {
 
     private const val TWO_PI = 2f * PI.toFloat()
 
-    /**
-     * 各向同性半径尺度（球体在任意宽高比下保持圆形）。
-     *
-     * 渲染端约定：归一化坐标 × 各自轴（x×W、y×H）；圆形半径则以 minDim 为基准（minDim×r）。
-     * 因此归一化半径的 x、y 分量都必须用 minDim 基准：
-     *   x 分量 = cos·r·(minDim/W)，y 分量 = sin·r·(minDim/H)。
-     * aspect = W/H；isoX = minDim/W，isoY = minDim/H。
-     */
+    /** 渲染侧附加输入（不属业务 spec；由 host 按设备/偏好填充）。 */
+    data class EchoRenderOptions(
+        val maturityName: String = "KNOWN",
+        val tier: EchoRenderTier = EchoRenderTier.LEGACY,
+        val quality: EchoRenderQuality = EchoRenderQuality.NORMAL,
+        val reducedMotion: Boolean = false,
+        val lowPower: Boolean = false,
+        val hdrEligible: Boolean = false,
+        val interaction: EchoInteractionSpec = EchoInteractionSpec(),
+    )
+
+    /** 帧求值共享上下文（hot path 单次分配；detekt 参数收敛）。 */
+    private data class FrameCtx(
+        val identity: EchoIdentitySpec,
+        val field: EchoFieldSpec,
+        val cosA: Float,
+        val sinA: Float,
+        val baseR: Float,
+        val sx: Float,
+        val sy: Float,
+        val coreInner: Float,
+        val coreOuter: Float,
+        val primary: Argb,
+        val secondary: Argb,
+        val warm: Argb,
+        val touch: EchoInteractionSpec,
+    )
+
+    /** 一条弧线的采样描述（plane basis + 弧程 + 谐波参数；§15）。 */
+    private data class ArcSpec(
+        val plane: FilamentPlane,
+        val arcStart: Float,
+        val arcLength: Float,
+        val baseRadiusRatio: Float,
+        val freq: Float,
+        val phase: Float,
+        val depthWarpAmp: Float,
+        val lobeCount: Int = 0,
+        val lobeAmp: Float = 0f,
+    )
+
+    /** 各向同性半径尺度（球体在任意宽高比下保持圆形；minDim 基准）。 */
     private fun isoX(aspect: Float): Float = if (aspect >= 1f) 1f / aspect else 1f
     private fun isoY(aspect: Float): Float = if (aspect >= 1f) 1f else aspect
 
-    /** 计算一帧（确定性）。width/height 仅用于宽高比校正，粒子坐标仍归一化输出。 */
-    fun compute(spec: EchoVisualSpec, width: Float, height: Float): OrganismFrame {
-        val g = spec.genome
-        val seed = g.identitySeed
-        val t = spec.clockSeconds
-        val cap = spec.capabilities
+    private fun smoothstep(e0: Float, e1: Float, x: Float): Float {
+        val t = ((x - e0) / (e1 - e0)).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
+    }
+
+    /** 计算一帧（确定性）。 */
+    fun compute(
+        spec: EchoVisualSpec,
+        width: Float,
+        height: Float,
+        options: EchoRenderOptions = EchoRenderOptions(),
+    ): OrganismFrame {
+        val quality = if (options.lowPower && options.quality == EchoRenderQuality.NORMAL) {
+            EchoRenderQuality.CONSERVE
+        } else {
+            options.quality
+        }
+        val packet = EchoSceneCompiler.compile(
+            spec = spec,
+            viewportWidth = width,
+            viewportHeight = height,
+            maturityName = options.maturityName,
+            tier = options.tier,
+            quality = quality,
+            reducedMotion = options.reducedMotion,
+            hdrEligible = options.hdrEligible,
+            interaction = options.interaction,
+        )
+        val identity = packet.identity
+        val field = packet.field
+        val motion = MotionEvaluator.evaluate(packet.motion, spec.clockSeconds, packet.interaction)
+        val profile = EchoSceneCompiler.qualityProfile(quality)
+        val topo = OrganismTopologyBuilder.topologyFor(identity, quality, options.maturityName)
+
         val aspect = if (height > 0f) width / height else 1f
 
-        // 主色相：identity 派生收敛于青蓝—紫（0.5..0.78），spectralBias 在区间内偏移；暖金单独处理。
-        val hue = 0.5f + g.spectralBias.coerceIn(0f, 1f) * 0.28f
-        val accent = ColorSpace.hsv(hue, 0.7f, 0.8f)
-        val breathe = sin(t / g.pulseRate.coerceAtLeast(1f) * TWO_PI)
+        // 调色板（LCh 感知语义；§12）
+        val primary = ColorSpace.lch(
+            identity.palette.primary.l, identity.palette.primary.c, identity.palette.primary.h,
+        )
+        val secondary = ColorSpace.lch(
+            identity.palette.secondary.l, identity.palette.secondary.c, identity.palette.secondary.h,
+        )
+        val warm = ColorSpace.lch(identity.palette.warm.l, identity.palette.warm.c, identity.palette.warm.h)
 
-        // ---- 1. Ambient field（提亮：接近设计稿 deep navy 但核心通透） ----
-        val lum = g.luminance.coerceIn(0f, 1f)
+        // 视觉半径 R（minDim 归一化；呼吸只缩放表现，不改 identity）
+        val baseR = (0.19f + field.dispersion * 0.11f + field.coreOpenness * 0.02f) *
+            identity.membraneBias * motion.breathScale
+
+        // 低数据降级（§41：颜色不变红，只降丰富度/alpha/远晕）
+        val clarity = field.dataClarity.coerceIn(0f, 1f)
+        val filamentClarity = lerp(0.72f, 1f, clarity)
+        val particleClarity = lerp(0.78f, 1f, clarity)
+        val farHaloClarity = lerp(0.65f, 1f, clarity)
+
+        // ---- 1. Ambient field（近黑；视觉质量来自大量 black + 少量真亮，§24） ----
+        val exposure = field.exposure.coerceIn(0f, 1f)
         val ambient = AmbientField(
-            centerColor = ColorSpace.hsv(hue, 0.45f, 0.13f + lum * 0.16f),
-            edgeColor = ColorSpace.hsv(hue, 0.55f, 0.04f + lum * 0.04f),
-            grainIntensity = (0.3f + g.dataClarity * 0.5f) * cap.motionComplexity,
+            centerColor = ColorSpace.lch(
+                0.045f + exposure * 0.075f,
+                identity.palette.primary.c * 0.55f, identity.palette.primary.h,
+            ),
+            edgeColor = ColorSpace.lch(
+                0.012f + exposure * 0.020f,
+                identity.palette.primary.c * 0.60f, identity.palette.primary.h,
+            ),
+            grainIntensity = (0.25f + clarity * 0.5f) * spec.capabilities.motionComplexity,
         )
 
-        // ---- 2. Membrane（发光网状闭合曲面） ----
-        val membraneRadius = 0.18f + g.radialSpread * 0.13f + breathe * 0.018f * g.coreIntensity
-        val membranePoints = membraneOutline(seed, g, t, membraneRadius, aspect)
-        val membrane = Membrane(
-            outline = membranePoints,
-            strokeColor = accent.withAlpha(0.75f + g.coherence * 0.25f),
-            strokeAlpha = 0.65f + g.coherence * 0.35f,
-            strokeWidthFraction = 0.006f,
+        // Daily 层相位：同一天恒定、跨天可辨（Journey 时间流逝）；identity 拓扑不变。
+        val dailyPhase = spec.genome.dayComposition * TWO_PI
+        val ctx = FrameCtx(
+            identity = identity, field = field,
+            cosA = cos(motion.globalRotation * identity.chirality),
+            sinA = sin(motion.globalRotation * identity.chirality),
+            baseR = baseR, sx = isoX(aspect), sy = isoY(aspect),
+            coreInner = identity.coreRatio * 0.85f, coreOuter = identity.coreRatio * 1.30f,
+            primary = primary, secondary = secondary, warm = warm,
+            touch = packet.interaction,
         )
+        val samples = samplesFor(quality)
+        var touchBudget = if (ctx.touch.active) 5 else 0 // §29：最多 5 条 front filament
 
-        // ---- 3. Filament 网络 ----
-        val filaments = buildFilaments(seed, g, t, membraneRadius, aspect, cap.motionComplexity)
-
-        // ---- 4. Orbital 轨迹 ----
-        val orbitals = buildOrbitals(seed, g, t, membraneRadius, accent, cap.motionComplexity)
-
-        // ---- 5. 粒子系统 ----
-        val particles = buildParticles(seed, g, t, membraneRadius, accent, aspect, cap.motionComplexity)
-
-        // ---- 6. 核心光斑（明亮通透核心；多层叠加由渲染端径向渐变表达） ----
-        val coreGlow = CoreGlow(
-            radiusFraction = (0.08f + g.coreIntensity * 0.09f + breathe * 0.014f).coerceIn(0.05f, 0.26f),
-            color = ColorSpace.hsv(hue, 0.25f, 1f),
-            intensity = 0.8f + g.coreIntensity * 0.2f,
-        )
-
-        // ---- 7. 环境光晕（同心，更可见） ----
-        val halos = buildHalos(g, membraneRadius, cap.motionComplexity)
-
-        // ---- 8. 涟漪（来自 momentIntensity 的瞬时响应；不改 identity） ----
-        val ripples = buildRipples(seed, g, t, membraneRadius)
-
-        // ---- 9. 暖金高光（仅 allowWarmAccent；<5% 面积） ----
-        val warm = if (cap.allowWarmAccent) {
-            listOf(
-                WarmAccent(
-                    x = 0.5f + cos(g.identityPhase * TWO_PI) * membraneRadius * 0.6f,
-                    y = 0.5f + sin(g.identityPhase * TWO_PI) * membraneRadius * 0.6f,
-                    radiusFraction = 0.03f,
-                    alpha = 0.5f,
+        // ---- 2. Structural Rings（identity skeleton） ----
+        val rings = topo.rings.map { ring ->
+            sampleStroke(
+                arc = ArcSpec(
+                    plane = ring.plane, arcStart = 0f, arcLength = TWO_PI,
+                    baseRadiusRatio = ring.radiusRatio, freq = identity.baseFrequency.toFloat(),
+                    phase = ring.phase + dailyPhase * 0.5f + motion.filamentPhase * 0.3f,
+                    depthWarpAmp = 0.05f,
+                    lobeCount = identity.lobeCount, lobeAmp = ring.lobeHarmonicAmp,
                 ),
+                samples = samples, ctx = ctx,
+                baseAlpha = (0.34f + field.coherence * 0.30f) * filamentClarity,
+                color = primary, widthFraction = 0.0028f,
             )
+        }
+
+        // ---- 3. Long Filaments（跨半球弧；§16 遮挡在采样内烘焙） ----
+        val longs = topo.longFilaments.mapIndexed { i, f ->
+            val useTouch = ctx.touch.active && touchBudget > 0
+            if (useTouch) touchBudget--
+            sampleStroke(
+                arc = ArcSpec(
+                    plane = f.plane, arcStart = f.arcStart, arcLength = f.arcLength,
+                    baseRadiusRatio = f.baseRadiusRatio,
+                    freq = (identity.baseFrequency + f.freqOffset).toFloat(),
+                    phase = f.phase + dailyPhase + motion.filamentPhase,
+                    depthWarpAmp = f.depthWarpAmp * (0.4f + field.dispersion),
+                ),
+                samples = samples, ctx = ctx,
+                baseAlpha = (0.20f + field.coherence * 0.38f) * filamentClarity,
+                color = if (i % 3 == 2) secondary else primary,
+                widthFraction = 0.0021f, glow = 0.35f, consumeTouch = useTouch,
+            )
+        }
+
+        // ---- 4. Local Fragments（短弧生命纹理） ----
+        val frags = topo.fragments.map { f ->
+            evalFragment(
+                frag = f, phase = f.phase + dailyPhase * 0.8f + motion.filamentPhase * 0.7f,
+                ctx = ctx, baseAlpha = (0.16f + field.coherence * 0.26f) * filamentClarity,
+            )
+        }
+
+        // ---- 5. 核心（hollow core，§18） ----
+        val cavityRadius = identity.coreRatio * (0.85f + field.coreOpenness * 0.30f)
+        val coreCavity = CoreCavity(
+            radiusFraction = cavityRadius * baseR,
+            darkColor = ColorSpace.lch(0.018f, identity.palette.primary.c * 0.5f, identity.palette.primary.h),
+            atmosphereColor = ColorSpace.lch(
+                0.08f + field.coreOpenness * 0.08f + exposure * 0.03f,
+                identity.palette.primary.c * 0.8f, identity.palette.primary.h,
+            ),
+        )
+        val knots = topo.coreKnots.map { k ->
+            val p = rotY(k.offset, ctx.cosA, ctx.sinA) * motion.breathScale
+            CoreKnotV(
+                x = 0.5f + p.x * baseR * ctx.sx,
+                y = 0.5f + p.y * baseR * ctx.sy,
+                radiusFraction = k.radiusRatio,
+                color = if (k.warm && spec.capabilities.allowWarmAccent) warm else secondary,
+                alpha = 0.55f + 0.35f * field.coreOpenness,
+            )
+        }
+        val strands = buildCoreStrands(topo, cavityRadius, motion.breathScale, ctx)
+
+        // ---- 6. 粒子（Fibonacci 基 + 慢迁移；§17/§30/§31/§41） ----
+        val particles = evalParticles(
+            topo = topo, motion = motion, profile = profile,
+            particleClarity = particleClarity,
+            allowWarm = spec.capabilities.allowWarmAccent, ctx = ctx,
+        )
+
+        // ---- 7. Halo（远层；§31 far halo 可降级；§41 低数据 ×.65） ----
+        val halos = ArrayList<Halo>(2)
+        val haloBase = field.halo.coerceIn(0f, 1f) * motion.haloMultiplier
+        halos += Halo(
+            radiusFraction = baseR * 1.38f,
+            alpha = (0.10f + haloBase * 0.22f) * (0.5f + spec.capabilities.motionComplexity * 0.5f),
+            widthFraction = 0.0028f,
+        )
+        if (profile.farHaloEnabled && field.halo > 0.25f) {
+            halos += Halo(
+                radiusFraction = baseR * 1.85f,
+                alpha = (0.05f + haloBase * 0.12f) * farHaloClarity,
+                widthFraction = 0.0018f,
+            )
+        }
+
+        // ---- 8. 前膜（§18 front membrane：前半球壳层微光） ----
+        val frontMembrane = FrontMembrane(
+            radiusFraction = baseR * 0.995f,
+            color = primary,
+            alpha = 0.07f + field.coherence * 0.08f,
+        )
+
+        // ---- 9. 涟漪（§29 触摸 1 个 ripple；moment 瞬时响应保留既有语义） ----
+        val ripples = ArrayList<Ripple>(2)
+        if (ctx.touch.active && ctx.touch.envelope > 0.01f) {
+            ripples += Ripple(
+                x = ctx.touch.touchX, y = ctx.touch.touchY,
+                radiusFraction = (0.10f + (1f - ctx.touch.envelope) * 0.30f) * baseR / 0.25f,
+                alpha = ctx.touch.envelope * 0.30f,
+            )
+        }
+        if (spec.genome.momentIntensity > 0.05f) {
+            val p = spec.clockSeconds % 1.6f / 1.6f
+            ripples += Ripple(
+                x = 0.5f, y = 0.5f,
+                radiusFraction = baseR * (1f + p * 0.8f),
+                alpha = (1f - p) * 0.18f * spec.genome.momentIntensity,
+            )
+        }
+
+        // ---- 10. 暖金高光（极少量；仅 allowWarmAccent surface） ----
+        val warmAccents = if (spec.capabilities.allowWarmAccent) {
+            knots.filter { it.color == warm }.take(1).map {
+                WarmAccent(it.x, it.y, it.radiusFraction * 1.6f, it.alpha * 0.5f)
+            }
         } else {
             emptyList()
         }
 
         return OrganismFrame(
             ambientField = ambient,
-            membrane = membrane,
-            filaments = filaments,
-            orbitals = orbitals,
-            particles = particles,
-            coreGlow = coreGlow,
             halos = halos,
+            structuralRings = rings,
+            longFilaments = longs,
+            localFragments = frags,
+            coreStrands = strands,
+            coreCavity = coreCavity,
+            coreKnots = knots,
+            particles = particles,
+            frontMembrane = frontMembrane,
             ripples = ripples,
-            warmAccents = warm,
+            warmAccents = warmAccents,
         )
     }
 
-    /** 膜轮廓：极坐标采样 + 有机噪声起伏（coherence 平滑 / turbulence 破碎，中性）。 */
-    private fun membraneOutline(
-        seed: Long,
-        g: EchoVisualGenome,
-        t: Float,
-        baseRadius: Float,
-        aspect: Float,
-    ): List<MembranePoint> {
-        val segments = 48
-        val pts = ArrayList<MembranePoint>(segments)
-        // 当日构图指纹（dayComposition）驱动膜相位旋转：一天内不漂移，跨天可辨（Journey 时间流逝）
-        val dayRotation = g.dayComposition * TWO_PI
-        for (i in 0 until segments) {
-            val theta = i.toFloat() / segments * TWO_PI + g.identityPhase * TWO_PI + dayRotation
-            val bump = OrganicNoise.membraneRadius(
-                seed, theta, g.coherence, g.turbulence, t, g.driftRate,
-            )
-            // 拓扑：identityTopology 高 → 更接近正圆；低 → 更不规则
-            val irregular = (1f - g.identityTopology) * 0.35f
-            val r = baseRadius * (1f + (bump - 0.5f) * 2f * (0.1f + irregular + g.orbitalEccentricity * 0.2f))
-            // 各向同性：x 用 isoX（minDim 基准）校正，保证膜在任意宽高比下呈球体而非梭形
-            pts += MembranePoint(
-                x = 0.5f + cos(theta) * r * isoX(aspect),
-                y = 0.5f + sin(theta) * r * isoY(aspect),
-            )
-        }
-        return pts
+    /** §77：filament samples 56（NORMAL）→ 48（CONSERVE）→ 40（MINIMAL）。 */
+    private fun samplesFor(quality: EchoRenderQuality): Int = when (quality) {
+        EchoRenderQuality.NORMAL -> 56
+        EchoRenderQuality.CONSERVE -> 48
+        EchoRenderQuality.MINIMAL -> 40
     }
 
-    /** filament 网络：膜内发光网线（弦 + 放射），密度由 filamentDensity 决定，更亮更密。 */
-    private fun buildFilaments(
-        seed: Long,
-        g: EchoVisualGenome,
-        t: Float,
-        baseRadius: Float,
-        aspect: Float,
-        motion: Float,
-    ): List<Filament> {
-        val count = (g.filamentDensity * 60f * motion).roundToInt().coerceIn(0, 90)
-        if (count == 0) return emptyList()
-        val list = ArrayList<Filament>(count)
-        val cx = 0.5f
-        val cy = 0.5f
-        val sx = isoX(aspect)
-        val sy = isoY(aspect)
-        for (i in 0 until count) {
-            val a1 = DeterministicRandom.range(seed, i * 4 + 1, 0f, TWO_PI) +
-                g.identityPhase * TWO_PI + t * g.driftRate * 0.05f
-            val a2 = a1 + DeterministicRandom.range(seed, i * 4 + 2, 0.5f, 2.6f)
-            val r1 = baseRadius * DeterministicRandom.range(seed, i * 4 + 3, 0.25f, 1.0f)
-            val r2 = baseRadius * DeterministicRandom.range(seed, i * 4 + 4, 0.25f, 1.0f)
-            val wob = OrganicNoise.fbm1(seed + i, t * g.turbulence * 0.5f, octaves = 2) * g.turbulence * 0.12f
-            list += Filament(
-                x1 = cx + cos(a1) * (r1 + wob) * sx,
-                y1 = cy + sin(a1) * (r1 + wob) * sy,
-                x2 = cx + cos(a2) * (r2 - wob) * sx,
-                y2 = cy + sin(a2) * (r2 - wob) * sy,
-                alpha = (0.18f + g.coherence * 0.45f) * (0.5f + DeterministicRandom.at(seed, i * 4 + 5) * 0.5f),
-                widthFraction = 0.0018f,
-            )
-        }
-        return list
-    }
+    private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
-    /** 轨道轨迹：1 主环 + 由离心率派生的次级椭圆环（更清晰更亮）。 */
-    private fun buildOrbitals(
-        seed: Long,
-        g: EchoVisualGenome,
-        t: Float,
-        baseRadius: Float,
-        accent: Argb,
-        motion: Float,
-    ): List<Orbital> {
-        val extra = (g.orbitalEccentricity * 3f * motion).roundToInt().coerceIn(0, 4)
-        val list = ArrayList<Orbital>(1 + extra)
-        // 主轨道
-        list += Orbital(
-            radiusFraction = baseRadius * 1.3f,
-            eccentricity = g.orbitalEccentricity * 0.3f,
-            rotationRadians = t * g.driftRate * 0.1f + g.identityPhase,
-            alpha = 0.5f + g.coherence * 0.3f,
-            widthFraction = 0.0038f,
-        )
-        for (k in 1..extra) {
-            list += Orbital(
-                radiusFraction = baseRadius * (1.3f + 0.32f * k),
-                eccentricity = (g.orbitalEccentricity * (0.3f + 0.2f * k)).coerceIn(0f, 0.9f),
-                rotationRadians = -t * g.driftRate * 0.07f + g.identityPhase + k * 0.9f,
-                alpha = (0.34f + g.coherence * 0.25f) / k,
-                widthFraction = 0.0028f,
-            )
-        }
-        return list
-    }
+    private fun rotY(p: Vec3, cosA: Float, sinA: Float): Vec3 =
+        Vec3(p.x * cosA + p.z * sinA, p.y, -p.x * sinA + p.z * cosA)
 
-    /** 粒子系统：密度由 particleDensity；轨道由 driftRate；流线由 filament 纹理倾向。 */
-    private fun buildParticles(
-        seed: Long,
-        g: EchoVisualGenome,
-        t: Float,
-        baseRadius: Float,
-        accent: Argb,
-        aspect: Float,
-        motion: Float,
-    ): List<OrganismParticle> {
-        val count = (16 + g.particleDensity * 70f * motion).roundToInt().coerceIn(0, 110)
-        val list = ArrayList<OrganismParticle>(count)
-        val clarity = g.dataClarity.coerceIn(0f, 1f)
-        for (i in 0 until count) {
-            val r1 = DeterministicRandom.at(seed, i * 5 + 1)
-            val r2 = DeterministicRandom.at(seed, i * 5 + 2)
-            val r3 = DeterministicRandom.at(seed, i * 5 + 3)
-            val orbitSpeed = g.driftRate * (0.2f + r2 * 0.8f)
-            val angle = r1 * TWO_PI + t * orbitSpeed * 0.3f + g.identityPhase * TWO_PI
-            val spread = baseRadius * (1.1f + r2 * g.radialSpread * 1.7f + g.orbitalEccentricity * 0.7f)
-            val px = 0.5f + cos(angle) * spread * isoX(aspect)
-            val py = 0.5f + sin(angle) * spread * isoY(aspect)
-            val sizeBase = (0.0035f + r3 * 0.009f) * (0.6f + g.coreIntensity * 0.6f)
-            // 数据清晰度低 → 更淡更稀（视觉降级，非危险色）；亮星点更接近设计稿
-            val alpha = (0.3f + g.coherence * 0.6f) * (0.5f + r1 * 0.5f) * (0.45f + clarity * 0.55f)
-            val tangentX = -sin(angle)
-            val tangentY = cos(angle)
-            val useStreak = g.filamentDensity > 0.5f && r3 > 0.5f
-            if (useStreak) {
-                list += OrganismParticle(
-                    x = px, y = py,
-                    radiusFraction = sizeBase * 0.6f,
-                    alpha = alpha,
-                    streakDirX = tangentX, streakDirY = tangentY,
-                    streakLength = (0.004f + r3 * 0.014f) * (0.4f + g.driftRate * 0.8f),
+    /**
+     * §15/§16 丝/环采样：稳定 plane basis + 确定性谐波场 + 3D 投影 + behind-core 遮挡。
+     */
+    private fun sampleStroke(
+        arc: ArcSpec,
+        samples: Int,
+        ctx: FrameCtx,
+        baseAlpha: Float,
+        color: Argb,
+        widthFraction: Float,
+        glow: Float = 0f,
+        consumeTouch: Boolean = false,
+    ): FilamentStroke {
+        val pts = ArrayList<StrokePoint>(samples + 1)
+        val f = arc.freq
+        for (i in 0..samples) {
+            val theta = arc.arcStart + arc.arcLength * i / samples
+            // §15 deterministic harmonic field（禁止 frame-random noise）
+            val noise = (
+                sin(f * theta + arc.phase) +
+                    .50f * sin((f + 3f) * theta + arc.phase * 1.73f) +
+                    .25f * sin((2f * f + 1f) * theta - arc.phase * .61f)
+                ) / 1.75f
+            val secondaryWave = sin(2f * f * theta - arc.phase * 1.13f)
+            var r = arc.baseRadiusRatio * (
+                1f + .024f * ctx.field.turbulence * noise +
+                    .012f * (1f - ctx.field.coherence) * secondaryWave
                 )
-            } else {
-                list += OrganismParticle(x = px, y = py, radiusFraction = sizeBase, alpha = alpha)
+            if (arc.lobeCount > 0 && arc.lobeAmp > 0f) {
+                r *= 1f + arc.lobeAmp * cos(arc.lobeCount * theta + arc.phase)
             }
+            val depthWarp = arc.depthWarpAmp * sin(f * 0.5f * theta + arc.phase * 0.7f)
+            var p = arc.plane.u * (cos(theta) * r) + arc.plane.v * (sin(theta) * r) +
+                arc.plane.normal * depthWarp
+            p = rotY(p, ctx.cosA, ctx.sinA)
+
+            // §29 触摸形变（仅 front、有限条数；Gaussian w = exp(-d²/2σ²)）
+            var dx = 0f
+            var dy = 0f
+            val touch = ctx.touch
+            if (consumeTouch && p.z > 0f && touch.envelope > 0.01f) {
+                val tx = (touch.touchX - 0.5f) / (ctx.sx * ctx.baseR)
+                val ty = (touch.touchY - 0.5f) / (ctx.sy * ctx.baseR)
+                val ddx = p.x - tx
+                val ddy = p.y - ty
+                val d2 = ddx * ddx + ddy * ddy
+                val w = exp(-d2 / (2f * touch.sigma * touch.sigma))
+                val push = touch.maxDeformation * touch.envelope * w
+                val len = sqrt(d2).coerceAtLeast(1e-4f)
+                dx = ddx / len * push
+                dy = ddy / len * push
+            }
+
+            val perspective = 1f + .10f * p.z
+            val px = 0.5f + (p.x + dx) * ctx.baseR * ctx.sx * perspective
+            val py = 0.5f + (p.y + dy) * ctx.baseR * ctx.sy * perspective
+
+            // 深度明暗（front/middle/back 三层空间关系）+ §16 behind-core 遮挡
+            var alpha = baseAlpha * (0.55f + 0.45f * (p.z + 1f) * 0.5f)
+            if (p.z < 0f) {
+                val r2 = sqrt(p.x * p.x + p.y * p.y)
+                alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)
+            }
+            pts += StrokePoint(px, py, alpha.coerceIn(0f, 1f))
         }
-        return list
+        return FilamentStroke(pts, color, widthFraction, glow)
     }
 
-    /** 环境光晕：1 主 halo + 由 haloIntensity 派生的远环（更亮更可见）。 */
-    private fun buildHalos(g: EchoVisualGenome, baseRadius: Float, motion: Float): List<Halo> {
-        val list = ArrayList<Halo>(3)
-        list += Halo(
-            radiusFraction = baseRadius * 1.6f,
-            alpha = (0.22f + g.haloIntensity * 0.4f) * (0.5f + motion * 0.5f),
-            widthFraction = 0.003f,
-        )
-        if (g.haloIntensity > 0.4f) {
-            list += Halo(
-                radiusFraction = baseRadius * 2.1f,
-                alpha = 0.12f + g.haloIntensity * 0.2f,
-                widthFraction = 0.002f,
-            )
+    /** 局部碎片求值（短弧；圆心偏置在壳层，不穿过中心）。 */
+    private fun evalFragment(
+        frag: LocalFragmentTopo,
+        phase: Float,
+        ctx: FrameCtx,
+        baseAlpha: Float,
+        samples: Int = 18,
+    ): FilamentStroke {
+        val pts = ArrayList<StrokePoint>(samples + 1)
+        val breatheOffset = 1f + 0.01f * sin(phase)
+        for (i in 0..samples) {
+            val theta = frag.arcStart + frag.arcLength * i / samples
+            val local = frag.plane.u * (cos(theta) * frag.radiusRatio) +
+                frag.plane.v * (sin(theta) * frag.radiusRatio)
+            var p = (frag.center + local) * breatheOffset
+            p = rotY(p, ctx.cosA, ctx.sinA)
+            val perspective = 1f + .10f * p.z
+            val px = 0.5f + p.x * ctx.baseR * ctx.sx * perspective
+            val py = 0.5f + p.y * ctx.baseR * ctx.sy * perspective
+            var alpha = baseAlpha * (0.5f + 0.5f * (p.z + 1f) * 0.5f)
+            if (p.z < 0f) {
+                val r2 = sqrt(p.x * p.x + p.y * p.y)
+                alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)
+            }
+            pts += StrokePoint(px, py, alpha.coerceIn(0f, 1f))
         }
-        return list
+        return FilamentStroke(pts, ctx.secondary, 0.0016f, 0.2f)
     }
 
-    /** 涟漪：momentIntensity 瞬时 >0 时产生扩散环（衰减，不改 identity）。 */
-    private fun buildRipples(seed: Long, g: EchoVisualGenome, t: Float, baseRadius: Float): List<Ripple> {
-        if (g.momentIntensity <= 0.05f) return emptyList()
-        val phase = t % 1.2f / 1.2f // 1.2s 一周期
-        val list = ArrayList<Ripple>(2)
-        for (k in 0..1) {
-            val p = (phase + k * 0.5f) % 1f
-            list += Ripple(
-                radiusFraction = baseRadius * (1f + p * 0.9f),
-                alpha = (1f - p) * 0.25f * g.momentIntensity,
+    /** 核心内部细缕（连接 stable knots 区域的短弧；低 alpha）。 */
+    private fun buildCoreStrands(
+        topo: OrganismTopology,
+        cavityRadius: Float,
+        breathScale: Float,
+        ctx: FrameCtx,
+    ): List<FilamentStroke> {
+        val knots = topo.coreKnots
+        if (knots.size < 2) return emptyList()
+        val strands = ArrayList<FilamentStroke>(knots.size)
+        for (i in knots.indices) {
+            val a = knots[i].offset * breathScale
+            val b = knots[(i + 1) % knots.size].offset * breathScale
+            val pts = ArrayList<StrokePoint>(9)
+            for (s in 0..8) {
+                val t = s / 8f
+                // 轻微下垂的弦（确定性；不随帧变化）
+                val sag = sin(t * PI.toFloat()) * 0.05f * cavityRadius
+                val px = a.x + (b.x - a.x) * t
+                val py = a.y + (b.y - a.y) * t + sag
+                pts += StrokePoint(
+                    x = 0.5f + px * ctx.baseR * ctx.sx,
+                    y = 0.5f + py * ctx.baseR * ctx.sy,
+                    alpha = (0.20f + ctx.field.coreOpenness * 0.25f) *
+                        sin(t * PI.toFloat()).coerceIn(0.2f, 1f),
+                )
+            }
+            strands += FilamentStroke(pts, ctx.secondary, 0.0013f)
+        }
+        return strands
+    }
+
+    /** §17 Fibonacci 粒子求值（分类亮度上限；glint 极少强亮；遮挡与丝一致）。 */
+    private fun evalParticles(
+        topo: OrganismTopology,
+        motion: EchoMotionState,
+        profile: EchoSceneCompiler.QualityProfile,
+        particleClarity: Float,
+        allowWarm: Boolean,
+        ctx: FrameCtx,
+    ): List<SceneParticleV3> {
+        val density = ctx.field.particleDensity.coerceIn(0f, 1f)
+        val target = ((40 + 120 * density) * profile.particleScale * particleClarity *
+            ctx.field.maturityMultiplier).toInt().coerceIn(0, topo.particles.size)
+        if (target <= 0) return emptyList()
+        val rot = motion.particleRotation * ctx.identity.chirality
+        val cr = cos(rot)
+        val sr = sin(rot)
+        val out = ArrayList<SceneParticleV3>(target)
+        val touch = ctx.touch
+        for (i in 0 until target) {
+            val pb = topo.particles[i]
+            if (pb.kind == ParticleKind.GLINT && !profile.glintsEnabled) continue
+            var p = pb.dir * pb.shellRadius
+            p = rotY(p, cr, sr)
+            // §29：触点附近粒子轻微响应
+            var ox = 0f
+            var oy = 0f
+            if (touch.active && p.z > 0f && touch.envelope > 0.01f) {
+                val tx = (touch.touchX - 0.5f) / (ctx.sx * ctx.baseR)
+                val ty = (touch.touchY - 0.5f) / (ctx.sy * ctx.baseR)
+                val ddx = p.x - tx
+                val ddy = p.y - ty
+                val d2 = ddx * ddx + ddy * ddy
+                val w = exp(-d2 / (2f * touch.sigma * touch.sigma))
+                ox = ddx * touch.maxDeformation * touch.envelope * w * 0.6f
+                oy = ddy * touch.maxDeformation * touch.envelope * w * 0.6f
+            }
+            val perspective = 1f + .10f * p.z
+            val px = 0.5f + (p.x + ox) * ctx.baseR * ctx.sx * perspective
+            val py = 0.5f + (p.y + oy) * ctx.baseR * ctx.sy * perspective
+            val classCap = when (pb.kind) {
+                ParticleKind.AMBIENT -> 0.34f
+                ParticleKind.BRIGHT -> if (profile.secondaryGlintsEnabled) 0.62f else 0.40f
+                ParticleKind.GLINT -> 0.95f // 只有极少 glint 可以达到强亮
+            }
+            var alpha = classCap * (0.45f + 0.55f * pb.sizeJitter) *
+                (0.5f + 0.5f * (p.z + 1f) * 0.5f) * (0.55f + ctx.field.coherence * 0.45f)
+            if (p.z < 0f) {
+                val r2 = sqrt(p.x * p.x + p.y * p.y)
+                alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)
+            }
+            val size = (0.0022f + pb.sizeJitter * 0.0048f) *
+                (0.7f + ctx.field.depth * 0.5f) * if (pb.kind == ParticleKind.GLINT) 1.25f else 1f
+            out += SceneParticleV3(
+                x = px, y = py,
+                radiusFraction = size,
+                alpha = alpha.coerceIn(0f, 1f),
+                kind = pb.kind,
+                color = when {
+                    pb.warm && allowWarm -> ctx.warm
+                    pb.kind == ParticleKind.AMBIENT -> ctx.secondary
+                    else -> ctx.primary
+                },
             )
         }
-        return list
+        return out
     }
 }

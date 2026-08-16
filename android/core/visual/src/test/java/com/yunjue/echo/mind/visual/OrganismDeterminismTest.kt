@@ -115,7 +115,9 @@ class OrganismDeterminismTest {
         val wrist = frame(genome, EchoSurface.WRIST_PUBLIC_SAFE, 5f)
         // wrist 动效低 → 粒子/filament 更少
         assertTrue("wrist 粒子应 ≤ app", wrist.particles.size <= app.particles.size)
-        assertTrue("wrist filament 应 ≤ app", wrist.filaments.size <= app.filaments.size)
+        val appStrokes = app.structuralRings.size + app.longFilaments.size + app.localFragments.size
+        val wristStrokes = wrist.structuralRings.size + wrist.longFilaments.size + wrist.localFragments.size
+        assertTrue("wrist filament 应 ≤ app", wristStrokes <= appStrokes)
         // wrist 无暖金
         assertTrue(wrist.warmAccents.isEmpty())
     }

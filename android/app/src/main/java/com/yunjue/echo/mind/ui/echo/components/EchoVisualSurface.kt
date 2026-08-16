@@ -10,7 +10,7 @@ import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.resolveSurfaceConfig
 import com.yunjue.echo.mind.presencevisual.EchoOrganism
-import com.yunjue.echo.mind.visual.motion.MotionPolicy
+import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
 
 /**
@@ -49,21 +49,22 @@ private fun SurfaceMode.toEchoSurface(): EchoSurface = when (this) {
     SurfaceMode.LOW_POWER, SurfaceMode.REDUCED_MOTION -> EchoSurface.APP_PRIVATE
 }
 
-/** 旧 SurfaceMode → MotionPolicy（REDUCED_MOTION/LOW_POWER 降级；其余 FULL）。 */
-private fun SurfaceMode.toMotionPolicy(motionLevel: PresenceMotionLevel): MotionPolicy = when (this) {
-    SurfaceMode.REDUCED_MOTION -> MotionPolicy.REDUCED_MOTION
-    SurfaceMode.LOW_POWER -> MotionPolicy.LOW_POWER
-    else -> when (motionLevel) {
-        PresenceMotionLevel.QUIET -> MotionPolicy.LOW_POWER
-        else -> MotionPolicy.FULL
+/** 旧 SurfaceMode → 渲染选项降级（V3：运动系数在 EchoSceneCompiler 编译期展开）。 */
+private fun SurfaceMode.toRenderOptions(motionLevel: PresenceMotionLevel): OrganismFrameComputer.EchoRenderOptions =
+    when (this) {
+        SurfaceMode.REDUCED_MOTION -> OrganismFrameComputer.EchoRenderOptions(reducedMotion = true)
+        SurfaceMode.LOW_POWER -> OrganismFrameComputer.EchoRenderOptions(lowPower = true)
+        else -> when (motionLevel) {
+            PresenceMotionLevel.QUIET -> OrganismFrameComputer.EchoRenderOptions(lowPower = true)
+            else -> OrganismFrameComputer.EchoRenderOptions()
+        }
     }
-}
 
 /**
- * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（**新版分层 Organism**）。
+ * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（V3 分层拓扑 Organism）。
  *
- * visual-runtime R2 起：内部渲染从旧 EchoLifeField（单环+圆点）切换为
- * core/visual 的 9 层 organism（ambient/membrane/filament/orbital/particle/core/halo/ripple/warm）。
+ * visual-runtime R2 起：内部渲染切换到 core/visual organism；
+ * V3 R4 起为 3D 拓扑（结构环/长丝/碎片 + Fibonacci 粒子 + 空心核）。
  * 首屏 organism 占比提升（§8：第一眼是 ECHO，不是 Dashboard）。
  * 只渲染 [EchoPresenceState]；不接触 Repository / Provider / DB / Preferences。
  * 注：含无限帧动画，由构造隔离（Robolectric 不适配，设备/CI 覆盖）。
@@ -78,7 +79,7 @@ fun EchoVisualSurface(
         presence = presence,
         modifier = modifier.fillMaxWidth().height(380.dp),
         surface = config.surface.toEchoSurface(),
-        motionPolicy = config.surface.toMotionPolicy(config.motionLevel),
         reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+        options = config.surface.toRenderOptions(config.motionLevel),
     )
 }

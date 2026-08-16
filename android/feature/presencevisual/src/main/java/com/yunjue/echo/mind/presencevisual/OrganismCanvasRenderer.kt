@@ -3,16 +3,19 @@ package com.yunjue.echo.mind.presencevisual
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import com.yunjue.echo.mind.visual.render.ColorSpace
+import com.yunjue.echo.mind.visual.render.FilamentStroke
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import kotlin.math.min
 
 /**
- * OrganismCanvasRenderer — android.graphics.Canvas 渲染器。
+ * OrganismCanvasRenderer — android.graphics.Canvas 渲染器（V3 LEGACY/Canvas fallback 正式后端）。
  *
  * 供 Wallpaper / Dream / 离屏 golden 截图共用；与 Compose 渲染器消费同一 [OrganismFrame]。
+ * V3 §22：API 26–32 完整可用——同一 Identity/Topology/Motion/SceneCompiler/Palette，
+ * 仅 Material Backend 不同（multi-stroke / radial gradient / restrained halo / depth alpha）。
  */
 object OrganismCanvasRenderer {
 
@@ -28,134 +31,128 @@ object OrganismCanvasRenderer {
         val cx = widthPx / 2f
         val cy = heightPx / 2f
 
-        // 1. Ambient field
+        // 1. Ambient field（近黑径向衰减）
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
                 cx, cy, minDim * 1.15f,
-                intArrayOf(frame.ambientField.centerColor, frame.ambientField.edgeColor),
-                null, Shader.TileMode.CLAMP,
+                frame.ambientField.centerColor, frame.ambientField.edgeColor, Shader.TileMode.CLAMP,
             )
         }
         canvas.drawRect(0f, 0f, widthPx, heightPx, bgPaint)
 
-        val accent = frame.membrane.strokeColor
-
-        // 7. Halo
+        // 2. Halo（远层）
         val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            color = accent
+            color = frame.frontMembrane.color
         }
         frame.halos.forEach { halo ->
             haloPaint.strokeWidth = halo.widthFraction * minDim
-            haloPaint.alpha = (halo.alpha * 255f).toInt().coerceIn(0, 255)
+            haloPaint.alpha = (halo.alpha.coerceIn(0f, 1f) * 255f).toInt()
             canvas.drawCircle(cx, cy, halo.radiusFraction * minDim, haloPaint)
         }
 
-        // 4. Orbital（椭圆）
-        val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = accent
-        }
-        frame.orbitals.forEach { orb ->
-            orbPaint.strokeWidth = orb.widthFraction * minDim
-            orbPaint.alpha = (orb.alpha * 255f).toInt().coerceIn(0, 255)
-            val r = orb.radiusFraction * minDim
-            canvas.save()
-            canvas.rotate(Math.toDegrees(orb.rotationRadians.toDouble()).toFloat(), cx, cy)
-            canvas.drawOval(
-                cx - r, cy - r * (1f - orb.eccentricity),
-                cx + r, cy + r * (1f - orb.eccentricity),
-                orbPaint,
+        // 3-5. 三层丝（结构环 / 长丝 + 辉光 / 局部碎片）
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+        frame.structuralRings.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
+        frame.longFilaments.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = true) }
+        frame.localFragments.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
+
+        // 6. 空心核：暗腔 + 内部大气（§18；禁止实心白球）
+        val cavityR = frame.coreCavity.radiusFraction * minDim
+        val atmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(
+                cx, cy, cavityR * 1.35f,
+                frame.coreCavity.atmosphereColor, frame.coreCavity.darkColor, Shader.TileMode.CLAMP,
             )
-            canvas.restore()
         }
+        canvas.drawCircle(cx, cy, cavityR * 1.35f, atmPaint)
+        val darkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = frame.coreCavity.darkColor }
+        canvas.drawCircle(cx, cy, cavityR, darkPaint)
 
-        // 3. Filament
-        val filPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
-        frame.filaments.forEach { f ->
-            filPaint.strokeWidth = f.widthFraction * minDim
-            filPaint.alpha = (f.alpha * 255f).toInt().coerceIn(0, 255)
-            canvas.drawLine(f.x1 * widthPx, f.y1 * heightPx, f.x2 * widthPx, f.y2 * heightPx, filPaint)
-        }
-
-        // 2. 主膜轮廓
-        if (frame.membrane.outline.size >= 3) {
-            val path = Path()
-            val first = frame.membrane.outline[0]
-            path.moveTo(first.x * widthPx, first.y * heightPx)
-            for (i in 1 until frame.membrane.outline.size) {
-                val p = frame.membrane.outline[i]
-                path.lineTo(p.x * widthPx, p.y * heightPx)
-            }
-            path.close()
-            val memPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                color = accent
-                strokeWidth = frame.membrane.strokeWidthFraction * minDim
-                alpha = (frame.membrane.strokeAlpha * 255f).toInt().coerceIn(0, 255)
-            }
-            canvas.drawPath(path, memPaint)
-        }
-
-        // 5. 粒子
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
-        val streakPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = accent
-            strokeCap = Paint.Cap.ROUND
-        }
-        frame.particles.forEach { p ->
-            val px = p.x * widthPx
-            val py = p.y * heightPx
-            if (p.streakLength > 0f) {
-                val len = p.streakLength * minDim
-                streakPaint.alpha = (p.alpha * 255f).toInt().coerceIn(0, 255)
-                streakPaint.strokeWidth = p.radiusFraction * minDim
-                canvas.drawLine(
-                    px - p.streakDirX * len / 2f, py - p.streakDirY * len / 2f,
-                    px + p.streakDirX * len / 2f, py + p.streakDirY * len / 2f,
-                    streakPaint,
+        // 7. 核心细缕 + 稳定结
+        frame.coreStrands.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
+        frame.coreKnots.forEach { k ->
+            val kx = k.x * widthPx
+            val ky = k.y * heightPx
+            val knotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = RadialGradient(
+                    kx, ky, k.radiusFraction * minDim * 2.2f,
+                    withAlpha(k.color, k.alpha), withAlpha(k.color, 0f), Shader.TileMode.CLAMP,
                 )
-            } else {
-                dotPaint.alpha = (p.alpha * 255f).toInt().coerceIn(0, 255)
-                canvas.drawCircle(px, py, p.radiusFraction * minDim, dotPaint)
             }
+            canvas.drawCircle(kx, ky, k.radiusFraction * minDim * 2.2f, knotPaint)
         }
 
-        // 8. 涟漪
+        // 8. 粒子
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        frame.particles.forEach { p ->
+            dotPaint.color = p.color
+            dotPaint.alpha = (p.alpha.coerceIn(0f, 1f) * 255f).toInt()
+            canvas.drawCircle(p.x * widthPx, p.y * heightPx, p.radiusFraction * minDim, dotPaint)
+        }
+
+        // 9. 前膜
+        val memPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = frame.frontMembrane.color
+            strokeWidth = minDim * 0.0016f
+            alpha = (frame.frontMembrane.alpha.coerceIn(0f, 1f) * 255f).toInt()
+        }
+        canvas.drawCircle(cx, cy, frame.frontMembrane.radiusFraction * minDim, memPaint)
+
+        // 10. 涟漪
         val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            color = accent
+            color = frame.frontMembrane.color
             strokeWidth = minDim * 0.002f
         }
         frame.ripples.forEach { r ->
-            ripplePaint.alpha = (r.alpha * 255f).toInt().coerceIn(0, 255)
-            canvas.drawCircle(cx, cy, r.radiusFraction * minDim, ripplePaint)
+            ripplePaint.alpha = (r.alpha.coerceIn(0f, 1f) * 255f).toInt()
+            canvas.drawCircle(r.x * widthPx, r.y * heightPx, r.radiusFraction * minDim, ripplePaint)
         }
 
-        // 6. 核心光斑
-        val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = RadialGradient(
-                cx, cy, frame.coreGlow.radiusFraction * minDim * 2.4f,
-                intArrayOf(withAlpha(frame.coreGlow.color, frame.coreGlow.intensity),
-                    withAlpha(frame.coreGlow.color, 0f)),
-                null, Shader.TileMode.CLAMP,
-            )
-        }
-        canvas.drawCircle(cx, cy, frame.coreGlow.radiusFraction * minDim * 2.4f, corePaint)
-
-        // 9. 暖金高光
+        // 11. 暖金高光（极少量）
         frame.warmAccents.forEach { w ->
             val wx = w.x * widthPx
             val wy = w.y * heightPx
             val warmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 shader = RadialGradient(
                     wx, wy, w.radiusFraction * minDim * 2f,
-                    intArrayOf(withAlpha(com.yunjue.echo.mind.visual.render.ColorSpace.WARM_GOLD, w.alpha),
-                        withAlpha(com.yunjue.echo.mind.visual.render.ColorSpace.WARM_GOLD, 0f)),
-                    null, Shader.TileMode.CLAMP,
+                    withAlpha(ColorSpace.WARM_GOLD, w.alpha), withAlpha(ColorSpace.WARM_GOLD, 0f),
+                    Shader.TileMode.CLAMP,
                 )
             }
             canvas.drawCircle(wx, wy, w.radiusFraction * minDim * 2f, warmPaint)
+        }
+    }
+
+    /** 逐段描边（per-point alpha 已烘焙 3D 深度/遮挡）；glow 追加一次更宽更淡的辉光。 */
+    private fun drawStroke(
+        canvas: Canvas,
+        stroke: FilamentStroke,
+        minDim: Float,
+        paint: Paint,
+        glow: Boolean,
+    ) {
+        val pts = stroke.points
+        if (pts.size < 2) return
+        val w = stroke.widthFraction * minDim
+        paint.color = stroke.color
+        for (i in 1 until pts.size) {
+            val a = pts[i - 1]
+            val b = pts[i]
+            val alpha = ((a.alpha + b.alpha) * 0.5f).coerceIn(0f, 1f)
+            if (alpha <= 0.004f) continue
+            paint.strokeWidth = w
+            paint.alpha = (alpha * 255f).toInt()
+            canvas.drawLine(a.x * canvas.width, a.y * canvas.height, b.x * canvas.width, b.y * canvas.height, paint)
+            if (glow && stroke.glow > 0f) {
+                paint.strokeWidth = w * 3.2f
+                paint.alpha = (alpha * stroke.glow * 0.4f * 255f).toInt()
+                canvas.drawLine(
+                    a.x * canvas.width, a.y * canvas.height, b.x * canvas.width, b.y * canvas.height, paint,
+                )
+            }
         }
     }
 
