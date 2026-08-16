@@ -1,11 +1,10 @@
 package com.yunjue.echo.mind.ui.echo.components
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
@@ -91,7 +90,7 @@ fun EchoVisualSurface(
     val base = config.surface.toRenderOptions(config.motionLevel)
     EchoOrganism(
         presence = presence,
-        modifier = modifier.fillMaxWidth().height(380.dp),
+        modifier = modifier.fillMaxSize(),
         surface = config.surface.toEchoSurface(),
         reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
         options = base.copy(

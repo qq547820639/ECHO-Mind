@@ -66,10 +66,16 @@ fun EchoOrganism(
     val genome = remember(presence, hourOfDay) {
         presence?.let { GenomeDeriver.derive(it, hourOfDay) }
     }
-    val effectiveOptions = remember(options, reducedMotion, presence?.maturity) {
+    val effectiveOptions = remember(options, reducedMotion, presence?.maturity, presence?.sensingStatus) {
+        // §42：Sensing Disabled（USER_PAUSED / NOT_AUTHORIZED）→ motion ×.30 / detail ×.55；
+        // identity 保留，不是 error screen。
+        val sensingOff = presence?.sensingStatus == com.yunjue.echo.mind.model.SensingRuntimeStatus.USER_PAUSED ||
+            presence?.sensingStatus == com.yunjue.echo.mind.model.SensingRuntimeStatus.NOT_AUTHORIZED
         options.copy(
             reducedMotion = reducedMotion || options.reducedMotion,
             maturityName = presence?.maturity?.name ?: options.maturityName,
+            motionScale = if (sensingOff) 0.30f else options.motionScale,
+            detailScale = if (sensingOff) 0.55f else options.detailScale,
         )
     }
 

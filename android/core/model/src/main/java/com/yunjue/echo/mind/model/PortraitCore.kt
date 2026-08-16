@@ -113,6 +113,9 @@ const val PORTRAIT_COPY_LOCAL_BANNER = "当前离线，画像由本机数据生�
 const val PORTRAIT_COPY_SENSING_DISABLED =
     "被动感知已关闭，ECHO 暂时无法生成画像。重新开启后，它会继续学习你的日常节奏。"
 const val PORTRAIT_COPY_LOAD_FAILED = "加载失败"
+
+/** V3 §40：LOADING 安静文案（quiet ECHO + 整理中语义；无 spinner 主视觉）。 */
+const val PORTRAIT_COPY_LOADING_QUIET = "正在整理今天的观察…"
 const val PORTRAIT_COPY_RETRY = "重试"
 const val PORTRAIT_COPY_REENABLE = "重新开启"
 const val PORTRAIT_COPY_FEEDBACK_QUESTION = "这个描述像今天的你吗？"

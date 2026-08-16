@@ -33,6 +33,10 @@ object OrganismFrameComputer {
         val quality: EchoRenderQuality = EchoRenderQuality.NORMAL,
         val reducedMotion: Boolean = false,
         val lowPower: Boolean = false,
+        /** §42 Sensing Disabled：motion × .30（identity 保留，非 error screen）。 */
+        val motionScale: Float = 1f,
+        /** §42 Sensing Disabled：detail × .55。 */
+        val detailScale: Float = 1f,
         val hdrEligible: Boolean = false,
         val interaction: EchoInteractionSpec = EchoInteractionSpec(),
     )
@@ -52,6 +56,7 @@ object OrganismFrameComputer {
         val secondary: Argb,
         val warm: Argb,
         val touch: EchoInteractionSpec,
+        val detailScale: Float,
     )
 
     /** 一条弧线的采样描述（plane basis + 弧程 + 谐波参数；§15）。 */
@@ -96,6 +101,7 @@ object OrganismFrameComputer {
             tier = options.tier,
             quality = quality,
             reducedMotion = options.reducedMotion,
+            motionScale = options.motionScale,
             hdrEligible = options.hdrEligible,
             interaction = options.interaction,
         )
@@ -155,6 +161,7 @@ object OrganismFrameComputer {
             coreInner = identity.coreRatio * 0.85f, coreOuter = identity.coreRatio * 1.30f,
             primary = primary, secondary = secondary, warm = warm,
             touch = packet.interaction,
+            detailScale = options.detailScale.coerceIn(0f, 1f),
         )
         val samples = samplesFor(quality)
         var touchBudget = if (ctx.touch.active) 5 else 0 // §29：最多 5 条 front filament
@@ -450,7 +457,7 @@ object OrganismFrameComputer {
     ): List<SceneParticleV3> {
         val density = ctx.field.particleDensity.coerceIn(0f, 1f)
         val target = ((40 + 120 * density) * profile.particleScale * particleClarity *
-            ctx.field.maturityMultiplier).toInt().coerceIn(0, topo.particles.size)
+            ctx.field.maturityMultiplier * ctx.detailScale).toInt().coerceIn(0, topo.particles.size)
         if (target <= 0) return emptyList()
         val rot = motion.particleRotation * ctx.identity.chirality
         val cr = cos(rot)

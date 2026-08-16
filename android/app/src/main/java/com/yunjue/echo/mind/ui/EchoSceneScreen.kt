@@ -1,35 +1,49 @@
 package com.yunjue.echo.mind.ui
 import com.yunjue.echo.mind.model.EchoMaturity
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.actions.EchoActionKind
 import com.yunjue.echo.mind.intelligence.ConversationPhase
@@ -39,27 +53,28 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_SAVED
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOADING_QUIET
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOAD_FAILED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_REENABLE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_REGENERATE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_ACTION
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_WHY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.model.todayPortraitStateText
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneViewModel
 import com.yunjue.echo.mind.ui.echo.actions.EchoActionLayer
+import com.yunjue.echo.mind.ui.echo.conversation.EchoConversationLayer
 import com.yunjue.echo.mind.ui.echo.components.EchoStatusOverlay
 import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurface
 import com.yunjue.echo.mind.ui.echo.components.echoVisualSurfaceConfig
-import com.yunjue.echo.mind.ui.echo.components.PortraitSummaryOnly
-import com.yunjue.echo.mind.ui.echo.components.SeedPortraitBlock
 import com.yunjue.echo.mind.ui.echo.components.UnlockBanner
+
 import com.yunjue.echo.mind.ui.echo.conversation.EchoConversationLayer
-import com.yunjue.echo.mind.ui.echo.why.EchoWhyLayer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -222,11 +237,19 @@ data class EchoSceneFeedbackActions(
 )
 
 /**
- * ERA 36 — EchoScene 纯状态内容（state-in / event-out + 视觉·行动·覆盖层三槽位）。
- * 只消费 [EchoSceneContentState]；无 ViewModel / Repository / AppPreferences 持有。
- * 行动覆盖层为槽位：真实 EchoActionOverlay 含无限帧动画（Robolectric 不友好），
- * 由调用侧注入；本层只负责 runningAction != null 的条件渲染。
+ * V3 §37–§43 — ambient ECHO Scene（Scene 不是 Feed）。
+ *
+ * 结构：Box ├ Echo visual（61.5% 首 viewport；fontScale≥1.3 → 52%）
+ *           ├ ambient transient prompt（wallpaper/AI 一颗安静 pill）
+ *           ├ narrative gradient + observation（headline 22/29 ≤2 行 + secondary 15/21 ≤2 行）
+ *           ├ Why（48dp）/ Ask（52dp quiet surface）/ Action（sheet）
+ *           ├ action overlay └ active bottom sheet。
+ * 移除 Feed 项：portrait feedback → WHY sheet；action list → Action sheet；
+ * conversation → Ask sheet；weekly message → Journey quiet indicator（slice 12）；
+ * wallpaper/AI card → AmbientPromptPill；Journey 重复入口 → WHY 内「查看更多」；
+ * 重复 emergency card → 壳层常驻 FAB（不变）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EchoSceneContent(
     state: EchoSceneContentState,
@@ -242,179 +265,364 @@ fun EchoSceneContent(
     val portrait = state.portrait
 
     val todayMd = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
-    var askExpanded by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf(SceneSheet.NONE) }
 
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            Modifier.fillMaxSize().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // 1. ECHO 视觉主体（第一视觉永远是 ECHO——§9）
-            item { visualSurface() }
-            // 1.5 日期只是安静的时间锚（ERA 31 R12：headlineMedium → labelMedium——
-            // 大字号日期会与 ECHO 抢第一视觉，属 Dashboard 式元数据噪音；§10 信息量压缩）
-            item { Text("今天 · $todayMd", style = MaterialTheme.typography.labelMedium) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val sceneHeight = maxHeight
+        // §79：fontScale ≥1.3 时视觉占比 .615 → .52，narrative 允许滚动由下方 Column 承担
+        val visualFraction = visualFractionFor(LocalConfiguration.current.fontScale)
 
-            // 2. 状态透明（非 ACTIVE 才可见）+ 初次 AI 提示
-            item {
+        Column(Modifier.fillMaxSize()) {
+            // 1. 视觉区（第一眼是 ECHO；testTag: echo_scene_visual）
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(sceneHeight * visualFraction)
+                    .testTag("echo_scene_visual"),
+            ) {
+                visualSurface()
+                // narrative gradient（视觉底部渐隐，保证文字可读性）
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(110.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color(0x00040814),
+                                1f to Color(0xC0040814),
+                            ),
+                        ),
+                )
+                // ambient transient prompt（wallpaper/AI 一颗 pill，一次只一颗；安静可关闭）
+                AmbientPromptPill(
+                    state = state,
+                    uiState = uiState,
+                    feedbackActions = feedbackActions,
+                    navigation = navigation,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
+
+            // 2. narrative（左右 24dp；testTag: echo_scene_narrative）
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .testTag("echo_scene_narrative"),
+            ) {
+                Text(
+                    "今天 · $todayMd",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                )
+                Spacer(Modifier.height(6.dp))
+                val narrative = resolveSceneNarrative(uiState, portrait)
+                Text(
+                    narrative.headline,
+                    fontSize = 22.sp,
+                    lineHeight = 29.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                narrative.secondary?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        it,
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                    )
+                }
+                // SENSING_DISABLED / ERROR：真实动作（re-enable / retry secondary）
+                when (portrait.status) {
+                    PortraitStatus.SENSING_DISABLED -> TextButton(
+                        onClick = coreActions.onReEnableSensing,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(PORTRAIT_COPY_REENABLE) }
+                    PortraitStatus.ERROR -> TextButton(
+                        onClick = coreActions.onRetryPortrait,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(PORTRAIT_COPY_RETRY) }
+                    PortraitStatus.READY -> UnlockBanner(
+                        consumeUnlocked = coreActions.onConsumeUnlocked,
+                        state = portrait,
+                    )
+                    else -> Unit
+                }
+                // 感知状态透明（非 ACTIVE 才可见；安静文案，无卡片）
                 EchoStatusOverlay(
                     sensing = uiState.sensing,
                     intelligenceAvailable = uiState.intelligenceAvailable,
-                    aiPromptDismissed = state.aiPromptDismissed,
+                    aiPromptDismissed = true, // AI 提示已迁入 AmbientPromptPill（唯一 transient）
                     onGoToMe = navigation.onGoToMe,
                     onDismissAiPrompt = feedbackActions.onDismissAiPrompt,
                 )
             }
 
-            // 2.5 ERA 31 R34：一次性壁纸引导（PART 57 Wallpaper adoption）——
-            // 与 AI 提示同款可关闭安静入口；打开过或关闭过就不再出现。
-            if (!state.wallpaperPromptDismissed) {
-                item {
-                    Column(
-                        Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        TextButton(onClick = feedbackActions.onSelectWallpaper) {
-                            Text("让 ECHO 留在桌面：设置动态壁纸 →")
-                        }
-                        TextButton(onClick = feedbackActions.onDismissWallpaperPrompt) {
-                            Text("以后再说")
-                        }
-                    }
-                }
+            Spacer(Modifier.height(10.dp))
+
+            // 3. Why（48dp touch target；testTag: echo_scene_why）
+            TextButton(
+                onClick = { sheet = SceneSheet.WHY },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .heightIn(min = 48.dp)
+                    .testTag("echo_scene_why"),
+            ) { Text(PORTRAIT_COPY_SECTION_WHY) }
+
+            // 4. Ask（52dp quiet surface；testTag: echo_scene_ask）
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .heightIn(min = 52.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    .clickable { sheet = SceneSheet.ASK }
+                    .padding(horizontal = 20.dp)
+                    .testTag("echo_scene_ask"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "问 ECHO",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                )
             }
 
-            // 3. 周小结消息（订阅/本地镜像；ERA 20 §8 去卡化——无边框直排）
-            state.message?.let { msg ->
-                item {
-                    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(msg.title, style = MaterialTheme.typography.titleSmall)
-                        Text(msg.body, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
+            // 5. Action 安静入口（真实 available actions 在 sheet 内；§47）
+            TextButton(
+                onClick = { sheet = SceneSheet.ACTIONS },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .heightIn(min = 48.dp),
+            ) { Text(PORTRAIT_COPY_SECTION_ACTION) }
 
-            // 4. 画像九态（状态机渲染；组件只读状态）
-            when (portrait.status) {
-                PortraitStatus.LOADING -> item {
-                    Column(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                    }
-                }
-                PortraitStatus.WARMING_UP -> item {
-                    if (uiState.maturity == EchoMaturity.SEED) {
-                        SeedPortraitBlock(awakenedAtEpochMs = state.awakenedAtEpochMs, state = portrait)
-                    } else {
-                        Text(todayPortraitStateText(PortraitStatus.WARMING_UP), Modifier.padding(top = 20.dp))
-                        val factsOnly = portrait.portrait?.summary
-                            ?.substringAfter("\n\n", missingDelimiterValue = "")
-                            ?.takeIf { it.isNotBlank() }
-                        if (factsOnly != null) {
-                            Text(factsOnly, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-                        }
-                        // ERA 31 R28：基线 X/7 进度条与「今日已学习 NN%」覆盖率条从 Scene 移除
-                        // （§9 第一视觉是 ECHO 不是仪表盘；§13 禁止进度条/等级 UI）——
-                        // 「它在记录」的获得感由当天事实句承担（v0.7.4 事实句仍在）。
-                    }
-                }
-                PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE -> item {
-                    PortraitSummaryOnly(portrait)
-                }
-                PortraitStatus.READY -> item {
-                    UnlockBanner(consumeUnlocked = coreActions.onConsumeUnlocked, state = portrait)
-                    EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney)
-                }
-                PortraitStatus.PARTIAL_DATA -> {
-                    item { Text(PORTRAIT_COPY_PARTIAL_BANNER, Modifier.padding(top = 12.dp)) }
-                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney) }
-                }
-                PortraitStatus.OFFLINE_CACHED -> {
-                    if (portrait.offline) {
-                        item { Text(PORTRAIT_COPY_OFFLINE_BANNER, Modifier.padding(top = 12.dp)) }
-                    }
-                    item { EchoWhyLayer(uiState = uiState, onGoToJourney = navigation.onGoToJourney) }
-                }
-                PortraitStatus.SENSING_DISABLED -> item {
-                    Column(
-                        Modifier.fillMaxWidth().padding(top = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(PORTRAIT_COPY_SENSING_DISABLED)
-                        Button(
-                            onClick = coreActions.onReEnableSensing,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(PORTRAIT_COPY_REENABLE)
-                        }
-                    }
-                }
-                PortraitStatus.ERROR -> item {
-                    Column(
-                        Modifier.fillMaxWidth().padding(top = 20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(PORTRAIT_COPY_LOAD_FAILED)
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = coreActions.onRetryPortrait) { Text(PORTRAIT_COPY_RETRY) }
-                    }
-                }
-            }
-
-            // 4.5 ERA 29 §64：内部质量反馈（仅 DEBUG 构建渲染，正式用户不可见）
-            item { qualityFeedback() }
-
-            // 5. Journey 入口（Layer 3 证据/长期趋势）—— TextButton：安静入口，不做按钮墙
-            item {
-                TextButton(onClick = navigation.onGoToJourney, modifier = Modifier.fillMaxWidth()) {
-                    Text("Journey · 我的时间 →")
-                }
-            }
-
-            // 6. 行动（EchoActionRuntime 统一裁决；Scene 内执行）
-            item { actionLayer() }
-
-            // 7. 紧急入口（安全资源常驻可达）
-            item {
-                OutlinedButton(onClick = navigation.onEmergency, modifier = Modifier.fillMaxWidth()) { Text("紧急支持") }
-            }
-
-            // 8. 画像反馈（Correction Memory 由 Service 写入）
-            if (portrait.status == PortraitStatus.READY || portrait.status == PortraitStatus.PARTIAL_DATA) {
-                item {
-                    PortraitFeedbackContent(
-                        state = portrait,
-                        feedbackLookup = feedbackActions.portraitFeedbackFor,
-                        onLike = feedbackActions.onPortraitLike,
-                        onNotLike = feedbackActions.onPortraitNotLike,
-                        onCorrection = feedbackActions.onPortraitCorrection,
-                        onRebuild = feedbackActions.onRebuildTodayPortrait,
-                    )
-                }
-            }
-
-            // 9. Ask ECHO 对话层（Controller 状态机驱动）
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { askExpanded = !askExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(if (askExpanded) "收起对话" else "问 ECHO") }
-                    if (askExpanded) {
-                        EchoConversationLayer(
-                            turns = state.turns,
-                            phase = state.phase,
-                            onAsk = coreActions.onAsk,
-                            onFeedback = coreActions.onConversationFeedback,
-                        )
-                    }
-                }
-            }
-
-            item { Spacer(Modifier.height(96.dp)) }
+            // ERA 29 §64：内部质量反馈（仅 DEBUG 构建渲染）
+            qualityFeedback()
         }
 
-        // 10. Scene 内行动覆盖层（运行时 running 状态驱动；结束回 Ambient Scene）
+        // 6. Scene 内行动覆盖层（running 状态驱动；结束回 Ambient Scene）
         state.runningAction?.let { actionOverlay() }
+
+        // 7. Progressive surfaces（active bottom sheet；§37 同一 Box 结构）
+        when (sheet) {
+            SceneSheet.WHY -> SceneBottomSheet(onClose = { sheet = SceneSheet.NONE }) { fraction ->
+                EchoWhySheetContent(
+                    uiState = uiState,
+                    portrait = portrait,
+                    feedbackActions = feedbackActions,
+                    onGoToJourney = {
+                        sheet = SceneSheet.NONE
+                        navigation.onGoToJourney()
+                    },
+                    onFraction = { fraction.value = it },
+                )
+            }
+            SceneSheet.ASK -> SceneBottomSheet(onClose = { sheet = SceneSheet.NONE }, initialFraction = 0.82f) {
+                EchoAskSheetContent(
+                    state = state,
+                    coreActions = coreActions,
+                    visualSurface = visualSurface,
+                )
+            }
+            SceneSheet.ACTIONS -> SceneBottomSheet(onClose = { sheet = SceneSheet.NONE }) {
+                Column(Modifier.fillMaxWidth().padding(24.dp)) { actionLayer() }
+            }
+            SceneSheet.NONE -> Unit
+        }
+    }
+}
+
+/**
+ * Scene active bottom sheet（§37 同一 Box 结构内成员；非系统 ModalBottomSheet——
+ * PEEK/EXPANDED 需要精确 42%/82% 高度控制，且 Robolectric 可测）。
+ */
+@Composable
+private fun SceneBottomSheet(
+    onClose: () -> Unit,
+    initialFraction: Float = 0.42f,
+    content: @Composable (androidx.compose.runtime.MutableState<Float>) -> Unit,
+) {
+    val fraction = remember { mutableStateOf(initialFraction) }
+    Box(Modifier.fillMaxSize()) {
+        // scrim（点击关闭；只覆盖 sheet 上方区域，不与 sheet 内容重叠）
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(1f - fraction.value)
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(onClick = onClose),
+        )
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(fraction.value)
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            content(fraction)
+        }
+    }
+}
+
+/** Scene 内 progressive surface 选择。 */
+private enum class SceneSheet { NONE, WHY, ASK, ACTIONS }
+
+/** §38/§79：视觉占比纯函数（1.0 → 61.5% 目标；fontScale ≥1.3 → 52%）。 */
+internal fun visualFractionFor(fontScale: Float): Float = if (fontScale >= 1.3f) 0.52f else 0.615f
+
+/** narrative 文案解析（状态机 → 一句 headline + 可选 secondary；全部 canonical copy）。 */
+private data class SceneNarrative(val headline: String, val secondary: String?)
+
+private fun resolveSceneNarrative(
+    uiState: EchoSceneUiState,
+    portrait: PortraitUiState,
+): SceneNarrative = when (portrait.status) {
+    // §40：LOADING 不用 spinner——quiet ECHO + canonical 语义「正在整理今天的观察…」
+    PortraitStatus.LOADING -> SceneNarrative(PORTRAIT_COPY_LOADING_QUIET, null)
+    PortraitStatus.WARMING_UP -> {
+        val factsOnly = portrait.portrait?.summary
+            ?.substringAfter("\n\n", missingDelimiterValue = "")
+            ?.takeIf { it.isNotBlank() }
+        SceneNarrative(uiState.headline, factsOnly)
+    }
+    PortraitStatus.EARLY_BASELINE, PortraitStatus.LOW_CONFIDENCE ->
+        SceneNarrative(uiState.headline, portrait.portrait?.summary)
+    PortraitStatus.READY -> SceneNarrative(uiState.headline, uiState.aiLayer)
+    PortraitStatus.PARTIAL_DATA -> SceneNarrative(uiState.headline, PORTRAIT_COPY_PARTIAL_BANNER)
+    PortraitStatus.OFFLINE_CACHED -> SceneNarrative(
+        uiState.headline,
+        if (portrait.offline) PORTRAIT_COPY_OFFLINE_BANNER else null,
+    )
+    // §42：Sensing Disabled 不是大型 error screen——identity 保留 + 真实 re-enable
+    PortraitStatus.SENSING_DISABLED -> SceneNarrative(uiState.headline, PORTRAIT_COPY_SENSING_DISABLED)
+    // §43：Error —— identity 继续存在，Retry secondary，无红色全屏
+    PortraitStatus.ERROR -> SceneNarrative(uiState.headline, PORTRAIT_COPY_LOAD_FAILED)
+}
+
+/** Ambient transient prompt：wallpaper 引导 / AI 引导一次只一颗，安静可关闭。 */
+@Composable
+private fun AmbientPromptPill(
+    state: EchoSceneContentState,
+    uiState: EchoSceneUiState,
+    feedbackActions: EchoSceneFeedbackActions,
+    navigation: EchoSceneNavigation,
+    modifier: Modifier = Modifier,
+) {
+    val prompt: Pair<String, () -> Unit>? = when {
+        !state.wallpaperPromptDismissed ->
+            "让 ECHO 留在桌面：设置动态壁纸 →" to feedbackActions.onSelectWallpaper
+        !uiState.intelligenceAvailable && !state.aiPromptDismissed ->
+            "连接一个 AI，让 ECHO 更深入地理解你 →" to navigation.onGoToMe
+        else -> null
+    }
+    if (prompt != null) {
+        Row(
+            modifier
+                .padding(top = 14.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = prompt.second) {
+                Text(prompt.first, style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(
+                onClick = {
+                    if (!state.wallpaperPromptDismissed) {
+                        feedbackActions.onDismissWallpaperPrompt()
+                    } else {
+                        feedbackActions.onDismissAiPrompt()
+                    }
+                },
+            ) { Text("以后再说", style = MaterialTheme.typography.labelSmall) }
+        }
+    }
+}
+
+/** WHY sheet（§44 渐进证据：先说/观察到/通常/差异 → 展开再出反馈与来源）。 */
+@Composable
+private fun EchoWhySheetContent(
+    uiState: EchoSceneUiState,
+    portrait: PortraitUiState,
+    feedbackActions: EchoSceneFeedbackActions,
+    onGoToJourney: () -> Unit,
+    onFraction: (Float) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) { onFraction(if (expanded) 0.82f else 0.42f) }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("今天的依据", style = MaterialTheme.typography.titleMedium)
+        // 1. ECHO 说了什么
+        Text(uiState.headline, style = MaterialTheme.typography.bodyLarge)
+        uiState.aiLayer?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        // 2–4. 今天观察到了什么 / 你的个人通常 / 两者差异（真实 facts）
+        uiState.facts.forEach { fact ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                if (fact.label.isNotBlank()) Text(fact.label, style = MaterialTheme.typography.titleSmall)
+                if (fact.todayText.isNotBlank()) Text("今天：${fact.todayText}", style = MaterialTheme.typography.bodySmall)
+                if (fact.baselineText.isNotBlank()) Text("平常：${fact.baselineText}", style = MaterialTheme.typography.bodySmall)
+                if (fact.deltaText.isNotBlank()) Text("变化：${fact.deltaText}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(if (expanded) "收起依据" else "更多依据与反馈")
+        }
+        if (expanded) {
+            if (uiState.headlineSources.isNotEmpty()) {
+                Text(
+                    "依据来源：${uiState.headlineSources.size} 类",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            // 9. feedback / correction（从首页 Feed 迁入 WHY；§39）
+            if (portrait.status == PortraitStatus.READY || portrait.status == PortraitStatus.PARTIAL_DATA) {
+                PortraitFeedbackContent(
+                    state = portrait,
+                    feedbackLookup = feedbackActions.portraitFeedbackFor,
+                    onLike = feedbackActions.onPortraitLike,
+                    onNotLike = feedbackActions.onPortraitNotLike,
+                    onCorrection = feedbackActions.onPortraitCorrection,
+                    onRebuild = feedbackActions.onRebuildTodayPortrait,
+                )
+            }
+            TextButton(onClick = onGoToJourney, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("查看更多 → Journey")
+            }
+        }
+    }
+}
+
+/** Ask sheet（§46：顶部 28–34% 保留 mini live ECHO，下面才是 conversation）。 */
+@Composable
+private fun EchoAskSheetContent(
+    state: EchoSceneContentState,
+    coreActions: EchoSceneCoreActions,
+    visualSurface: @Composable () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(220.dp)) { visualSurface() }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            EchoConversationLayer(
+                turns = state.turns,
+                phase = state.phase,
+                onAsk = coreActions.onAsk,
+                onFeedback = coreActions.onConversationFeedback,
+            )
+        }
     }
 }
 

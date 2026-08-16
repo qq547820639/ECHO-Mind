@@ -63,6 +63,7 @@ object EchoSceneCompiler {
         tier: EchoRenderTier,
         quality: EchoRenderQuality = EchoRenderQuality.NORMAL,
         reducedMotion: Boolean = false,
+        motionScale: Float = 1f,
         hdrEligible: Boolean = false,
         interaction: EchoInteractionSpec = EchoInteractionSpec(),
         canonicalTimeNanos: Long = (spec.clockSeconds * 1_000_000_000f).toLong(),
@@ -123,6 +124,9 @@ object EchoSceneCompiler {
             hdrAllowed = hdrEligible && spec.surface != EchoSurface.WALLPAPER_VISUAL_ONLY,
         )
 
+        particleVelocity *= motionScale.coerceIn(0f, 1f)
+        orbitVelocity *= motionScale.coerceIn(0f, 1f)
+        filamentScale *= motionScale.coerceIn(0f, 1f)
         val motion = EchoMotionSpec(
             breathPeriodSeconds = breathPeriod,
             breathAmplitude = breathAmplitude,

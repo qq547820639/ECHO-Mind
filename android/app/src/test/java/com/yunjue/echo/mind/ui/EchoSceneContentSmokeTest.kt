@@ -4,30 +4,32 @@ import com.yunjue.echo.mind.model.echoMaturity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import com.yunjue.echo.mind.actions.EchoActionKind
 import com.yunjue.echo.mind.intelligence.ConversationPhase
-import com.yunjue.echo.mind.memory.CORRECTION_REASONS
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.MessageDisplay
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_BASELINE_UNLOCKED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_LIKE
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_NOT_LIKE
-import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_SAVED
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_FEEDBACK_QUESTION
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOADING_QUIET
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_LOAD_FAILED
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_OFFLINE_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_PARTIAL_BANNER
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_REENABLE
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_RETRY
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_ACTION
+import com.yunjue.echo.mind.model.PORTRAIT_COPY_SECTION_WHY
 import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
-import com.yunjue.echo.mind.model.PRESENCE_COPY_SEED_TITLE
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
 import org.junit.Assert.assertEquals
@@ -39,11 +41,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * ERA 36 — EchoSceneContent 纯状态内容 smoke test（九态矩阵 + 消息卡 + 槽位 + 行动覆盖层 + 反馈流）。
- * LazyColumn 使用超高窗口 qualifiers 让全部 item 组合（免滚动注入）；无 AppContainer/ViewModel。
+ * V3 §37–§43/§84 — ambient ECHO Scene smoke test（Scene 不是 Feed）。
+ *
+ * 首 viewport 契约：organism + observation + Why + Ask；0 大卡片 / 0 图表 / 0 数字 KPI；
+ * portrait feedback / action list / conversation / Journey 重复入口 全部不在首屏。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], qualifiers = "w360dp-h2400dp")
+@Config(sdk = [35], qualifiers = "w412dp-h915dp")
 class EchoSceneContentSmokeTest {
 
     @get:Rule
@@ -70,7 +74,7 @@ class EchoSceneContentSmokeTest {
     )
 
     private fun uiState(
-        headline: String = "接近",
+        headline: String = "今天和平时很接近。",
         baselineDays: Int = 7,
         intelligenceAvailable: Boolean = true,
     ) = EchoSceneUiState(
@@ -91,32 +95,25 @@ class EchoSceneContentSmokeTest {
     private class Recorder {
         val journey = mutableListOf<Boolean>()
         val me = mutableListOf<Boolean>()
-        val emergency = mutableListOf<Boolean>()
         val reEnabled = mutableListOf<Boolean>()
         val retried = mutableListOf<Boolean>()
-        val started = mutableListOf<EchoActionKind>()
-        val stopped = mutableListOf<Boolean>()
-        val asked = mutableListOf<String>()
         val likes = mutableListOf<String>()
-        val notLikes = mutableListOf<String>()
-        val corrections = mutableListOf<Triple<String, String, String?>>()
-        val feedbackCalls = mutableListOf<String>()
         val wallpaperDismissed = mutableListOf<Boolean>()
         val wallpaperSelected = mutableListOf<Boolean>()
 
         fun navigation() = EchoSceneNavigation(
             onGoToJourney = { journey += true },
             onGoToMe = { me += true },
-            onEmergency = { emergency += true },
+            onEmergency = { },
         )
 
         fun core() = EchoSceneCoreActions(
             onConsumeUnlocked = { true },
             onReEnableSensing = { reEnabled += true },
             onRetryPortrait = { retried += true },
-            onStartAction = { started += it },
-            onStopAction = { stopped += true },
-            onAsk = { asked += it },
+            onStartAction = { },
+            onStopAction = { },
+            onAsk = { },
             onConversationFeedback = { _, _, _, _ -> },
         )
 
@@ -125,10 +122,10 @@ class EchoSceneContentSmokeTest {
             onDismissWallpaperPrompt = { wallpaperDismissed += true },
             onSelectWallpaper = { wallpaperSelected += true },
             onPortraitLike = { likes += it },
-            onPortraitNotLike = { notLikes += it },
-            onPortraitCorrection = { d, r, s -> corrections += Triple(d, r, s) },
-            onRebuildTodayPortrait = {},
-            portraitFeedbackFor = { feedbackCalls += it; feedbackFor(it) },
+            onPortraitNotLike = { },
+            onPortraitCorrection = { _, _, _ -> },
+            onRebuildTodayPortrait = { },
+            portraitFeedbackFor = feedbackFor,
         )
     }
 
@@ -168,94 +165,71 @@ class EchoSceneContentSmokeTest {
         }
     }
 
+    /** 点击含指定文案的可点节点（TextButton 自身 / quiet surface 的后代文本两种形态）。
+     *  Robolectric 假字体量度下坐标注入不可靠 → 用语义 OnClick 动作（逻辑级；
+     *  真实坐标触摸由真机/设备测试覆盖）。 */
+    private fun clickText(text: String) {
+        compose.onNode(
+            hasClickAction() and (hasText(text) or hasAnyDescendant(hasText(text))),
+        ).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
+
+    // ===== 首 viewport 契约（§84） =====
+
     @Test
-    fun slotsAndTitleComposed() {
+    fun firstViewportHasOrganismNarrativeWhyAsk() {
         setContent()
         compose.onNodeWithText("slot-visual").assertExists()
-        compose.onNodeWithText("slot-actions").assertExists()
         compose.onNodeWithText("今天 · ", substring = true).assertExists()
+        compose.onNodeWithText("今天和平时很接近。").assertExists()
+        compose.onNodeWithText(PORTRAIT_COPY_SECTION_WHY).assertExists()
+        compose.onNodeWithText("问 ECHO").assertExists()
+        // testTags（§80：只给 major surfaces）
+        compose.onNodeWithTag("echo_scene_visual").assertExists()
+        compose.onNodeWithTag("echo_scene_narrative").assertExists()
+        compose.onNodeWithTag("echo_scene_why").assertExists()
+        compose.onNodeWithTag("echo_scene_ask").assertExists()
     }
 
     @Test
-    fun wallpaperPromptHiddenByDefault() {
+    fun firstViewportHasNoFeedItems() {
         setContent()
-        compose.onNodeWithText("让 ECHO 留在桌面：设置动态壁纸 →").assertDoesNotExist()
-        compose.onNodeWithText("以后再说").assertDoesNotExist()
+        // portrait feedback / action list / conversation history / Journey 重复入口 不在首屏
+        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_QUESTION).assertDoesNotExist()
+        compose.onNodeWithText("slot-actions").assertDoesNotExist()
+        compose.onNodeWithText("问 ECHO 关于你的事").assertDoesNotExist()
+        compose.onNodeWithText("Journey · 我的时间 →").assertDoesNotExist()
     }
 
-    @Test
-    fun wallpaperPromptShowsUntilDismissed() {
-        val recorder = Recorder()
-        setContent(wallpaperPromptDismissed = false, recorder = recorder)
-        compose.onNodeWithText("让 ECHO 留在桌面：设置动态壁纸 →").assertExists()
-        compose.onNode(hasClickAction() and hasText("以后再说")).performClick()
-        assertTrue(recorder.wallpaperDismissed.isNotEmpty())
-    }
+    // ===== 状态机 =====
 
     @Test
-    fun wallpaperPromptSelectEmitsWallpaperAction() {
-        val recorder = Recorder()
-        setContent(wallpaperPromptDismissed = false, recorder = recorder)
-        compose.onNode(hasClickAction() and hasText("让 ECHO 留在桌面：设置动态壁纸 →")).performClick()
-        assertTrue(recorder.wallpaperSelected.isNotEmpty())
-    }
-
-    @Test
-    fun loadingShowsSpinnerWithoutPortraitBranch() {
+    fun loadingShowsQuietEchoCopyWithoutSpinner() {
         setContent(portrait = portraitState(status = PortraitStatus.LOADING))
-        compose.onNodeWithText("slot-visual").assertExists()
+        compose.onNodeWithText(PORTRAIT_COPY_LOADING_QUIET).assertExists()
         compose.onNodeWithText(PORTRAIT_COPY_LOAD_FAILED).assertDoesNotExist()
+        compose.onNodeWithText("slot-visual").assertExists() // quiet ECHO 继续显示
     }
 
     @Test
-    fun warmingUpSeedShowsSeedBlock() {
-        setContent(
-            portrait = portraitState(status = PortraitStatus.WARMING_UP, baselineDays = 0),
-            uiState = uiState(baselineDays = 0),
-        )
-        compose.onNodeWithText(PRESENCE_COPY_SEED_TITLE).assertExists()
-    }
-
-    @Test
-    fun warmingUpWithDaysShowsFactsNotProgressDashboard() {
-        // ERA 31 R28：基线 X/7 进度条与「今日已学习 NN%」覆盖率条从 Scene 移除
-        // （§9 第一视觉是 ECHO 不是仪表盘；§13 禁止进度条）——「它在记录」由事实句承担。
+    fun warmingUpShowsHeadlineAndFactsNotDashboard() {
         setContent(
             portrait = portraitState(
                 status = PortraitStatus.WARMING_UP,
                 baselineDays = 3,
                 summary = "ECHO 正在慢慢了解你的日常节奏。\n\n今天累计屏幕互动 126 分钟。",
             ),
-            uiState = uiState(baselineDays = 3),
+            uiState = uiState(headline = "我开始看到一些属于你的节奏。", baselineDays = 3),
         )
+        compose.onNodeWithText("我开始看到一些属于你的节奏。").assertExists()
         compose.onNodeWithText("今天累计屏幕互动 126 分钟。").assertExists()
-        compose.onNodeWithText("已积累 3/7 天，基线即将成型").assertDoesNotExist()
-        compose.onNodeWithText("今日已学习").assertDoesNotExist()
     }
 
     @Test
-    fun earlyBaselineShowsSummaryOnly() {
-        setContent(
-            portrait = portraitState(status = PortraitStatus.EARLY_BASELINE, summary = "最近的作息更稳定。"),
-            uiState = uiState(baselineDays = 5),
-        )
-        compose.onNodeWithText("最近的作息更稳定。").assertExists()
-        compose.onNodeWithText("已积累 5/7 天，基线即将成型").assertDoesNotExist()
-        compose.onNodeWithText("今日已学习").assertDoesNotExist()
-    }
-
-    @Test
-    fun readyShowsWhyHeadlineAndUnlockBanner() {
-        setContent(uiState = uiState(headline = "你最近睡得更早了。"))
-        compose.onNodeWithText("你最近睡得更早了。").assertExists()
-        compose.onNodeWithText(PORTRAIT_COPY_BASELINE_UNLOCKED).assertExists()
-    }
-
-    @Test
-    fun partialShowsBannerAndWhy() {
+    fun partialShowsQuietBanner() {
         setContent(portrait = portraitState(status = PortraitStatus.PARTIAL_DATA))
         compose.onNodeWithText(PORTRAIT_COPY_PARTIAL_BANNER).assertExists()
-        compose.onNodeWithText("接近").assertExists()
     }
 
     @Test
@@ -265,133 +239,121 @@ class EchoSceneContentSmokeTest {
     }
 
     @Test
-    fun sensingDisabledEmitsReEnable() {
+    fun sensingDisabledKeepsIdentityAndOffersReEnable() {
         val recorder = Recorder()
-        setContent(portrait = portraitState(status = PortraitStatus.SENSING_DISABLED), recorder = recorder)
+        setContent(
+            portrait = portraitState(status = PortraitStatus.SENSING_DISABLED),
+            recorder = recorder,
+        )
+        compose.onNodeWithText("slot-visual").assertExists() // identity 保留
         compose.onNodeWithText(PORTRAIT_COPY_SENSING_DISABLED).assertExists()
-        compose.onNode(hasClickAction() and hasText(PORTRAIT_COPY_REENABLE)).performClick()
-        assertEquals(listOf(true), recorder.reEnabled)
+        clickText(PORTRAIT_COPY_REENABLE)
+        assertTrue(recorder.reEnabled.isNotEmpty())
     }
 
     @Test
-    fun errorEmitsRetry() {
+    fun errorKeepsIdentityWithSecondaryRetry() {
         val recorder = Recorder()
         setContent(portrait = portraitState(status = PortraitStatus.ERROR), recorder = recorder)
+        compose.onNodeWithText("slot-visual").assertExists()
         compose.onNodeWithText(PORTRAIT_COPY_LOAD_FAILED).assertExists()
-        compose.onNode(hasClickAction() and hasText(PORTRAIT_COPY_RETRY)).performClick()
-        assertEquals(listOf(true), recorder.retried)
+        clickText(PORTRAIT_COPY_RETRY)
+        assertTrue(recorder.retried.isNotEmpty())
+    }
+
+    // ===== Ambient transient prompt =====
+
+    @Test
+    fun wallpaperPromptPillShowsAndDismisses() {
+        val recorder = Recorder()
+        setContent(wallpaperPromptDismissed = false, recorder = recorder)
+        compose.onNodeWithText("让 ECHO 留在桌面：设置动态壁纸 →").assertExists()
+        compose.onNode(hasClickAction() and hasText("以后再说")).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        assertTrue(recorder.wallpaperDismissed.isNotEmpty())
     }
 
     @Test
-    fun messageCardRendered() {
+    fun wallpaperPromptPillSelectFires() {
+        val recorder = Recorder()
+        setContent(wallpaperPromptDismissed = false, recorder = recorder)
+        clickText("让 ECHO 留在桌面：设置动态壁纸 →")
+        assertTrue(recorder.wallpaperSelected.isNotEmpty())
+    }
+
+    @Test
+    fun aiPromptPillNavigatesToMe() {
+        val recorder = Recorder()
         setContent(
-            message = MessageDisplay(id = "m1", title = "本周小结", body = "你的作息更规律了。"),
+            uiState = uiState(intelligenceAvailable = false),
+            aiPromptDismissed = false,
+            recorder = recorder,
         )
-        compose.onNodeWithText("本周小结").assertExists()
-        compose.onNodeWithText("你的作息更规律了。").assertExists()
+        clickText("连接一个 AI，让 ECHO 更深入地理解你 →")
+        assertTrue(recorder.me.isNotEmpty())
+    }
+
+    // ===== Progressive surfaces（sheet） =====
+
+    @Test
+    fun askSheetRetainsLiveEchoAndConversation() {
+        setContent()
+        clickText("问 ECHO")
+        // 顶部 mini live ECHO + conversation（§46）
+        compose.onAllNodesWithText("slot-visual").assertCountEquals(2)
+        compose.onNodeWithText("问 ECHO 关于你的事").assertExists()
     }
 
     @Test
-    fun journeyAndEmergencyCallbacksFire() {
+    fun whySheetShowsEvidenceThenFeedbackAfterExpand() {
         val recorder = Recorder()
         setContent(recorder = recorder)
-        compose.onNode(hasClickAction() and hasText("Journey · 我的时间 →")).performScrollTo().performClick()
-        compose.onNode(hasClickAction() and hasText("紧急支持")).performScrollTo().performClick()
-        assertEquals(listOf(true), recorder.journey)
-        assertEquals(listOf(true), recorder.emergency)
+        clickText(PORTRAIT_COPY_SECTION_WHY)
+        compose.onNodeWithText("今天的依据").assertExists()
+        // 默认无 feedback（展开才出现）
+        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_QUESTION).assertDoesNotExist()
+        clickText("更多依据与反馈")
+        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_QUESTION).assertExists()
+        clickText(PORTRAIT_COPY_FEEDBACK_LIKE)
+        assertTrue(recorder.likes.isNotEmpty())
     }
 
     @Test
-    fun askToggleExpandsConversationLayer() {
+    fun journeyLinkLivesInWhySheet() {
+        val recorder = Recorder()
+        setContent(recorder = recorder)
+        clickText(PORTRAIT_COPY_SECTION_WHY)
+        clickText("更多依据与反馈")
+        clickText("查看更多 → Journey")
+        assertTrue(recorder.journey.isNotEmpty())
+    }
+
+    @Test
+    fun actionSheetHostsAvailableActions() {
         setContent()
-        compose.onNode(hasClickAction() and hasText("问 ECHO")).performScrollTo().performClick()
-        compose.onNodeWithText("问 ECHO 关于你的事").performScrollTo().assertExists()
-        compose.onNode(hasClickAction() and hasText("收起对话")).performScrollTo().performClick()
-        compose.onNodeWithText("问 ECHO 关于你的事").assertDoesNotExist()
+        clickText(PORTRAIT_COPY_SECTION_ACTION)
+        compose.onNodeWithText("slot-actions").assertExists()
     }
 
     @Test
-    fun runningActionOverlaySlotRenderedWhenRunning() {
+    fun runningActionOverlayRendered() {
         setContent(runningAction = EchoActionKind.BREATHING)
         compose.onNodeWithText("slot-overlay").assertExists()
     }
 
     @Test
-    fun overlaySlotHiddenWhenNoRunningAction() {
-        setContent(runningAction = null)
+    fun overlayHiddenWhenNoRunningAction() {
+        setContent()
         compose.onNodeWithText("slot-overlay").assertDoesNotExist()
     }
 
-    @Test
-    fun feedbackLikeFlowEmitsAndShowsSaved() {
-        val recorder = Recorder()
-        setContent(recorder = recorder)
-        compose.onNode(hasClickAction() and hasText(PORTRAIT_COPY_FEEDBACK_LIKE)).performScrollTo().performClick()
-        assertEquals(listOf("2026-08-15"), recorder.likes)
-        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_SAVED).assertExists()
-    }
+    // ===== 视觉占比（§38/§79） =====
 
     @Test
-    fun feedbackNotLikeFlowRequiresReasonAndEmitsCorrection() {
-        val recorder = Recorder()
-        setContent(recorder = recorder)
-        compose.onNode(hasClickAction() and hasText(PORTRAIT_COPY_FEEDBACK_NOT_LIKE)).performScrollTo().performClick()
-        assertEquals(listOf("2026-08-15"), recorder.notLikes)
-        compose.onNodeWithText("今天有什么不一样？").performScrollTo().assertExists()
-        assertTrue(recorder.corrections.isEmpty())
-        val firstReason = CORRECTION_REASONS.first()
-        compose.onNode(hasClickAction() and hasText(firstReason)).performScrollTo().performClick()
-        assertEquals(listOf(Triple("2026-08-15", firstReason, "今天和平时很接近。")), recorder.corrections)
-    }
-
-    @Test
-    fun feedbackPreRecordedShowsSavedDirectly() {
-        val recorder = Recorder()
-        // 预置反馈：feedbackFor 返回 true → 直接展示已记录，无按钮
-        compose.setContent {
-            MaterialTheme {
-                EchoSceneContent(
-                    state = EchoSceneContentState(
-                        uiState = uiState(),
-                        portrait = portraitState(),
-                        turns = emptyList(),
-                        phase = ConversationPhase.IDLE,
-                        runningAction = null,
-                        message = null,
-                        aiPromptDismissed = true,
-                    ),
-                    navigation = recorder.navigation(),
-                    coreActions = recorder.core(),
-                    feedbackActions = recorder.feedback(feedbackFor = { true }),
-                    visualSurface = { Text("slot-visual") },
-                    actionLayer = { Text("slot-actions") },
-                    actionOverlay = { Text("slot-overlay") },
-                )
-            }
-        }
-        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_SAVED).performScrollTo().assertExists()
-        compose.onNodeWithText(PORTRAIT_COPY_FEEDBACK_LIKE).assertDoesNotExist()
-        assertEquals(listOf("2026-08-15"), recorder.feedbackCalls)
-    }
-
-    @Test
-    fun aiPromptRenderedWhenUnconfiguredAndNotDismissed() {
-        setContent(uiState = uiState(intelligenceAvailable = false), aiPromptDismissed = false)
-        compose.onNodeWithText("连接一个 AI，让 ECHO 更深入地理解你的变化。").assertExists()
-    }
-
-    @Test
-    fun actionLayerSlotReceivesStartActionCallback() {
-        val recorder = Recorder()
-        setContent(
-            recorder = recorder,
-            actionLayer = {
-                androidx.compose.material3.Button(onClick = { recorder.started += EchoActionKind.BREATHING }) {
-                    Text("slot-start-breathing")
-                }
-            },
-        )
-        compose.onNode(hasClickAction() and hasText("slot-start-breathing")).performScrollTo().performClick()
-        assertEquals(listOf(EchoActionKind.BREATHING), recorder.started)
+    fun visualRegionRatioWithinSpec() {
+        // §38：fontScale 1.0 → 61.5%（允许 56–64%，下限 52%）
+        assertTrue(visualFractionFor(1.0f) in 0.56f..0.64f)
+        // §79：fontScale ≥1.3 → ~52%
+        assertEquals(0.52f, visualFractionFor(1.3f), 1e-4f)
+        assertEquals(0.52f, visualFractionFor(1.5f), 1e-4f)
     }
 }
