@@ -20,6 +20,11 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+    testOptions {
+        unitTests.all {
+            it.useJUnit()
+        }
+    }
 }
 
 detekt {
@@ -30,8 +35,11 @@ detekt {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:visual"))
     implementation(project(":feature:presence"))
     implementation(project(":feature:intelligence"))
     implementation(project(":feature:memory"))
     implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.junit)
 }

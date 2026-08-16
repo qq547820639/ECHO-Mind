@@ -125,8 +125,10 @@ object OrganismFrameComputer {
     ): List<MembranePoint> {
         val segments = 48
         val pts = ArrayList<MembranePoint>(segments)
+        // 当日构图指纹（dayComposition）驱动膜相位旋转：一天内不漂移，跨天可辨（Journey 时间流逝）
+        val dayRotation = g.dayComposition * TWO_PI
         for (i in 0 until segments) {
-            val theta = i.toFloat() / segments * TWO_PI + g.identityPhase * TWO_PI
+            val theta = i.toFloat() / segments * TWO_PI + g.identityPhase * TWO_PI + dayRotation
             val bump = OrganicNoise.membraneRadius(
                 seed, theta, g.coherence, g.turbulence, t, g.driftRate,
             )
