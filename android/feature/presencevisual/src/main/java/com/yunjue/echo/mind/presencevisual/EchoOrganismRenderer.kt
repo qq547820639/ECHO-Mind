@@ -13,6 +13,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -71,13 +73,57 @@ fun EchoOrganism(
         )
     }
 
+    // AGSL 后端（§20）：STANDARD/ADVANCED tier 且 RuntimeShader 可用时走材质后端；
+    // 否则 Canvas fallback（§22 同一 organism，更简单材质）。
+    val agslUsable = remember { AgslEchoBackend.isAvailable() }
+    val sessionHolder = remember { AgslSessionHolder() }
+
     Canvas(
         modifier = modifier.semantics { contentDescription = aggregateDescription },
     ) {
         val base = genome ?: GenomeDeriver.derive(EchoPresenceState(), hourOfDay)
         val spec = SurfacePolicy.crop(base, surface, clockSeconds)
         val frame = OrganismFrameComputer.compute(spec, size.width, size.height, effectiveOptions)
-        drawOrganism(frame)
+        val useAgsl = agslUsable && android.os.Build.VERSION.SDK_INT >= 33 &&
+            effectiveOptions.tier != com.yunjue.echo.mind.visual.render.EchoRenderTier.LEGACY
+        if (useAgsl) {
+            val palette = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(base.identitySeed).palette
+            val session = sessionHolder.sessionFor(size.width.toInt(), size.height.toInt())
+            if (session == null) {
+                drawOrganism(frame)
+                return@Canvas
+            }
+            drawIntoCanvas { composeCanvas ->
+                session.draw(
+                    canvas = composeCanvas.nativeCanvas,
+                    frame = frame,
+                    widthPx = size.width,
+                    heightPx = size.height,
+                    exposure = spec.genome.luminance,
+                    halo = spec.genome.haloIntensity,
+                    primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
+                    secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
+                    warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                )
+            }
+        } else {
+            drawOrganism(frame)
+        }
+    }
+}
+
+/** AGSL 会话持有器（按尺寸复用 RuntimeShader + mask bitmap；§32 hot path 零位图分配）。 */
+internal class AgslSessionHolder {
+    private var session: AgslEchoBackend.AgslSession? = null
+    /** API < 33 → null（调用侧回退 Canvas 后端）。 */
+    fun sessionFor(width: Int, height: Int): AgslEchoBackend.AgslSession? {
+        if (android.os.Build.VERSION.SDK_INT < 33) return null
+        val s = session
+        return if (s != null && s.width == width && s.height == height) {
+            s
+        } else {
+            AgslEchoBackend.AgslSession(width, height).also { session = it }
+        }
     }
 }
 

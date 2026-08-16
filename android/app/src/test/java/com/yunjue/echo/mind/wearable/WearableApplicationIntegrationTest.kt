@@ -284,6 +284,9 @@ class WearableApplicationIntegrationTest {
             platform.injectFromBand(bandObservation("obs-2")) // 重复
             platform.injectFromBand("malformed-not-json")
         }
+        // 竞态修复：等待条件必须覆盖传输层最后一条（malformed）消息的处理——
+        // 观察日志只记合法去重结果，2 条观察就绪时第 4 条入站计数可能尚未入账。
+        awaitUntil { wearable.runtime.state.value.inboundMessageCount >= 4L }
         awaitUntil { wearable.observationLog.size == 2 }
         val state = wearable.runtime.state.value
         assertEquals("入站计数按传输层计数（含重复/损坏消息）", 4L, state.inboundMessageCount)

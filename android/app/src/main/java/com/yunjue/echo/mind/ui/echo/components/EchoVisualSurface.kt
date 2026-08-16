@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.ui.echo.components
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
@@ -10,6 +11,7 @@ import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.resolveSurfaceConfig
 import com.yunjue.echo.mind.presencevisual.EchoOrganism
+import com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
 
@@ -64,7 +66,8 @@ private fun SurfaceMode.toRenderOptions(motionLevel: PresenceMotionLevel): Organ
  * v3 §9 — EchoVisualSurface：ECHO Scene 的视觉主体（V3 分层拓扑 Organism）。
  *
  * visual-runtime R2 起：内部渲染切换到 core/visual organism；
- * V3 R4 起为 3D 拓扑（结构环/长丝/碎片 + Fibonacci 粒子 + 空心核）。
+ * V3 R4 起为 3D 拓扑（结构环/长丝/碎片 + Fibonacci 粒子 + 空心核）；
+ * V3 R6 起 tier/quality 由 EchoRenderEnvironment 按真实设备解析（AGSL/Canvas 自动后端）。
  * 首屏 organism 占比提升（§8：第一眼是 ECHO，不是 Dashboard）。
  * 只渲染 [EchoPresenceState]；不接触 Repository / Provider / DB / Preferences。
  * 注：含无限帧动画，由构造隔离（Robolectric 不适配，设备/CI 覆盖）。
@@ -75,11 +78,19 @@ fun EchoVisualSurface(
     config: EchoVisualSurfaceConfig,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val envOptions = remember(context) {
+        OrganismFrameComputer.EchoRenderOptions(
+            tier = EchoRenderEnvironment.resolveTier(),
+            quality = EchoRenderEnvironment.currentQuality(context),
+        )
+    }
+    val base = config.surface.toRenderOptions(config.motionLevel)
     EchoOrganism(
         presence = presence,
         modifier = modifier.fillMaxWidth().height(380.dp),
         surface = config.surface.toEchoSurface(),
         reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
-        options = config.surface.toRenderOptions(config.motionLevel),
+        options = base.copy(tier = envOptions.tier, quality = envOptions.quality),
     )
 }

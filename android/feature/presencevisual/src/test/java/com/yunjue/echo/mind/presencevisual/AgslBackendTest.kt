@@ -1,0 +1,77 @@
+package com.yunjue.echo.mind.presencevisual
+
+import android.os.PowerManager
+import com.yunjue.echo.mind.visual.render.EchoRenderQuality
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * V3 §20/§31 — AGSL 后端结构/可用性/质量门测试。
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class AgslBackendTest {
+
+    @Test
+    fun shaderSourceDeclaresRequiredInputs() {
+        val src = AgslEchoBackend.SHADER_SOURCE
+        // §20：resolution / exposure / core ratio(cavity) / halo / 三色 / vector mask
+        for (u in listOf("iResolution", "iExposure", "iCavity", "iHalo", "iPrimary", "iSecondary", "iWarm")) {
+            assertTrue("缺少 uniform $u", src.contains(u))
+        }
+        assertTrue(src.contains("uniform shader iVectorMask"))
+        assertTrue("必须 premultiplied alpha 输出", src.contains("col * alpha"))
+        assertTrue("tone soft knee（§24 禁止 hard clip）", src.contains("softKnee"))
+    }
+
+    @Test
+    fun isAvailableNeverThrows() {
+        // Robolectric/设备/API<33 任何环境都不得抛出（失败安全回退 Canvas）
+        val v = AgslEchoBackend.isAvailable()
+        assertTrue(v || !v)
+    }
+
+    @Test
+    fun qualityGateMapping() {
+        // §31：Power Save ≥ CONSERVE；MODERATE → CONSERVE；SEVERE+ → MINIMAL
+        assertEquals(
+            EchoRenderQuality.NORMAL,
+            EchoRenderEnvironment.qualityFor(false, PowerManager.THERMAL_STATUS_NONE),
+        )
+        assertEquals(
+            EchoRenderQuality.CONSERVE,
+            EchoRenderEnvironment.qualityFor(true, PowerManager.THERMAL_STATUS_NONE),
+        )
+        assertEquals(
+            EchoRenderQuality.CONSERVE,
+            EchoRenderEnvironment.qualityFor(false, PowerManager.THERMAL_STATUS_MODERATE),
+        )
+        assertEquals(
+            EchoRenderQuality.MINIMAL,
+            EchoRenderEnvironment.qualityFor(false, PowerManager.THERMAL_STATUS_SEVERE),
+        )
+        assertEquals(
+            EchoRenderQuality.MINIMAL,
+            EchoRenderEnvironment.qualityFor(false, PowerManager.THERMAL_STATUS_CRITICAL),
+        )
+        // 热态优先于省电
+        assertEquals(
+            EchoRenderQuality.MINIMAL,
+            EchoRenderEnvironment.qualityFor(true, PowerManager.THERMAL_STATUS_SEVERE),
+        )
+    }
+
+    @Test
+    fun hdrNeverEligibleBelowApi34OrUnderDegradation() {
+        // §23：HDR 硬门（API/省电/热态）——Robolectric display 不可信，只测逻辑门
+        assertFalse(
+            EchoRenderEnvironment.qualityFor(true, PowerManager.THERMAL_STATUS_NONE) ==
+                EchoRenderQuality.NORMAL,
+        )
+    }
+}

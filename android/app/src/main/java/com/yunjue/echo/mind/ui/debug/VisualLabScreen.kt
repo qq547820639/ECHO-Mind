@@ -120,8 +120,11 @@ fun VisualLabScreen(onClose: () -> Unit) {
                 FilterChip(selected = surface == s, onClick = { surface = s }, label = { Text(label) })
             }
         }
-        Text("Backend（AGSL/ADVANCED 接入中；当前全部走 Canvas 生产路径）",
-            style = MaterialTheme.typography.labelLarge)
+        val agslOk = remember { com.yunjue.echo.mind.presencevisual.AgslEchoBackend.isAvailable() }
+        Text(
+            "Backend" + if (agslOk) "" else "（本机 RuntimeShader 不可用 → AGSL/ADVANCED 回退 CANVAS）",
+            style = MaterialTheme.typography.labelLarge,
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
                 EchoRenderTier.LEGACY to "CANVAS",
@@ -129,7 +132,9 @@ fun VisualLabScreen(onClose: () -> Unit) {
                 EchoRenderTier.ADVANCED to "ADVANCED",
                 EchoRenderTier.ULTRA to "ULTRA",
             ).forEach { (t, label) ->
-                val enabled = t == EchoRenderTier.LEGACY
+                // ULTRA 永不自动启用（§97：无四硬门 → ULTRA_DISABLED_BY_CAPABILITY）
+                val enabled = t == EchoRenderTier.LEGACY ||
+                    t != EchoRenderTier.ULTRA && agslOk
                 FilterChip(
                     selected = backend == t,
                     onClick = { if (enabled) backend = t },
