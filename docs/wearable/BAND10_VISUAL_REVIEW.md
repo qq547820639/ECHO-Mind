@@ -1,8 +1,26 @@
 # BAND10 SIMULATOR / 静态视觉验收（Phase 10）
 
 > 事实源纪律：本环境无 AIoT-IDE 模拟器、无真机（BLOCKED_EXTERNAL_BAND10_DEVICE）。
-> 本文件 = 以官方尺寸 **212 × 520** 为基准的**静态逐项验收**（代码级布局预算 + 状态矩阵），
+> 本文件 = 以官方尺寸 **212 × 520** 为基准的**静态逐项验收**（代码级布局预算 + 状态矩阵）
+> + **渲染级验收**（`wearable/xiaomi-vela/tests/simulator/` QA mirror，ERA 33 R2 实测），
 > 并锁定设计约束；真实渲染/触感验收在真机执行 `qa/` 设备清单时完成，不伪造 PASS。
+
+## 0. 渲染级验收（ERA 33 R2 实测，headless Chrome 212×520）
+
+26 态（13 态 × zh/en）由真实生产模块（computeVisual / presence_cache / i18n）生成并渲染：
+
+- **0 边缘裁剪**：全部状态内容 bbox 严格位于 212×520 内（像素级检查，四边均无内容触边）；
+- **0 文本截断**：headline / WHY / Action 提示 zh+en 全部 `clamp=false`（LAYOUT 探针实测）；
+- **identity 连续性**：同一 identity 的 accent（rgb(103,154,230)）在 SEED→DISCOVERING→KNOWN→
+  MATURE→QUIET 全部呈现且居中（质心 x≈105.4）；LOW_CONFIDENCE / DISCONNECTED 降光后
+  **仍保持同一色相**（质心 x≈105.7/105.6）——降级不换身份、不随机换色；
+  EMPTY（无缓存）用中性色 rgb(190,180,160)——不编造新身份；
+- 生成器内置 212×520 布局预算断言（元素直径/粒子越界 → 生成 FAIL），并进入 android-ci。
+- 触觉开关透传（HAPTICS_ON 态）正常渲染；振动硬门在代码层（action 页 vibrateShort/Long）
+  由 Node 测试锁定。
+
+工具：`node wearable/xiaomi-vela/tests/simulator/generate.js`
+（详见 `wearable/xiaomi-vela/tests/simulator/README.md`）。
 
 ## 1. 设计基准（官方事实）
 
@@ -53,4 +71,5 @@ en 文案最长串 "Follow the rhythm, breathe slowly."（31 字符）在 156px 
 | 项 | 结论 |
 |---|---|
 | 静态视觉验收（212×520 预算 + 状态矩阵 + 双语 + 第一屏纪律） | PASS（本文件 + tests/preflight.js 锁定） |
+| 渲染级验收（QA mirror + headless Chrome 212×520：0 裁剪 / 0 截断 / identity 连续） | **PASS（ERA 33 R2 实测，§0）** |
 | AIoT-IDE 模拟器实渲染 / 真机视觉 | BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING / BLOCKED_EXTERNAL_BAND10_DEVICE |

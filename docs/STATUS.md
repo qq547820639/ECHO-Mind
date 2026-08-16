@@ -115,9 +115,9 @@
    | Wearable Domain | PASS | `:feature:wearable` 96 单测全绿 |
    | Protocol | PASS | Kotlin codec + Vela JS parity 测试全绿 |
    | Privacy | PASS | payload 扫描测试全绿 |
-   | Production Runtime Wiring | **PASS** | Application scoped 唯一启动点（AppContainer 组合 → `WearableContainer.start()`，幂等）；`WearableRuntime.start()` 自动 collect `inboundMessages`；`WearableApplicationIntegrationTest`（:app）9/9 证明全链（连接推送/WHY 往返/同一 Action/观察 sink/断连重连/重复/伪造 Presence） |
+   | Production Runtime Wiring | **PASS** | Application scoped 唯一启动点（AppContainer 组合 → `WearableContainer.start()`，幂等）；`WearableRuntime.start()` 自动 collect `inboundMessages`；`WearableApplicationIntegrationTest`（:app）11/11 证明全链（连接推送/WHY 往返/同一 Action/观察 sink/断连重连/重复/伪造 Presence/长跑仪表） |
    | Haptics 端到端 | **PASS**（软件侧） | `prefs.hapticsEnabled → envelope.surface.hapticsEnabled → 腕上 vibrate 硬门`（默认 SILENT）；降级 surface 不重置开关；Kotlin + Node 双端测试锁定 |
-   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门） |
+   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门）+ simulator 镜像生成门（26 态渲染 0 裁剪 / 0 文本截断 / identity 连续，见 `BAND10_VISUAL_REVIEW.md` §0） |
    | Vela RPK Build | **BLOCKED** | `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`（本机无 AIoT-IDE；不伪造 SUCCESS；静态验证 + 打包预检全绿） |
    | Band10 Install | **BLOCKED** | `BLOCKED_EXTERNAL_BAND10_DEVICE` + `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`（流程基准见 `docs/wearable/BAND10_INSTALL_GUIDE.md`） |
    | Interconnect | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（vendor bridge）+ 真机/签名材料 |
