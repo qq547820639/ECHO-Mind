@@ -74,17 +74,42 @@ class AndroidKeystoreFieldCipherMigrationTest {
     }
 
     @Test
-    fun corruptStoredSecretReprovisionsFailClosed() {
+    fun corruptStoredSecretFailsClosedWithoutOverwrite() {
         val keys = JceksKeystoreKeyProvider()
         val storage = InMemorySecretStorage()
-        val c = cipher(keys, storage)
-        c.deriveDatabasePassphrase()
-        val valid = storage.wrapped
+        cipher(keys, storage).deriveDatabasePassphrase()
         storage.wrapped = "v1|!!!!corrupted"
-        // 损坏 → 重新生成秘密（不编造、不抛错，但口令与损坏前不同 = 旧 DB 需走 legacy 迁移链）
-        val afterCorruption = c.deriveDatabasePassphrase()
-        assertNotNull(afterCorruption)
-        assertTrue(storage.wrapped != valid)
+        // ERA 32 R22：存储存在但无法解包 → fail-closed 抛错且绝不覆盖——
+        // 覆盖 = 生成新 DB 口令 = 既有加密库永久不可打开（数据孤儿化）。
+        // 用新实例（进程重启语义，绕过内存缓存）。
+        val thrown = runCatching { cipher(keys, storage).deriveDatabasePassphrase() }.exceptionOrNull()
+        assertNotNull("损坏存储应 fail-closed 抛错", thrown)
+        // 不覆盖 = 存储仍保持原字节（无论是损坏值；关键是不被写成新秘密）
+        assertEquals("存储不得被覆盖为新秘密（原始字节必须保留）", "v1|!!!!corrupted", storage.wrapped)
+    }
+
+    @Test
+    fun unwrappableSecretFailsClosedWithoutOverwrite() {
+        val storage = InMemorySecretStorage()
+        // 先由密钥库 A 供给秘密
+        cipher(JceksKeystoreKeyProvider(), storage).deriveDatabasePassphrase()
+        val valid = storage.wrapped
+        // 模拟 Keystore 密钥失效：新实例用不同密钥库（AES-GCM 解包必然失败）
+        val thrown = runCatching { cipher(JceksKeystoreKeyProvider(), storage).deriveDatabasePassphrase() }
+            .exceptionOrNull()
+        assertNotNull("解包失败应 fail-closed 抛错", thrown)
+        assertEquals("原始包装秘密必须保留", valid, storage.wrapped)
+    }
+
+    @Test
+    fun encryptUsesFreshRandomIvPerCall() {
+        val c = cipher(JceksKeystoreKeyProvider(), InMemorySecretStorage())
+        val first = c.encrypt("same-plaintext")
+        val second = c.encrypt("same-plaintext")
+        // ERA 32 R22：同明文两次加密必须不同（显式随机 IV；防固定 IV/初始化缺 IV 回归）
+        assertFalse("同明文两次加密应不同（随机 IV）", first == second)
+        assertEquals("same-plaintext", c.decrypt(first))
+        assertEquals("same-plaintext", c.decrypt(second))
     }
 
     @Test

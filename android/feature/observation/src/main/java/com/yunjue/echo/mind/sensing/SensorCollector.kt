@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.SystemClock
 
 /**
  * 内存传感器样本（Phase 4.1：带时间戳，精确窗口归属）。
@@ -26,6 +27,24 @@ data class SensorSample(
 }
 
 /**
+ * ERA 32 R22（时钟基准修复）：SensorEvent.timestamp 是**开机纳秒**
+ * （与 SystemClock.elapsedRealtimeNanos 同基准），不是 epoch——
+ * 直接除 1e6 得到开机毫秒，会被 [FeatureExtractor] 的 epoch 窗口过滤全部丢弃。
+ * 用「当前 epoch − 当前开机时间」偏移量把开机纳秒换算成 epoch 毫秒，保留样本级精度；
+ * timestamp ≤ 0（异常事件）时回退当前 epoch。
+ */
+fun sensorEventTimestampToEpochMs(
+    eventTimestampNs: Long,
+    nowEpochMs: Long,
+    nowElapsedRealtimeNs: Long,
+): Long =
+    if (eventTimestampNs > 0L) {
+        nowEpochMs + (eventTimestampNs - nowElapsedRealtimeNs) / 1_000_000L
+    } else {
+        nowEpochMs
+    }
+
+/**
  * 传感器采集器：注册加速度计 + 陀螺仪监听，样本只写入 [SensingEventHub]。
  *
  * - 单一数据源（Batch A v0.6.2）：本采集器**不保留本地缓冲**，只写 hub；
@@ -34,8 +53,8 @@ data class SensorSample(
  * - 仅端侧处理，不上云不落盘
  * - start/stop 幂等，重复调用安全
  *
- * **Phase 4.1（Sensor Timestamp）**：样本携带 event.timestamp（纳秒 → 毫秒），
- * 替换旧 FloatArray 无时间戳设计——精确窗口归属是 Immutable Window 的前提。
+ * **Phase 4.1（Sensor Timestamp）**：样本携带采集时刻（epoch ms，精确窗口归属）——
+ * 由开机纳秒 event.timestamp 经 [sensorEventTimestampToEpochMs] 换算而来。
  */
 class SensorCollector(context: Context, private val hub: SensingEventHub) : SensorEventListener {
     private val sensorManager = context.applicationContext
@@ -70,8 +89,14 @@ class SensorCollector(context: Context, private val hub: SensingEventHub) : Sens
     override fun onSensorChanged(event: SensorEvent?) {
         val values = event?.values ?: return
         if (values.size < 3) return
-        // Phase 4.1：携带采集时间戳（event.timestamp 纳秒 → 毫秒）
-        val timestampMs = if (event.timestamp > 0L) event.timestamp / 1_000_000L else System.currentTimeMillis()
+        // ERA 32 R22（时钟基准修复）：event.timestamp 是开机纳秒，不是 epoch——
+        // 直接除 1e6 得到开机毫秒，会被 FeatureExtractor 的 epoch 窗口过滤全部丢弃，
+        // 导致 accel/gyro（活动量）特征从未产出。
+        val timestampMs = sensorEventTimestampToEpochMs(
+            eventTimestampNs = event.timestamp,
+            nowEpochMs = System.currentTimeMillis(),
+            nowElapsedRealtimeNs = SystemClock.elapsedRealtimeNanos(),
+        )
         val sample = SensorSample(
             timestampMs = timestampMs,
             sensorType = event.sensor?.type ?: Sensor.TYPE_ACCELEROMETER,

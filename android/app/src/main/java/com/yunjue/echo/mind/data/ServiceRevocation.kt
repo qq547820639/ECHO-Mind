@@ -73,6 +73,9 @@ object ServiceRevocationCoordinator {
         featureFlagRepository: FeatureFlagRepository
     ) {
         preferences.setPassiveSensingEnabled(true)
+        // ERA 32 R22：复位撤回闩锁——否则「撤回→重开→再撤回」时第二次撤回
+        // 会跳过 consent/DSR 证据写入，服务端永远停留在 granted。
+        preferences.serviceRevocationSubmitted = false
         consentRepository.savePassiveSensingConsent(true)
         preferences.consentSyncPending = true
         runCatching { featureFlagRepository.fetchFeatureFlags() }

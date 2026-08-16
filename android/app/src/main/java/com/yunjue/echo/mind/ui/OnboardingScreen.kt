@@ -129,10 +129,14 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             preferences.onboardingLocalSubmitted = true
             if (sensingOn) {
                 // 02b 共享知识 1：consent granted → flag（拉取失败 fail-closed）→ 真实启动服务
-                try {
-                    container.featureFlagRepository.fetchFeatureFlags()
-                } catch (_: Exception) {
-                    // flag 拉取失败 fail-closed：服务启动门控内 flag=false 不启动
+                // ERA 32 R22：本地模式不依赖远端 flag（服务门控本地豁免）——
+                // 跳过拉取，避免无网首启在苏醒动画上白等连接超时（约 10 秒）。
+                if (!preferences.localMode) {
+                    try {
+                        container.featureFlagRepository.fetchFeatureFlags()
+                    } catch (_: Exception) {
+                        // flag 拉取失败 fail-closed：服务启动门控内 flag=false 不启动
+                    }
                 }
                 PassiveSensingService.start(context)
             } else {

@@ -182,12 +182,14 @@ class CollectorConsumptionTest {
         typeField.isAccessible = true
         typeField.setInt(sensor, sensorType)
         // SensorEvent(Sensor, accuracy, timestamp, values) 在 SDK stub 中隐藏：反射调用
-        // Phase 4.1：timestamp 语义为纳秒（与真实 Android 一致）；SensorCollector 会除以 1e6 得到 epoch ms。
+        // ERA 32 R22：真实 Android 的 event.timestamp 为「开机纳秒」（与
+        // SystemClock.elapsedRealtimeNanos 同基准）——注入开机纳秒，验证 SensorCollector
+        // 的 boot-ns → epoch-ms 换算后样本能落进 epoch 窗口（时钟基准回归锚点）。
         val eventCtor = SensorEvent::class.java.getDeclaredConstructor(
             Sensor::class.java, Int::class.java, Long::class.java, FloatArray::class.java
         )
         eventCtor.isAccessible = true
-        return eventCtor.newInstance(sensor, 0, System.currentTimeMillis() * 1_000_000L, values)
+        return eventCtor.newInstance(sensor, 0, android.os.SystemClock.elapsedRealtimeNanos(), values)
     }
 
     /**

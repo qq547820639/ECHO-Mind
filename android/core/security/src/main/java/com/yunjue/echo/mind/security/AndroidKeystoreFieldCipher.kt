@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.security
 
 import java.security.MessageDigest
+import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
@@ -37,9 +38,14 @@ class AndroidKeystoreFieldCipher(
     private var cachedSecret: ByteArray? = null
 
     override fun encrypt(plain: String): String {
+        // ERA 32 R22（真机缺陷修复）：field key 为 randomizedEncryptionRequired=false
+        // （legacy 固定 IV 派生需要），AndroidKeyStore 对这类密钥要求调用方显式提供 IV——
+        // 此前 init(ENCRYPT_MODE, key) 不传 IV，在真机会抛异常（JVM 测试用 JCEKS 替身
+        // 不校验该参数，因此长期未暴露）。这里每次显式生成随机 IV。
+        val iv = ByteArray(GCM_IV_LENGTH).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, keys.fieldKey())
-        val payload = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+        cipher.init(Cipher.ENCRYPT_MODE, keys.fieldKey(), GCMParameterSpec(128, iv))
+        val payload = iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
         return java.util.Base64.getEncoder().encodeToString(payload)
     }
 
@@ -102,14 +108,31 @@ class AndroidKeystoreFieldCipher(
         keys.deleteAncientAlias()
     }
 
-    /** 读取/生成受保护秘密：存储缺失或解析失败 → 重新生成（fail-closed 不编造）。 */
+    /**
+     * 读取/生成受保护秘密（fail-closed）：
+     * - 无存储 → 全新供给（fresh install）；
+     * - 存储可解包 → 复用；
+     * - 存储存在但无法解析/解包（Keystore 密钥失效、存储损坏）→ **抛异常且绝不覆盖**：
+     *   覆盖 = 生成全新 DB 口令 = 既有加密库永久不可打开（数据孤儿化）；
+     *   保留原始包装字节是唯一可能的恢复材料（密钥恢复后可继续解包）。
+     */
     private fun ensureSecret(): ByteArray {
         cachedSecret?.let { return it.copyOf() }
-        val existing = readAndUnwrapSecret()
-        if (existing != null) {
-            cachedSecret = existing
-            return existing.copyOf()
-        }
+        val encoded = secretStorage.readWrappedSecret() ?: return provisionSecret()
+        val decoded = DatabaseSecretFormat.decode(encoded)
+            ?: throw IllegalStateException("stored DB secret exists but is unparseable; refusing to overwrite")
+        val unwrapped = runCatching {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, keys.secretKey(), GCMParameterSpec(128, decoded.first))
+            cipher.doFinal(decoded.second)
+        }.getOrNull()?.takeIf { it.size == DatabasePassphraseDerivation.SECRET_LENGTH }
+            ?: throw IllegalStateException("stored DB secret exists but cannot be unwrapped; refusing to overwrite")
+        cachedSecret = unwrapped
+        return unwrapped.copyOf()
+    }
+
+    /** 全新供给：生成随机秘密并落盘（仅限存储确无既有秘密时调用）。 */
+    private fun provisionSecret(): ByteArray {
         val secret = DatabasePassphraseDerivation.generateSecret()
         wrapAndStore(secret)
         cachedSecret = secret
@@ -121,16 +144,6 @@ class AndroidKeystoreFieldCipher(
         cipher.init(Cipher.ENCRYPT_MODE, keys.secretKey())
         val ciphertext = cipher.doFinal(secret)
         secretStorage.writeWrappedSecret(DatabaseSecretFormat.encode(cipher.iv, ciphertext))
-    }
-
-    private fun readAndUnwrapSecret(): ByteArray? {
-        val encoded = secretStorage.readWrappedSecret() ?: return null
-        val (iv, ciphertext) = DatabaseSecretFormat.decode(encoded) ?: return null
-        return runCatching {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, keys.secretKey(), GCMParameterSpec(128, iv))
-            cipher.doFinal(ciphertext)
-        }.getOrNull()?.takeIf { it.size == DatabasePassphraseDerivation.SECRET_LENGTH }
     }
 
     /**
