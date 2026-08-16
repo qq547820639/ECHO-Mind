@@ -19,10 +19,12 @@
 - `com.yunjue.echo.mind.model`
 - `com.yunjue.echo.mind.ports`
 - `com.yunjue.echo.mind.presence`
+- `com.yunjue.echo.mind.presencevisual`
 - `com.yunjue.echo.mind.runtime`
 - `com.yunjue.echo.mind.security`
 - `com.yunjue.echo.mind.sensing`
 - `com.yunjue.echo.mind.ui`
+- `com.yunjue.echo.mind.ui.debug`
 - `com.yunjue.echo.mind.ui.echo`
 - `com.yunjue.echo.mind.ui.echo.actions`
 - `com.yunjue.echo.mind.ui.echo.components`
@@ -30,6 +32,13 @@
 - `com.yunjue.echo.mind.ui.echo.why`
 - `com.yunjue.echo.mind.ui.journey`
 - `com.yunjue.echo.mind.ui.me`
+- `com.yunjue.echo.mind.visual.math`
+- `com.yunjue.echo.mind.visual.model`
+- `com.yunjue.echo.mind.visual.motion`
+- `com.yunjue.echo.mind.visual.noise`
+- `com.yunjue.echo.mind.visual.render`
+- `com.yunjue.echo.mind.visual.surface`
+- `com.yunjue.echo.mind.visual.testing`
 - `com.yunjue.echo.mind.wearable`
 - `com.yunjue.echo.mind.wearable.research`
 
@@ -39,8 +48,8 @@
 - `services`
 
 ## 数量事实
-- Production Kotlin：196
-- Test Kotlin：141
+- Production Kotlin：223
+- Test Kotlin：155
 - QA Kotlin（:feature:qa，不属于 Production Runtime）：36
 - Python 文件：69
 - Manifest Components：5（缺失源类：0）
@@ -48,7 +57,7 @@
 - Repository：13
 - Runtime/Coordinator：6
 - ViewModel：8
-- Gradle modules（自动发现）：app, core:model, core:ports, core:security, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:qa, feature:wearable
+- Gradle modules（自动发现）：app, core:model, core:ports, core:security, core:visual, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:presencevisual, feature:qa, feature:wearable
 
 
 ## Wearable 面（ERA 33）

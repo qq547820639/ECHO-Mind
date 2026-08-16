@@ -10,16 +10,17 @@
 data ──► intelligence, memory, observation, ports, presence, root, security
 di ──► actions, data, intelligence, journey, ports, presence, root, security, wearable
 intelligence ──► memory, observation, ports, security
-journey ──► data, intelligence, memory, observation, presence, root
+journey ──► data, intelligence, memory, observation, presence, root, visual
 me ──► data, memory, observation
 memory ──► observation, ports
 observation ──► root
 ports ──► observation
 presence ──► observation, root
-root ──► observation, ports
+root ──► observation, ports, visual
 runtime ──► data, intelligence, observation, root
 security ──► root
-ui ──► actions, data, intelligence, journey, me, memory, observation, presence, root, wearable
+ui ──► actions, data, intelligence, journey, me, memory, observation, presence, presencevisual, root, visual, wearable
+visual ──► observation
 ```
 
 ## 2. 领域文件数（实测）
@@ -30,16 +31,17 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 | data | 28 |
 | di | 2 |
 | intelligence | 18 |
-| journey | 16 |
+| journey | 17 |
 | me | 3 |
 | memory | 7 |
 | observation | 26 |
 | ports | 3 |
 | presence | 12 |
-| root | 22 |
+| root | 27 |
 | runtime | 1 |
 | security | 9 |
-| ui | 38 |
+| ui | 41 |
+| visual | 18 |
 | wearable | 3 |
 
 ## 3. 跨领域边清单
@@ -70,6 +72,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - journey → observation
 - journey → presence
 - journey → root
+- journey → visual
 - me → data
 - me → memory
 - me → observation
@@ -81,6 +84,7 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - presence → root
 - root → observation
 - root → ports
+- root → visual
 - runtime → data
 - runtime → intelligence
 - runtime → observation
@@ -94,8 +98,11 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - ui → memory
 - ui → observation
 - ui → presence
+- ui → presencevisual
 - ui → root
+- ui → visual
 - ui → wearable
+- visual → observation
 
 ## 4. 循环
 

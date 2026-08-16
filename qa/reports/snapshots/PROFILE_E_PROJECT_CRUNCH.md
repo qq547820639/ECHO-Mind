@@ -22,7 +22,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.38 coherence=0.15 turbulence=0.33 pulse=4.4s · 粒子 42
+- flow=0.38 coherence=0.15 turbulence=0.33 pulse=4.4s · 粒子 27
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -77,7 +77,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.40 coherence=0.26 turbulence=0.86 pulse=4.3s · 粒子 42
+- flow=0.40 coherence=0.26 turbulence=0.86 pulse=4.3s · 粒子 48
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -134,7 +134,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.40 coherence=0.34 turbulence=0.90 pulse=4.3s · 粒子 42
+- flow=0.40 coherence=0.34 turbulence=0.90 pulse=4.3s · 粒子 58
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -191,7 +191,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.39 coherence=0.40 turbulence=0.70 pulse=4.3s · 粒子 42
+- flow=0.39 coherence=0.40 turbulence=0.70 pulse=4.3s · 粒子 65
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -252,7 +252,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.29 coherence=0.41 turbulence=0.94 pulse=4.9s · 粒子 44
+- flow=0.29 coherence=0.41 turbulence=0.94 pulse=4.9s · 粒子 66
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -317,7 +317,7 @@
 - 你告诉过我：项目冲刺（2026-03-06 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.39 coherence=0.41 turbulence=0.91 pulse=4.3s · 粒子 42
+- flow=0.39 coherence=0.41 turbulence=0.91 pulse=4.3s · 粒子 65
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
