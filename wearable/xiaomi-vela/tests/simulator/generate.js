@@ -27,7 +27,7 @@ const storage = require('../../src/common/cache/storage_wrap.js')
 
 const OUT = path.join(__dirname, 'out')
 const I18N = {
-  zh: JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'i18n', 'zh.json'), 'utf8')).message,
+  zh: JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'i18n', 'zh-CN.json'), 'utf8')).message,
   en: JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'i18n', 'en.json'), 'utf8')).message,
 }
 
@@ -77,28 +77,30 @@ function esc(s) {
 
 // ------------------------------------------------------------------ echo 页镜像（echo/index.ux 同几何）
 
+// .ux 的量化映射（与 echo/index.ux 一致：hue 8 桶 + s/m/l 尺寸桶）。
+function hueClassOf(accentHue) {
+  const bucket = Math.floor(((typeof accentHue === 'number' ? accentHue : 0.5) % 1) * 8) % 8
+  return 'hue-' + bucket
+}
+function sizeClassOf(v, small, large, classes) {
+  if (v < small) return classes[0]
+  if (v < large) return classes[1]
+  return classes[2]
+}
+
 function echoPageHtml(env, phase, headlineText, hintText, lang) {
   const t = I18N[lang]
-  const timeText = '21:07' // 静态快照（.ux 用真实时钟；动画节奏见代码 timer）
-  const orbitRotate = 40 // 静态快照（.ux 每 tick 旋转 3°）
-  const glowOpacity = 0.16 // 静态快照（.ux 0.12–0.20 呼吸）
+  const timeText = '21:07' // 静态快照（.ux 用真实时钟；呼吸/旋转由 CSS keyframes）
   // EMPTY 分支镜像 echo/index.ux 的中性默认（不调用 computeVisual——与生产 .ux 一致）。
   const v = phase === 'empty'
-    ? { coreRadius: 22, orbitRadius: 70, glowRadius: 44, orbitAlpha: 0.4, coreAlpha: 0.85, accent: 'rgb(190,180,160)', particles: [] }
+    ? { coreRadius: 22, orbitRadius: 70, glowRadius: 44, orbitAlpha: 0.4, coreAlpha: 0.85, accent: 'rgb(190,180,160)', identity: { accent: 0.5 } }
     : visual.computeVisual(env, { phase: phase })
-  // 212×520 布局门：任何元素超出 organism 容器即 FAIL（QA mirror 与 .ux 同几何）。
-  for (const key of ['coreRadius', 'orbitRadius', 'glowRadius']) {
-    if (v[key] * 2 > 212) throw new Error('visual budget overflow: ' + key + ' diameter ' + v[key] * 2 + ' > 212')
-  }
-  let particles = ''
-  for (const p of v.particles) {
-    const x = 106 + p.dx - p.radius
-    const y = 106 + p.dy - p.radius
-    if (x < 0 || y < 0 || x + p.radius * 2 > 212 || y + p.radius * 2 > 212) {
-      throw new Error('particle out of 212×212 organism: x=' + x + ' y=' + y + ' r=' + p.radius)
-    }
-    particles += `<div class="particle" style="left:${x}px;top:${y}px;width:${p.radius * 2}px;height:${p.radius * 2}px;background-color:${v.accent};opacity:${p.alpha};"></div>`
-  }
+  const identity = (env && env.identity) || { accent: 0.5 }
+  const hue = phase === 'empty' ? 'hue-neutral' : hueClassOf(identity.accent)
+  const ringSize = sizeClassOf(v.orbitRadius * 2, 120, 160, ['ring-s', 'ring-m', 'ring-l'])
+  const ringAlpha = sizeClassOf(v.orbitAlpha, 0.4, 0.6, ['ring-a-1', 'ring-a-2', 'ring-a-3'])
+  const glowSize = sizeClassOf(v.glowRadius * 2, 90, 135, ['glow-s', 'glow-m', 'glow-l'])
+  const coreSize = sizeClassOf(v.coreRadius * 2, 60, 78, ['core-s', 'core-m', 'core-l'])
   const headlineHtml = headlineText !== null && headlineText !== undefined
     ? `<div class="headline-text">${esc(headlineText)}</div>`
     : `<div class="hint-text">${esc(hintText)}</div>`
@@ -109,10 +111,9 @@ function echoPageHtml(env, phase, headlineText, hintText, lang) {
       ${headlineHtml}
     </div>
     <div class="organism">
-      <div class="orbit-ring" style="width:${v.orbitRadius * 2}px;height:${v.orbitRadius * 2}px;opacity:${v.orbitAlpha};border-color:${v.accent};transform:translate(-50%,-50%) rotate(${orbitRotate}deg);"></div>
-      <div class="glow" style="width:${v.glowRadius * 2}px;height:${v.glowRadius * 2}px;background-color:${v.accent};opacity:${glowOpacity};"></div>
-      <div class="core" style="width:${v.coreRadius * 2}px;height:${v.coreRadius * 2}px;background-color:${v.accent};opacity:${v.coreAlpha.toFixed(2)};"></div>
-      ${particles}
+      <div class="orbit-ring ${hue} ${ringSize} ${ringAlpha}"><div class="orbit-dot ${hue}"></div></div>
+      <div class="glow ${hue} ${glowSize}"></div>
+      <div class="core ${hue} ${coreSize}"></div>
     </div>
     <div class="action-entry"><span class="action-entry-text">${esc(t.action_title)}</span></div>
   </div>`
@@ -188,11 +189,24 @@ body { background: #1a1a1a; }
 .time-text { color: #f5f5f0; font-size: 44px; font-weight: 300; }
 .headline-text { color: #b8b8ae; font-size: 15px; margin-top: 14px; text-align: center; max-width: 196px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .hint-text { color: #6a6a62; font-size: 13px; margin-top: 14px; }
-.organism { position: relative; width: 212px; height: 212px; margin-top: 40px; }
-.orbit-ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1px solid; }
-.glow { position: absolute; left: 50%; top: 50%; border-radius: 50%; transform: translate(-50%, -50%); }
-.core { position: absolute; left: 50%; top: 50%; border-radius: 50%; transform: translate(-50%, -50%); }
-.particle { position: absolute; border-radius: 50%; }
+.organism { position: relative; width: 212px; height: 212px; margin-top: 40px; display: flex; align-items: center; justify-content: center; }
+.orbit-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+.orbit-dot { width: 6px; height: 6px; border-radius: 3px; margin-top: 2px; }
+.glow { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
+.core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; opacity: 0.85; }
+.hue-0 { background-color: rgb(230, 103, 103); border-color: rgb(230, 103, 103); }
+.hue-1 { background-color: rgb(230, 192, 103); border-color: rgb(230, 192, 103); }
+.hue-2 { background-color: rgb(174, 230, 103); border-color: rgb(174, 230, 103); }
+.hue-3 { background-color: rgb(103, 230, 160); border-color: rgb(103, 230, 160); }
+.hue-4 { background-color: rgb(103, 214, 230); border-color: rgb(103, 214, 230); }
+.hue-5 { background-color: rgb(103, 140, 230); border-color: rgb(103, 140, 230); }
+.hue-6 { background-color: rgb(166, 103, 230); border-color: rgb(166, 103, 230); }
+.hue-7 { background-color: rgb(230, 103, 200); border-color: rgb(230, 103, 200); }
+.hue-neutral { background-color: rgb(190, 180, 160); border-color: rgb(190, 180, 160); }
+.ring-s { width: 104px; height: 104px; } .ring-m { width: 140px; height: 140px; } .ring-l { width: 176px; height: 176px; }
+.ring-a-1 { opacity: 0.3; } .ring-a-2 { opacity: 0.5; } .ring-a-3 { opacity: 0.7; }
+.glow-s { width: 73px; height: 73px; } .glow-m { width: 115px; height: 115px; } .glow-l { width: 158px; height: 158px; }
+.core-s { width: 52px; height: 52px; } .core-m { width: 70px; height: 70px; } .core-l { width: 88px; height: 88px; }
 .action-entry { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); border: 1px solid #3c3c36; border-radius: 24px; padding: 10px 24px; }
 .action-entry-text { color: #8a8a80; font-size: 15px; }
 .title-row { margin-top: 56px; }

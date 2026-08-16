@@ -1,0 +1,43 @@
+/* ECHO Wrist 共享视觉类（echo/action 页共用；官方 @import 模式）。
+   动态视觉值经 JS 量化为类名（Vela 运行时限制：div 上的绑定 style 属性不渲染——
+   官方模拟器实测；class 绑定 + CSS 动画是兼容形态）。 */
+
+/* 色相桶：identity.accentHue 量化为 8 桶（与手机 WearPresenceProjector 同 hsv 公式，
+   s=0.55, v=0.9；确定性：同一 accentHue → 同一桶）。 */
+.hue-0 { background-color: rgb(230, 103, 103); border-color: rgb(230, 103, 103); }
+.hue-1 { background-color: rgb(230, 192, 103); border-color: rgb(230, 192, 103); }
+.hue-2 { background-color: rgb(174, 230, 103); border-color: rgb(174, 230, 103); }
+.hue-3 { background-color: rgb(103, 230, 160); border-color: rgb(103, 230, 160); }
+.hue-4 { background-color: rgb(103, 214, 230); border-color: rgb(103, 214, 230); }
+.hue-5 { background-color: rgb(103, 140, 230); border-color: rgb(103, 140, 230); }
+.hue-6 { background-color: rgb(166, 103, 230); border-color: rgb(166, 103, 230); }
+.hue-7 { background-color: rgb(230, 103, 200); border-color: rgb(230, 103, 200); }
+.hue-neutral { background-color: rgb(190, 180, 160); border-color: rgb(190, 180, 160); }
+
+.ring-s { width: 104px; height: 104px; }
+.ring-m { width: 140px; height: 140px; }
+.ring-l { width: 176px; height: 176px; }
+.ring-a-1 { opacity: 0.3; }
+.ring-a-2 { opacity: 0.5; }
+.ring-a-3 { opacity: 0.7; }
+
+.glow-s { width: 73px; height: 73px; }
+.glow-m { width: 115px; height: 115px; }
+.glow-l { width: 158px; height: 158px; }
+
+.core-s { width: 52px; height: 52px; }
+.core-m { width: 70px; height: 70px; }
+.core-l { width: 88px; height: 88px; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes breathe {
+  from { opacity: 0.12; }
+  to { opacity: 0.2; }
+}
+@keyframes corePulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}

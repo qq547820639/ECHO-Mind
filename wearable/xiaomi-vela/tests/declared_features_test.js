@@ -14,17 +14,34 @@ const path = require('path')
 
 const SRC_ROOT = path.join(__dirname, '..', 'src')
 
-// 官方要求 manifest features 声明的模块（fetch 等网络/传感器/振动/定位/音频/后台请求类）。
-// 基础模块（storage/router/prompt/app 等）按官方 manifest 文档不需要 feature 声明。
+// 官方事实（aiot-toolkit 官方 demo 的 manifest + 官方文档）：
+// interface 类模块（router/fetch/audio/request/app/device/configuration/storage/file/
+// interconnect/vibrator/brightness/alarm/network/sensor）使用即需声明。
+// 本项目 MINIMUM CAPABILITY DECLARATION：只用 interconnect/sensor/vibrator/storage/router。
 const MODULES_REQUIRING_FEATURE = [
   'system.interconnect',
   'system.sensor',
   'system.vibrator',
+  'system.storage',
+  'system.router',
   'system.fetch',
   'system.geolocation',
   'system.audio',
   'system.request',
+  'system.app',
+  'system.device',
+  'system.configuration',
+  'system.file',
+  'system.brightness',
+  'system.alarm',
+  'system.network',
 ]
+
+// 使用即声明：@system.X 或 $router（路由）→ 对应 feature 必须在 manifest。
+function moduleUsage(sourceText, moduleName) {
+  return sourceText.includes("require('" + moduleName + "')") ||
+    sourceText.includes('require("' + moduleName + '")')
+}
 
 function collectFiles(dir) {
   const out = []
@@ -45,15 +62,22 @@ function run(test) {
   const files = collectFiles(SRC_ROOT)
   const sources = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n')
 
+  /** feature 的 usage 证据：@system.X require 或 system.router ↔ 官方 router 用法
+   *  （import router from '@system.router' / router.push / router.back）。 */
+  function isUsed(feature) {
+    if (feature === 'system.router') {
+      return /(import\s+router\s+from\s+['"]@system\.router['"]|\.\$router\.(push|back|replace)|router\.(push|back|replace)\s*\()/.test(sources)
+    }
+    return moduleUsage(sources, feature.replace(/^system\./, '@system.'))
+  }
+
   test('manifest exists and declares only real capabilities', () => {
     if (!fs.existsSync(manifestPath)) throw new Error('manifest.json 缺失')
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
     const features = (manifest.features || []).map((f) => f.name)
     if (features.length === 0) throw new Error('features 为空')
     for (const feature of features) {
-      const moduleName = feature.replace(/^system\./, '@system.')
-      if (!sources.includes("require('" + moduleName + "')") &&
-          !sources.includes('require("' + moduleName + '")')) {
+      if (!isUsed(feature)) {
         throw new Error('声明了未使用的 capability: ' + feature + '（MINIMUM CAPABILITY DECLARATION 违规）')
       }
     }
@@ -63,10 +87,7 @@ function run(test) {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
     const features = (manifest.features || []).map((f) => f.name)
     for (const feature of features) {
-      const moduleName = feature.replace(/^system\./, '@system.')
-      const used = sources.includes("require('" + moduleName + "')") ||
-        sources.includes('require("' + moduleName + '")')
-      if (!used) throw new Error('未使用却声明: ' + feature)
+      if (!isUsed(feature)) throw new Error('未使用却声明: ' + feature)
     }
     if (features.includes('system.fetch')) {
       throw new Error('system.fetch 无任何真实调用，必须从 manifest 删除')
@@ -77,11 +98,15 @@ function run(test) {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
     const declared = new Set((manifest.features || []).map((f) => f.name))
     for (const mod of MODULES_REQUIRING_FEATURE) {
-      const used = sources.includes("require('" + mod + "')") ||
-        sources.includes('require("' + mod + '")')
+      const used = moduleUsage(sources, mod)
       if (used && !declared.has(mod.replace(/^@/, ''))) {
         throw new Error('使用了 ' + mod + ' 但 manifest.features 未声明')
       }
+    }
+    // 路由使用（官方 import router 模式）→ 必须声明 system.router（官方 demo 同规则）
+    const routerUsed = /(import\s+router\s+from\s+['"]@system\.router['"]|\.\$router\.(push|back|replace)|router\.(push|back|replace)\s*\()/.test(sources)
+    if (routerUsed && !declared.has('system.router')) {
+      throw new Error('使用了 router 但 manifest.features 未声明 system.router')
     }
   })
 
@@ -99,8 +124,9 @@ function run(test) {
     for (const name of ['echo', 'why', 'action']) {
       if (!pages[name]) throw new Error('路由缺失页面: ' + name)
       const component = pages[name].component
-      if (!fs.existsSync(path.join(SRC_ROOT, 'pages', name, component + '.ux'))) {
-        throw new Error('页面文件缺失: pages/' + name + '/' + component + '.ux')
+      // 官方布局：页面直接位于 src/<page>/<component>.ux（aiot-toolkit 官方约定）
+      if (!fs.existsSync(path.join(SRC_ROOT, name, component + '.ux'))) {
+        throw new Error('页面文件缺失: ' + name + '/' + component + '.ux（官方布局 src/<page>/<component>.ux）')
       }
     }
     if (manifest.deviceTypeList && manifest.deviceTypeList.indexOf('watch') === -1) {

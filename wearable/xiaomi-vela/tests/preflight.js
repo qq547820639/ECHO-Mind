@@ -86,7 +86,8 @@ check('router pages map to real .ux files, entry = echo (ECHO first)', () => {
   const manifest = readJson(path.join(SRC_ROOT, 'manifest.json'))
   if (manifest.router.entry !== 'echo') throw new Error('entry 必须为 echo')
   for (const [name, cfg] of Object.entries(manifest.router.pages)) {
-    const f = path.join(SRC_ROOT, 'pages', name, cfg.component + '.ux')
+    // 官方布局（aiot-toolkit 约定）：页面直接位于 src/<page>/<component>.ux
+    const f = path.join(SRC_ROOT, name, cfg.component + '.ux')
     if (!fs.existsSync(f)) throw new Error('页面缺失: ' + f)
   }
 })
@@ -109,8 +110,8 @@ check('all .ux <script> blocks pass syntax check', () => {
 
 // ------------------------------------------------------------------ 3. i18n
 
-check('i18n zh/en/defaults exist and key sets match', () => {
-  const keys = ['zh', 'en', 'defaults'].map((lang) => {
+check('i18n zh-CN/en/defaults exist and key sets match', () => {
+  const keys = ['zh-CN', 'en', 'defaults'].map((lang) => {
     const f = path.join(SRC_ROOT, 'i18n', lang + '.json')
     if (!fs.existsSync(f)) throw new Error('缺失 i18n/' + lang + '.json')
     return readJson(f).message
@@ -154,6 +155,66 @@ check('no forbidden always-on patterns (red error dashboard / bg color)', () => 
     const text = fs.readFileSync(f, 'utf8')
     if (/(?:color|background-color)\s*:\s*#(?:f00|ff0000|e[0-9a-f]{4})\b/i.test(text)) {
       throw new Error(path.basename(f) + ': 出现红色 ERROR 风格样式')
+    }
+  }
+})
+
+check('no toFixed-accumulator type bug (string pollution regression guard)', () => {
+  // ERA 33 R3 官方模拟器实测崩溃：self.x = (self.x + v).toFixed(2) →
+  // 下一 tick 字符串拼接 → ".toFixed is not a function"。此处静态锁定同类模式。
+  const re = /(?:self|this)\.(\w+)\s*=\s*\((?:self|this)\.\1\s*\+.*?\)\s*\.toFixed\s*\(/g
+  for (const f of collectFiles(SRC_ROOT, /\.ux$/)) {
+    const text = fs.readFileSync(f, 'utf8')
+    if (re.test(text)) {
+      throw new Error(path.basename(f) + ': toFixed 结果直接赋回累加器（会字符串污染，模拟器实测崩溃类）')
+    }
+  }
+})
+
+check('page reactive state uses private: (Vela 官方约定；data: 不建立响应式绑定)', () => {
+  // ERA 33 R3 官方模拟器实测：页面 JS 生命周期运行但 data: 绑定不渲染。
+  // 官方 demo 全部使用 private:。
+  for (const f of collectFiles(SRC_ROOT, /\.ux$/)) {
+    if (path.basename(f) === 'app.ux') continue
+    const text = fs.readFileSync(f, 'utf8')
+    const script = (text.match(/<script>([\s\S]*?)<\/script>/) || [])[1] || ''
+    if (/export\s+default\s*\{[^}]*?\bdata\s*:/.test(script)) {
+      throw new Error(path.basename(f) + ': 使用 data: 声明页面状态（Vela 需要 private:，模拟器实测不渲染）')
+    }
+    if (!/private\s*:/.test(script)) {
+      throw new Error(path.basename(f) + ': 缺少 private: 状态声明')
+    }
+  }
+})
+
+check('app.ux lifecycle uses onCreate (Vela 官方约定；onInit 不会被调用)', () => {
+  // ERA 33 R3 官方模拟器实测：app 级 onInit 静默跳过 → 应用 UI 永不显示。
+  const app = path.join(SRC_ROOT, 'app.ux')
+  const text = fs.readFileSync(app, 'utf8')
+  const script = (text.match(/<script>([\s\S]*?)<\/script>/) || [])[1] || ''
+  if (/onInit\s*\(/.test(script)) {
+    throw new Error('app.ux 使用 onInit（Vela app 生命周期钩子为 onCreate，模拟器实测 UI 不显示）')
+  }
+  if (!/onCreate\s*\(/.test(script)) {
+    throw new Error('app.ux 缺少 onCreate')
+  }
+  // app 上下文无模块 require（官方 demo 同款约束）：
+  // 模块级 require 会让 app 脚本求值失败 → 所有 app 钩子 call failed → 应用永不显示。
+  if (/\brequire\s*\(/.test(script)) {
+    throw new Error('app.ux 使用了 require（app 上下文无模块系统，模拟器实测应用不显示；业务放页面）')
+  }
+})
+
+check('no bound styles in style attribute (Vela 运行时限制，模拟器实测整页空白)', () => {
+  // ERA 33 R3 官方模拟器实测：div 上的绑定 style 属性（多属性/整串绑定）
+  // 导致整页不渲染。本项目已全面迁移到 class 绑定 + CSS 动画；
+  // 此处静态锁定：style 属性内禁止出现任何 {{ }}。
+  for (const f of collectFiles(SRC_ROOT, /\.ux$/)) {
+    const text = fs.readFileSync(f, 'utf8')
+    const re = /style="[^"]*\{\{[^"]*"/g
+    const m = text.match(re)
+    if (m && m.length) {
+      throw new Error(path.basename(f) + ': style 属性含绑定（' + m[0].slice(0, 40) + '…）——Vela 实测不渲染，请用 class 绑定')
     }
   }
 })

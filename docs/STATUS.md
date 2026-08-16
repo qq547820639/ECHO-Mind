@@ -52,14 +52,15 @@
   Correction Reuse Rate / False Interpretation Rate / Wallpaper 留存等主指标。
 - **Wearable 外部门（ERA 33）**：`BLOCKED_EXTERNAL_XIAOMI_SDK`（官方穿戴 SDK AAR 未获得）、
   `BLOCKED_EXTERNAL_BAND10_DEVICE`（无真机）、`BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`
-  （Mi Fitness 第三方应用 Debug 通道未可用）、`BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`
-  （本机无 AIoT-IDE，debug RPK 需官方工具链打包——静态验证/preflight 已全绿，不伪造 RPK 构建）、
+  （Mi Fitness 第三方应用 Debug 通道未可用）、
   `BLOCKED_EXTERNAL_LONG_RUN_DEVICE_TIME`（1h/8h/24h 真机长跑未执行；协议与软件仪表已就绪，
   见 `docs/wearable/LONG_RUN_PROTOCOL.md`）、
-  `BLOCKED_EXTERNAL_PRODUCTION_SIGNING`（签名材料不进仓库）、
+  `BLOCKED_EXTERNAL_PRODUCTION_SIGNING`（生产签名材料不进仓库）、
   `BLOCKED_EXTERNAL_ANS_HARDWARE`（ANS 无硬件）——每个阻塞的缺失资源/已完成测试/确切人工下一步/
   禁止的宣称见 `docs/wearable/XIAOMI_BAND10_CAPABILITY_MATRIX.md` §4；
   真机安装流程基准与验收清单见 `docs/wearable/BAND10_INSTALL_GUIDE.md`。
+  （ERA 33 R3：原 `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING` 已解除——官方 `aiot-toolkit` CLI
+  在本环境真实打包出 debug RPK，无需 AIoT-IDE。）
 
 ## 5. Known Engineering Risks
 
@@ -117,10 +118,11 @@
    | Privacy | PASS | payload 扫描测试全绿 |
    | Production Runtime Wiring | **PASS** | Application scoped 唯一启动点（AppContainer 组合 → `WearableContainer.start()`，幂等）；`WearableRuntime.start()` 自动 collect `inboundMessages`；`WearableApplicationIntegrationTest`（:app）11/11 证明全链（连接推送/WHY 往返/同一 Action/观察 sink/断连重连/重复/伪造 Presence/长跑仪表） |
    | Haptics 端到端 | **PASS**（软件侧） | `prefs.hapticsEnabled → envelope.surface.hapticsEnabled → 腕上 vibrate 硬门`（默认 SILENT）；降级 surface 不重置开关；Kotlin + Node 双端测试锁定 |
-   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门）+ simulator 镜像生成门（26 态渲染 0 裁剪 / 0 文本截断 / identity 连续，见 `BAND10_VISUAL_REVIEW.md` §0） |
-   | Vela RPK Build | **BLOCKED** | `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`（本机无 AIoT-IDE；不伪造 SUCCESS；静态验证 + 打包预检全绿） |
-   | Band10 Install | **BLOCKED** | `BLOCKED_EXTERNAL_BAND10_DEVICE` + `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`（流程基准见 `docs/wearable/BAND10_INSTALL_GUIDE.md`） |
-   | Interconnect | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（vendor bridge）+ 真机/签名材料 |
+   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门 + 8 项模拟器实测缺陷类回归门）+ simulator 镜像生成门（26 态渲染 0 裁剪 / 0 文本截断 / identity 连续，见 `BAND10_VISUAL_REVIEW.md` §0） |
+   | Vela RPK Build | **PASS** | 官方 `aiot-toolkit` 2.0.5 CLI 真实构建：`wearable/xiaomi-vela/dist/com.yunjue.echo.mind.debug.1.0.rpk`（42,942 B，SHA256 `1b90a61c…`，debug 模式，ERA 33 R4 HEAD，JSC 字节码）；签名 = Android debug 身份（`verify_wrist_signing.py` 实测 APK↔RPK MATCH） |
+   | Band10 模拟器 | **PASS（R4）** | 官方 Vela 模拟器（VVD `Vela_Band10`，system-image vela-miwear-watch-5.0 + 官方 `xiaomi_band_10` skin，212×520）：RPK 安装成功（重启持久）、app 全生命周期无异常、页面渲染色彩/几何像素级验证；过程中修复 **8 个真机级缺陷**（布局约定/i18n 命名/features 声明/toFixed 字符串污染/`private:`/app `onCreate`/app 上下文无 require/div 绑定 style 不渲染→class+CSS keyframes）。细节见 `ECHO_WRIST_REAL_DEVICE_REPORT.md` |
+   | Band10 Install（真机） | **BLOCKED** | `BLOCKED_EXTERNAL_BAND10_DEVICE` + `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`（RPK 已生成；流程基准见 `docs/wearable/BAND10_INSTALL_GUIDE.md`） |
+   | Interconnect | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（vendor bridge）+ 真机；签名身份已满足（APK↔RPK MATCH） |
    | Xiaomi Vendor SDK | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（Noop 恒 DISCONNECTED，不伪装 vendor connectivity） |
    | ANS Contract | PASS | frozen REQUIRED_FIELDS（35）+ schema + Kotlin decoder 黄金门 |
    | ANS Cross-repo Validation | PASS（本工作区）/ SKIP（无 ANSWatch 时） | `verify_golden.py`：ANSWATCH_ROOT > sibling ../ANSWatch > SKIP with reason；frozen 验证恒 PASS；CI 不再强依赖 ../ANSWatch |
@@ -129,8 +131,10 @@
    版本：开发态不动 Release Baseline；v0.12.0 / versionCode 9 只在
    Production wiring + Source closure + RPK build + 至少真机安装全绿后再决定；
    Interconnect/24h/battery/signing 也完成才考虑正式 `v0.12.0`。
-   Release claims 纪律：当前只能宣称 "ECHO Wrist buildable（静态验证全绿）"；
-   不得宣称 installed / connected / Production Ready（见 `docs/wearable/BAND10_INSTALL_GUIDE.md` §3）。
+   Release claims 纪律（Phase 24）：可宣称 "ECHO Wrist buildable，且已在官方 Vela 模拟器
+   （Band 10 profile，212×520）安装并运行、页面渲染验证通过"（ERA 33 R4 实测）；
+   不得宣称 installed on Band 10 / connected / Production Ready
+   （真机安装验收清单见 `docs/wearable/BAND10_INSTALL_GUIDE.md` §3）。
 
 ## 7. Governance（冻结纪律）
 

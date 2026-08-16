@@ -101,14 +101,24 @@ WRIST_OBSERVATION。
 - Vela renderer：few shapes / opacity / scale / translation / simple orbit /
   simple gradients / slow organic movement；像生命体，不是科技 HUD 或 music visualizer。
 - Idle 明显降低更新（2s），transition 更高刷新；battery first。
+- **Vela 运行时渲染约束（官方模拟器 R4 实测，preflight 锁定，违反即整页不渲染）**：
+  1. 页面响应式数据必须 `private:`（`data:` 无响应式绑定）；
+  2. app 生命周期钩子是 `onCreate`（app 级 `onInit` 静默跳过 → 应用不显示）；
+  3. app 上下文**无模块 require**（模块级 require → 全部 app 钩子 call failed → 应用不显示；
+     业务由 entry 页负责）；
+  4. div 上的绑定 style 属性（多属性/整串绑定）整页不渲染 → 动态视觉用
+     **class 绑定 + CSS keyframes**（官方 stack 容器 + 官方动画形态）；
+  5. 路由用官方 `import router from '@system.router'`；
+  6. 页面布局 `src/<page>/<component>.ux`；i18n `zh-CN.json`；
+  7. 数值累加器禁止直接赋回 `.toFixed()` 结果（字符串污染 → 每 tick TypeError）。
 - 视觉 Fixtures（确定性测试）：SEED / DISCOVERING / KNOWN / MATURE / QUIET / ACTIVE /
   LOW_CONFIDENCE / DISCONNECTED / BREATHING。
-- Vela simulator/toolchain 不可用 → 已完成 deterministic visual-state tests（Kotlin 投影器 +
-  JS 渲染参数双端锁定），**外部 simulator gate** 挂 `BLOCKED_EXTERNAL_BAND10_DEVICE`
-  （真机/模拟器到位后生成实际截图并执行 Same-ECHO Review 的人眼对照：
-  topology / motion / texture / structure / identity continuity，不是颜色是否一样）。
-- 手环性能预算：Vela 源码 ~112K、零第三方依赖、单 timer、DOM 元素 ≤ 15；
-  禁止重量级 JS 库 / 高频 timer / 大规模对象分配 / 持续 high-fps 动画。
+- Vela simulator/toolchain：已用官方模拟器（`xiaomi_band_10` skin + vela-miwear-watch-5.0）
+  完成安装/运行/渲染验证（`ECHO_WRIST_REAL_DEVICE_REPORT.md`）；
+  **外部 simulator gate** 剩余：真机（`BLOCKED_EXTERNAL_BAND10_DEVICE`）上的
+  人眼对照（topology / motion / texture / structure / identity continuity）。
+- 手环性能预算：Vela 源码 ~112K、零第三方依赖、动画走 CSS keyframes（无 JS 高频 timer）、
+  DOM 元素 ≤ 15（organism 3 元素 + 文本）；禁止重量级 JS 库 / 高频 timer / 大规模对象分配。
 
 ## 6. 动作所有权
 

@@ -10,8 +10,23 @@
 | 产物 | 状态 | 路径 |
 |---|---|---|
 | Vela 源码 + 静态验证 | PASS（node tests/run.js + tests/preflight.js 全绿） | `wearable/xiaomi-vela/` |
-| `.debug.rpk` | `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`（本机无 AIoT-IDE；需官方工具链打包） | 期望产物：`wearable/xiaomi-vela/dist/`（不入库，.gitignore 已排除） |
+| `.debug.rpk` | **BUILT（ERA 33 R4，官方 aiot-toolkit 2.0.5 真实打包，JSC 字节码）** | `wearable/xiaomi-vela/dist/com.yunjue.echo.mind.debug.1.0.rpk`（不入库，.gitignore 已排除） |
 | Android debug APK | **BUILT（ERA 33 R1 本地实测，debug 测试密钥签名 v2/v3，含 wearable dex）** | 无空格路径副本 `assembleDebug`；SHA256 见下 |
+| 签名身份 | **APK ↔ RPK MATCH（同一 Android debug 证书）** | `scripts/verify_wrist_signing.py` 实测 MATCH |
+| 官方模拟器实测 | **RUN（ERA 33 R4）**：安装成功（重启持久）+ 全生命周期无异常 + 渲染像素级验证（`ECHO_WRIST_REAL_DEVICE_REPORT.md`） | VVD `Vela_Band10`（xiaomi_band_10 skin） |
+
+RPK 溯源（ERA 33 R4）：
+
+| 字段 | 值 |
+|---|---|
+| filename | `com.yunjue.echo.mind.debug.1.0.rpk`（官方命名；build mode = debug 内嵌于文件名） |
+| size | 42,942 bytes |
+| sha256 | `1b90a61ce0c55da6ab0c5cb73437d60feb59dce69856fc03bca7270b22cc4f0b` |
+| build mode | debug（官方 `aiot build --enable-jsc`，webpack 编译 + JSC 字节码 + RPK 打包） |
+| source commit | ERA 33 R4（本轮 git HEAD） |
+| 签名指纹 | `8A0AA19965BB82E53067728B0CBFB11535472AAD8D2C57EF74542C8134E246F6`（Android Debug 证书） |
+| 官方工具链 | npm `aiot-toolkit@2.0.5` + `@aiot-toolkit/jsc`（iot.mi.com 官方 CLI；`aiot build` 于项目根） |
+| 内容 | echo/why/action 编译页（.jsc）+ app.jsc + common/echo.css + i18n(zh-CN/en/defaults) + manifest + META-INF 签名 |
 
 本机实测 debug APK 溯源（ERA 33 R1）：
 

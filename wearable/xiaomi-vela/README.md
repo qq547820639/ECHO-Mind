@@ -4,11 +4,25 @@ SAME ECHO / SECOND BODY。手环端只做三件事：
 显示同一个 ECHO（缓存 PUBLIC_SAFE Presence）、回答 WHY、发起 BREATHING / PAUSE。
 手环没有 Memory / SelfModel / Journey / AI Provider / API Key。
 
-## 构建（外部 proprietary 工具，不进 OSS CI）
+## 构建（官方 CLI，不进 OSS CI）
 
-1. 安装 Xiaomi **AIoT-IDE**（官方 Vela 工具链，获取方式见
-   https://iot.mi.com/vela/quickapp/zh/guide/start/use-ide.html ）；
-2. 用 IDE 打开本目录 → 模拟器调试 → 打包 RPK。
+官方命令行工具链（[AIoT-toolkit 文档](https://iot.mi.com/vela/quickapp/zh/tools/toolkit/start.html)；
+AIoT-IDE 亦可）：
+
+```bash
+npm i aiot-toolkit -g            # 官方 CLI（本仓不写入依赖）
+# 签名身份（interconnect 联调）：把 Android debug/生产证书导出到 sign/（gitignored）
+#   keytool jks→p12 → openssl pkcs12 → sign/private.pem + sign/certificate.pem
+aiot build                        # 编译 + 打包 debug RPK → dist/com.yunjue.echo.mind.debug.1.0.rpk
+aiot start                        # 构建并运行到官方 Vela 模拟器（VVD + xiaomi_band_10 skin）
+```
+
+- 页面布局约定（官方）：路由页直接位于 `src/<page>/<component>.ux`（非 src/pages/）；
+- i18n 约定：`zh-CN.json` / `en.json` / `defaults.json`（编译器打包全部 `i18n/*.json`）；
+- features = 使用即声明：router / interconnect / sensor / vibrator / storage
+  （`tests/declared_features_test.js` 锁定，官方 demo 同规则）；
+- ERA 33 R3 实测：`aiot build` 成功产出 debug RPK（SHA256 见 BAND10_INSTALL_GUIDE）；
+  与 Android debug APK 签名 MATCH（`scripts/verify_wrist_signing.py`）。
 
 ## interconnect 身份要求（官方规则，见 docs/wearable/XIAOMI_BAND10_CAPABILITY_MATRIX.md §1.3）
 
@@ -32,9 +46,9 @@ node tests/run.js
 src/
   manifest.json            # package/features(interconnect+sensor+vibrator)/router（MINIMUM CAPABILITY DECLARATION）
   app.ux                   # 连接恢复 → 请求 Presence；前台加速度计订阅/退订
-  pages/echo/index.ux      # TIME + ECHO ORGANISM + 一行公开表达（默认无）
-  pages/why/index.ux       # WHY（headline 来自手机；降级时安静）
-  pages/action/index.ux    # BREATHING / PAUSE（同一个手机 Action；振动受 surface.hapticsEnabled 硬门）
+  echo/index.ux             # TIME + ECHO ORGANISM + 一行公开表达（默认无）
+  why/index.ux              # WHY（headline 来自手机；降级时安静）
+  action/index.ux           # BREATHING / PAUSE（同一个手机 Action；振动受 surface.hapticsEnabled 硬门）
   common/protocol/         # Wear Protocol v1 JS 编解码（与手机 Kotlin 逐字段一致）
   common/transport/        # system.interconnect 封装
   common/presence/         # revision/TTL 缓存 + 降级（Identity 保留 / Moment → QUIET）

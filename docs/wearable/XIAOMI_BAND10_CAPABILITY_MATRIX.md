@@ -23,7 +23,12 @@
 |---|---|---|
 | Band 10 支持 Vela JS 应用 | `SUPPORTED_PUBLIC` | 官方 sensor 页支持列表明确列出 "Xiaomi Band 10"；Vela Quick App 文档面向 Band 10 开放 |
 | 项目结构：manifest.json + .ux（template/style/script）+ pages | `SUPPORTED_PUBLIC` | [项目配置](https://iot.mi.com/vela/quickapp/zh/guide/framework/manifest.html) |
-| manifest：package/name/icon/versionName/versionCode/minAPILevel/features/config(logLevel,designWidth,background)/router/display/deviceTypeList/permissions | `SUPPORTED_PUBLIC` | 同上 |
+| 页面布局约定：路由页 `src/<pageName>/<component>.ux`（**页面直接位于 src/ 下**，非 src/pages/） | `SUPPORTED_PUBLIC`（ERA 33 R3 官方编译器实测） | 官方 `@aiot-project/vela-official-demo`（src/home/index.ux）+ 本仓官方 CLI 编译错误→修正→构建成功 |
+| 命令行打包：官方 `aiot-toolkit`（npm，`aiot build` / `aiot release` 产出 .rpk） | `SUPPORTED_PUBLIC`（ERA 33 R3 实测 2.0.5 构建成功） | [官方 AIoT-toolkit 文档](https://iot.mi.com/vela/quickapp/zh/tools/toolkit/start.html)；产物 `dist/com.yunjue.echo.mind.debug.1.0.rpk` |
+| i18n 约定：`i18n/zh-CN.json` + `en.json`（defaults.json 为默认回退） | `SUPPORTED_PUBLIC` | 官方 demo 使用 zh-CN.json；编译器打包全部 `i18n/*.json` |
+| features 声明：interface 类模块（router/storage/interconnect/sensor/vibrator/…）使用即需声明 | `SUPPORTED_PUBLIC` | 官方 demo manifest 逐一声明其使用模块（含 system.router/system.storage） |
+| manifest `minAPILevel`（可选，编译器自动补 1）/ `minPlatformVersion`（可选） | `SUPPORTED_PUBLIC` | 官方 manifest schema（aiotpack ManifestSchema） |
+| 官方 Vela 模拟器：VVD + system-image `vela-miwear-watch-5.0` + **`xiaomi_band_10` skin** | `SUPPORTED_PUBLIC`（ERA 33 R3 实测就绪） | `aiot initEmulatorEnv` 官方资源下载 + `createVVD` |
 | 页面路由 router.entry + pages（component 对应 .ux 文件名） | `SUPPORTED_PUBLIC` | 同上 |
 
 ### 1.1 传感器
@@ -76,7 +81,7 @@
 | 决定 | 依据 |
 |---|---|
 | v1 只依赖 `vibrate short/long`；禁止 pattern 振动 | 官方矩阵 §1.2 |
-| `system.fetch` 不在 manifest 声明（v1 零网络调用）——MINIMUM CAPABILITY DECLARATION：manifest features = interconnect/sensor/vibrator，每一项都有真实 `require('@system.X')` 调用（`DeclaredVelaFeaturesTest` + `tests/preflight.js` 锁定） | 官方矩阵 §1.3 + 源码事实 |
+| `system.fetch` 不在 manifest 声明（v1 零网络调用）——MINIMUM CAPABILITY DECLARATION：manifest features = router/interconnect/sensor/vibrator/storage，每一项都有真实调用（`DeclaredVelaFeaturesTest` + `tests/preflight.js` 锁定；router/storage 声明依据 = 官方 demo 同规则） | 官方矩阵 §1.3 + 官方 demo manifest + 源码事实 |
 | 加速度计只在**应用前台**订阅，5–15s 本地窗口输出 summary，不发 raw | 官方矩阵 §1.1（无传感器后台）；[后台运行文档](https://iot.mi.com/vela/quickapp/zh/guide/framework/other/background-running.html) |
 | pressure：v1 仅 CAPABILITY / DIAGNOSTIC，不进 Portrait/Presence/Memory/Journey | 官方矩阵 §1.1（能力存在，产品价值未验证） |
 | 持续感知不来自 Vela JS daemon；stock Band 持续能力 = system/vendor companion state（Android SDK 状态订阅） | 官方矩阵 §1.1 / §2 |

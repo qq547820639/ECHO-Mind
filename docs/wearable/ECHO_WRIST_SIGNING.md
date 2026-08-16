@@ -82,6 +82,10 @@ openssl pkcs12 -in echo-wrist-debug.p12 -out certificate.pem -nokeys
 `scripts/verify_wrist_signing.py`：
 
 - 读 Android APK 证书指纹（优先 `apksigner verify --print-certs`，退化 `keytool -printcert`）；
-- 读 Vela `certificate.pem` 指纹（`openssl x509 -fingerprint -sha256`）；
-- 输出 `MATCH` / `MISMATCH` / 缺失报告；
+- 读 Vela 侧指纹，两种模式：
+  - `--vela-cert <certificate.pem>`：签名时所用 pem（`openssl x509 -fingerprint -sha256`）；
+  - `--vela-rpk <xxx.rpk>`：直接解析 RPK 内嵌签名证书（META-INF/CERT 中扫描 DER x509）；
+- 输出 `MATCH` / `MISMATCH` / 材料缺失报告（exit 0/1/2）；
 - **绝不输出私钥内容、密码**；只输出指纹（指纹不是秘密）。
+
+ERA 33 R3 实测：debug APK ↔ debug RPK（Android Debug 证书 8A:0A:A1:99…）→ `MATCH`。

@@ -5,7 +5,7 @@
     </div>
     <div class="body-area">
       <div class="breathing-field" if="{{ running === 'BREATHING' }}">
-        <div class="breath-core" style="width:{{ breathSize }}px;height:{{ breathSize }}px;background-color:{{ accent }};opacity:0.7;"></div>
+        <div class="breath-core {{ hueClass }} {{ coreSizeClass }}"></div>
         <text class="body-text">{{ $t('message.action_breathing_hint') }}</text>
         <div class="stop-button" onclick="onStop">
           <text class="stop-text">{{ $t('message.action_stop') }}</text>
@@ -30,6 +30,7 @@
 </template>
 
 <style>
+@import '../common/echo.css';
 .page {
   flex-direction: column;
   align-items: center;
@@ -103,18 +104,18 @@
 </style>
 
 <script>
-const bridge = require('../../common/transport/interconnect_bridge.js')
-const cache = require('../../common/presence/presence_cache.js')
-const visual = require('../../common/visual/wear_visual.js')
+const bridge = require('../common/transport/interconnect_bridge.js')
+const cache = require('../common/presence/presence_cache.js')
+const visual = require('../common/visual/wear_visual.js')
 
 let breathTimer = null
 let tick = 0
 
 export default {
-  data: {
+  private: {
     running: null,
-    breathSize: 44,
-    accent: 'rgb(190, 180, 160)',
+    hueClass: 'hue-neutral',
+    coreSizeClass: 'core-s',
     hapticsEnabled: false,
   },
 
@@ -124,8 +125,11 @@ export default {
     const state = c.state(Date.now())
     if (state.phase !== 'empty') {
       const v = visual.computeVisual(state.envelope, {})
-      this.accent = v.accent
-      this.breathSize = v.coreRadius * 2
+      const identity = state.envelope.identity || {}
+      const bucket = Math.floor(((typeof identity.accent === 'number' ? identity.accent : 0.5) % 1) * 8) % 8
+      this.hueClass = 'hue-' + bucket
+      const diameter = v.coreRadius * 2
+      this.coreSizeClass = diameter < 60 ? 'core-s' : (diameter < 78 ? 'core-m' : 'core-l')
       // 触觉开关来自手机推送的 PUBLIC_SAFE surface（默认 SILENT）。
       // false → 本页所有 vibrateShort/vibrateLong 必须 no-op（不能只有手机 UI 看起来关了）。
       this.hapticsEnabled = state.envelope.surface.hapticsEnabled === true
@@ -166,14 +170,10 @@ export default {
   startBreathTimer() {
     this.stopBreathTimer()
     const self = this
-    const base = this.breathSize || 44
-    // 与手机 EchoActionOverlay 同参：BREATHING_CYCLE_SECONDS = 8s（4s 吸 + 4s 呼）、
-    // ACTION_DURATION_SECONDS = 60s。同一个 Action，同一条节奏；到点自动结束（完成确认轻振）。
+    // 呼吸节奏由 CSS keyframes（8s breatheScale）驱动——与手机 8s 循环同参；
+    // JS 只负责 60s 自动结束（完成确认轻振）。
     breathTimer = setInterval(() => {
       tick += 1
-      const phase = (tick % 8) / 8
-      const scale = 1 + 0.18 * Math.sin(phase * Math.PI * 2)
-      self.breathSize = Math.max(28, Math.round(base * scale))
       if (tick >= 60) {
         self.onStop()
       }

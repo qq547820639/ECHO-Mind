@@ -60,3 +60,6 @@ certificate.pem
 
 # Band10 simulator 渲染产物（生成物，不入库；generate.js 为受控源）
 wearable/xiaomi-vela/tests/simulator/out/
+
+# Vela 构建工具链软链（官方 aiot-toolkit 构建时创建；node_modules 不入库）
+node_modules/

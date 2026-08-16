@@ -1,0 +1,223 @@
+<template>
+  <div class="page" onclick="onTap">
+    <div class="time-area">
+      <text class="time-text">{{ timeText }}</text>
+      <text class="headline-text" if="{{ headline }}">{{ headline }}</text>
+      <text class="hint-text" else>{{ $t('message.echo_tap_hint') }}</text>
+    </div>
+    <stack class="organism">
+      <div class="orbit-ring {{ hueClass }} {{ ringSizeClass }} {{ ringAlphaClass }}">
+        <div class="orbit-dot {{ hueClass }}"></div>
+      </div>
+      <div class="glow {{ hueClass }} {{ glowSizeClass }}"></div>
+      <div class="core {{ hueClass }} {{ coreSizeClass }}"></div>
+    </stack>
+    <div class="action-entry" onclick="onActionEntry">
+      <text class="action-entry-text">{{ $t('message.action_title') }}</text>
+    </div>
+  </div>
+</template>
+
+<style>
+@import '../common/echo.css';
+.page {
+  flex-direction: column;
+  align-items: center;
+  background-color: #000000;
+  width: 100%;
+  height: 100%;
+}
+.time-area {
+  flex-direction: column;
+  align-items: center;
+  margin-top: 60px;
+}
+.time-text {
+  color: #f5f5f0;
+  font-size: 44px;
+  font-weight: 300;
+}
+.headline-text {
+  color: #b8b8ae;
+  font-size: 15px;
+  margin-top: 14px;
+  text-align: center;
+  max-lines: 2;
+}
+.hint-text {
+  color: #6a6a62;
+  font-size: 13px;
+  margin-top: 14px;
+}
+/* organism：官方 stack 容器（子元素同心层叠）。动态值经 JS 量化为类名；
+   Vela 运行时限制（模拟器实测）：div 上的绑定 style 属性不渲染——
+   多属性/整串 style 绑定 → 整页空白；单属性 class 绑定 + CSS 动画是官方兼容形态。 */
+.organism {
+  width: 212px;
+  height: 212px;
+  margin-top: 40px;
+  align-items: center;
+  justify-content: center;
+}
+.orbit-ring {
+  border: 1px solid;
+  border-radius: 50%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  animation-name: spin;
+  animation-duration: 120s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.orbit-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+</style>
+
+<script>
+import router from '@system.router'
+const visual = require('../common/visual/wear_visual.js')
+const cacheLib = require('../common/presence/presence_cache.js')
+const bridge = require('../common/transport/interconnect_bridge.js')
+const accel = require('../common/sensor/accel_summary.js')
+
+let clockTimer = null
+
+function hueClass(accentHue) {
+  // 手机 WearPresenceProjector 同源：accent ∈ [0,1) → 8 桶（确定性，同一 ECHO 同一色）。
+  const bucket = Math.floor(((typeof accentHue === 'number' ? accentHue : 0.5) % 1) * 8) % 8
+  return 'hue-' + bucket
+}
+
+function sizeClass(value, small, large, classes) {
+  const v = value || 0
+  if (v < small) return classes[0]
+  if (v < large) return classes[1]
+  return classes[2]
+}
+
+export default {
+  // Vela 页面响应式数据使用 private（官方约定）；动态视觉经 class 绑定（官方兼容形态）。
+  private: {
+    timeText: '--:--',
+    headline: null,
+    hueClass: 'hue-neutral',
+    ringSizeClass: 'ring-m',
+    ringAlphaClass: 'ring-a-2',
+    glowSizeClass: 'glow-m',
+    coreSizeClass: 'core-m',
+  },
+
+  onInit() {
+    // 应用级业务（interconnect/cache/传感器）由页面负责：app 上下文无 require
+    // （官方模拟器实测），且 echo 是 entry 页（唯一可靠的初始化点）。
+    this.cache = this.$app.$def.cache || cacheLib.create()
+    this.cache.load()
+    bridge.init({
+      onMessage: (text) => {
+        const decoded = require('../common/protocol/wear_protocol.js').decodeMessage(text)
+        if (!decoded.ok) return
+        if (decoded.message.type === 'presence') {
+          this.cache.apply(decoded.message, Date.now())
+        }
+      },
+      onConnectionChanged: () => {
+        // 连接恢复 → 请求当前 Presence（同一 ECHO，不本地重建）
+        bridge.sendAction('REQUEST_CURRENT_PRESENCE')
+      },
+    })
+    bridge.sendAction('REQUEST_CURRENT_PRESENCE')
+    this.$app.$def.cache = this.cache
+    this.updateTime()
+  },
+
+  onShow() {
+    this.refresh()
+    this.startClockTimer()
+    // 前台订阅加速度计（官方后台模型：传感器无后台，不 hack 保活）。
+    // consent-first：以手机推送的 surface.motionSummaryEnabled 为准。
+    const state = this.cache.state(Date.now())
+    const enabled = state.phase !== 'empty' && state.envelope.surface.motionSummaryEnabled === true
+    if (enabled) {
+      accel.start({ onWindow: (summary) => bridge.sendObservation(summary) })
+    }
+  },
+
+  onHide() {
+    this.stopClockTimer()
+    accel.stop()
+  },
+
+  onDestroy() {
+    this.stopClockTimer()
+    accel.stop()
+  },
+
+  refresh() {
+    const state = this.cache.state(Date.now())
+    if (state.phase === 'empty') {
+      // 中性默认（空缓存不编造新身份）。
+      this.headline = this.$t('message.why_fallback')
+      this.hueClass = 'hue-neutral'
+      this.ringSizeClass = 'ring-m'
+      this.ringAlphaClass = 'ring-a-2'
+      this.glowSizeClass = 'glow-m'
+      this.coreSizeClass = 'core-m'
+      return
+    }
+    const v = visual.computeVisual(state.envelope, { phase: state.phase })
+    this.headline = v.headline
+    const identity = state.envelope.identity
+    this.hueClass = hueClass(identity.accent)
+    const ringDiameter = v.orbitRadius * 2
+    this.ringSizeClass = sizeClass(ringDiameter, 120, 160, ['ring-s', 'ring-m', 'ring-l'])
+    this.ringAlphaClass = sizeClass(v.orbitAlpha, 0.4, 0.6, ['ring-a-1', 'ring-a-2', 'ring-a-3'])
+    const glowDiameter = v.glowRadius * 2
+    this.glowSizeClass = sizeClass(glowDiameter, 90, 135, ['glow-s', 'glow-m', 'glow-l'])
+    const coreDiameter = v.coreRadius * 2
+    this.coreSizeClass = sizeClass(coreDiameter, 60, 78, ['core-s', 'core-m', 'core-l'])
+  },
+
+  startClockTimer() {
+    this.stopClockTimer()
+    const self = this
+    clockTimer = setInterval(() => {
+      self.updateTime()
+    }, 30000)
+  },
+
+  stopClockTimer() {
+    if (clockTimer) {
+      clearInterval(clockTimer)
+      clockTimer = null
+    }
+  },
+
+  updateTime() {
+    const d = new Date()
+    const hh = ('0' + d.getHours()).slice(-2)
+    const mm = ('0' + d.getMinutes()).slice(-2)
+    this.timeText = hh + ':' + mm
+  },
+
+  onTap() {
+    try {
+      router.push({ uri: '/why' })
+    } catch (e) {
+      // 忽略
+    }
+  },
+
+  onActionEntry() {
+    try {
+      router.push({ uri: '/action' })
+    } catch (e) {
+      // 忽略
+    }
+  },
+}
+</script>

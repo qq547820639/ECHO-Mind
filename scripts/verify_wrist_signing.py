@@ -18,6 +18,7 @@ verify_wrist_signing.py —— Phone ↔ Wrist 签名身份验证（Phase 8.1）
 import argparse
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -120,16 +121,64 @@ def pem_sha256(pem: Path):
     return None, err or ("exit=%d" % proc.returncode)
 
 
+def rpk_sha256(rpk: Path):
+    """RPK 内嵌签名证书的 SHA-256 指纹。
+
+    RPK = zip；META-INF/CERT = 内层 zip（hash.json）+ 附加 DER 结构（含签名证书）。
+    提取策略：在 CERT 二进制中扫描 ASN.1 SEQUENCE（0x30 0x82），
+    逐段用 openssl 尝试解析 x509，第一张有效证书即签名证书。
+    """
+    openssl = shutil.which("openssl")
+    if not openssl:
+        return None, "需要 openssl 解析 RPK 证书"
+    try:
+        proc = subprocess.run(
+            ["unzip", "-p", str(rpk), "META-INF/CERT"],
+            capture_output=True, timeout=60,
+        )
+    except FileNotFoundError:
+        return None, "需要 unzip 读取 RPK"
+    except subprocess.TimeoutExpired:
+        return None, "unzip 超时"
+    if proc.returncode != 0:
+        return None, "RPK 内无 META-INF/CERT（未签名或结构异常）"
+    data = proc.stdout
+    candidates = []
+    for m in re.finditer(b"\x30\x82", data):
+        s = m.start()
+        if s + 4 > len(data):
+            continue
+        length = int.from_bytes(data[s + 2:s + 4], "big")
+        if s + 4 + length <= len(data):
+            candidates.append(data[s:s + 4 + length])
+    if not candidates:
+        return None, "RPK CERT 中未找到 DER 结构"
+    for i, blob in enumerate(candidates):
+        tmp = Path("/tmp") / ("rpk_cert_%d_%d.der" % (os.getpid(), i))
+        tmp.write_bytes(blob)
+        try:
+            proc, _ = run([openssl, "x509", "-inform", "DER", "-in", str(tmp), "-noout", "-fingerprint", "-sha256"])
+            if proc is not None and proc.returncode == 0:
+                for line in proc.stdout.splitlines():
+                    if "SHA256 Fingerprint=" in line:
+                        return sha256_upper(line.split("=", 1)[1]), None
+        finally:
+            tmp.unlink(missing_ok=True)
+    return None, "RPK CERT 中无有效 x509 证书"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apk", type=Path, help="Android APK 路径")
-    parser.add_argument("--vela-cert", type=Path, help="Vela certificate.pem 路径")
+    parser.add_argument("--vela-cert", type=Path, help="Vela certificate.pem 路径（签名时所用）")
+    parser.add_argument("--vela-rpk", type=Path, help="Vela .rpk 路径（直接读取 RPK 内嵌签名证书）")
     args = parser.parse_args()
 
     apk = args.apk
     pem = args.vela_cert
+    rpk = args.vela_rpk
 
-    apk_sha = pem_sha = None
+    apk_sha = wrist_sha = None
     missing = []
 
     if apk is not None:
@@ -144,17 +193,26 @@ def main() -> int:
     else:
         missing.append("未提供 --apk")
 
-    if pem is not None:
+    if rpk is not None:
+        if not rpk.is_file():
+            missing.append("RPK 未生成：%s" % rpk)
+        else:
+            wrist_sha, err = rpk_sha256(rpk)
+            if wrist_sha is None:
+                print("RPK 指纹解析失败：%s" % err)
+                return 1
+            print("RPK  SHA-256: %s" % wrist_sha)
+    elif pem is not None:
         if not pem.is_file():
             missing.append("certificate.pem 未生成：%s" % pem)
         else:
-            pem_sha, err = pem_sha256(pem)
-            if pem_sha is None:
+            wrist_sha, err = pem_sha256(pem)
+            if wrist_sha is None:
                 print("pem 指纹解析失败：%s" % err)
                 return 1
-            print("PEM  SHA-256: %s" % pem_sha)
+            print("PEM  SHA-256: %s" % wrist_sha)
     else:
-        missing.append("未提供 --vela-cert")
+        missing.append("未提供 --vela-rpk 或 --vela-cert")
 
     if missing:
         for m in missing:
@@ -162,7 +220,7 @@ def main() -> int:
         print("RESULT: 材料缺失（APK/RPK 尚未生成，不视为 MISMATCH）")
         return 2
 
-    if apk_sha == pem_sha:
+    if apk_sha == wrist_sha:
         print("RESULT: MATCH（同一签名身份，interconnect 身份要求满足）")
         return 0
     print("RESULT: MISMATCH（两端证书指纹不一致，interconnect 将拒绝身份关联）")

@@ -5,10 +5,13 @@
   "versionName": "1.0",
   "versionCode": 1,
   "minAPILevel": 1,
+  "minPlatformVersion": 1000,
   "features": [
+    { "name": "system.router" },
+    { "name": "system.interconnect" },
     { "name": "system.sensor" },
     { "name": "system.vibrator" },
-    { "name": "system.interconnect" }
+    { "name": "system.storage" }
   ],
   "permissions": [],
   "config": {

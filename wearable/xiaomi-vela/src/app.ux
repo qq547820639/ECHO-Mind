@@ -1,42 +1,19 @@
 <script>
-const bridge = require('./common/transport/interconnect_bridge.js')
-const presenceCache = require('./common/presence/presence_cache.js')
-const accel = require('./common/sensor/accel_summary.js')
-
-const cache = presenceCache.create()
-
 export default {
-  onInit() {
-    bridge.init({
-      onMessage: (text) => {
-        const decoded = require('./common/protocol/wear_protocol.js').decodeMessage(text)
-        if (!decoded.ok) return
-        if (decoded.message.type === 'presence') {
-          cache.apply(decoded.message, Date.now())
-        }
-      },
-      onConnectionChanged: () => {
-        // 连接恢复 → 请求当前 Presence（同一 ECHO，不本地重建）
-        bridge.sendAction('REQUEST_CURRENT_PRESENCE')
-      },
-    })
-    bridge.sendAction('REQUEST_CURRENT_PRESENCE')
-    this.$app.$def.cache = cache
+  // Vela 应用级生命周期钩子是 onCreate（官方 demo 同款）；onInit 不会被调用
+  // （官方模拟器实测：app 级 onInit 静默跳过 → 应用 UI 永不显示）。
+  //
+  // 重要约束（官方模拟器实测）：app 上下文**没有模块 require**——
+  // 模块级 require 会让整个 app 脚本求值失败，所有 app 钩子 "call failed"，
+  // 应用永不显示。官方 demo 的 app.ux 同样零 require。
+  // 因此业务（interconnect/cache/传感器）全部由页面负责，app.ux 只保留生命周期。
+  onCreate() {
   },
   onShow() {
-    // 前台订阅加速度计（官方后台模型：传感器无后台，foreground only，不 hack 保活）。
-    // consent-first：以手机推送的 surface.motionSummaryEnabled 为准（手机 Me 显式开启后才采集）。
-    const state = cache.state(Date.now())
-    const enabled = state.phase !== 'empty' && state.envelope.surface.motionSummaryEnabled === true
-    if (enabled) {
-      accel.start({ onWindow: (summary) => bridge.sendObservation(summary) })
-    }
   },
   onHide() {
-    accel.stop()
   },
   onDestroy() {
-    accel.stop()
   },
 }
 </script>

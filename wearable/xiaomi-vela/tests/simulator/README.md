@@ -4,7 +4,7 @@
 
 - 视觉参数由**真实生产模块**计算：`src/common/visual/wear_visual.js`（computeVisual）、
   `src/common/presence/presence_cache.js`（降级逻辑）、`src/common/protocol/wear_protocol.js`；
-- 摆位/配色逐行镜像 `pages/*/index.ux` 的几何（QA mirror，不是第二套 renderer）；
+- 摆位/配色逐行镜像 `echo|why|action/index.ux` 的几何（QA mirror，不是第二套 renderer）；
 - 官方尺寸 **212 × 520**；每状态 × 每语言一个 HTML（zh/en 共 26 态）；
 - 内置 212×520 布局门：任何元素直径/粒子越界 → 生成即 FAIL；
 - 每页内嵌 LAYOUT 探针：headless Chrome `--dump-dom` 输出文本 clamp 状态
