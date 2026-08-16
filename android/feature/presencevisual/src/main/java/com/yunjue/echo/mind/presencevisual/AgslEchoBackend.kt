@@ -91,6 +91,21 @@ half4 main(float2 fragCoord) {
 }
 """
 
+    /**
+     * ADVANCED final grading（§21：RuntimeColorFilter 用于 final grading / tone consistency）。
+     * 只做色调一致性微调——UI text / navigation / Activity 永不进入 shader pipeline。
+     */
+    const val GRADING_SOURCE = """
+half4 main(half4 c) {
+    half l = dot(c.rgb, half3(0.2126, 0.5872, 0.0722));
+    // 极轻 vibrance + 高光一致性（线性域近似；保持近黑不变）
+    half3 graded = mix(half3(l), c.rgb, 1.05);
+    half knee = 0.58;
+    graded = min(graded, knee) + (graded - min(graded, knee)) * 0.92;
+    return half4(graded, c.a);
+}
+"""
+
     /** RuntimeShader 是否可用（API 33+ 且 AGSL 编译成功）。 */
     fun isAvailable(): Boolean {
         if (Build.VERSION.SDK_INT < 33) return false
@@ -102,12 +117,32 @@ half4 main(float2 fragCoord) {
         }
     }
 
+    /** ADVANCED 合成（RuntimeColorFilter）是否可用（API 36+ 且编译成功；§9 ADVANCED tier）。 */
+    fun isAdvancedAvailable(): Boolean {
+        if (Build.VERSION.SDK_INT < 36) return false
+        return try {
+            android.graphics.RuntimeColorFilter(GRADING_SOURCE)
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     /**
      * AGSL 会话（RuntimeShader 编译一次复用 + mask bitmap 复用——§32 hot path 零位图分配）。
      */
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    class AgslSession(val width: Int, val height: Int) {
+    class AgslSession(val width: Int, val height: Int, val advanced: Boolean = false) {
         private val shader = RuntimeShader(SHADER_SOURCE)
+        private val gradingPaint: Paint? = if (advanced && Build.VERSION.SDK_INT >= 36) {
+            try {
+                Paint().apply { colorFilter = android.graphics.RuntimeColorFilter(GRADING_SOURCE) }
+            } catch (_: Throwable) {
+                null
+            }
+        } else {
+            null
+        }
         private val maskBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         private val maskCanvas = Canvas(maskBitmap)
         private val maskShader = BitmapShader(maskBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
@@ -141,7 +176,15 @@ half4 main(float2 fragCoord) {
             shader.setColorUniform("iPrimary", primaryColor)
             shader.setColorUniform("iSecondary", secondaryColor)
             shader.setColorUniform("iWarm", warmColor)
-            canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
+            val grading = gradingPaint
+            if (grading != null) {
+                // §21：final grading 只作用于 organism 自身 layer
+                val saveCount = canvas.saveLayer(0f, 0f, widthPx, heightPx, grading)
+                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
+                canvas.restoreToCount(saveCount)
+            } else {
+                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
+            }
         }
 
         /** vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖；per-point alpha 已烘焙深度/遮挡）。 */

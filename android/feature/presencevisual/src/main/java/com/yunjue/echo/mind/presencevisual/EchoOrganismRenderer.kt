@@ -88,7 +88,9 @@ fun EchoOrganism(
             effectiveOptions.tier != com.yunjue.echo.mind.visual.render.EchoRenderTier.LEGACY
         if (useAgsl) {
             val palette = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(base.identitySeed).palette
-            val session = sessionHolder.sessionFor(size.width.toInt(), size.height.toInt())
+            val advanced = effectiveOptions.tier == com.yunjue.echo.mind.visual.render.EchoRenderTier.ADVANCED &&
+                AgslEchoBackend.isAdvancedAvailable()
+            val session = sessionHolder.sessionFor(size.width.toInt(), size.height.toInt(), advanced)
             if (session == null) {
                 drawOrganism(frame)
                 return@Canvas
@@ -116,13 +118,13 @@ fun EchoOrganism(
 internal class AgslSessionHolder {
     private var session: AgslEchoBackend.AgslSession? = null
     /** API < 33 → null（调用侧回退 Canvas 后端）。 */
-    fun sessionFor(width: Int, height: Int): AgslEchoBackend.AgslSession? {
+    fun sessionFor(width: Int, height: Int, advanced: Boolean): AgslEchoBackend.AgslSession? {
         if (android.os.Build.VERSION.SDK_INT < 33) return null
         val s = session
-        return if (s != null && s.width == width && s.height == height) {
+        return if (s != null && s.width == width && s.height == height && s.advanced == advanced) {
             s
         } else {
-            AgslEchoBackend.AgslSession(width, height).also { session = it }
+            AgslEchoBackend.AgslSession(width, height, advanced).also { session = it }
         }
     }
 }

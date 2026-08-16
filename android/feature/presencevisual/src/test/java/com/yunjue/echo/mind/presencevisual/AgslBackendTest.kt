@@ -74,4 +74,19 @@ class AgslBackendTest {
                 EchoRenderQuality.NORMAL,
         )
     }
+
+    @Test
+    fun advancedGradingSourceIsToneConsistencyOnly() {
+        val src = AgslEchoBackend.GRADING_SOURCE
+        assertTrue(src.contains("main(half4"))
+        assertTrue("final grading 只做色调一致性", src.contains("graded"))
+    }
+
+    @Test
+    fun advancedUnavailableBelowApi36() {
+        // §9：ADVANCED = API36+（RuntimeColorFilter/RuntimeXfermode 门控）
+        if (android.os.Build.VERSION.SDK_INT < 36) {
+            assertFalse(AgslEchoBackend.isAdvancedAvailable())
+        }
+    }
 }

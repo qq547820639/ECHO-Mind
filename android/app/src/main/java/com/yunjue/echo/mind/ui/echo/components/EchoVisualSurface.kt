@@ -80,9 +80,12 @@ fun EchoVisualSurface(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val envOptions = remember(context) {
+        val q = EchoRenderEnvironment.currentQuality(context)
         OrganismFrameComputer.EchoRenderOptions(
             tier = EchoRenderEnvironment.resolveTier(),
-            quality = EchoRenderEnvironment.currentQuality(context),
+            quality = q,
+            // §23：HDR 仅 API34+ 且显示链路真实支持且非降级态；pipeline 绝不依赖 HDR
+            hdrEligible = EchoRenderEnvironment.isHdrEligible(context, q),
         )
     }
     val base = config.surface.toRenderOptions(config.motionLevel)
@@ -91,6 +94,10 @@ fun EchoVisualSurface(
         modifier = modifier.fillMaxWidth().height(380.dp),
         surface = config.surface.toEchoSurface(),
         reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
-        options = base.copy(tier = envOptions.tier, quality = envOptions.quality),
+        options = base.copy(
+            tier = envOptions.tier,
+            quality = envOptions.quality,
+            hdrEligible = envOptions.hdrEligible,
+        ),
     )
 }
