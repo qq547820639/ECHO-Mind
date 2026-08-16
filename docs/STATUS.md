@@ -26,7 +26,7 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `50aa383`，2026-08-16 01:44 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `8ead7f1`，2026-08-16 01:44 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
@@ -62,6 +62,13 @@
   见 `qa/reports/PERSONAL_ANSWER_ENGINE_AUDIT.md`。
 - **QA mirror 漂移面**：QaPortraitMirror 是必要镜像（跨语言黄金门已锁）；QaHeadlineEngine 文案重复已消除
   （learningPhaseHeadline 单点）；结论见 `qa/reports/QA_MIRROR_AUDIT.md`。
+- **字段级加密豁免（ERA 32 R26 已评审记录）**：`QuestionnaireEntity.answersJson`、
+  `EchoMemoryEntity.content`、`DailyPortraitEntity.summary/headlineJson/dimensionsJson/factsJson` 与
+  FeatureVector 的 `vector/sources_present` 仅由 **SQLCipher 全库加密**保护，不做第二层字段加密。
+  理由：① 全库 AES-256（HKDF 口令，Keystore 包装）已满足静态数据保护，字段加密是 outbox/缓存
+  等「离开全库边界」字段的纵深防御，非普遍要求；② 存量明文行迁移需读改写全表，风险高于收益；
+  ③ 这些字段从未离开设备（本地模式零上行；云端同步仅传派生特征摘要，画像为端侧产物）。
+  若未来引入「无全库加密的导出路径」，必须先补字段加密再放开。
 
 ## 6. Next Product Slice
 
@@ -97,6 +104,7 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 
 
