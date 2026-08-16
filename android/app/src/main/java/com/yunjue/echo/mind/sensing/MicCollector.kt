@@ -138,11 +138,13 @@ class MicCollector(
                             break
                         }
                     }
+                    val readAtMs = System.currentTimeMillis()
                     val read = record.read(chunk, 0, chunkSize)
                     if (read > 0) {
                         // 即时处理：复制有效部分给提取器，原始 chunk 在循环中被覆盖
                         val snapshot = chunk.copyOfRange(0, read)
-                        val feature = extractor.extract(snapshot, SAMPLE_RATE)
+                        // ERA 32 R22：携带采集时刻（窗口归属精确化，避免整窗错归属）
+                        val feature = extractor.extract(snapshot, SAMPLE_RATE, timestampMs = readAtMs)
                         // 显式清空 snapshot 引用内容，确保原始音频不可被后续访问
                         for (i in snapshot.indices) snapshot[i] = 0
                         // 仅保留派生特征，限制缓冲容量
@@ -213,7 +215,14 @@ class MicCollector(
 
     companion object {
         const val SAMPLE_RATE = 16000
-        const val MAX_BUFFER_SIZE = 64
+
+        /**
+         * ERA 32 R22：派生特征缓冲容量覆盖完整 5 分钟窗口。
+         * 100ms/块 → 5 分钟 ≈ 3000 条；4096 留余量并覆盖失败重试期间的新数据。
+         * （旧值 64 只保留窗口最后约 6.4 秒，其余全部被 trim 丢弃。）
+         * 内存开销：4096 × MicDerivedFeature（约 150B）≈ 600KB，可忽略。
+         */
+        const val MAX_BUFFER_SIZE = 4096
 
         /** 录音循环中检查 RECORD_AUDIO 权限的间隔（毫秒）。 */
         const val PERMISSION_CHECK_INTERVAL_MS = 1_000L

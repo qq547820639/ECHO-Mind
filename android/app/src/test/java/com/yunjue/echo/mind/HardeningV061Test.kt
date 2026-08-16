@@ -80,7 +80,7 @@ class HardeningV061Test {
         escalationRepository = EscalationRepository(db, cipher, Outbox(db, cipher), preferences, apiClient)
         skillRepository = SkillRepository(db, Outbox(db, cipher), preferences, apiClient)
         onboardingRepository = OnboardingRepository(db.portraitDao(), preferences, apiClient)
-        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
+        consentRepository = ConsentRepository(db, Outbox(db, cipher), preferences)
         featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
     }
 

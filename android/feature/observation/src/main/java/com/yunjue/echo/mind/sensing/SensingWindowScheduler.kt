@@ -49,8 +49,8 @@ class SensingWindowScheduler(
     /** 已 flush 过的 windowStart epoch ms 集合（有界：只保留最近 [FLUSHED_WINDOW_KEEP] 个窗口）。 */
     private val flushedWindowStarts = LinkedHashSet<Long>()
 
-    /** 失败重试计数（windowStart → 失败次数），超 [MAX_WINDOW_RETRY] 丢弃该窗口。 */
-    private val pendingRetries = HashMap<Long, Int>()
+    /** 失败重试状态（windowStart → 不可变重试载荷）：retry 重放同一 inputs/快照，绝不重读 live hub。 */
+    private val pendingRetries = HashMap<Long, PendingWindow>()
 
     /** 当前失败重试中的窗口数（可观测）。 */
     val pendingRetryCount: Int get() = pendingRetries.size
@@ -67,14 +67,11 @@ class SensingWindowScheduler(
         running = true
         job = scope.launch {
             while (isActive && running) {
-                // 1. 重试失败窗口（bounded retry ≤ MAX_WINDOW_RETRY；失败窗口保留快照/缓冲）
+                // 1. 重试失败窗口（bounded retry ≤ MAX_WINDOW_RETRY；重放同一不可变快照）
                 val pending = pendingRetries.keys.toList()
                 for (startMs in pending) {
                     if (!isActive || !running) break
-                    val ws = Instant.ofEpochMilli(startMs)
-                    runCatching {
-                        flushWindow(ws, Instant.ofEpochMilli(startMs + windowDurationMs), onWindowReady)
-                    }
+                    runCatching { retryPendingWindow(startMs, onWindowReady) }
                 }
                 // 2. 等待当前窗口边界并 flush
                 val nowMs = clock.millis()
@@ -103,7 +100,29 @@ class SensingWindowScheduler(
     }
 
     /** 指定 windowStart 的当前失败次数（单测断言）。 */
-    fun retryCount(windowStartMs: Long): Int = pendingRetries[windowStartMs] ?: 0
+    fun retryCount(windowStartMs: Long): Int = pendingRetries[windowStartMs]?.attempts ?: 0
+
+    /**
+     * ERA 32 R22：重试失败窗口——重放失败时提取的**同一不可变 inputs + 同一快照**，
+     * 不再重新 snapshot live hub（否则重试快照会混入下一窗口未 flush 事件，
+     * 成功后 clearConsumed 会连带清掉它们 → 下一窗口数据永久丢失）。
+     */
+    private suspend fun retryPendingWindow(
+        startMs: Long,
+        onWindowReady: suspend (List<DerivedFeatureInput>) -> Boolean,
+    ) {
+        val pending = pendingRetries[startMs] ?: return
+        val ok = runCatching { onWindowReady(pending.inputs) }.getOrDefault(false)
+        if (ok) {
+            hub.clearConsumed(pending.hubSnapshot)
+            micCollector?.clearConsumed(pending.micSnapshot)
+            flushedWindowStarts.add(startMs)
+            trimFlushedWindows()
+            pendingRetries.remove(startMs)
+        } else {
+            recordRetry(startMs, pending)
+        }
+    }
 
     /**
      * flush 单个窗口（便于单测直接调用）。
@@ -131,7 +150,10 @@ class SensingWindowScheduler(
 
         // 1. 非破坏快照（本窗口消费项；快照后新到项保留）——Phase 4：不可变，retry 复用同一快照
         val hubSnapshot = hub.snapshotAll()
-        val micSnapshot = micCollector?.snapshot().orEmpty()
+        // ERA 32 R22：麦克风特征按时间戳归属窗口（timestampMs=0 为无时间戳旧数据，视作本窗口）
+        val micSnapshot = micCollector?.snapshot().orEmpty().filter {
+            it.timestampMs == 0L || it.timestampMs in startMs until windowEnd.toEpochMilli()
+        }
 
         // 2. 纯函数提取（吃快照，不读 live hub；carry 状态进程级共享）
         val inputs = buildList {
@@ -175,19 +197,29 @@ class SensingWindowScheduler(
             pendingRetries.remove(startMs)
             WindowFlushResult.SUCCESS
         } else {
-            recordRetry(startMs)
+            recordRetry(startMs, PendingWindow(inputs, hubSnapshot, micSnapshot))
             WindowFlushResult.FAILURE_RETRYABLE
         }
     }
 
-    /** 记录一次失败；超限丢弃窗口（不再重试），失败始终可观测（retryCount 被清空但窗口已丢弃）。 */
-    private fun recordRetry(startMs: Long) {
-        val attempts = (pendingRetries[startMs] ?: 0) + 1
-        if (attempts > MAX_WINDOW_RETRY) {
-            dropPendingWindow(startMs)
-        } else {
-            pendingRetries[startMs] = attempts
+    /** 记录一次失败（携带不可变重试载荷）；超限丢弃窗口（不再重试），失败始终可观测。 */
+    private fun recordRetry(startMs: Long, pending: PendingWindow) {
+        if (pendingRetries[startMs] == null) {
+            pendingRetries[startMs] = pending
         }
+        pendingRetries[startMs]?.let { it.attempts += 1 }
+        if (pendingRetries[startMs]?.attempts ?: 0 > MAX_WINDOW_RETRY) {
+            dropPendingWindow(startMs)
+        }
+    }
+
+    /** ERA 32 R22：失败窗口的不可变重试载荷（同一 inputs + 同一快照，重放用）。 */
+    private class PendingWindow(
+        val inputs: List<DerivedFeatureInput>,
+        val hubSnapshot: SensingEventHub.HubSnapshot,
+        val micSnapshot: List<MicFeatureExtractor.MicDerivedFeature>,
+    ) {
+        var attempts: Int = 0
     }
 
     /** 有界去重范围：只保留最近 [FLUSHED_WINDOW_KEEP] 个已 flush 窗口。 */

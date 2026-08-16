@@ -58,7 +58,7 @@ class ConsentLifecycleTest {
         // 显式设定 userId：不再依赖 AppPreferences 默认值（默认已改为空串未初始化哨兵）
         preferences.userId = "u_demo"
         sensingRepository = SensingRepository(db, cipher, Outbox(db, cipher), preferences)
-        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
+        consentRepository = ConsentRepository(db, Outbox(db, cipher), preferences)
         runBlocking {
             preferences.setPassiveSensingEnabled(true)
             preferences.setMicEnabled(true)

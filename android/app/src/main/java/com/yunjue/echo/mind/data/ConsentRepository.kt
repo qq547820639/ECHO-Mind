@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind.data
 
+import androidx.room.withTransaction
 import com.yunjue.echo.mind.AppPreferences
 import com.yunjue.echo.mind.data.outbox.Outbox
 import org.json.JSONObject
@@ -12,8 +13,12 @@ import java.util.UUID
  *
  * 所有同意证据、L0 准入门禁、紧急联系人、数据主体请求（DSR）均经 [Outbox] 可靠入队，
  * 由 SyncWorker 上传；证据哈希可重算校验（SHA-256 固定盐 + userId + granted）。
+ *
+ * ERA 32 R22：consent 证据行同时落库 [EchoDatabase] consents 表（合规审计留痕）——
+ * 本地模式 outbox 静默跳过上传，但证据行必须持久化（此前本地模式零留痕）。
  */
 class ConsentRepository(
+    private val db: EchoDatabase,
     private val outbox: Outbox,
     private val preferences: AppPreferences,
 ) {
@@ -32,7 +37,21 @@ class ConsentRepository(
             put("granted", granted)
             put("evidence_hash", evidenceHash)
         }
-        outbox.enqueue(eventId, "consent", payload, priority)
+        // 证据行 + 上传事件同事务：任何一步失败整体回滚（不产生"上传了但没留痕"的缝隙）
+        db.withTransaction {
+            db.consentDao().insertConsent(
+                ConsentEntity(
+                    eventId = eventId,
+                    userId = preferences.userId,
+                    consentType = consentType,
+                    version = version,
+                    granted = granted,
+                    grantedAt = System.currentTimeMillis(),
+                    evidenceHash = evidenceHash
+                )
+            )
+            outbox.enqueue(eventId, "consent", payload, priority)
+        }
     }
 
     /** passive_sensing consent 证据（granted=true/false），版本化 evidence hash。 */

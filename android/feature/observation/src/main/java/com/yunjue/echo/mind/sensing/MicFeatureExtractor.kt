@@ -40,7 +40,9 @@ class MicFeatureExtractor {
         val rmsDb: Float,
         val speechRate: Float,
         val pauseCount: Int,
-        val f0Mean: Float
+        val f0Mean: Float,
+        /** ERA 32 R22：采集时刻 epoch ms（窗口归属用；0 = 无时间戳旧数据，视作当前窗口）。 */
+        val timestampMs: Long = 0L
     ) {
         // FloatArray 默认用引用相等，单测中按需比较 size / 内容
         override fun equals(other: Any?): Boolean = this === other
@@ -52,9 +54,14 @@ class MicFeatureExtractor {
      *
      * @param samples    PCM 16-bit 单声道采样（-32768..32767）
      * @param sampleRate 采样率（默认 16000）
+     * @param timestampMs 采集时刻 epoch ms（默认 0 = 无时间戳）
      */
-    fun extract(samples: ShortArray, sampleRate: Int = SAMPLE_RATE_16K): MicDerivedFeature {
-        if (samples.isEmpty()) return emptyFeature()
+    fun extract(
+        samples: ShortArray,
+        sampleRate: Int = SAMPLE_RATE_16K,
+        timestampMs: Long = 0L,
+    ): MicDerivedFeature {
+        if (samples.isEmpty()) return emptyFeature(timestampMs)
 
         val n = samples.size
         val durationMs = n.toLong() * 1000L / sampleRate.toLong()
@@ -90,18 +97,19 @@ class MicFeatureExtractor {
         // 7. 中文摘要
         val summary = buildSummary(rmsDb, speechRate, pauseCount, f0Mean, durationMs)
 
-        return MicDerivedFeature(summary, vector, durationMs, rmsDb, speechRate, pauseCount, f0Mean)
+        return MicDerivedFeature(summary, vector, durationMs, rmsDb, speechRate, pauseCount, f0Mean, timestampMs)
     }
 
     /** 空特征（用于无音频或失败兜底）。 */
-    fun emptyFeature(): MicDerivedFeature = MicDerivedFeature(
+    fun emptyFeature(timestampMs: Long = 0L): MicDerivedFeature = MicDerivedFeature(
         summary = "未捕获到音频。",
         vector = FloatArray(VECTOR_DIM),
         durationMs = 0L,
         rmsDb = MIN_DB,
         speechRate = 0f,
         pauseCount = 0,
-        f0Mean = 0f
+        f0Mean = 0f,
+        timestampMs = timestampMs
     )
 
     // ===== 内部计算 =====

@@ -59,7 +59,7 @@ class WindowAckTest {
         cipher = JvmTestFieldCipher()
         preferences = AppPreferences(context, cipher)
         sensingRepository = SensingRepository(db, cipher, Outbox(db, cipher), preferences)
-        consentRepository = ConsentRepository(Outbox(db, cipher), preferences)
+        consentRepository = ConsentRepository(db, Outbox(db, cipher), preferences)
     }
 
     @After

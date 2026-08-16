@@ -110,7 +110,7 @@ class CoreContainer(
 /** Observation：端侧画像 Ground Truth + 感知/同意（不依赖 intelligence——永久边界）。 */
 class ObservationContainer(core: CoreContainer) {
     val sensingRepository = SensingRepository(core.database, core.cipher, core.outbox, core.preferences)
-    val consentRepository = ConsentRepository(core.outbox, core.preferences)
+    val consentRepository = ConsentRepository(core.database, core.outbox, core.preferences)
     val localPortraitDataSource = LocalPortraitDataSource(core.database)
     val portraitRepository = PortraitRepository(
         core.database, core.preferences, core.apiClient, core.outbox, localPortraitDataSource
