@@ -121,7 +121,9 @@ jobs:
             BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
             echo "$KEYSTORE_B64" | base64 -d > /tmp/echo-release.keystore
             chmod 600 /tmp/echo-release.keystore
-            "$BT/zipalign" -f 4 app-release-unsigned.apk /tmp/aligned.apk
+            # ERA 32 R26：download-artifact 保留完整相对路径，unsigned APK 位于
+            # android/app/build/outputs/apk/release/（此前在仓库根目录 zipalign 必失败）
+            "$BT/zipalign" -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk /tmp/aligned.apk
             "$BT/apksigner" sign \
               --ks /tmp/echo-release.keystore \
               --ks-pass "pass:$KEYSTORE_PASSWORD" \

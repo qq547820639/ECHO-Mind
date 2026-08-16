@@ -22,7 +22,8 @@ sbom:
 	python scripts/generate_sbom.py
 
 android:
-	cd android && ./gradlew test assembleDebug lint
+	# ERA 32 R26：与 CI 门禁一致（testDebugUnitTest + lintDebug + detekt）
+	cd android && ./gradlew testDebugUnitTest lintDebug detekt
 
 package:
 	./scripts/package_release.sh

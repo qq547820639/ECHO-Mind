@@ -93,11 +93,19 @@ def _collect_source_files() -> list[Path]:
 
 def _parse_junit(report: Path) -> dict:
     root = ET.parse(report).getroot()
-    suite = root.find("testsuite")
-    attrs = suite.attrib if suite is not None else root.attrib
-    tests = int(attrs.get("tests", 0))
-    failures = int(attrs.get("failures", 0)) + int(attrs.get("errors", 0))
-    skipped = int(attrs.get("skipped", 0))
+    # ERA 32 R26：汇总全部 <testsuite>（与 refresh_status_numbers 一致）——
+    # 此前只读首个 suite，多 suite junitxml 会静默漏计。
+    suites = root.findall("testsuite")
+    if not suites:
+        suites = [root]
+    tests = 0
+    failures = 0
+    skipped = 0
+    for suite in suites:
+        attrs = suite.attrib
+        tests += int(attrs.get("tests", 0))
+        failures += int(attrs.get("failures", 0)) + int(attrs.get("errors", 0))
+        skipped += int(attrs.get("skipped", 0))
     return {"passed": tests - failures - skipped, "failed": failures, "skipped": skipped, "total": tests}
 
 

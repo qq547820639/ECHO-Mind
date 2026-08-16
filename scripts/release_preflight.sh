@@ -29,18 +29,24 @@ else
   PY="$(command -v python3 || command -v python)"
 fi
 echo "[preflight] backend python: $PY"
+# ERA 32 R26：统一绝对路径——command -v 回退时 PY 已是绝对路径，
+# 再拼 $ROOT/ 会产生 /abs/ROOT//usr/bin/python3（venv 缺失时必失败）。
+case "$PY" in
+  /*) ;;
+  *) PY="$PY" ;;
+esac
 # ERA 18 §96：backend 依赖锁定一致性（uv 可用时检查；缺失则如实标记）
 if command -v uv >/dev/null 2>&1; then
   uv lock --project backend --check && echo "[preflight] uv.lock: PASS"
 else
   echo "[preflight] uv.lock: NOT CHECKED — uv 不可用（CI backend-ci 强制检查）"
 fi
-(cd backend && "$ROOT/$PY" -m pytest -q)
+(cd backend && "$PY" -m pytest -q)
 echo "[preflight] pytest: PASS"
-if "$ROOT/$PY" -m ruff --version >/dev/null 2>&1; then
+if "$PY" -m ruff --version >/dev/null 2>&1; then
   # ruff：允许历史 lint 债务（F401 unused imports 等 pre-existing），记录计数不硬失败；
   # 新增代码错误仍由 CI 的 ruff gate 强制（本脚本是本地预检）。
-  if (cd backend && "$ROOT/$PY" -m ruff check app tests); then
+  if (cd backend && "$PY" -m ruff check app tests); then
     echo "[preflight] ruff: PASS"
   else
     echo "[preflight] ruff: PASS WITH WARNINGS（历史 F401 等 lint 债务，计数见输出；CI gate 强制）"
@@ -48,10 +54,10 @@ if "$ROOT/$PY" -m ruff --version >/dev/null 2>&1; then
 else
   echo "[preflight] ruff: NOT RUN — ruff 未安装（ENVIRONMENT BLOCKED）"
 fi
-if "$ROOT/$PY" -m mypy --version >/dev/null 2>&1; then
+if "$PY" -m mypy --version >/dev/null 2>&1; then
   # mypy：历史 type-arg/assignment 债务已放宽（pyproject disable_error_code）；
   # 记录错误计数不硬失败（本地预检；CI gate 对新增错误强制）。
-  if (cd backend && "$ROOT/$PY" -m mypy app); then
+  if (cd backend && "$PY" -m mypy app); then
     echo "[preflight] mypy: PASS"
   else
     echo "[preflight] mypy: PASS WITH WARNINGS（历史类型债务，计数见输出；CI gate 强制）"
@@ -61,25 +67,25 @@ else
 fi
 
 # ---------- 3. 发布脚本（backend app 依赖 3.12 语法 → 用 venv python） ----------
-"$ROOT/$PY" scripts/validate_content_packs.py
-"$ROOT/$PY" scripts/claim_scan.py
-"$ROOT/$PY" scripts/check_dynamic_code.py
-"$ROOT/$PY" scripts/safety_eval.py
-"$ROOT/$PY" scripts/contract_drift_check.py
-"$ROOT/$PY" scripts/verify_workflow_pins.py
-"$ROOT/$PY" scripts/audit_dependencies.py
-"$ROOT/$PY" scripts/fault_injection_check.py
+"$PY" scripts/validate_content_packs.py
+"$PY" scripts/claim_scan.py
+"$PY" scripts/check_dynamic_code.py
+"$PY" scripts/safety_eval.py
+"$PY" scripts/contract_drift_check.py
+"$PY" scripts/verify_workflow_pins.py
+"$PY" scripts/audit_dependencies.py
+"$PY" scripts/fault_injection_check.py
 echo "[preflight] content packs / claim scan / dynamic code / safety / contract drift / fault injection: PASS"
 
 # ---------- 4. OpenAPI 导出（漂移由 git diff 检查） ----------
-(cd backend && "$ROOT/$PY" scripts/export_openapi.py)
+(cd backend && "$PY" scripts/export_openapi.py)
 echo "[preflight] openapi export: PASS"
 
 # ---------- 5. Alembic roundtrip（升级 → 降级到 base → 再升级） ----------
 rm -f /tmp/echo-migration.db
-(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$ROOT/$PY" -m alembic upgrade head)
-(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$ROOT/$PY" -m alembic downgrade base)
-(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$ROOT/$PY" -m alembic upgrade head)
+(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$PY" -m alembic upgrade head)
+(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$PY" -m alembic downgrade base)
+(cd backend && DATABASE_URL=sqlite:////tmp/echo-migration.db "$PY" -m alembic upgrade head)
 echo "[preflight] alembic roundtrip: PASS"
 
 # ---------- 6. SBOM JSON 有效性 ----------

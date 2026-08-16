@@ -124,14 +124,21 @@ class PassiveSensingService : Service() {
             else -> {
                 // 已运行时不重复启动（幂等）
                 if (started) return START_STICKY
-                // 三重门控含 DataStore 异步读（consent/micEnabled）：不能在主线程 runBlocking（ANR/死锁风险）。
-                // 门控在后台协程执行，结果回主线程处理；门控不通过则 stopSelf（fail-closed），
-                // startSensing 仍回主线程执行（startForeground/传感器注册）。
+                // ERA 32 R27：先同步进入前台（Android 12+ 的 5 秒 startForeground 期限，
+                // 不再被 DataStore 异步门控拖累——低概率 ForegroundServiceDidNotStartInTime 崩溃源）。
+                // 三重门控（consent/micEnabled，DataStore 异步读）随后在后台协程判定：
+                // 通过 → startSensing 续跑（重断言 FGS 类型）；不通过 → 退前台并 stopSelf（fail-closed）。
+                startForegroundWithTypes(buildNotification(), micReady = false)
                 sensingScope.launch {
                     val allowed = runCatching { canStartSensing() }.getOrDefault(false)
                     val micReady = if (allowed) runCatching { micReadyToStart() }.getOrDefault(false) else false
                     mainHandler.post {
-                        if (allowed) startSensing(micReady) else stopSelf()
+                        if (allowed) {
+                            startSensing(micReady)
+                        } else {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
                     }
                 }
             }
