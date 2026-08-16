@@ -30,6 +30,8 @@ class WearableRuntime(
     private val availableActionsProvider: () -> List<String> = { emptyList() },
     private val ambientStateProvider: () -> WearablePrivacyProjector.WearAmbientState? = { null },
     private val motionSummaryEnabledProvider: () -> Boolean = { false },
+    /** 触觉开关（默认 SILENT）；false → 手环端所有振动 no-op（见 WearSurfaceParams.hapticsEnabled）。 */
+    private val hapticsEnabledProvider: () -> Boolean = { false },
     private val revisionStore: WearRevisionStore = InMemoryWearRevisionStore(),
 ) {
     private val _state = MutableStateFlow(WearableRuntimeState())
@@ -44,17 +46,31 @@ class WearableRuntime(
     private val seenMessageIds = ArrayDeque<String>()
     private var collectJob: Job? = null
     private var presenceJob: Job? = null
+    private var inboundJob: Job? = null
 
     /** 去重窗口上限（超出淘汰最旧；防内存膨胀）。 */
     private val maxSeenMessageIds = 256
 
+    /**
+     * 启动运行时（幂等：先 stop 再重建全部 collectors）。
+     *
+     * Production flow：platform.inboundMessages 在此自动 collect（
+     * WearMessageCodec → dedupe → schema validation → dispatch），
+     * 生产代码不需要也不允许手工调用 [onMessageFromBand]；
+     * 该方法保留为 internal/test entry。
+     */
     fun start(scope: CoroutineScope) {
         stop()
         collectJob = scope.launch {
             platform.connectionState.collect { connection ->
                 val previouslyConnected = wasConnected
                 wasConnected = connection == WearableConnectionState.CONNECTED
-                _state.value = _state.value.copy(connection = connection)
+                _state.value = _state.value.copy(
+                    connection = connection,
+                    // 长跑仪表：CONNECTED → DISCONNECTED 转换计数（进程内）。
+                    disconnectCount = _state.value.disconnectCount +
+                        if (previouslyConnected && connection == WearableConnectionState.DISCONNECTED) 1L else 0L,
+                )
                 if (connection == WearableConnectionState.CONNECTED) {
                     val trigger = if (previouslyConnected) {
                         WearablePolicy.PushTrigger.RECONNECT
@@ -65,12 +81,19 @@ class WearableRuntime(
                 }
             }
         }
+        inboundJob = scope.launch {
+            platform.inboundMessages.collect { text ->
+                _state.value = _state.value.copy(inboundMessageCount = _state.value.inboundMessageCount + 1)
+                onMessageFromBand(text)
+            }
+        }
         presenceJob = scope.launch {
             presenceSource.state.collect { presence ->
                 if (presence == null) return@collect
                 val projection = WearPresenceProjector.project(
                     presence,
                     motionSummaryEnabled = motionSummaryEnabledProvider(),
+                    hapticsEnabled = hapticsEnabledProvider(),
                 )
                 val fingerprint = PresenceRevisionCounter.fingerprint(presence)
                 val changed = fingerprint != lastFingerprint
@@ -85,12 +108,14 @@ class WearableRuntime(
     fun stop() {
         collectJob?.cancel()
         presenceJob?.cancel()
+        inboundJob?.cancel()
         collectJob = null
         presenceJob = null
+        inboundJob = null
     }
 
     /**
-     * 手环入站消息处理（vendor adapter 解码后调用）。
+     * 手环入站消息处理（vendor adapter 解码后调用；生产路径由 [start] 自动 collect）。
      * 返回 false 表示消息被丢弃（重复 / 过期 / 伪造来源）。
      */
     suspend fun onMessageFromBand(text: String): Boolean {
@@ -210,6 +235,7 @@ class WearableRuntime(
         val projection = WearPresenceProjector.project(
             presence,
             motionSummaryEnabled = motionSummaryEnabledProvider(),
+            hapticsEnabled = hapticsEnabledProvider(),
         )
         val headline = if (headlineRequested) {
             WearablePrivacyProjector.headlineFor(presence, ambientStateProvider())
@@ -235,6 +261,7 @@ class WearableRuntime(
             availableActions = availableActionsProvider(),
         )
         val sent = platform.send(WearMessageCodec.encode(WearMessage.Presence(envelope)))
+        _state.value = _state.value.copy(outboundPushCount = _state.value.outboundPushCount + 1)
         if (sent) {
             lastPushedAtMs = nowMs
             lastSentRevision = revision

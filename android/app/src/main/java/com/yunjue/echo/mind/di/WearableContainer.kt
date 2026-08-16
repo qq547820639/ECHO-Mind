@@ -1,5 +1,8 @@
 package com.yunjue.echo.mind.di
 
+import android.content.Context
+import com.yunjue.echo.mind.actions.EchoActionRuntime
+import com.yunjue.echo.mind.ports.PresenceStateSource
 import com.yunjue.echo.mind.wearable.FakeWearablePlatformAdapter
 import com.yunjue.echo.mind.wearable.WearActionHandler
 import com.yunjue.echo.mind.wearable.WearObservationSink
@@ -27,21 +30,33 @@ import kotlinx.coroutines.launch
  * - 手环动作 → 手机 EchoActionRuntime（同一个 Action）；手环观察 → 中立日志（不写 Memory）。
  *
  * 手机没有手环：runtime 静默闲置（Noop 恒 DISCONNECTED），ECHO 完全不受影响。
+ *
+ * 依赖纪律：本容器只接收**最小依赖**（Context + PresenceStateSource + EchoActionRuntime），
+ * 不接收整棵 Container 树——生产装配点在 AppContainer（composition root），
+ * 集成测试可注入 Fake 平台/来源而不必构造数据库链。
  */
 class WearableContainer(
-    private val core: CoreContainer,
-    private val presence: PresenceContainer,
-    private val actions: ActionContainer,
+    applicationContext: Context,
+    private val presenceSource: PresenceStateSource,
+    private val actionRuntime: EchoActionRuntime,
+    /** 测试注入缝：初始平台适配器（默认 = 生产选择：用户断开 → Noop，否则 vendor boundary）。 */
+    platformProvider: (() -> WearablePlatformPort)? = null,
 ) {
-    val prefs = WearablePrefs(core.applicationContext)
+    private val appContext: Context = applicationContext.applicationContext
+
+    val prefs = WearablePrefs(appContext)
 
     private val platformFlow = MutableStateFlow<WearablePlatformPort>(
+        platformProvider?.invoke() ?: defaultPlatform(),
+    )
+
+    /** 生产初始平台：用户主动断开 → Noop（不自动重连）；否则走 vendor boundary（SDK 未集成 → Noop）。 */
+    private fun defaultPlatform(): WearablePlatformPort =
         if (prefs.userDisconnected) {
             com.yunjue.echo.mind.wearable.NoopWearablePlatformAdapter()
         } else {
             XiaomiWearVendorBoundary.currentPlatformAdapter()
-        },
-    )
+        }
 
     /** 当前平台适配器（QA/诊断可见；切换即时生效，运行时不重建）。 */
     val platform: WearablePlatformPort get() = platformFlow.value
@@ -67,15 +82,15 @@ class WearableContainer(
 
     val runtime: WearableRuntime = WearableRuntime(
         platform = delegatingPlatform,
-        presenceSource = presence.presenceRepository,
+        presenceSource = presenceSource,
         actionHandler = WearActionHandler { command ->
             when (command) {
                 com.yunjue.echo.mind.wearable.WearActionCommand.START_BREATHING ->
-                    actions.echoActionRuntime.start(com.yunjue.echo.mind.actions.EchoActionKind.BREATHING)
+                    actionRuntime.start(com.yunjue.echo.mind.actions.EchoActionKind.BREATHING)
                 com.yunjue.echo.mind.wearable.WearActionCommand.START_PAUSE ->
-                    actions.echoActionRuntime.start(com.yunjue.echo.mind.actions.EchoActionKind.PAUSE)
+                    actionRuntime.start(com.yunjue.echo.mind.actions.EchoActionKind.PAUSE)
                 com.yunjue.echo.mind.wearable.WearActionCommand.STOP_ACTION ->
-                    actions.echoActionRuntime.stop()
+                    actionRuntime.stop()
                 else -> Unit // REQUEST_* 由 runtime 内部处理，不经过这里
             }
         },
@@ -86,8 +101,8 @@ class WearableContainer(
             observationLog.record(envelope)
         },
         availableActionsProvider = {
-            val availability = actions.echoActionRuntime.availability(
-                confidence = presence.presenceRepository.state.value?.confidence ?: 0f,
+            val availability = actionRuntime.availability(
+                confidence = presenceSource.state.value?.confidence ?: 0f,
                 ambientKnown = true,
                 suggestionsEnabled = false,
             )
@@ -97,6 +112,7 @@ class WearableContainer(
             )
         },
         motionSummaryEnabledProvider = { prefs.motionSummaryEnabled },
+        hapticsEnabledProvider = { prefs.hapticsEnabled },
         revisionStore = revisionStore,
     )
 
@@ -104,13 +120,23 @@ class WearableContainer(
 
     private var started = false
 
-    /** 启动运行时（幂等）。手环动作变化 → 推送（同一个 Action 的双面同步）。 */
+    /**
+     * 启动运行时（幂等：重复调用 no-op）。
+     *
+     * 唯一生产启动点 = AppContainer 组合（Application scoped，进程存活期间运行；
+     * 进程死亡 → 系统清掉 runtime；下次进程启动 → AppContainer 重建时恢复）。
+     * 禁止 Activity / Screen / Me UI 负责启动。
+     *
+     * 启动后：
+     * - inboundMessages 由 runtime 自动 collect（生产代码不手工调 onMessageFromBand）；
+     * - 手环动作变化 → 推送（同一个 Action 的双面同步）。
+     */
     fun start() {
         if (started) return
         started = true
         runtime.start(scope)
         scope.launch {
-            actions.echoActionRuntime.running.collect {
+            actionRuntime.running.collect {
                 runtime.notifyActionStateChanged()
             }
         }

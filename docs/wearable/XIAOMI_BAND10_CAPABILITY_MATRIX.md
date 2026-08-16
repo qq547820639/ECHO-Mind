@@ -76,6 +76,7 @@
 | 决定 | 依据 |
 |---|---|
 | v1 只依赖 `vibrate short/long`；禁止 pattern 振动 | 官方矩阵 §1.2 |
+| `system.fetch` 不在 manifest 声明（v1 零网络调用）——MINIMUM CAPABILITY DECLARATION：manifest features = interconnect/sensor/vibrator，每一项都有真实 `require('@system.X')` 调用（`DeclaredVelaFeaturesTest` + `tests/preflight.js` 锁定） | 官方矩阵 §1.3 + 源码事实 |
 | 加速度计只在**应用前台**订阅，5–15s 本地窗口输出 summary，不发 raw | 官方矩阵 §1.1（无传感器后台）；[后台运行文档](https://iot.mi.com/vela/quickapp/zh/guide/framework/other/background-running.html) |
 | pressure：v1 仅 CAPABILITY / DIAGNOSTIC，不进 Portrait/Presence/Memory/Journey | 官方矩阵 §1.1（能力存在，产品价值未验证） |
 | 持续感知不来自 Vela JS daemon；stock Band 持续能力 = system/vendor companion state（Android SDK 状态订阅） | 官方矩阵 §1.1 / §2 |

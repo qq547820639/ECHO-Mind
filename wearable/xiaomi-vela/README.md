@@ -30,11 +30,11 @@ node tests/run.js
 
 ```
 src/
-  manifest.json            # package/features(interconnect+sensor+vibrator+fetch)/router
+  manifest.json            # package/features(interconnect+sensor+vibrator)/router（MINIMUM CAPABILITY DECLARATION）
   app.ux                   # 连接恢复 → 请求 Presence；前台加速度计订阅/退订
   pages/echo/index.ux      # TIME + ECHO ORGANISM + 一行公开表达（默认无）
   pages/why/index.ux       # WHY（headline 来自手机；降级时安静）
-  pages/action/index.ux    # BREATHING / PAUSE（同一个手机 Action）
+  pages/action/index.ux    # BREATHING / PAUSE（同一个手机 Action；振动受 surface.hapticsEnabled 硬门）
   common/protocol/         # Wear Protocol v1 JS 编解码（与手机 Kotlin 逐字段一致）
   common/transport/        # system.interconnect 封装
   common/presence/         # revision/TTL 缓存 + 降级（Identity 保留 / Moment → QUIET）

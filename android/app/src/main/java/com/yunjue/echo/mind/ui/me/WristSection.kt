@@ -197,6 +197,11 @@ fun WristSection(container: AppContainer) {
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
+                    "长跑仪表：入站 ${runtimeState.inboundMessageCount} · 推送 ${runtimeState.outboundPushCount}" +
+                        " · 断连 ${runtimeState.disconnectCount}（进程内计数）",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
                     "presence revision：${runtimeState.presenceRevision}",
                     style = MaterialTheme.typography.bodySmall,
                 )

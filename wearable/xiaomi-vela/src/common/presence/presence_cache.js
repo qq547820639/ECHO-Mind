@@ -96,6 +96,10 @@ function create(nowFn) {
       motionLevel: 'QUIET',
       lowPower: true,
       reducedMotion: true,
+      // 表面开关（consent 语义）随缓存保留：降级是 Presence 新鲜度问题，
+      // 不是用户开关被重置（触觉开关必须继续生效，防止降级后误振）。
+      motionSummaryEnabled: cached.envelope.surface.motionSummaryEnabled === true,
+      hapticsEnabled: cached.envelope.surface.hapticsEnabled === true,
     }
     degraded.publicHeadline = null
     return { phase: 'degraded', envelope: degraded, ageMs: age, expired: expired }

@@ -31,7 +31,10 @@ jobs:
       - run: cd android && ./gradlew detekt --stacktrace
       # ERA 33：手环端静态测试（普通 Node 即可运行，无 Vela proprietary 工具链依赖）
       - run: cd wearable/xiaomi-vela && node tests/run.js
-      # ERA 33：ANS_FRAME_V1 黄金门（ANSWatch 真实契约 ↔ schema ↔ Kotlin decoder）
+      # ERA 33：AIoT-IDE 打包前静态预检（结构/manifest/i18n/语法/212×520 布局门）
+      - run: cd wearable/xiaomi-vela && node tests/preflight.js
+      # ERA 33：ANS_FRAME_V1 黄金门（frozen contract ↔ schema ↔ Kotlin decoder；
+      #         ANSWATCH_ROOT/sibling ANSWatch 存在时追加 cross-repo live validation，否则 SKIP）
       - run: python3 integrations/answatch/tools/verify_golden.py
       # v3.3 §13：build status 与本次 pipeline run 绑定（供 release-metadata job 消费）
       - run: echo "passed" > android-build-status.txt

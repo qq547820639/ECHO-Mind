@@ -82,6 +82,7 @@ class WearableRuntimeTest {
         revisionStore: WearRevisionStore = InMemoryWearRevisionStore(),
         presence: PresenceStateSource = FakePresenceSource(),
         clock: Clock = TEST_CLOCK,
+        hapticsEnabledProvider: () -> Boolean = { false },
     ): WearableRuntime = WearableRuntime(
         platform = platform,
         presenceSource = presence,
@@ -89,6 +90,7 @@ class WearableRuntimeTest {
         observationSink = observationSink,
         clock = clock,
         availableActionsProvider = { listOf("START_BREATHING", "START_PAUSE") },
+        hapticsEnabledProvider = hapticsEnabledProvider,
         revisionStore = revisionStore,
     )
 
@@ -351,6 +353,44 @@ class WearableRuntimeTest {
         runCurrent()
         val identityAfter = lastPresence(platform.outbound).identity
         assertEquals(identityBefore, identityAfter)
+    }
+
+    @Test
+    fun start_automaticallyCollectsInboundMessages_noManualDispatchNeeded() = runTest {
+        // ERA 33 P0：生产入站流必须自动进入 runtime
+        // （platform.inboundMessages → codec → dedupe → schema validation → dispatch），
+        // 不得要求外部代码手工调用 onMessageFromBand()。
+        val platform = FakePlatform()
+        val handler = RecordingActionHandler()
+        val runtime = runtime(platform, actionHandler = handler)
+        runtime.start(backgroundScope)
+        runCurrent() // 先让 collectors 完成订阅（SharedFlow 对无订阅者的 emit 直接丢弃）
+
+        val action = WearActionEnvelope(messageId = "a-auto", generatedAt = 1L, command = "START_BREATHING")
+        platform.inbound.emit(WearMessageCodec.encode(WearMessage.Action(action)))
+        runCurrent()
+        assertEquals(listOf(WearActionCommand.START_BREATHING), handler.commands)
+
+        // 重复消息经同一条自动通道 → dedupe 仍然生效
+        platform.inbound.emit(WearMessageCodec.encode(WearMessage.Action(action)))
+        runCurrent()
+        assertEquals(1, handler.commands.size)
+
+        // malformed 消息经自动通道 → 丢弃不崩溃
+        platform.inbound.emit("not json")
+        runCurrent()
+        assertEquals(1, handler.commands.size)
+    }
+
+    @Test
+    fun hapticsProvider_whenTrue_surfaceCarriesTrue() = runTest {
+        val platform = FakePlatform()
+        val runtime = runtime(platform, hapticsEnabledProvider = { true })
+        runtime.start(backgroundScope)
+        platform.connection.value = WearableConnectionState.CONNECTED
+        runCurrent()
+        val presence = lastPresence(platform.outbound)
+        assertTrue("hapticsEnabled provider 为 true 时 surface 必须携带 true", presence.surface.hapticsEnabled)
     }
 
     companion object {

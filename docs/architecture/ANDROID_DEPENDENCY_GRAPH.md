@@ -8,7 +8,7 @@
 
 ```text
 data ──► intelligence, memory, observation, ports, presence, root, security
-di ──► data, intelligence, journey, presence, root, security, wearable
+di ──► actions, data, intelligence, journey, ports, presence, root, security, wearable
 intelligence ──► memory, observation, ports, security
 journey ──► data, intelligence, memory, observation, presence, root
 me ──► data, memory, observation
@@ -51,9 +51,11 @@ ui ──► actions, data, intelligence, journey, me, memory, observation, pres
 - data → presence
 - data → root
 - data → security
+- di → actions
 - di → data
 - di → intelligence
 - di → journey
+- di → ports
 - di → presence
 - di → root
 - di → security

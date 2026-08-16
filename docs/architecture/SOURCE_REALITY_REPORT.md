@@ -40,7 +40,7 @@
 
 ## 数量事实
 - Production Kotlin：196
-- Test Kotlin：139
+- Test Kotlin：141
 - QA Kotlin（:feature:qa，不属于 Production Runtime）：36
 - Python 文件：69
 - Manifest Components：5（缺失源类：0）
@@ -53,7 +53,7 @@
 
 ## Wearable 面（ERA 33）
 - Vela JS 源文件（wearable/xiaomi-vela/src，**.ux + **.js**）：10 —— **Vela ≠ Android Kotlin production count**（JS 快应用独立计数，不并入上文 Kotlin 数量）
-- ANS 集成 schema/golden（integrations/answatch/*.json）：3 —— ANSWatch 为 READ-ONLY 参考仓，其源码不计入本仓 Production 计数
+- ANS 集成 schema/golden（integrations/answatch/*.json）：4 —— ANSWatch 为 READ-ONLY 参考仓，其源码不计入本仓 Production 计数
 ## Manifest Components（跨全部 production module 解析）
 - `:app` `.main.MainActivity` ✅
 - `:app` `.main.sensing.PassiveSensingService` ✅

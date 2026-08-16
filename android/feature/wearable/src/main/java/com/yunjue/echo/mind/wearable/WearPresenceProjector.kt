@@ -53,11 +53,13 @@ object WearPresenceProjector {
         lowPower: Boolean,
         reducedMotion: Boolean,
         motionSummaryEnabled: Boolean = false,
+        hapticsEnabled: Boolean = false,
     ): WearSurfaceParams = WearSurfaceParams(
         motionLevel = wearMotionLevel(identity.motionPersonality, lowPower, reducedMotion),
         lowPower = lowPower,
         reducedMotion = reducedMotion,
         motionSummaryEnabled = motionSummaryEnabled,
+        hapticsEnabled = hapticsEnabled,
     )
 
     /**
@@ -68,11 +70,12 @@ object WearPresenceProjector {
         lowPower: Boolean = false,
         reducedMotion: Boolean = false,
         motionSummaryEnabled: Boolean = false,
+        hapticsEnabled: Boolean = false,
     ): WearProjection = WearProjection(
         maturity = state.maturity.name,
         identity = projectIdentity(state.identityGenome),
         moment = projectMoment(state.dailyComposition),
-        surface = projectSurface(state.identityGenome, lowPower, reducedMotion, motionSummaryEnabled),
+        surface = projectSurface(state.identityGenome, lowPower, reducedMotion, motionSummaryEnabled, hapticsEnabled),
     )
 
     const val MOTION_QUIET: String = "QUIET"

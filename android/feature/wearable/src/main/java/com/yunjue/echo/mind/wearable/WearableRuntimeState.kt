@@ -23,6 +23,12 @@ data class WearableRuntimeState(
     val lastTransportError: String? = null,
     /** 手环端应用是否已安装（vendor 未确认时 null = UNKNOWN，不猜）。 */
     val wearAppInstalled: Boolean? = null,
+    /** 长跑仪表（24h 验证用；进程内计数，进程死亡后清零——设备侧长跑统计见 LONG_RUN_PROTOCOL）。 */
+    val inboundMessageCount: Long = 0L,
+    /** Presence 推送尝试次数（含发送失败；成功与否另见 lastTransportError）。 */
+    val outboundPushCount: Long = 0L,
+    /** CONNECTED → DISCONNECTED 转换次数（进程内）。 */
+    val disconnectCount: Long = 0L,
 ) {
     val isConnected: Boolean get() = connection == WearableConnectionState.CONNECTED
 }

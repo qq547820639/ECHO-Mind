@@ -190,6 +190,9 @@ function decodePresence(root) {
     lowPower: surface.lowPower === true,
     reducedMotion: surface.reducedMotion === true,
     motionSummaryEnabled: surface.motionSummaryEnabled === true,
+    // 触觉开关：手机 Me → envelope.surface（默认 false = SILENT）。
+    // false 时腕上 vibrateShort/vibrateLong 必须全部 no-op。
+    hapticsEnabled: surface.hapticsEnabled === true,
   }
   var headline = readString(root, 'publicHeadline')
   var actions = Array.isArray(root.availableActions) ? root.availableActions.filter(isString) : []

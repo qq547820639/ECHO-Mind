@@ -8,8 +8,7 @@
   "features": [
     { "name": "system.sensor" },
     { "name": "system.vibrator" },
-    { "name": "system.interconnect" },
-    { "name": "system.fetch" }
+    { "name": "system.interconnect" }
   ],
   "permissions": [],
   "config": {

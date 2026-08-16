@@ -115,6 +115,7 @@ export default {
     running: null,
     breathSize: 44,
     accent: 'rgb(190, 180, 160)',
+    hapticsEnabled: false,
   },
 
   onShow() {
@@ -125,6 +126,11 @@ export default {
       const v = visual.computeVisual(state.envelope, {})
       this.accent = v.accent
       this.breathSize = v.coreRadius * 2
+      // 触觉开关来自手机推送的 PUBLIC_SAFE surface（默认 SILENT）。
+      // false → 本页所有 vibrateShort/vibrateLong 必须 no-op（不能只有手机 UI 看起来关了）。
+      this.hapticsEnabled = state.envelope.surface.hapticsEnabled === true
+    } else {
+      this.hapticsEnabled = false
     }
   },
 
@@ -182,8 +188,10 @@ export default {
     tick = 0
   },
 
-  /** 只使用官方确认存在的 Band10 振动能力：short / long。 */
+  /** 只使用官方确认存在的 Band10 振动能力：short / long。
+   *  硬门：surface.hapticsEnabled !== true → 一律 no-op（Breathing / Stop / Action complete 全静默）。 */
   vibrateShort() {
+    if (this.hapticsEnabled !== true) return
     try {
       const vibrator = require('@system.vibrator')
       vibrator.vibrate({ mode: 'short' })
@@ -193,6 +201,7 @@ export default {
   },
 
   vibrateLong() {
+    if (this.hapticsEnabled !== true) return
     try {
       const vibrator = require('@system.vibrator')
       vibrator.vibrate({ mode: 'long' })

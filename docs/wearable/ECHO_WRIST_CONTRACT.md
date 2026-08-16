@@ -55,7 +55,8 @@
 - **Presence 禁止直接序列化整个 EchoPresenceState**：只发
   identity{topology,symmetry,orbit,motion,texture,colorFamily,accent} +
   moment{flow,coherence,density,turbulence,brightness} + maturity +
-  surface{motionLevel,lowPower,reducedMotion} + optional{publicHeadline,availableActions}。
+  surface{motionLevel,lowPower,reducedMotion,motionSummaryEnabled,hapticsEnabled} +
+  optional{publicHeadline,availableActions}。
 
 ### 4.1 Revision / TTL
 
@@ -76,6 +77,19 @@ Action changed / privacy state changed / explicit refresh；Moment 更新 rate l
 
 REQUEST_CURRENT_PRESENCE / REQUEST_WHY / START_BREATHING / STOP_ACTION / START_PAUSE / ACK /
 WRIST_OBSERVATION。
+
+### 4.4 Production wiring（Application scoped，唯一启动点）
+
+- `EchoMindApplication.container → AppContainer 组合 → WearableContainer.start() →
+  WearableRuntime.start(applicationScope)`；禁止 Activity / Screen / Me UI 负责启动。
+- `start()` 幂等；进程存活期间 runtime 存活；进程死亡后下次组合自动恢复
+  （revision 经 WearRevisionStore 持久化，不因进程死亡断裂）。
+- 入站消息自动接线：`platform.inboundMessages` 由 runtime `start()` 自动 collect
+  （codec → dedupe → schema validation → dispatch）；生产代码不手工调用
+  `onMessageFromBand()`（保留为 internal/test entry）。
+- 出站：connection → 当前 Presence 投影推送；Presence 语义 revision → rate-limited 推送；
+  REQUEST_CURRENT_PRESENCE → 立即最新投影；REQUEST_WHY → PUBLIC_SAFE 响应；
+  Action state 变化 → Wrist surface 更新。禁止动画帧同步。
 
 ## 5. SAME ECHO 视觉
 
@@ -110,6 +124,10 @@ Action State → Band + Phone surfaces。Breathing 是同一个 Action，Pause �
 - v1 只允许（显式）：tap confirmation / user-started breathing cadence /
   action completion confirmation；只使用官方确认存在的 Band10 能力 vibrate short|long；
   速率限制 ≥1.5s。
+- **端到端开关**：`Me → WearablePrefs.hapticsEnabled → WearSurfaceParams.hapticsEnabled
+  → envelope.surface → 手环 Presence 缓存 → 腕上 vibrateShort/vibrateLong 硬门`。
+  hapticsEnabled=false（含默认）→ 手环端一切振动 no-op（Breathing/Stop/完成全静默）；
+  不能只有 Android UI 看起来关了。降级（degraded）surface 继续携带该开关（不重置用户设置）。
 
 ## 8. 观察纪律
 
@@ -151,7 +169,9 @@ Advanced：protocol version / last sync / device capability / diagnostics。
 - 未拿到 SDK 禁止凭文档猜 class/interface；SDK AAR 不进 git（获取路径见 vendor boundary）。
 - 生产签名材料不进仓库；interconnect 要求 Android/Vela 同包名同签名（文档化 + CI secret injection）。
 - 允许保留的唯一阻塞标记：`BLOCKED_EXTERNAL_XIAOMI_SDK` / `BLOCKED_EXTERNAL_BAND10_DEVICE` /
-  `BLOCKED_EXTERNAL_PRODUCTION_SIGNING` / `BLOCKED_EXTERNAL_ANS_HARDWARE`
+  `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL` / `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING` /
+  `BLOCKED_EXTERNAL_LONG_RUN_DEVICE_TIME` / `BLOCKED_EXTERNAL_PRODUCTION_SIGNING` /
+  `BLOCKED_EXTERNAL_ANS_HARDWARE`
   （每个含：缺失资源 / 已完成测试 / 确切人工下一步 / 禁止的宣称 —— 见 Capability Matrix §4）。
 
 ## 12. 测试纪律
@@ -164,5 +184,12 @@ Advanced：protocol version / last sync / device capability / diagnostics。
   phone process death / band process death / stale cache / refresh / expired；
   Identity continuity 必须保持。
 - Capability：以 Matrix 为源（SUPPORTED/UNSUPPORTED/UNKNOWN）。
+- Production integration：`WearableApplicationIntegrationTest`（:app）——
+  AppContainer 同款装配 + FakeWearablePlatform + Fake Presence source +
+  real WearableRuntime + real EchoActionRuntime；覆盖自动启动/自动入站消费/连接推送/
+  WHY 往返/动作所有权/手机侧动作 → 腕上推送/观察 sink/disconnect-reconnect/
+  重复消息/伪造 Presence/触觉管道。
+- Manifest capability：`DeclaredVelaFeaturesTest` —— 声明即使用（MINIMUM CAPABILITY
+  DECLARATION）；使用即声明（官方要求 feature 的模块）；未使用（system.fetch）禁止声明。
 - 手环端 Node 静态测试：协议 parity / cache 纪律 / 视觉确定性 / 降级（无 Vela 工具链依赖；
   Vela 构建属外部 proprietary tool，不进 OSS CI）。

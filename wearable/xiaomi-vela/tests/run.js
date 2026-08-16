@@ -11,6 +11,7 @@ const storage = require('../src/common/cache/storage_wrap.js')
 const cache = require('../src/common/presence/presence_cache.js')
 const visual = require('../src/common/visual/wear_visual.js')
 const accel = require('../src/common/sensor/accel_summary.js')
+const declaredFeatures = require('./declared_features_test.js')
 
 let passed = 0
 let failed = 0
@@ -110,6 +111,16 @@ test('surface motionSummaryEnabled parses (consent-first)', () => {
   assert.strictEqual(oldResult.message.surface.motionSummaryEnabled, false)
 })
 
+test('surface hapticsEnabled parses (default SILENT, phone-owned switch)', () => {
+  const on = JSON.stringify(makePresence({ surface: { motionLevel: 'DEFAULT', lowPower: false, reducedMotion: false, hapticsEnabled: true } }))
+  assert.strictEqual(protocol.decodeMessage(on).message.surface.hapticsEnabled, true)
+  // 旧版手机（无该字段）→ 默认 false = SILENT（振动必须 no-op）
+  const oldText = JSON.stringify(makePresence({ surface: { motionLevel: 'DEFAULT', lowPower: false, reducedMotion: false } }))
+  assert.strictEqual(protocol.decodeMessage(oldText).message.surface.hapticsEnabled, false)
+  const explicitOff = JSON.stringify(makePresence({ surface: { motionLevel: 'DEFAULT', lowPower: false, reducedMotion: false, hapticsEnabled: false } }))
+  assert.strictEqual(protocol.decodeMessage(explicitOff).message.surface.hapticsEnabled, false)
+})
+
 test('encodeObservation preserves UNKNOWN as absent (not 0)', () => {
   const msg = protocol.encodeObservation({
     movementClass: 'UNKNOWN',
@@ -165,6 +176,21 @@ test('stale presence degrades moment but keeps identity', () => {
   assert.strictEqual(state.envelope.surface.motionLevel, 'QUIET') // Moment → QUIET
   assert.strictEqual(state.envelope.publicHeadline, null)
   assert.ok(state.envelope.moment.coherence < 0.7)
+})
+
+test('degraded surface keeps consent switches (haptics/motion) — 降级不重置用户开关', () => {
+  storage._resetForTest()
+  const c = cache.create(() => 0)
+  c.apply(makePresence({ revision: 6, surface: { motionLevel: 'DEFAULT', lowPower: false, reducedMotion: false, motionSummaryEnabled: true, hapticsEnabled: true } }), 0)
+  const state = c.state(0 + cache.PRESENCE_TTL_MS + 60 * 1000)
+  assert.strictEqual(state.phase, 'degraded')
+  assert.strictEqual(state.envelope.surface.hapticsEnabled, true)
+  assert.strictEqual(state.envelope.surface.motionSummaryEnabled, true)
+  // 默认（未开启）→ 降级后仍 false（SILENT）
+  const c2 = cache.create(() => 0)
+  c2.apply(makePresence({ revision: 6 }), 0)
+  const state2 = c2.state(0 + cache.PRESENCE_TTL_MS + 60 * 1000)
+  assert.strictEqual(state2.envelope.surface.hapticsEnabled, false)
 })
 
 test('band process death: cache persists and identity continues', () => {
@@ -228,6 +254,12 @@ test('movementClass thresholds mirror neutral classification', () => {
   assert.strictEqual(accel.classifyMotion(1.0), 'WALKING')
   assert.strictEqual(accel.classifyMotion(2.0), 'VIGOROUS')
 })
+
+// ------------------------------------------------------------------ manifest capability closure (Phase 4)
+
+console.log('# declared vela features (MINIMUM CAPABILITY DECLARATION)')
+
+declaredFeatures.run(test)
 
 // ------------------------------------------------------------------ summary
 

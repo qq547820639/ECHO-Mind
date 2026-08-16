@@ -82,6 +82,7 @@ object WearMessageCodec {
             put("lowPower", e.surface.lowPower)
             put("reducedMotion", e.surface.reducedMotion)
             put("motionSummaryEnabled", e.surface.motionSummaryEnabled)
+            put("hapticsEnabled", e.surface.hapticsEnabled)
         }
         return envelopeBase(TYPE_PRESENCE, e).apply {
             put("revision", e.revision)
@@ -184,6 +185,7 @@ object WearMessageCodec {
             lowPower = surfaceJson.optBoolean("lowPower", false),
             reducedMotion = surfaceJson.optBoolean("reducedMotion", false),
             motionSummaryEnabled = surfaceJson.optBoolean("motionSummaryEnabled", false),
+            hapticsEnabled = surfaceJson.optBoolean("hapticsEnabled", false),
         )
         val envelope = WearPresenceEnvelope(
             schemaVersion = schemaVersion,

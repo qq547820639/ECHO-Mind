@@ -48,6 +48,12 @@ data class WearSurfaceParams(
     val reducedMotion: Boolean,
     /** 前台加速度计摘要开关（手机 Me → ECHO on Wrist 的 consent；默认关）。 */
     val motionSummaryEnabled: Boolean = false,
+    /**
+     * 触觉开关（手机 Me → ECHO on Wrist；默认 SILENT）。
+     * false 时手环端 vibrateShort/vibrateLong 必须全部 no-op
+     * （Breathing / Stop / Action complete 全部静默——不能只有 Android UI 看起来关了）。
+     */
+    val hapticsEnabled: Boolean = false,
 )
 
 data class WearPresenceEnvelope(

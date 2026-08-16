@@ -12,7 +12,7 @@
 | Product Era | ERA 33 — ECHO Wrist / Second Body（ERA 32 治理/Personal Intelligence 升级已合入；ERA 33 新增 wearable 产品面：手机 = BRAIN，手环 = BODY + PRESENCE SURFACE，ONE ECHO） |
 | 版本线 | v0.11.0（versionCode 8；开发态，不伪造已发布 v0.12.0——见 §6 批次 8） |
 | 相对 Release Baseline | closure 收口文档提交（发布内容 = LAST_RELEASE_BASELINE `88db3b9`）；ERA 33 为开发态，Release Baseline 不更新 |
-| 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线）；Wearable = Developer Preview / Integration Preview（真机验证前不得宣称 Band10 Production Verified） |
+| 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线）；Wearable = Developer Preview / Integration Preview（真机验证前不得宣称 Band10 Production Verified）。ERA 33 Production wiring 已接通（Application scoped 唯一启动点 + 入站自动 collect + Integration Test 全绿，见 §6 批次 8 状态表） |
 
 ## 2. Last Verified Release
 
@@ -26,14 +26,14 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `62e7a76`，2026-08-16 03:34 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `eed007b`，2026-08-16 09:11 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1170 全绿**（app 906 / feature:intelligence 32 / feature:presence 25 / feature:qa 113 / feature:wearable 94） |
+| Android 单测（testDebugUnitTest） | **1184 全绿**（app 918 / feature:intelligence 32 / feature:presence 25 / feature:qa 113 / feature:wearable 96） |
 | backend pytest | **1084 passed + 1 skipped**（全绿） |
 | Production Kotlin | 196 |
-| Test Kotlin | 139 |
+| Test Kotlin | 141 |
 | QA Kotlin（:feature:qa，非 Production Runtime） | 36 |
 | Python | 69 |
 
@@ -51,9 +51,15 @@
 - **30 天 dogfood 未开始**：协议 `qa/DOGFOOD_PROTOCOL.md` 已就绪，真实长期数据回流后才能验证
   Correction Reuse Rate / False Interpretation Rate / Wallpaper 留存等主指标。
 - **Wearable 外部门（ERA 33）**：`BLOCKED_EXTERNAL_XIAOMI_SDK`（官方穿戴 SDK AAR 未获得）、
-  `BLOCKED_EXTERNAL_BAND10_DEVICE`（无真机）、`BLOCKED_EXTERNAL_PRODUCTION_SIGNING`（签名材料不进仓库）、
+  `BLOCKED_EXTERNAL_BAND10_DEVICE`（无真机）、`BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`
+  （Mi Fitness 第三方应用 Debug 通道未可用）、`BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`
+  （本机无 AIoT-IDE，debug RPK 需官方工具链打包——静态验证/preflight 已全绿，不伪造 RPK 构建）、
+  `BLOCKED_EXTERNAL_LONG_RUN_DEVICE_TIME`（1h/8h/24h 真机长跑未执行；协议与软件仪表已就绪，
+  见 `docs/wearable/LONG_RUN_PROTOCOL.md`）、
+  `BLOCKED_EXTERNAL_PRODUCTION_SIGNING`（签名材料不进仓库）、
   `BLOCKED_EXTERNAL_ANS_HARDWARE`（ANS 无硬件）——每个阻塞的缺失资源/已完成测试/确切人工下一步/
-  禁止的宣称见 `docs/wearable/XIAOMI_BAND10_CAPABILITY_MATRIX.md` §4。软件侧闭环不受其影响，已全部完成。
+  禁止的宣称见 `docs/wearable/XIAOMI_BAND10_CAPABILITY_MATRIX.md` §4；
+  真机安装流程基准与验收清单见 `docs/wearable/BAND10_INSTALL_GUIDE.md`。
 
 ## 5. Known Engineering Risks
 
@@ -96,15 +102,35 @@
    assembleRelease 全 40 位 commit 钉定 + 测试密钥签名 v2,v3 + provenance 绑定 + final package §18 门禁 +
    test_release_set/test_source_archive 16/16（`docs/CHANGELOG/ERA32_ROUND05_RELEASE.md`）。
    下一批：真实数据回流后 Batch D/E/F；真机可用即执行 Batch B。
-8. **ECHO Wrist / Second Body**（ERA 33）✅ 软件闭环完成——`:feature:wearable` domain + Wear Protocol v1 +
-   隐私投影 + same-ECHO 投影器 + Vela 快应用（`wearable/xiaomi-vela/`）+ Android vendor boundary
-   （Noop/Fake + XiaomiWearCapabilityMapper）+ 同一 EchoActionRuntime + 腕上观察模型 +
-   ANS_FRAME_V1 schema/golden/decoder/mapper/promotion policy + Me → "ECHO on Wrist" +
-   协议/隐私/连接/视觉/黄金门测试全绿 + CI gate + Source Reality 更新。
-   契约：`docs/wearable/ECHO_WRIST_CONTRACT.md`（能力矩阵/隐私/ANS 集成同目录）。
-   外部阻塞：见 §4（四个 BLOCKED_EXTERNAL_*，软件侧全部完成）。
-   版本：开发态不动 Release Baseline；完成全部软件项后按版本纪律准备 v0.12.0 / versionCode 9，
-   真机验证前只标 Developer Preview / Integration Preview。
+8. **ECHO Wrist / Second Body**（ERA 33）✅ 软件侧实施完成（状态表见下，不再笼统写"closure complete"）——
+   `:feature:wearable` domain + Wear Protocol v1 + 隐私投影 + same-ECHO 投影器 +
+   Vela 快应用（`wearable/xiaomi-vela/`）+ Android vendor boundary（Noop/Fake + XiaomiWearCapabilityMapper）+
+   同一 EchoActionRuntime + 腕上观察模型 + ANS_FRAME_V1 schema/golden/decoder/mapper/promotion policy +
+   Me → "ECHO on Wrist"。契约：`docs/wearable/ECHO_WRIST_CONTRACT.md`（能力矩阵/隐私/ANS 集成同目录）。
+
+   **ERA 33 R1 状态表（每一项独立标注，禁止用一个总 ✅ 掩盖外部门）**：
+
+   | 项 | 状态 | 证据 |
+   |---|---|---|
+   | Wearable Domain | PASS | `:feature:wearable` 96 单测全绿 |
+   | Protocol | PASS | Kotlin codec + Vela JS parity 测试全绿 |
+   | Privacy | PASS | payload 扫描测试全绿 |
+   | Production Runtime Wiring | **PASS** | Application scoped 唯一启动点（AppContainer 组合 → `WearableContainer.start()`，幂等）；`WearableRuntime.start()` 自动 collect `inboundMessages`；`WearableApplicationIntegrationTest`（:app）9/9 证明全链（连接推送/WHY 往返/同一 Action/观察 sink/断连重连/重复/伪造 Presence） |
+   | Haptics 端到端 | **PASS**（软件侧） | `prefs.hapticsEnabled → envelope.surface.hapticsEnabled → 腕上 vibrate 硬门`（默认 SILENT）；降级 surface 不重置开关；Kotlin + Node 双端测试锁定 |
+   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门） |
+   | Vela RPK Build | **BLOCKED** | `BLOCKED_EXTERNAL_AIOT_IDE_PACKAGING`（本机无 AIoT-IDE；不伪造 SUCCESS；静态验证 + 打包预检全绿） |
+   | Band10 Install | **BLOCKED** | `BLOCKED_EXTERNAL_BAND10_DEVICE` + `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`（流程基准见 `docs/wearable/BAND10_INSTALL_GUIDE.md`） |
+   | Interconnect | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（vendor bridge）+ 真机/签名材料 |
+   | Xiaomi Vendor SDK | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（Noop 恒 DISCONNECTED，不伪装 vendor connectivity） |
+   | ANS Contract | PASS | frozen REQUIRED_FIELDS（35）+ schema + Kotlin decoder 黄金门 |
+   | ANS Cross-repo Validation | PASS（本工作区）/ SKIP（无 ANSWatch 时） | `verify_golden.py`：ANSWATCH_ROOT > sibling ../ANSWatch > SKIP with reason；frozen 验证恒 PASS；CI 不再强依赖 ../ANSWatch |
+   | Source Closure | PASS | SOURCE_MANIFEST 1171 文件 verify 0 missing / 0 mismatch |
+
+   版本：开发态不动 Release Baseline；v0.12.0 / versionCode 9 只在
+   Production wiring + Source closure + RPK build + 至少真机安装全绿后再决定；
+   Interconnect/24h/battery/signing 也完成才考虑正式 `v0.12.0`。
+   Release claims 纪律：当前只能宣称 "ECHO Wrist buildable（静态验证全绿）"；
+   不得宣称 installed / connected / Production Ready（见 `docs/wearable/BAND10_INSTALL_GUIDE.md` §3）。
 
 ## 7. Governance（冻结纪律）
 
@@ -124,6 +150,8 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
+
 
 
 

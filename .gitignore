@@ -48,3 +48,12 @@ dist/
 
 # Gradle Kotlin session dir
 **/.kotlin/
+
+# Vela RPK 交付物（不入库；本地测试 artifact，禁止伪装 Release）
+wearable/xiaomi-vela/dist/
+
+# Vela 签名材料（私钥/证书/p12 永不入库 —— docs/wearable/ECHO_WRIST_SIGNING.md §3）
+sign/
+private.pem
+certificate.pem
+*.p12
