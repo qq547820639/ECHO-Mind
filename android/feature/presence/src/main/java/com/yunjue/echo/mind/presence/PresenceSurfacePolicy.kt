@@ -49,26 +49,4 @@ fun shouldRefreshSnapshot(lastReadMs: Long, nowMs: Long, intervalMs: Long = SNAP
 /** 快照重读最小间隔（1s：与 15 分钟更新节奏相比极保守）。 */
 const val SNAPSHOT_REFRESH_INTERVAL_MS = 1000L
 
-/**
- * ERA 31 R13（§16 Battery Reality）——可见期自适应帧间隔（纯函数，JVM 可测）。
- *
- * 目标：静态/低变化阶段自动降低 frame rate；不可见 = 0 渲染（由 WallpaperRenderController 保证）。
- * - 视觉参数刚变化（<2s）或触摸涟漪进行中 → 33ms（过渡流畅；30fps 对慢速有机运动已足够）；
- * - 静置期 → 250ms（4fps）：呼吸周期 4-6s 仍有约 20 帧步进，慢速有机观感不受损，
- *   帧率降至可见期约 1/8——§16「静态期自动降帧」落地；
- * - 真机 CPU/GPU/battery 数字仍由 DEVICE_CHECKLIST 采集（本函数只定义策略）。
- */
-fun wallpaperFrameIntervalMs(msSinceVisualChange: Long, rippleActive: Boolean): Long = when {
-    rippleActive -> TRANSITION_FRAME_INTERVAL_MS
-    msSinceVisualChange < TRANSITION_WINDOW_MS -> TRANSITION_FRAME_INTERVAL_MS
-    else -> IDLE_FRAME_INTERVAL_MS
-}
 
-/** 过渡期帧间隔（30fps）。 */
-const val TRANSITION_FRAME_INTERVAL_MS = 33L
-
-/** 静置期帧间隔（4fps）。 */
-const val IDLE_FRAME_INTERVAL_MS = 250L
-
-/** 参数变化后的流畅窗口。 */
-const val TRANSITION_WINDOW_MS = 2_000L

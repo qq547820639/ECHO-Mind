@@ -28,6 +28,9 @@ class EchoWallpaperService : WallpaperService() {
     companion object {
         /** 触摸涟漪衰减时长。 */
         const val RIPPLE_DURATION_MS = 1200L
+
+        /** PowerManager.THERMAL_STATUS_SEVERE 的值（API 29 常量；低 API 不参与热态调度，仅作数值比较）。 */
+        private const val THERMAL_SEVERE_LEVEL = 4
     }
 
     inner class EchoEngine : Engine() {
@@ -41,6 +44,12 @@ class EchoWallpaperService : WallpaperService() {
 
         /** ERA 3 收尾（WORK-ERA3-2）：触摸涟漪衰减截止时间（0 = 无涟漪）。 */
         private var rippleUntilMs = 0L
+        /** §70：触摸点（归一化；进入 transient interaction ripple）。 */
+        private var touchX = 0.5f
+        private var touchY = 0.5f
+        private var lastTouchMs = 0L
+        /** §68：launcher offset 平移（±5% width 上限；Reduced Motion 关闭）。 */
+        private var launcherOffsetX = 0f
 
         private val prefs: SharedPreferences by lazy {
             applicationContext.getSharedPreferences(
@@ -66,6 +75,11 @@ class EchoWallpaperService : WallpaperService() {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     if (render.onTouch()) {
                         rippleUntilMs = System.currentTimeMillis() + RIPPLE_DURATION_MS
+                        lastTouchMs = System.currentTimeMillis()
+                        val w = resources.displayMetrics.widthPixels.takeIf { it > 0 } ?: 1
+                        val h = resources.displayMetrics.heightPixels.takeIf { it > 0 } ?: 1
+                        touchX = (event.x / w).coerceIn(0f, 1f)
+                        touchY = (event.y / h).coerceIn(0f, 1f)
                         drawFrame()
                     }
                 }
@@ -82,6 +96,20 @@ class EchoWallpaperService : WallpaperService() {
                 refreshSnapshot()
             }
             if (render.renderActive) startRendering() else stopRendering()
+        }
+
+        override fun onOffsetsChanged(
+            xOffset: Float,
+            yOffset: Float,
+            xOffsetStep: Float,
+            yOffsetStep: Float,
+            xPixelOffset: Int,
+            yPixelOffset: Int,
+        ) {
+            // §68：launcher offset 最多 ±5% width；Reduced Motion → parallax off
+            val reduced = prefs.getBoolean("presence_reduce_motion", false)
+            launcherOffsetX = if (reduced) 0f else (xOffset - 0.5f).coerceIn(-0.05f, 0.05f)
+            super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset)
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -125,13 +153,24 @@ class EchoWallpaperService : WallpaperService() {
             val callback = object : Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
                     drawFrame()
-                    // ERA 31 R13（§16）：自适应帧间隔——过渡期 33ms / 静置期 250ms（4fps）
-                    val rippleActive = rippleUntilMs > System.currentTimeMillis()
-                    val interval = wallpaperFrameIntervalMs(
-                        msSinceVisualChange = System.currentTimeMillis() - lastVisualChangeMs,
-                        rippleActive = rippleActive,
-                    )
-                    Choreographer.getInstance().postFrameCallbackDelayed(this, interval)
+                    // V3 §69：调度优先级表（0/8/10/12/18/30fps；30 cap）
+                    val now = System.currentTimeMillis()
+                    val config = surfaceConfig()
+                    val delay = WallpaperScheduler.wallpaperFrameDelayMs(
+                        visible = render.renderActive,
+                        reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+                        thermalSevereOrWorse = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
+                            .currentThermalStatus(applicationContext) >= THERMAL_SEVERE_LEVEL,
+                        powerSave = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
+                            .isPowerSave(applicationContext),
+                        msSinceTouch = now - lastTouchMs,
+                        msSincePresenceUpdate = now - lastVisualChangeMs,
+                        night = config.nightMode,
+                    ) ?: run {
+                        stopRendering()
+                        return
+                    }
+                    Choreographer.getInstance().postFrameCallbackDelayed(this, delay)
                 }
             }
             frameCallback = callback
@@ -161,22 +200,27 @@ class EchoWallpaperService : WallpaperService() {
                 val config = surfaceConfig()
                 if (startNanos == 0L) startNanos = System.nanoTime()
                 val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-                // 触摸涟漪：衰减 1.2s 内的瞬时强度（不改底层 identity，纯表现层）
-                val ripple = if (rippleUntilMs > System.currentTimeMillis()) {
-                    (rippleUntilMs - System.currentTimeMillis()).toFloat() / RIPPLE_DURATION_MS
-                } else {
-                    0f
-                }
-                // visual-runtime R2：Wallpaper 复用 core/visual 分层 organism（SAME ECHO；无文字 Public Safe）。
-                // 涟漪映射到 momentIntensity 瞬时增强（identity 不变），REDUCED_MOTION 下不增动效。
+                // visual-runtime R2 + V3：Wallpaper 复用 core/visual organism（SAME ECHO；无文字 Public Safe）。
                 val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
                     presence ?: EchoPresenceState(), hourOfDay,
-                ).let { g ->
-                    if (ripple > 0f && config.surface != SurfaceMode.REDUCED_MOTION) {
-                        g.copy(momentIntensity = (g.momentIntensity + ripple).coerceIn(0f, 1f))
-                    } else {
-                        g
-                    }
+                )
+                // §70：触摸窗口内使用与 App 同一 transient ripple（Gaussian 形变 + 1 ripple）；
+                // 不开 App / 不 call AI / 不写 Presence。
+                val rippleAgeMs = if (rippleUntilMs > System.currentTimeMillis()) {
+                    RIPPLE_DURATION_MS - (rippleUntilMs - System.currentTimeMillis())
+                } else {
+                    -1L
+                }
+                val interaction = if (rippleAgeMs >= 0L) {
+                    com.yunjue.echo.mind.visual.render.EchoInteractionSpec(
+                        active = true,
+                        touchX = touchX,
+                        touchY = touchY,
+                        envelope = com.yunjue.echo.mind.visual.motion.MotionEvaluator
+                            .interactionEnvelope(rippleAgeMs),
+                    )
+                } else {
+                    com.yunjue.echo.mind.visual.render.EchoInteractionSpec()
                 }
                 val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
                     spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
@@ -186,10 +230,24 @@ class EchoWallpaperService : WallpaperService() {
                     ),
                     width = canvas.width.toFloat(),
                     height = canvas.height.toFloat(),
+                    options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                        maturityName = (presence ?: EchoPresenceState()).maturity.name,
+                        quality = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
+                            .currentQuality(applicationContext),
+                        reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+                        interaction = interaction,
+                    ),
+                )
+                // §68：portrait center x=.50W / y=.43H；launcher offset ≤±5% width
+                canvas.save()
+                canvas.translate(
+                    launcherOffsetX * canvas.width,
+                    (0.43f - 0.50f) * canvas.height,
                 )
                 com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(
                     canvas, frame, canvas.width.toFloat(), canvas.height.toFloat(),
                 )
+                canvas.restore()
             } finally {
                 runCatching { holder.unlockCanvasAndPost(canvas) }
             }

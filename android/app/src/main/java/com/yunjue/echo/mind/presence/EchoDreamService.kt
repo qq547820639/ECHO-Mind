@@ -97,14 +97,18 @@ internal class EchoDreamView(context: Context) : View(context) {
             width = w,
             height = h,
         )
+        // §71：Dream center x=.5 y≈.46
+        canvas.save()
+        canvas.translate(0f, (0.46f - 0.50f) * h)
         com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(canvas, frame, w, h)
+        canvas.restore()
         drawPublicSafeOverlay(canvas, frame.frontMembrane.color, w, h)
 
-        // ERA 31 R14（§16）：与 Wallpaper 同款自适应帧率——过渡期 33ms / 静置期 250ms（4fps）。
+        // V3 §71：Dream 帧率——entry 前 3s 24fps / steady 15 / reduced 8；
         // View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止（0 残留渲染语义保持）。
-        val interval = wallpaperFrameIntervalMs(
-            msSinceVisualChange = System.currentTimeMillis() - lastVisualChangeMs,
-            rippleActive = false,
+        val interval = com.yunjue.echo.mind.presence.WallpaperScheduler.dreamFrameDelayMs(
+            elapsedSinceStartMs = System.nanoTime().let { (it - startNanos) / 1_000_000L },
+            reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
         )
         postDelayed({ invalidate() }, interval)
     }
@@ -133,8 +137,14 @@ internal class EchoDreamView(context: Context) : View(context) {
             textAlign = Paint.Align.CENTER
         }
 
+        // §72：burn-in——clock/date 每分钟 deterministic offset（x[-3,+3]dp / y[-2,+2]dp，不跳变）
+        val minuteOfDay = LocalTime.now().let { it.hour * 60 + it.minute }
+        val (oxDp, oyDp) = com.yunjue.echo.mind.presence.WallpaperScheduler.burnInOffsetDp(minuteOfDay)
+        val density = resources.displayMetrics.density
+        val ox = oxDp * density
+        val oy = oyDp * density
         canvas.drawText("ECHO", w / 2f, h * 0.22f, wordmark)
-        canvas.drawText(LocalTime.now().format(timeFormatter), w / 2f, h * 0.34f, clock)
-        canvas.drawText(LocalDate.now().format(dateFormatter), w / 2f, h * 0.41f, date)
+        canvas.drawText(LocalTime.now().format(timeFormatter), w / 2f + ox, h * 0.34f + oy, clock)
+        canvas.drawText(LocalDate.now().format(dateFormatter), w / 2f + ox, h * 0.41f + oy, date)
     }
 }
