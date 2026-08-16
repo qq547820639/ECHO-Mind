@@ -268,7 +268,7 @@ object OrganismFrameComputer {
         val haloBase = field.halo.coerceIn(0f, 1f) * motion.haloMultiplier
         halos += Halo(
             radiusFraction = baseR * 1.24f,
-            alpha = (0.011f + haloBase * 0.028f) * (0.5f + spec.capabilities.motionComplexity * 0.5f) *
+            alpha = (0.006f + haloBase * 0.016f) * (0.5f + spec.capabilities.motionComplexity * 0.5f) *
                 options.haloScale.coerceIn(0f, 1f),
             widthFraction = 0.0028f,
         )
@@ -282,9 +282,9 @@ object OrganismFrameComputer {
 
         // ---- 8. 前膜（§18 front membrane：前半球壳层微光） ----
         val frontMembrane = FrontMembrane(
-            radiusFraction = baseR * 0.94f,
+            radiusFraction = baseR * 0.90f,
             color = primary,
-            alpha = 0.028f + field.coherence * 0.038f,
+            alpha = 0.024f + field.coherence * 0.032f,
         )
 
         // ---- 9. 涟漪（§29 触摸 1 个 ripple；moment 瞬时响应保留既有语义） ----
@@ -462,7 +462,7 @@ object OrganismFrameComputer {
                 pts += StrokePoint(
                     x = 0.5f + px * ctx.baseR * ctx.sx,
                     y = 0.5f + py * ctx.baseR * ctx.sy,
-                    alpha = (0.30f + ctx.field.coreOpenness * 0.30f) *
+                    alpha = (0.38f + ctx.field.coreOpenness * 0.32f) *
                         sin(t * PI.toFloat()).coerceIn(0.2f, 1f),
                 )
             }
@@ -518,7 +518,7 @@ object OrganismFrameComputer {
             var alpha = classCap * (0.45f + 0.55f * pb.sizeJitter) *
                 (0.5f + 0.5f * (p.z + 1f) * 0.5f) * (0.55f + ctx.field.coherence * 0.45f)
             // 远壳层粒子淡出（§24 视觉质量集中于 .9R 内；粒子场拓扑不变，只降远层可见度）
-            alpha *= lerp(1f, 0.28f, smoothstep(0.68f, 1.02f, pb.shellRadius))
+            alpha *= lerp(1f, 0.22f, smoothstep(0.62f, 0.96f, pb.shellRadius))
             if (p.z < 0f) {
                 val r2 = sqrt(p.x * p.x + p.y * p.y)
                 alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)

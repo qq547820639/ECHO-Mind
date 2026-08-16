@@ -4,14 +4,16 @@
 
 /* 色相桶：identity.accentHue 量化为 8 桶（与手机 WearPresenceProjector 同 hsv 公式，
    s=0.55, v=0.9；确定性：同一 accentHue → 同一桶）。 */
-.hue-0 { background-color: rgb(230, 103, 103); border-color: rgb(230, 103, 103); }
-.hue-1 { background-color: rgb(230, 192, 103); border-color: rgb(230, 192, 103); }
-.hue-2 { background-color: rgb(174, 230, 103); border-color: rgb(174, 230, 103); }
-.hue-3 { background-color: rgb(103, 230, 160); border-color: rgb(103, 230, 160); }
-.hue-4 { background-color: rgb(103, 214, 230); border-color: rgb(103, 214, 230); }
-.hue-5 { background-color: rgb(103, 140, 230); border-color: rgb(103, 140, 230); }
-.hue-6 { background-color: rgb(166, 103, 230); border-color: rgb(166, 103, 230); }
-.hue-7 { background-color: rgb(230, 103, 200); border-color: rgb(230, 103, 200); }
+/* V3 §12：identity 色族收敛蓝—紫（218°..262°，与手机端 LCh palette 同族）；
+   禁止整颗 ECHO 变橙/红。8 桶沿蓝紫带均匀分布（s=0.55, v=0.9）。 */
+.hue-0 { background-color: rgb(103, 144, 230); border-color: rgb(103, 144, 230); }
+.hue-1 { background-color: rgb(103, 132, 230); border-color: rgb(103, 132, 230); }
+.hue-2 { background-color: rgb(103, 121, 230); border-color: rgb(103, 121, 230); }
+.hue-3 { background-color: rgb(103, 109, 230); border-color: rgb(103, 109, 230); }
+.hue-4 { background-color: rgb(109, 103, 230); border-color: rgb(109, 103, 230); }
+.hue-5 { background-color: rgb(121, 103, 230); border-color: rgb(121, 103, 230); }
+.hue-6 { background-color: rgb(132, 103, 230); border-color: rgb(132, 103, 230); }
+.hue-7 { background-color: rgb(144, 103, 230); border-color: rgb(144, 103, 230); }
 .hue-neutral { background-color: rgb(190, 180, 160); border-color: rgb(190, 180, 160); }
 
 .ring-s { width: 104px; height: 104px; }
@@ -20,6 +22,9 @@
 .ring-a-1 { opacity: 0.3; }
 .ring-a-2 { opacity: 0.5; }
 .ring-a-3 { opacity: 0.7; }
+
+.ring-outer { width: 190px; height: 190px; }
+.ring-mid { width: 158px; height: 158px; }
 
 .glow-s { width: 73px; height: 73px; }
 .glow-m { width: 115px; height: 115px; }
@@ -41,3 +46,35 @@
   from { transform: scale(1); }
   to { transform: scale(1.08); }
 }
+
+/* V3 §73：hollow core（暗腔 + 缘环，非实心球）。 */
+.core-hollow {
+  background-color: #02040c;
+  border-width: 2px;
+  border-radius: 50%;
+}
+/* chirality：轨道方向（identity 哈希派生，同一 ECHO 恒同向）。 */
+.spin-reverse { animation-direction: reverse; }
+/* 粒子位（12 槽；位置类 + corePulse 族动画，无绑定 style——Vela 兼容形态）。 */
+.particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  animation-name: corePulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+.p-0 { left: 100px; top: 12px; animation-duration: 7.4s; }
+.p-1 { left: 152px; top: 32px; animation-duration: 8.1s; }
+.p-2 { left: 186px; top: 82px; animation-duration: 6.8s; }
+.p-3 { left: 192px; top: 140px; animation-duration: 7.8s; }
+.p-4 { left: 162px; top: 186px; animation-duration: 8.6s; }
+.p-5 { left: 106px; top: 198px; animation-duration: 7.1s; }
+.p-6 { left: 52px; top: 186px; animation-duration: 8.3s; }
+.p-7 { left: 18px; top: 142px; animation-duration: 6.9s; }
+.p-8 { left: 12px; top: 84px; animation-duration: 7.6s; }
+.p-9 { left: 50px; top: 30px; animation-duration: 8.8s; }
+.p-10 { left: 130px; top: 60px; animation-duration: 7.2s; }
+.p-11 { left: 70px; top: 120px; animation-duration: 8.0s; }

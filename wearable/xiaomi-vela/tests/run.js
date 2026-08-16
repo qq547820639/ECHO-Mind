@@ -237,10 +237,24 @@ test('low power / reduced motion → slowest update (battery first)', () => {
   assert.strictEqual(quiet.intervalMs, 2000)
 })
 
-test('particle budget small (few shapes, no particle engine)', () => {
+test('V3 §73 wrist visual budget (2-4 loops, 8-18 particles)', () => {
   const v = visual.computeVisual(makePresence(), {})
-  assert.ok(v.particles.length <= 6)
-  assert.ok(v.textureSteps <= 6)
+  assert.ok(v.particles.length >= 8 && v.particles.length <= 18)
+  assert.ok(v.textureSteps >= 2 && v.textureSteps <= 4)
+  assert.ok(v.chirality === 1 || v.chirality === -1)
+})
+
+test('V3 §74 stale → QUIET（particles × .10 / pulse ×1.35；无红色 ERROR）', () => {
+  const fresh = visual.computeVisual(makePresence(), { phase: 'fresh' })
+  const stale = visual.computeVisual(makePresence(), { phase: 'degraded' })
+  assert.ok(stale.stale === true)
+  assert.ok(stale.particles[0].alpha < fresh.particles[0].alpha)
+  assert.ok(stale.intervalMs >= 2000)
+})
+
+test('V3 §73 wake 12fps / steady 8fps equivalent cadence', () => {
+  const v = visual.computeVisual(makePresence(), {})
+  assert.strictEqual(v.intervalMs, 125) // steady ≈ 8fps；wake 前 4s 由页面 83ms 驱动
 })
 
 // ------------------------------------------------------------------ accel summary

@@ -81,35 +81,47 @@ function computeVisual(envelope, options) {
   var orbitRadius = 52 + 26 * orbit + 10 * (1 - moment.coherence)
   var orbitAlpha = 0.25 + 0.5 * moment.coherence
   var glowRadius = coreRadius * (1.4 + 0.8 * moment.brightness)
-  var textureSteps = 3 + Math.min(3, Math.round(clamp01(identity.texture / 3) * 3)) // 纹理族 → 环层数（3-6，few shapes）
+  // V3 §73：2–4 loops（纹理族 → 环数；few shapes）
+  var textureSteps = 2 + Math.min(2, Math.round(clamp01(identity.texture / 3) * 2))
   var turbulenceShift = (moment.turbulence - 0.5) * 10
+  // V3 §73：chirality——由 identity 哈希确定性派生（腕上不持有 seed，同一 ECHO 恒同向）
+  var chirality = (hash & 1) === 0 ? 1 : -1
+
+  // V3 §74：断连/陈旧 → Moment QUIET（identity 保留；particles × .10 / pulse ×1.35 / filament × .12）
+  var stale = options.phase === 'degraded'
+  var staleParticleScale = stale ? 0.10 : 1
+  var stalePulseScale = stale ? 1.35 : 1
 
   var particles = []
-  var particleCount = Math.min(6, 2 + Math.round(moment.density * 4))
+  // V3 §73：8–18 粒子（本端取 8..12，DOM 预算内）
+  var particleCount = 8 + Math.min(4, Math.round(clamp01(moment.density) * 4))
   for (var i = 0; i < particleCount; i++) {
-    var ang = (rand1 + i / particleCount) * Math.PI * 2
+    var ang = (rand1 + i / particleCount) * Math.PI * 2 * chirality
     var dist = (0.55 + 0.45 * ((rand2 + i * 0.37) % 1)) * orbitRadius
     particles.push({
       dx: Math.round(Math.cos(ang) * dist),
       dy: Math.round(Math.sin(ang) * dist * 0.92), // 狭长屏：纵向略压缩
-      alpha: 0.2 + 0.4 * moment.flow,
+      alpha: (0.2 + 0.4 * moment.flow) * staleParticleScale,
       radius: 3 + Math.round(2 * moment.brightness),
     })
   }
 
+  // V3 §73：wake 前 4s ≈ 12fps（83ms）→ steady ≈ 8fps（125ms）；display off = 0（页面 onHide 停止）
   var intervalMs
-  if (surface.lowPower || surface.reducedMotion) {
-    intervalMs = 2000 // idle：明显降低更新
+  if (surface.lowPower || surface.reducedMotion || stale) {
+    intervalMs = 2000 // idle / stale：明显降低更新
   } else if (surface.motionLevel === 'LIVELY') {
-    intervalMs = 500
+    intervalMs = Math.round(125 * stalePulseScale)
   } else if (surface.motionLevel === 'QUIET') {
-    intervalMs = 1500
+    intervalMs = 250
   } else {
-    intervalMs = 800
+    intervalMs = Math.round(125 * stalePulseScale)
   }
 
   return {
     phase: options.phase || 'fresh',
+    chirality: chirality,
+    stale: stale,
     maturity: envelope.maturity,
     motionLevel: surface.motionLevel,
     coreRadius: Math.round(coreRadius),

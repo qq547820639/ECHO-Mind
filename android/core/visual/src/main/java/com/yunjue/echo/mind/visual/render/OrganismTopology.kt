@@ -149,7 +149,7 @@ object OrganismTopologyBuilder {
             val roll = DeterministicRandom.range(seed, 310 + i, 0f, TWO_PI)
             rings += StructuralRingTopo(
                 plane = planeFromTiltRoll(tilt, roll),
-                radiusRatio = 0.66f + 0.045f * i + identity.orbitalBias * 0.5f,
+                radiusRatio = 0.62f + 0.042f * i + identity.orbitalBias * 0.4f,
                 lobeHarmonicAmp = 0.015f + 0.02f * DeterministicRandom.at(seed, 320 + i),
                 phase = identity.identityPhase * TWO_PI + i * 0.9f,
             )
@@ -227,7 +227,7 @@ object OrganismTopologyBuilder {
             val r = identity.coreRatio * (0.35f + 0.45f * DeterministicRandom.at(seed, 710 + i))
             knots += CoreKnotTopo(
                 offset = Vec3(cos(angle) * r, sin(angle) * r * 0.8f, 0.25f * r),
-                radiusRatio = 0.013f + 0.015f * DeterministicRandom.at(seed, 720 + i),
+                radiusRatio = 0.016f + 0.018f * DeterministicRandom.at(seed, 720 + i),
                 warm = i == 0, // 仅一个小暖结（§12 暖色面积上限由渲染执行）
             )
         }

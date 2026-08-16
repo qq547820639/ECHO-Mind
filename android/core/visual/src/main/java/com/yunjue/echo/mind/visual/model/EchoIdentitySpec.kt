@@ -51,9 +51,13 @@ data class EchoIdentitySpec(
 
         private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t.coerceIn(0f, 1f)
 
+        private fun fracOf(v: Long): Float = (v ushr 40 and 0xFFFFFF).toFloat() / 16777215f
+
         /** identitySeed → 完整身份规格（纯函数；同 seed 恒同结果）。 */
         fun derive(seed: Long): EchoIdentitySpec {
-            val primaryHue = 218f + 44f * identityUnit(seed, 20)           // §12：218°..262°
+            // §12 primary hue 与 EchoIdentityGenome.accentHue 同源（frac(mix(seed,1))）——
+            // App / Wallpaper / Dream / Wrist 呈现同一 hue 族（SAME ECHO 色族一致）。
+            val primaryHue = 218f + 44f * fracOf(DeterministicRandom.mix(seed, 1)) // 218°..262°
             val secondaryHue = primaryHue + 22f + 22f * identityUnit(seed, 21) // §12：+22°..44°
             val warmHue = 28f + 12f * identityUnit(seed, 22)               // §12：28°..40°
             return EchoIdentitySpec(
@@ -70,8 +74,8 @@ data class EchoIdentitySpec(
                 particleDepthBias = identityUnit(seed, 10),
                 warmKnotTopology = identityUnit(seed, 11),
                 palette = EchoPaletteSpec(
-                    primary = PerceptualColor(l = 0.66f, c = 0.105f, h = primaryHue),
-                    secondary = PerceptualColor(l = 0.58f, c = 0.085f, h = secondaryHue),
+                    primary = PerceptualColor(l = 0.78f, c = 0.12f, h = primaryHue),
+                    secondary = PerceptualColor(l = 0.62f, c = 0.095f, h = secondaryHue),
                     warm = PerceptualColor(l = 0.72f, c = 0.12f, h = warmHue),
                 ),
             )

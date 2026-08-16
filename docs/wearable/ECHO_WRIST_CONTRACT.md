@@ -118,7 +118,9 @@ WRIST_OBSERVATION。
   **外部 simulator gate** 剩余：真机（`BLOCKED_EXTERNAL_BAND10_DEVICE`）上的
   人眼对照（topology / motion / texture / structure / identity continuity）。
 - 手环性能预算：Vela 源码 ~112K、零第三方依赖、动画走 CSS keyframes（无 JS 高频 timer）、
-  DOM 元素 ≤ 15（organism 3 元素 + 文本）；禁止重量级 JS 库 / 高频 timer / 大规模对象分配。
+  DOM 元素 ≤ 24（V3 §73 修订：organism = 2–4 loops + 1 hollow core + 8–12 粒子槽 + 文本；
+  旧预算 ≤15 对应 3 元素 organism，已被 V3 same-ECHO 视觉规格取代）；禁止重量级 JS 库 /
+  高频 timer / 大规模对象分配。
 
 ## 6. 动作所有权
 

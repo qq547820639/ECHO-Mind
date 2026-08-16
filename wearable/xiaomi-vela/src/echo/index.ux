@@ -6,11 +6,14 @@
       <text class="hint-text" else>{{ $t('message.echo_tap_hint') }}</text>
     </div>
     <stack class="organism">
-      <div class="orbit-ring {{ hueClass }} {{ ringSizeClass }} {{ ringAlphaClass }}">
+      <div class="orbit-ring {{ hueClass }} {{ ringSizeClass }} {{ ringAlphaClass }} {{ spinClass }}">
         <div class="orbit-dot {{ hueClass }}"></div>
       </div>
+      <div if="{{ loopCount >= 3 }}" class="orbit-ring ring-outer {{ hueClass }} ring-a-1 {{ spinClass }}"></div>
+      <div if="{{ loopCount >= 4 }}" class="orbit-ring ring-mid {{ hueClass }} ring-a-2 {{ spinClass }}"></div>
       <div class="glow {{ hueClass }} {{ glowSizeClass }}"></div>
-      <div class="core {{ hueClass }} {{ coreSizeClass }}"></div>
+      <div class="core core-hollow {{ hueClass }} {{ coreSizeClass }}"></div>
+      <div for="{{ particleSlots }}" key="$idx" class="particle {{ hueClass }} p-{{ $idx }}"></div>
     </stack>
     <div class="action-entry" onclick="onActionEntry">
       <text class="action-entry-text">{{ $t('message.action_title') }}</text>
@@ -110,6 +113,9 @@ export default {
     ringAlphaClass: 'ring-a-2',
     glowSizeClass: 'glow-m',
     coreSizeClass: 'core-m',
+    spinClass: '',
+    loopCount: 2,
+    particleSlots: [],
   },
 
   onInit() {
@@ -136,6 +142,7 @@ export default {
   },
 
   onShow() {
+    this.wakeAt = Date.now()
     this.refresh()
     this.startClockTimer()
     // 前台订阅加速度计（官方后台模型：传感器无后台，不 hack 保活）。
@@ -149,6 +156,10 @@ export default {
 
   onHide() {
     this.stopClockTimer()
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    }
     accel.stop()
   },
 
@@ -180,6 +191,24 @@ export default {
     this.glowSizeClass = sizeClass(glowDiameter, 90, 135, ['glow-s', 'glow-m', 'glow-l'])
     const coreDiameter = v.coreRadius * 2
     this.coreSizeClass = sizeClass(coreDiameter, 60, 78, ['core-s', 'core-m', 'core-l'])
+    // V3 §73：chirality 方向 + 2–4 loops + 8–12 粒子槽
+    this.spinClass = v.chirality < 0 ? 'spin-reverse' : ''
+    this.loopCount = v.textureSteps
+    const slots = []
+    for (let i = 0; i < v.particles.length && i < 12; i++) slots.push(i)
+    this.particleSlots = slots
+    // §73：wake 前 4s ≈12fps 等价 → steady（v.intervalMs）；display off = 0（onHide 停）
+    this.scheduleRefresh(v.intervalMs)
+  },
+
+  scheduleRefresh(intervalMs) {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer)
+      this.refreshTimer = null
+    }
+    const self = this
+    const wake = Date.now() - (this.wakeAt || 0) < 4000
+    self.refreshTimer = setInterval(() => self.refresh(), wake ? 83 : intervalMs)
   },
 
   startClockTimer() {
