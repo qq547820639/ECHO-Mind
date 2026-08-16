@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.ui.me
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -14,12 +15,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -61,14 +64,13 @@ fun MeScreen(container: AppContainer) {
         state = state,
         onEvent = meVm::onEvent,
         slots = MeSectionSlots(
-            intelligenceMap = {
+            intelligenceMap = { onOpenDomain ->
                 MeIntelligenceMap(
                     presence = presence,
-                    onOpenObservation = { },
-                    onOpenIntelligence = { },
-                    onOpenMemory = { },
-                    onOpenDevices = { },
-                    onOpenPresence = { },
+                    onOpenObservation = { onOpenDomain(MeDomain.OBSERVATION) },
+                    onOpenIntelligence = { onOpenDomain(MeDomain.INTELLIGENCE) },
+                    onOpenMemory = { onOpenDomain(MeDomain.MEMORY) },
+                    onOpenPresence = { onOpenDomain(MeDomain.PRESENCE) },
                     organism = {
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
                             presence = presence,
@@ -124,25 +126,70 @@ fun MeScreenContent(
         )
     }
 
+    // §63：presentation state（一次只展开一个 major domain；不建立新业务 state）
+    var expandedDomain by rememberSaveable { mutableStateOf(MeDomain.NONE.name) }
+    val domain = runCatching { MeDomain.valueOf(expandedDomain) }.getOrDefault(MeDomain.NONE)
+
     Page("Me · 我的控制权") {
-        // ERA 25 §44 信息架构 + §12 Personal Intelligence Map：
-        // 危机入口（安全常驻，契约冻结）→ Intelligence Map（ECHO 如何认识你，首层非 Settings）→
-        // ECHO Presence → What ECHO Knows → AI Intelligence → Data & Sensing → Subscription → Support → About。
+        // ERA 25 §44 信息架构 + V3 §62/§63：
+        // 危机入口（安全常驻，契约冻结）→ Intelligence Map（顶部常驻）→
+        // 选中 domain 在 Map 下展开；其他 domain compact。
         slots.crisisCard()
-        slots.intelligenceMap()
-        slots.presenceSettings()
-        slots.wrist()
-        slots.whatEchoKnows()
-        slots.intelligenceSettings()
-        slots.dataAndSensing()
-        slots.subscription()
-        slots.support()
-        slots.aboutCard()
+        slots.intelligenceMap { d -> expandedDomain = if (domain == d) MeDomain.NONE.name else d.name }
+
+        // 选中 domain 的展开详情（Map 正下方）
+        if (domain != MeDomain.NONE) {
+            Column(Modifier.fillMaxWidth().testTag("me_domain_detail")) {
+                when (domain) {
+                    MeDomain.OBSERVATION -> slots.dataAndSensing()
+                    MeDomain.MEMORY -> slots.whatEchoKnows()
+                    MeDomain.INTELLIGENCE -> slots.intelligenceSettings()
+                    MeDomain.PRESENCE -> {
+                        slots.presenceSettings()
+                        slots.wrist()
+                    }
+                    MeDomain.NONE -> Unit
+                }
+            }
+        }
+
+        // 其他 domain compact（一行安静入口；点击切换展开）
+        MeDomain.entries.filter { it != MeDomain.NONE && it != domain }.forEach { d ->
+            TextButton(
+                onClick = { expandedDomain = d.name },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            ) {
+                Text(
+                    when (d) {
+                        MeDomain.OBSERVATION -> "感知世界 · Observation"
+                        MeDomain.MEMORY -> "记住什么 · Memory"
+                        MeDomain.INTELLIGENCE -> "如何思考 · Intelligence"
+                        MeDomain.PRESENCE -> "存在方式 · Presence"
+                        MeDomain.NONE -> ""
+                    } + "  →",
+                )
+            }
+        }
+
+        // §64：更多控制（Subscription / Professional Support / About / Diagnostics 下沉；Crisis 不下沉）
+        var moreControls by rememberSaveable { mutableStateOf(false) }
+        TextButton(
+            onClick = { moreControls = !moreControls },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        ) { Text(if (moreControls) "收起更多控制" else "更多控制") }
+        if (moreControls) {
+            slots.subscription()
+            slots.support()
+            slots.aboutCard()
+        }
         state.message?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
+
+/** V3 §63：Me 领域 presentation state（非业务 state；一次只展开一个 major domain）。 */
+enum class MeDomain { NONE, OBSERVATION, MEMORY, INTELLIGENCE, PRESENCE }
 
 /** Me 根页面子领域槽位集合（状态提升模式；detekt LongParameterList 收敛）。 */
 data class MeSectionSlots(
@@ -155,7 +202,8 @@ data class MeSectionSlots(
     val intelligenceSettings: @Composable () -> Unit,
     val whatEchoKnows: @Composable () -> Unit,
     val aboutCard: @Composable () -> Unit,
-    val intelligenceMap: @Composable () -> Unit = {},
+    /** §62：Intelligence Map（接收领域展开回调；Map 永远在顶部）。 */
+    val intelligenceMap: @Composable (onOpenDomain: (MeDomain) -> Unit) -> Unit = {},
 )
 
 /** v3.2 §9：About / Diagnostics —— APK 构建来源可追溯（版本/提交/时间）。 */

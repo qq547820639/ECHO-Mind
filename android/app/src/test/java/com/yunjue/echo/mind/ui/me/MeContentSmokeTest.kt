@@ -5,8 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.EscalationEntity
@@ -34,16 +36,10 @@ class MeContentSmokeTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private val slotLabels = listOf(
-        "slot-crisis",
-        "slot-subscription",
-        "slot-data",
-        "slot-presence",
-        "slot-wrist",
-        "slot-intelligence",
-        "slot-memory",
-        "slot-about",
-    )
+    /** §63/§64 后默认首屏可见：crisis + 紧凑 domain 入口 + 更多控制入口。 */
+    private val defaultVisible = listOf("slot-crisis", "更多控制")
+    /** 下沉到「更多控制」：subscription / support / about。 */
+    private val moreControlSlots = listOf("slot-subscription", "slot-about")
 
     private fun setContent(
         state: MeUiState,
@@ -75,9 +71,31 @@ class MeContentSmokeTest {
     fun allSlotsComposedWithTitle() {
         setContent(MeUiState(), mutableListOf())
         compose.onNodeWithText("Me · 我的控制权").assertExists()
-        (slotLabels + "slot-support").forEach { label ->
-            compose.onNodeWithText(label).assertExists()
+        defaultVisible.forEach { label ->
+            compose.onNodeWithText(label).performScrollTo().assertExists()
         }
+        // §86：首屏不是 settings wall——下沉槽位默认不渲染
+        compose.onNodeWithText("slot-subscription").assertDoesNotExist()
+        // §64：更多控制展开后可见
+        compose.onNodeWithText("更多控制").performScrollTo().performClick()
+        moreControlSlots.forEach { label ->
+            compose.onNodeWithText(label).performScrollTo().assertExists()
+        }
+    }
+
+    @Test
+    fun domainExpansionIsExclusive() {
+        setContent(MeUiState(), mutableListOf())
+        // 默认无展开详情
+        compose.onNodeWithText("slot-data").assertDoesNotExist()
+        // 展开 Observation（compact 入口：感知世界 · Observation →）
+        compose.onNodeWithText("感知世界 · Observation  →", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("slot-data").assertExists()
+        compose.onNodeWithTag("me_domain_detail").assertExists()
+        // 切到 Memory：Observation 详情收起（一次只展开一个）
+        compose.onNodeWithText("记住什么 · Memory  →", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("slot-memory").assertExists()
+        compose.onNodeWithText("slot-data").assertDoesNotExist()
     }
 
     @Test
@@ -116,6 +134,7 @@ class MeContentSmokeTest {
             mutableListOf(),
             supportSlot = { SupportSection(escalations = emptyList(), onRequestSupport = {}) },
         )
+        compose.onNodeWithText("更多控制").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.support_request_button)).assertExists()
         compose.onNodeWithText(context.getString(R.string.support_recent_requests)).assertDoesNotExist()
     }
@@ -143,6 +162,7 @@ class MeContentSmokeTest {
                 )
             },
         )
+        compose.onNodeWithText("更多控制").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.support_recent_requests)).assertExists()
         compose.onNodeWithText("• ${context.getString(R.string.esc_status_queued)}").assertExists()
     }

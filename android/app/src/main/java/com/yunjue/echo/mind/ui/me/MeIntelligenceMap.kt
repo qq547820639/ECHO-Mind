@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,10 +25,13 @@ import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
 
 /**
- * MeIntelligenceMap — Me 首层 Personal Intelligence Map（§12，设计稿 10）。
+ * MeIntelligenceMap — Me 首层 Personal Intelligence Map（V3 §62）。
  *
- * 不是 Settings List：中心 ECHO organism + 五个领域节点（Observation / Intelligence /
- * Memory / Devices / Presence）环绕，每节点可点击进入对应领域。
+ * 不是 Settings List：中心 live mini ECHO（168dp）+ 四领域节点环绕：
+ *         Observation
+ * Memory     ECHO     Intelligence
+ *         Presence
+ * Map 高度约 360–370dp；节点视觉 ~64dp；真实 touch ≥48dp。
  * 视觉上沿用同一 organism（SAME ECHO）；节点连线表达「ECHO 如何认识你」的结构。
  *
  * @param presence 当前 EchoPresenceState（中心 organism 用；null → 中性占位）
@@ -38,7 +43,6 @@ fun MeIntelligenceMap(
     onOpenObservation: () -> Unit,
     onOpenIntelligence: () -> Unit,
     onOpenMemory: () -> Unit,
-    onOpenDevices: () -> Unit,
     onOpenPresence: () -> Unit,
     organism: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -47,10 +51,11 @@ fun MeIntelligenceMap(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(340.dp)
-            .semantics { contentDescription = "ECHO 如何认识你：感知、思考、记忆、设备、存在 五个领域" },
+            .height(366.dp)
+            .semantics { contentDescription = "ECHO 如何认识你：感知、记忆、思考、存在 四个领域" }
+            .testTag("me_intelligence_map"),
     ) {
-        // 连线（中心到五节点；先画线，节点在上层）
+        // 连线（中心到四节点；先画线，节点在上层）
         val linePaint = rememberNodeLine(nodeColor)
         Box(
             Modifier
@@ -63,7 +68,7 @@ fun MeIntelligenceMap(
                         Offset(cx, cy - r), // 顶：Observation
                         Offset(cx - r * 1.1f, cy), // 左：Intelligence
                         Offset(cx + r * 1.1f, cy), // 右：Memory
-                        Offset(cx, cy + r * 1.15f), // 下：Devices
+                        Offset(cx, cy + r * 1.15f), // 下：Presence
                     )
                     targets.forEach { t ->
                         drawLine(linePaint, Offset(cx, cy), t, strokeWidth = 1.2f)
@@ -71,16 +76,16 @@ fun MeIntelligenceMap(
                 },
         )
 
-        // 中心 organism
-        Box(Modifier.align(Alignment.Center).size(180.dp)) {
+        // 中心 organism（§62：168dp）
+        Box(Modifier.align(Alignment.Center).size(168.dp)) {
             organism()
         }
 
-        // 五节点（顶 Observation / 左 Intelligence / 右 Memory / 下 Devices / Presence 并入下）
+        // 四节点（顶 Observation / 左 Memory / 右 Intelligence / 下 Presence）
         MapNode("感知世界", "Observation", Modifier.align(Alignment.TopCenter).padding(top = 4.dp), onOpenObservation)
-        MapNode("如何思考", "Intelligence", Modifier.align(Alignment.CenterStart).padding(start = 6.dp), onOpenIntelligence)
-        MapNode("记住什么", "Memory", Modifier.align(Alignment.CenterEnd).padding(end = 6.dp), onOpenMemory)
-        MapNode("我的设备", "Devices", Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp), onOpenDevices)
+        MapNode("记住什么", "Memory", Modifier.align(Alignment.CenterStart).padding(start = 6.dp), onOpenMemory)
+        MapNode("如何思考", "Intelligence", Modifier.align(Alignment.CenterEnd).padding(end = 6.dp), onOpenIntelligence)
+        MapNode("存在方式", "Presence", Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp), onOpenPresence)
     }
 }
 
@@ -90,6 +95,7 @@ private fun MapNode(title: String, subtitle: String, modifier: Modifier, onClick
         modifier = modifier
             .clickable(onClick = onClick)
             .semantics { contentDescription = "$title $subtitle" }
+            .sizeIn(minWidth = 64.dp, minHeight = 48.dp)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
