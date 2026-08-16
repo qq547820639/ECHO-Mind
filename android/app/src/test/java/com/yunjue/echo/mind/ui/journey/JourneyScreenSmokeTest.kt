@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -26,7 +27,6 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
-import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -111,7 +111,7 @@ class JourneyScreenSmokeTest {
     @Test
     fun loadingBranchShowsLoadingText() {
         setJourneyContent(JourneyUiState(trendState = TrendUiState.LOADING))
-        compose.onNodeWithText("旅程加载中…").assertExists()
+        compose.onNodeWithText("正在整理你的时间…").assertExists()
     }
 
     @Test
@@ -213,9 +213,11 @@ class JourneyScreenSmokeTest {
         // ERA 31 R19：DAY 河流锚定旅程实际最新一天（感知滞后时不渲染空占位的「今天」）
         val events = mutableListOf<JourneyEvent>()
         setJourneyContent(freshState(), events = events)
-        val latestRecorded = LocalDate.parse("2026-08-14")
-        val label = "${latestRecorded.monthValue}/${latestRecorded.dayOfMonth}"
-        compose.onNode(hasClickAction() and hasText(label)).performScrollTo().performClick()
+        // V3 §56：Memory River item 以完整日期 + 短叙事呈现（点击行 = 那一天的回声）
+        compose.onNode(
+            hasClickAction() and hasAnyDescendant(hasText("2026-08-14")),
+            useUnmergedTree = true,
+        ).performScrollTo().performClick()
         assertTrue(events.contains(JourneyEvent.SelectDay("2026-08-14")))
     }
 }

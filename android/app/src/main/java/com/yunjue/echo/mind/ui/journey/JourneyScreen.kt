@@ -1,9 +1,14 @@
 package com.yunjue.echo.mind.ui.journey
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,8 +30,6 @@ import com.yunjue.echo.mind.journey.TrendNoDataReason
 import com.yunjue.echo.mind.journey.TrendUiState
 import com.yunjue.echo.mind.journey.journeySegmentKindLabel
 import com.yunjue.echo.mind.journey.trendNoDataReasonText
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.drawEchoFrame
 import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.ui.Page
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
@@ -73,24 +76,53 @@ fun JourneyScreenContent(
     val context = LocalContext.current
 
     Page("旅程 · 我的时间") {
-        // 时间尺度选择器（Day/Week/Month/Season/Year）
+        // V3 §55：时间尺度选择器（日/周/月/季/年）——quiet text tab：
+        // selected = 全 alpha + 2dp underline + 微光；不做 FilterChip container。
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.horizontalScroll(rememberScrollState())
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("journey_scale_selector"),
         ) {
             JourneyScale.entries.forEach { s ->
-                FilterChip(
-                    selected = state.selectedScale == s,
-                    onClick = { onEvent(JourneyEvent.SelectScale(s)) },
-                    label = { Text(scaleLabel(s)) }
-                )
+                val selected = state.selectedScale == s
+                Column(
+                    Modifier
+                        .selectable(
+                            selected = selected,
+                            onClick = { onEvent(JourneyEvent.SelectScale(s)) },
+                            role = androidx.compose.ui.semantics.Role.Tab,
+                        )
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        scaleLabel(s),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selected) 1f else 0.52f),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        Modifier
+                            .width(18.dp)
+                            .height(2.dp)
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primary
+                                else androidx.compose.ui.graphics.Color.Transparent,
+                            ),
+                    )
+                }
             }
         }
 
         when (state.trendState) {
             TrendUiState.LOADING -> {
-                CircularProgressIndicator()
-                Text("旅程加载中…")
+                // §40：quiet loading（无 spinner 主视觉）
+                Text(
+                    "正在整理你的时间…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                )
             }
             TrendUiState.PERMISSION_DISABLED -> {
                 Text("被动感知已关闭或权限被撤，无法获取新的旅程数据。")
@@ -157,6 +189,7 @@ private fun JourneyContent(
         segments = state.riverSegments,
         seed = state.journeySeed,
         feedback = feedback,
+        selectedDate = state.selectedDay?.date,
         onSelectDay = { date -> onEvent(JourneyEvent.SelectDay(date)) },
     )
 
@@ -246,7 +279,12 @@ private fun scaleLabel(scale: JourneyScale): String = when (scale) {
     JourneyScale.YEAR -> "年"
 }
 
-/** 视觉记忆河流：DAY=逐日 7 帧；WEEK=按周聚合；MONTH/SEASON/YEAR=按 30 天聚合（§85 语义保留）。 */
+/**
+ * V3 §56–§59 — 视觉记忆主体验：
+ * DAY = Memory River（时间河滚动，非 Card list）；WEEK = 7 个确定性日肖像 gentle arc；
+ * MONTH = 7 列日历星座；SEASON/YEAR = 既有年视图/季解释 section（representative canonical portrait）。
+ * 全部经 production renderer（genome → OrganismFrameComputer）；无数据 = quiet ring（不 X/不 warning）。
+ */
 @Composable
 private fun VisualMemoryRiver(
     scale: JourneyScale,
@@ -255,53 +293,43 @@ private fun VisualMemoryRiver(
     segments: List<JourneyRiverSegment>,
     seed: Long,
     feedback: (String) -> Boolean?,
+    selectedDate: String?,
     onSelectDay: (String) -> Unit,
 ) {
     when (scale) {
-        JourneyScale.DAY -> {
-            // ERA 31 R19：7 天窗口锚定到旅程实际最新一天（感知滞后时不渲染
-            // 「今天/昨天」的空占位——有记录的最后 7 天才是「我的时间」）。
-            val latest = days.maxOfOrNull { it.date }
-                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                ?: LocalDate.now()
-            val lastDays = (0 until 7).map { latest.minusDays((7 - 1 - it).toLong()) }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.horizontalScroll(rememberScrollState())
-            ) {
-                lastDays.forEach { day ->
-                    val journeyDay = days.firstOrNull { it.date == day.toString() }
-                    JourneyThumbCell(
-                        journeyDay = journeyDay,
-                        seed = seed,
-                        label = "${day.monthValue}/${day.dayOfMonth}",
-                        mark = feedback(day.toString())?.let { if (it) "✓" else "✗" } ?: " ",
-                        onClick = { onSelectDay(day.toString()) },
-                    )
-                }
-            }
-            Text("✓ 你觉得像 · ✗ 你觉得不太像 · 点按任意一天 = 那一天的回声", style = MaterialTheme.typography.labelSmall)
-        }
+        JourneyScale.DAY -> MemoryRiver(
+            days = days,
+            selectedDate = selectedDate,
+            feedback = feedback,
+            onSelectDay = onSelectDay,
+        )
+        JourneyScale.WEEK -> WeekArc(
+            days = days,
+            selectedDate = selectedDate,
+            onSelectDay = onSelectDay,
+        )
+        JourneyScale.MONTH -> MonthConstellation(
+            days = days,
+            selectedDate = selectedDate,
+            onSelectDay = onSelectDay,
+        )
         else -> {
+            // SEASON / YEAR：聚合格（3/12 月簇由 YearViewSection/SeasonExplanationSection 承载）
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.horizontalScroll(rememberScrollState())
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
                 periods.forEachIndexed { index, period ->
                     val span = period.days.firstOrNull()?.date?.take(7) ?: ""
                     val last = period.days.lastOrNull()?.date?.take(7) ?: ""
-                    val baseLabel = when (scale) {
-                        JourneyScale.WEEK -> "第 ${index + 1} 周"
-                        else -> if (span.isNotBlank()) "${span}…${last}" else "第 ${index + 1} 段"
-                    }
-                    // ERA 31 R27：聚合格标注所属河段种类（一条河流 = 时间线 + 故事）
+                    val baseLabel = if (span.isNotBlank()) "$span…$last" else "第 ${index + 1} 段"
                     val kindLabel = period.days.firstOrNull()?.date
                         ?.let { journeySegmentKindLabel(it, segments) }
                     JourneyAggregateCell(
                         period = period,
                         seed = seed,
                         label = baseLabel + (kindLabel?.let { " · $it" } ?: ""),
-                        large = scale == JourneyScale.MONTH && periods.size == 1,
+                        large = false,
                     )
                 }
             }
@@ -309,53 +337,195 @@ private fun VisualMemoryRiver(
     }
 }
 
-/** 单日视觉记忆单元（CANONICAL_SNAPSHOT；无数据日 = 弥散占位，不编造）。 */
+/** §56 Memory River：item 168dp；selected 148dp；邻近 92/68/52；alpha 1.00/.70/.48/.32。 */
 @Composable
-private fun JourneyThumbCell(
-    journeyDay: JourneyDay?,
-    seed: Long,
-    label: String,
-    mark: String,
-    onClick: () -> Unit,
+private fun MemoryRiver(
+    days: List<JourneyDay>,
+    selectedDate: String?,
+    feedback: (String) -> Boolean?,
+    onSelectDay: (String) -> Unit,
 ) {
-    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick),
+    val sorted = days.sortedByDescending { it.date }
+    val selectedIndex = sorted.indexOfFirst { it.date == selectedDate }
+        .takeIf { it >= 0 } ?: 0
+    LazyColumn(
+        Modifier.fillMaxWidth().height(420.dp).testTag("journey_memory_visual"),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Canvas(Modifier.size(52.dp)) {
-            // visual-runtime：优先用 organism genome（9 层），fallback 旧单环渲染
-            val genome = journeyDay?.genome
-            if (genome != null) {
-                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                        genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                        JOURNEY_CANONICAL_TIME_SECONDS,
-                    ),
-                    width = this.size.width, height = this.size.height,
-                )
-                drawOrganism(frame)
-            } else {
-                val frame = journeyDay?.visualParams?.let {
-                    computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
+        items(sorted.size) { index ->
+            val day = sorted[index]
+            val distance = kotlin.math.abs(index - selectedIndex)
+            val portraitSize = when (distance) {
+                0 -> 148.dp
+                1 -> 92.dp
+                2 -> 68.dp
+                else -> 52.dp
+            }
+            val alpha = when (distance) {
+                0 -> 1.00f
+                1 -> 0.70f
+                2 -> 0.48f
+                else -> 0.32f
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(168.dp)
+                    .clickable { onSelectDay(day.date) }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(148.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    JourneyPortrait(day = day, size = portraitSize, alpha = alpha)
                 }
-                if (frame != null) {
-                    drawEchoFrame(frame)
-                } else {
-                    // 无数据日：低亮度弥散占位（Journey 的「没有记录」也是视觉记忆）
-                    drawCircle(
-                        color = placeholderColor,
-                        radius = this.size.minDimension * 0.2f,
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        day.date,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f + 0.48f * alpha),
                     )
+                    val line = day.headline.ifBlank { day.summary }.take(60)
+                    if (line.isNotBlank()) {
+                        Text(
+                            line,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f + 0.50f * alpha),
+                        )
+                    }
+                    feedback(day.date)?.let {
+                        Text(
+                            if (it) "你觉得像" else "你觉得不太像",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                        )
+                    }
                 }
             }
         }
-        Text(label, style = MaterialTheme.typography.labelSmall)
-        Text(mark, style = MaterialTheme.typography.labelSmall)
     }
 }
 
-/** 周/月聚合帧（视觉逐渐聚合，不是折线图；参数由 JourneyPeriod 预装配）。 */
+/** §57 Week：7 个确定性日肖像 gentle arc（选中放大；点击显示当日 narrative）。 */
+@Composable
+private fun WeekArc(
+    days: List<JourneyDay>,
+    selectedDate: String?,
+    onSelectDay: (String) -> Unit,
+) {
+    val latest = days.maxOfOrNull { it.date }
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?: LocalDate.now()
+    val weekDays = (0 until 7).map { latest.minusDays((7 - 1 - it).toLong()) }
+    Row(
+        Modifier.fillMaxWidth().testTag("journey_memory_visual"),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        weekDays.forEachIndexed { index, day ->
+            val journeyDay = days.firstOrNull { it.date == day.toString() }
+            val selected = day.toString() == selectedDate
+            // gentle arc：中间略抬升（确定性几何，非折线图）
+            val lift = 10.dp * kotlin.math.sin((index + 0.5f) / 7f * Math.PI).toFloat()
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .offset(y = -lift)
+                    .clickable { onSelectDay(day.toString()) },
+            ) {
+                JourneyPortrait(
+                    day = journeyDay,
+                    size = if (selected) 72.dp else 52.dp,
+                    alpha = if (selected) 1f else 0.72f,
+                )
+                Text(
+                    "${day.monthValue}/${day.dayOfMonth}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selected) 1f else 0.52f),
+                )
+            }
+        }
+    }
+}
+
+/** §58 Month：7 列日历星座；mini portrait 36dp / selected 56dp；无数据 = quiet ring。 */
+@Composable
+private fun MonthConstellation(
+    days: List<JourneyDay>,
+    selectedDate: String?,
+    onSelectDay: (String) -> Unit,
+) {
+    val latest = days.maxOfOrNull { it.date }
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?: LocalDate.now()
+    val monthDays = (0 until 28).map { latest.minusDays((28 - 1 - it).toLong()) }
+    Column(Modifier.fillMaxWidth().testTag("journey_memory_visual")) {
+        monthDays.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                week.forEach { day ->
+                    val journeyDay = days.firstOrNull { it.date == day.toString() }
+                    val selected = day.toString() == selectedDate
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelectDay(day.toString()) }
+                            .padding(vertical = 4.dp),
+                    ) {
+                        JourneyPortrait(
+                            day = journeyDay,
+                            size = if (selected) 56.dp else 36.dp,
+                            alpha = if (selected) 1f else 0.8f,
+                        )
+                        Text(
+                            "${day.dayOfMonth}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(
+                                alpha = if (selected) 1f else 0.52f,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 单日确定性肖像（production renderer；无 genome = quiet ring 占位，不编造）。 */
+@Composable
+private fun JourneyPortrait(
+    day: JourneyDay?,
+    size: androidx.compose.ui.unit.Dp,
+    alpha: Float,
+) {
+    val quietRing = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
+    Canvas(Modifier.size(size).alpha(alpha)) {
+        val genome = day?.genome
+        if (genome != null) {
+            val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                    JOURNEY_CANONICAL_TIME_SECONDS,
+                ),
+                width = this.size.width, height = this.size.height,
+            )
+            drawOrganism(frame)
+        } else {
+            // §58：无数据 = quiet ring（不 X / 不 warning）
+            drawCircle(
+                color = quietRing,
+                radius = this.size.minDimension * 0.30f,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = this.size.minDimension * 0.03f),
+            )
+        }
+    }
+}
+
+/** 周/月聚合帧（SEASON/YEAR 尺度保留；参数由 JourneyPeriod 预装配）。 */
 @Composable
 private fun JourneyAggregateCell(
     period: JourneyPeriod,
@@ -364,10 +534,9 @@ private fun JourneyAggregateCell(
     large: Boolean = false,
 ) {
     val cellSize = if (large) 140.dp else 72.dp
-    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
+    val quietRing = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Canvas(Modifier.size(cellSize)) {
-            // visual-runtime：优先用聚合 organism genome（9 层），fallback 旧单环渲染
             val aggGenome = period.aggregateGenome
             if (aggGenome != null) {
                 val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
@@ -379,17 +548,11 @@ private fun JourneyAggregateCell(
                 )
                 drawOrganism(frame)
             } else {
-                val frame = period.aggregateParams?.let {
-                    computeEchoSceneFrame(it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height)
-                }
-                if (frame != null) {
-                    drawEchoFrame(frame)
-                } else {
-                    drawCircle(
-                        color = placeholderColor,
-                        radius = this.size.minDimension * 0.2f,
-                    )
-                }
+                drawCircle(
+                    color = quietRing,
+                    radius = this.size.minDimension * 0.30f,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = this.size.minDimension * 0.03f),
+                )
             }
         }
         Text(label, style = MaterialTheme.typography.labelSmall)
