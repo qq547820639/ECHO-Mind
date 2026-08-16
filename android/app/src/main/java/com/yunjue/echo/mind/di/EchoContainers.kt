@@ -82,7 +82,11 @@ class CoreContainer(
                     ByteArray(8).also { rng.nextBytes(it) }.joinToString("") { "%02x".format(it) }
                 }
             },
-            persistSuffix = { secretPrefs.edit().putString(KEY_DB_ALIAS_SUFFIX, it).apply() },
+            persistSuffix = {
+                // ERA 32 R24：同步落盘（commit）——后缀决定下轮启动用哪把 Keystore 密钥
+                // 解包 DB 秘密；异步 flush 前进程死亡会丢后缀 = 既有库永久锁死。
+                secretPrefs.edit().putString(KEY_DB_ALIAS_SUFFIX, it).commit()
+            },
         )
         cipher = resolved
         database = openDatabase(context, resolved)

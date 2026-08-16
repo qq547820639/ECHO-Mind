@@ -121,6 +121,12 @@ internal fun openDatabase(context: Context, cipher: AndroidKeystoreFieldCipher):
             )
             .openHelperFactory(SupportOpenHelperFactory(passphrase))
             .build()
+            .also { db ->
+                // ERA 32 R24：强制立即打开——Room 惰性打开会让错钥 SQLiteException
+                // 逃逸到首次查询（在 DatabaseOpenOrchestrator 的 try/catch 之外），
+                // 使 §91 legacy 迁移链整体失效（v0.8/0.9 老库升级将裸崩且永不迁移）。
+                db.openHelper.writableDatabase
+            }
 
     return com.yunjue.echo.mind.security.DatabaseOpenOrchestrator.open(
         inputs = com.yunjue.echo.mind.security.DatabaseOpenInputs(

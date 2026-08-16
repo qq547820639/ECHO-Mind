@@ -51,6 +51,13 @@ class AndroidKeystoreFieldCipher(
 
     override fun decrypt(encoded: String): String {
         val payload = java.util.Base64.getDecoder().decode(encoded)
+        // ERA 32 R24：最短合法密文 = 12B IV + 16B GCM tag；过短 = 数据损坏，
+        // 显式抛错（此前会 AIOOBE，被调用方静默吞成「无法解密」，掩盖真实损坏）。
+        if (payload.size < GCM_IV_LENGTH + GCM_TAG_LENGTH) {
+            throw IllegalArgumentException(
+                "ciphertext too short (${payload.size} bytes); corrupted data"
+            )
+        }
         val iv = payload.copyOfRange(0, GCM_IV_LENGTH)
         val ciphertext = payload.copyOfRange(GCM_IV_LENGTH, payload.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -161,6 +168,9 @@ class AndroidKeystoreFieldCipher(
 
     companion object {
         const val GCM_IV_LENGTH = 12
+
+        /** AES-GCM 认证标签长度（decrypt 最短长度校验用）。 */
+        const val GCM_TAG_LENGTH = 16
 
         /** SQLCipher PRAGMA rekey 语句：口令以 x'hex' blob 字面量传入（byte[] 口令安全）。 */
         fun rekeyPragma(passphrase: ByteArray): String {

@@ -322,7 +322,28 @@ class AppPreferences(
         passiveSensingPrefs.setSamplingConfig(config)
 
     fun clearServiceState() {
+        // ERA 32 R24：绝不能连 DB 秘密一起清——包装秘密/迁移标记与其它应用状态
+        // 共用同一 prefs 文件，一次 clear() 会让下次启动重新供给新口令，
+        // 既有加密库永久不可打开（数据孤儿化）。先快照再清除后还原。
+        val wrappedSecret = prefs.getString(
+            com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET, null
+        )
+        val secretMigrated = prefs.getBoolean(
+            com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET_MIGRATED, false
+        )
         prefs.edit().clear().apply()
+        if (wrappedSecret != null) {
+            prefs.edit()
+                .putString(
+                    com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET,
+                    wrappedSecret
+                )
+                .putBoolean(
+                    com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET_MIGRATED,
+                    secretMigrated
+                )
+                .apply()
+        }
         _featureFlagsFlow.value = defaultFlags()
         _sensingActiveFlow.value = false
     }
