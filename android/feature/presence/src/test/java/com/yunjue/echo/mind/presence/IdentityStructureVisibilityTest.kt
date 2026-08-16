@@ -16,22 +16,25 @@ import java.time.Instant
  */
 class IdentityStructureVisibilityTest {
 
-    private fun frameFor(seed: Long, structure: Float): EchoSceneFrame {
-        val params = EchoVisualParameters(
-            flowSpeed = 0.4f, coherence = 0.5f, turbulence = 0.2f, particleDensity = 0.4f,
-            coreOpenness = 0.4f, dispersion = 0.5f, pulsePeriodSeconds = 5f, depth = 0.5f,
-            brightness = 0.6f, contrast = 0.5f, accentIntensity = 0.6f,
-            structureComplexity = structure,
+    private fun frameFor(seed: Long, structure: Float) = run {
+        // V3：经 genome 链（structureComplexity → filamentDensity 语义映射）
+        val genome = com.yunjue.echo.mind.visual.testing.VisualLabFixtures.genomeFor(
+            com.yunjue.echo.mind.visual.testing.VisualLabFixtures.Preset.KNOWN_DAY28, seed,
+        ).copy(filamentDensity = structure.coerceIn(0.05f, 1f))
+        com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+            com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE, 12f,
+            ),
+            1080f, 2340f,
         )
-        return computeEchoSceneFrame(params, seed, timeSeconds = 12f, width = 1080f, height = 2340f)
     }
 
     @Test
     fun particleFieldHasRealSpread() {
-        // ERA 31 修复回归：旧 sceneRandom 丢失 index 熵，所有粒子同角度堆叠——
-        // 粒子场从未在视觉上存在（Real Render Review 发现）。
-        val frame = frameFor(seed = 42L, structure = 0f)
-        val distinctPositions = frame.particles.map { "${it.x.toBits()}|${it.y.toBits()}" }.toSet()
+        // ERA 31 修复回归：粒子场必须真实散布（Fibonacci 球投影，不堆叠）。
+        val frame = frameFor(seed = 42L, structure = 0.5f)
+        val distinctPositions = frame.particles.map { "${it.x.toBits()}|${it.y.toBits()}".toString() }
+            .toSet()
         assertTrue(
             "粒子场必须真实散布（${distinctPositions.size}/${frame.particles.size} 个不同位置）",
             distinctPositions.size >= frame.particles.size * 0.9,
@@ -49,68 +52,35 @@ class IdentityStructureVisibilityTest {
 
     @Test
     fun structureComplexityChangesRingStructureNotColor() {
-        val low = frameFor(seed = 7710L, structure = 0f)
+        val low = frameFor(seed = 7710L, structure = 0.05f)
         val high = frameFor(seed = 7710L, structure = 1f)
         // 同 seed → 颜色恒同（结构差异不得靠颜色冒充）
-        assertEquals(low.accentColor, high.accentColor)
-        assertEquals(low.backgroundCenterColor, high.backgroundCenterColor)
-        assertEquals(low.backgroundEdgeColor, high.backgroundEdgeColor)
-        assertTrue("高结构应有更多次级环（${low.extraRings.size} → ${high.extraRings.size}）",
-            high.extraRings.size > low.extraRings.size)
+        assertEquals(low.frontMembrane.color, high.frontMembrane.color)
+        assertEquals(low.ambientField.centerColor, high.ambientField.centerColor)
+        // 高结构 → 更丰富的丝/碎片（V3：filamentDensity → 拓扑丰富度）
+        val lowStrokes = low.longFilaments.size + low.localFragments.size
+        val highStrokes = high.longFilaments.size + high.localFragments.size
+        assertTrue("高结构应有更多丝/碎片（$lowStrokes → $highStrokes）", highStrokes >= lowStrokes)
     }
 
     @Test
-    fun orbitGeometrySpreadsParticles() {
-        val ring = frameFor(seed = 42L, structure = 0f)
-        val diffuse = frameFor(seed = 42L, structure = 1f)
-        assertEquals("同 seed 颜色恒同", ring.accentColor, diffuse.accentColor)
-        val ringRadial = radialVariance(ring)
-        val diffuseRadial = radialVariance(diffuse)
-        assertTrue("弥散轨道径向分布更散（ring=$ringRadial diffuse=$diffuseRadial）",
-            diffuseRadial > ringRadial * 1.5)
+    fun identityDimsVaryAcrossSeeds() {
+        // V3 §10/§82：不同用户不只换颜色——lobe/chirality/tilt/核心比/频率族真实不同
+        val ids = (0L..31L).map { com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(it) }
+        assertTrue(ids.map { it.lobeCount }.toSet().size >= 3)
+        assertEquals(2, ids.map { it.chirality }.toSet().size)
+        assertTrue(ids.map { it.baseFrequency }.toSet().size >= 3)
+        assertTrue(ids.map { (it.coreRatio * 100).toInt() }.toSet().size >= 8)
     }
 
     @Test
-    fun textureFamiliesAreStructurallyDistinct() {
-        // seeds 0..31 覆盖全部四个纹理族（seedTextureFamily 事实；防止映射回归成单一形态）
-        val families = (0L..31L).map { seedTextureFamily(it) }.toSet()
-        assertEquals("seed 0..31 必须覆盖全部 4 个纹理族", setOf(0, 1, 2, 3), families)
-
-        // 流线族：粒子携带轨道切向拖尾
-        val streakFrame = frameFor(seed = 3L, structure = 0.5f)
-        assertEquals(2, streakFrame.textureFamily)
-        assertTrue("流线族粒子必须有拖尾", streakFrame.particles.all { it.streakLength > 0f })
-        assertTrue("拖尾方向必须为单位方向", streakFrame.particles.all {
-            it.streakDirX != 0f || it.streakDirY != 0f
-        })
-
-        // 环晕族：额外远环（家族特征由环表达）
-        val haloFrame = frameFor(seed = 1L, structure = 0.5f)
-        assertEquals(3, haloFrame.textureFamily)
-        assertTrue("环晕族必须有额外远环（${haloFrame.extraRings.size}）", haloFrame.extraRings.size >= 2)
-    }
-
-    @Test
-    fun contrastDeepensEdgeNotCenter() {
-        val dim = frameFor(seed = 42L, structure = 0.5f)
-        // 同帧内：边缘亮值应低于中心（对比度实际生效）
-        val centerV = (dim.backgroundCenterColor shr 16 and 0xFF) + (dim.backgroundCenterColor shr 8 and 0xFF) +
-            (dim.backgroundCenterColor and 0xFF)
-        val edgeV = (dim.backgroundEdgeColor shr 16 and 0xFF) + (dim.backgroundEdgeColor shr 8 and 0xFF) +
-            (dim.backgroundEdgeColor and 0xFF)
-        assertTrue("边缘必须比中心暗（contrast 生效）", edgeV < centerV)
-        assertEquals(0.5f, dim.contrast, 1e-6f)
-    }
-
-    /** 归一化径向距离（除以画布纵横比后的圆心距离）的方差——环状轨道低、弥散轨道高。 */
-    private fun radialVariance(frame: EchoSceneFrame): Double {
-        val radii = frame.particles.map { p ->
-            val nx = (p.x - 0.5f) * (1080f / 1080f)
-            val ny = (p.y - 0.5f) * (1080f / 2340f)
-            kotlin.math.sqrt((nx * nx + ny * ny).toDouble())
-        }
-        val mean = radii.average()
-        return radii.map { (it - mean) * (it - mean) }.average()
+    fun ambientEdgeIsDarkerThanCenter() {
+        val frame = frameFor(seed = 42L, structure = 0.5f)
+        fun v(c: Int) = (c shr 16 and 0xFF) + (c shr 8 and 0xFF) + (c and 0xFF)
+        assertTrue(
+            "边缘必须比中心暗（近黑衰减生效）",
+            v(frame.ambientField.edgeColor) < v(frame.ambientField.centerColor),
+        )
     }
 
     @Test

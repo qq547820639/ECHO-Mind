@@ -124,6 +124,40 @@ object JourneyOrganismVisuals {
         return OrganismFrameComputer.compute(spec, width, height)
     }
 
+    /**
+     * EchoVisualParameters → EchoVisualGenome 机械映射（V3 删除纪律迁移桥：
+     * 历史 Canonical Daily State / QA 链存的是 EchoVisualParameters——
+     * 同一确定性参数集，逐字段对应，不新增语义）。
+     */
+    fun genomeFromParams(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        dayComposition: Float = 0.47f,
+    ): EchoVisualGenome = EchoVisualGenome(
+        identitySeed = seed,
+        identityTopology = 0.65f,
+        identityPhase = mixFrac(com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(seed, 7)),
+        seasonPhase = 0.3f,
+        dayComposition = dayComposition,
+        coherence = params.coherence,
+        radialSpread = params.dispersion,
+        orbitalEccentricity = 0.45f,
+        particleDensity = params.particleDensity,
+        filamentDensity = params.structureComplexity,
+        driftRate = params.flowSpeed,
+        pulseRate = params.pulsePeriodSeconds,
+        turbulence = params.turbulence,
+        luminance = params.brightness,
+        spectralBias = mixFrac(com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(seed, 1)),
+        coreIntensity = params.coreOpenness,
+        haloIntensity = params.accentIntensity,
+        dataClarity = 0.95f,
+        depth = params.depth,
+        momentIntensity = 0f,
+    )
+
+    private fun mixFrac(v: Long): Float = (v ushr 40 and 0xFFFFFF).toFloat() / 16777215f
+
     private fun maturityOpenness(maturity: com.yunjue.echo.mind.model.EchoMaturity): Float = when (maturity) {
         com.yunjue.echo.mind.model.EchoMaturity.SEED -> 0.15f
         com.yunjue.echo.mind.model.EchoMaturity.DISCOVERING -> 0.3f

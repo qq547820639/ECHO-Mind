@@ -95,7 +95,7 @@ class QaWallpaperLongRunTest {
                     val frame = QaTimeline.computeFrame(snap, com.yunjue.echo.mind.presence.SurfaceMode.LOCK_SAFE)
                     framesRendered++
                     maxParticles = maxOf(maxParticles, frame.particles.size)
-                    accentRgbs += frame.accentColor and 0x00FFFFFF
+                    accentRgbs += frame.frontMembrane.color and 0x00FFFFFF
                     if (frame.particles.any { it.x.isNaN() || it.y.isNaN() || it.alpha.isNaN() }) nanFrames++
                 }
             } else {

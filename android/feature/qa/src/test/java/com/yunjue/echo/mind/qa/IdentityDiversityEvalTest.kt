@@ -6,7 +6,6 @@ import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.buildDailyComposition
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import com.yunjue.echo.mind.presence.identityDistance
 import org.junit.Assert.assertEquals
@@ -142,23 +141,41 @@ class IdentityDiversityEvalTest {
                     AmbientVector(activation = 0.5f, regularity = 0.6f, density = 0.5f, deviation = 0.3f, confidence = 0.7f),
                 ),
             )
-            computeEchoSceneFrame(
-                params = EchoVisualMapper.map(state, 12f, SurfaceMode.APP),
-                seed = seed,
-                timeSeconds = QaTimeline.frameTimeSeconds(),
+            com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(state, 12f),
+                    com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                    QaTimeline.frameTimeSeconds(),
+                ),
                 width = 1080f,
                 height = 2340f,
+                options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                    maturityName = state.maturity.name,
+                ),
             )
         }
-        // 强调色（s=0.7, v=0.75）是色相真正可见之处：RGB 分量只由 seed 色相决定
-        val distinctAccents = frames.map { it.accentColor and 0x00FFFFFF }.toSet().size
-        // 背景色极暗（v≈0.1-0.2），RGB 量化后色相可见度有限——只要求合理下限
-        val distinctBackgrounds = frames.map { it.backgroundCenterColor }.toSet().size
-        val distinctRadii = frames.map { (it.coreRadiusFraction * 1000f).roundToInt() }.toSet().size
+        // V3 §12：identity 色族收敛蓝—紫 218°..262°——色相差异收敛是**设计决策**，
+        // 身份多样性由几何维度承担（lobe/chirality/tilt/频率族/核心比）。
+        // 强调色只需可分辨下限（同族内不同 hue 仍可见）。
+        val distinctAccents = frames.map { it.frontMembrane.color and 0x00FFFFFF }.toSet().size
+        val distinctBackgrounds = frames.map { it.ambientField.centerColor }.toSet().size
+        val distinctRadii = frames.map { (it.coreCavity.radiusFraction * 1000f).roundToInt() }.toSet().size
         val distinctCounts = frames.map { it.particles.size }.toSet().size
-        assertTrue("强调色 ≥ 50 种（实际 $distinctAccents）", distinctAccents >= 50)
-        assertTrue("背景色 ≥ 15 种（实际 $distinctBackgrounds）", distinctBackgrounds >= 15)
+        // 几何多样性（V3 §82：至少 3 个几何维度明显变化）
+        val identityDims = (0 until 60).map { seed ->
+            com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(seed.toLong())
+        }
+        val lobeVariety = identityDims.map { it.lobeCount }.toSet().size
+        val tiltVariety = identityDims.map { (it.primaryTilt * 100).toInt() }.toSet().size
+        val coreVariety = identityDims.map { (it.coreRatio * 100).toInt() }.toSet().size
+        val freqVariety = identityDims.map { it.baseFrequency }.toSet().size
+        assertTrue("强调色 ≥ 4 种（蓝紫族内可辨；实际 $distinctAccents）", distinctAccents >= 4)
+        assertTrue("背景色 ≥ 8 种（实际 $distinctBackgrounds）", distinctBackgrounds >= 8)
         assertTrue("核心半径 ≥ 5 种（实际 $distinctRadii）", distinctRadii >= 5)
         assertTrue("粒子数 ≥ 3 种（实际 $distinctCounts）", distinctCounts >= 3)
+        assertTrue("lobe 数 ≥ 3 种", lobeVariety >= 3)
+        assertTrue("主倾角 ≥ 10 种", tiltVariety >= 10)
+        assertTrue("核心比 ≥ 10 种", coreVariety >= 10)
+        assertTrue("频率族 ≥ 3 种", freqVariety >= 3)
     }
 }

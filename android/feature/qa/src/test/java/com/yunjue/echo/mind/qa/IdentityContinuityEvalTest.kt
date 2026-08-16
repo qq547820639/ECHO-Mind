@@ -89,16 +89,16 @@ class IdentityContinuityEvalTest {
 
         // 身份决定的色相跨半年不变（同一 ECHO 的视觉血缘）：
         // 背景色 value 分量随当日 activity 呼吸（合法），hue 分量必须恒定（暗色量化容差 0.05）。
-        assertTrue("背景色相 Day1=Day180", hueOf(f1.backgroundCenterColor).closeTo(hueOf(f180.backgroundCenterColor)))
-        assertTrue("背景色相 Day1=Day90", hueOf(f1.backgroundCenterColor).closeTo(hueOf(f90.backgroundCenterColor)))
+        assertTrue("背景色相 Day1=Day180", hueOf(f1.ambientField.centerColor).closeTo(hueOf(f180.ambientField.centerColor)))
+        assertTrue("背景色相 Day1=Day90", hueOf(f1.ambientField.centerColor).closeTo(hueOf(f90.ambientField.centerColor)))
         // 强调色 RGB 分量（s/v 固定，仅 alpha 随状态变）跨半年完全一致
-        assertEquals("强调色 RGB Day1=Day180", f1.accentColor and 0x00FFFFFF, f180.accentColor and 0x00FFFFFF)
+        assertEquals("强调色 RGB Day1=Day180", f1.frontMembrane.color and 0x00FFFFFF, f180.frontMembrane.color and 0x00FFFFFF)
         // 身份结构参数完全不变（安装种子决定）
         assertEquals(day1.identity.coreTopology, day180.identity.coreTopology, 1e-6f)
         assertEquals(day1.identity.symmetryTendency, day180.identity.symmetryTendency, 1e-6f)
         assertEquals(day1.identity.orbitGeometry, day180.identity.orbitGeometry, 1e-6f)
         // 成熟度塑形开放度（成长可见，但不重置身份）
-        assertNotEquals("成熟度应改变核心开放度", f1.coreRadiusFraction, f180.coreRadiusFraction)
+        assertNotEquals("成熟度应改变核心开放度", f1.coreCavity.radiusFraction, f180.coreCavity.radiusFraction)
     }
 
     /** ARGB → hue（0..1）；暗色背景的 hue 提取容差 0.05。 */
@@ -125,7 +125,7 @@ class IdentityContinuityEvalTest {
 
     @Test
     fun allProfilesHaveVisiblyDistinctFrames() {
-        val colors = QaProfiles.ALL.map { QaTimeline.computeFrame(QaTimeline(it).snapshotAt(90)).backgroundCenterColor }
+        val colors = QaProfiles.ALL.map { QaTimeline.computeFrame(QaTimeline(it).snapshotAt(90)).ambientField.centerColor }
         // 7 个 profile 的安装种子不同 → 主色应全部互异（帧渲染使用种子散列色相）
         assertEquals("7 个用户主色互异", 7, colors.toSet().size)
     }

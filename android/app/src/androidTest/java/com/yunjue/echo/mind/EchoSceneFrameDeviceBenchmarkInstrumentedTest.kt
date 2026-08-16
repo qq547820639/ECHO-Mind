@@ -13,7 +13,6 @@ import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.WallpaperRenderController
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -73,10 +72,12 @@ class EchoSceneFrameDeviceBenchmarkInstrumentedTest {
         val params = EchoVisualMapper.map(state = state, hourOfDay = 14f, surface = SurfaceMode.APP)
         val ms = measureMs(3) {
             repeat(1000) {
-                computeEchoSceneFrame(
-                    params = params,
-                    seed = 42L,
-                    timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS,
+                com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, 42L),
+                        com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        JOURNEY_CANONICAL_TIME_SECONDS,
+                    ),
                     width = 1080f,
                     height = 2340f,
                 )

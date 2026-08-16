@@ -125,13 +125,14 @@ class VisualReviewRenderTest {
         //    静态帧无法体现 motion character，用 36s 时间序列拼图表达运动（呼吸 + 轨道 + 流线方向）
         for (profile in QaProfiles.ALL) {
             val snap = snapshot(profile, 90)
-            val params = com.yunjue.echo.mind.presence.EchoVisualMapper.map(
-                snap.presence, 12f, com.yunjue.echo.mind.presence.SurfaceMode.APP,
-            )
+            val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
             val cells = (0 until 12).map { step ->
                 val time = step * 3f
-                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                    params, snap.identity.seed, time, 1080f, 2340f,
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE, time,
+                    ),
+                    1080f, 2340f,
                 )
                 VisualReviewRenderer.SheetCell("t=${step * 3}s", renderPng(frame))
             }
@@ -151,10 +152,14 @@ class VisualReviewRenderTest {
         }
         for (profile in realRateProfiles) {
             val snap = snapshot(profile, 90)
-            val lockParams = snap.lockVisual
+            val lockGenome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
             val idleCells = (0 until 12).map { step ->
-                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                    lockParams, snap.identity.seed, 600f + step * 0.25f, 1080f, 2400f,
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        lockGenome, com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+                        600f + step * 0.25f,
+                    ),
+                    1080f, 2400f,
                 )
                 VisualReviewRenderer.SheetCell("+${step * 250}ms", renderWallpaperPng(frame))
             }
@@ -165,8 +170,12 @@ class VisualReviewRenderTest {
                 file = File(sheets, "motion_wallpaper_idle4fps_${profile.id}.png"),
             )
             val transitionCells = (0 until 12).map { step ->
-                val frame = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                    lockParams, snap.identity.seed, 600f + step * 0.033f, 1080f, 2400f,
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        lockGenome, com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+                        600f + step * 0.033f,
+                    ),
+                    1080f, 2400f,
                 )
                 VisualReviewRenderer.SheetCell("+${step * 33}ms", renderWallpaperPng(frame))
             }
@@ -200,8 +209,8 @@ class VisualReviewRenderTest {
             val day0 = frameFor(profile, 0, VisualReviewRenderer.ReviewSurface.APP)
             val day180 = frameFor(profile, 180, VisualReviewRenderer.ReviewSurface.APP)
             assertEquals("${profile.id} Day0/Day180 accent RGB 恒同（同一个 ECHO）",
-                day0.accentColor and 0xFFFFFF, day180.accentColor and 0xFFFFFF)
-            accents[profile.id] = day0.accentColor and 0xFFFFFF
+                day0.frontMembrane.color and 0xFFFFFF, day180.frontMembrane.color and 0xFFFFFF)
+            accents[profile.id] = day0.frontMembrane.color and 0xFFFFFF
             assertDistinctPixels(renderPng(day0), profile.id)
         }
         val distinctAccents = accents.values.toSet()
@@ -211,8 +220,10 @@ class VisualReviewRenderTest {
         val structureKeys = HashSet<String>()
         for (profile in QaProfiles.ALL) {
             val frame = frameFor(profile, 180, VisualReviewRenderer.ReviewSurface.APP)
-            val streakSum = frame.particles.sumOf { it.streakLength.toDouble() }.toInt()
-            structureKeys += "${frame.textureFamily}|${frame.extraRings.size}|$streakSum"
+            val glints = frame.particles.count {
+                it.kind == com.yunjue.echo.mind.visual.render.ParticleKind.GLINT
+            }
+            structureKeys += "${frame.structuralRings.size}|${frame.longFilaments.size}|${frame.localFragments.size}|$glints"
         }
         assertTrue(
             "7 个用户的结构签名至少 4 种（差异来自 texture/structure，不是只换颜色）：$structureKeys",
@@ -223,14 +234,18 @@ class VisualReviewRenderTest {
         val displacements = HashMap<String, Double>()
         for (profile in QaProfiles.ALL) {
             val snap = snapshot(profile, 90)
-            val params = com.yunjue.echo.mind.presence.EchoVisualMapper.map(
-                snap.presence, 12f, com.yunjue.echo.mind.presence.SurfaceMode.APP,
+            val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
+            val t0 = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE, 0f,
+                ),
+                1080f, 2340f,
             )
-            val t0 = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                params, snap.identity.seed, 0f, 1080f, 2340f,
-            )
-            val t6 = com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                params, snap.identity.seed, 6f, 1080f, 2340f,
+            val t6 = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE, 6f,
+                ),
+                1080f, 2340f,
             )
             val meanDisp = t0.particles.indices.sumOf { i ->
                 val a = t0.particles[i]
@@ -274,10 +289,10 @@ class VisualReviewRenderTest {
     private fun dayDir(rendered: File, profile: QaProfileSpec, day: Int): File =
         File(File(rendered, profile.id), "day%03d".format(day))
 
-    private fun renderPng(frame: com.yunjue.echo.mind.presence.EchoSceneFrame): Bitmap =
+    private fun renderPng(frame: com.yunjue.echo.mind.visual.render.OrganismFrame): Bitmap =
         VisualReviewRenderer.renderFrame(frame, 1080, 2340)
 
-    private fun renderWallpaperPng(frame: com.yunjue.echo.mind.presence.EchoSceneFrame): Bitmap =
+    private fun renderWallpaperPng(frame: com.yunjue.echo.mind.visual.render.OrganismFrame): Bitmap =
         VisualReviewRenderer.renderFrame(
             frame,
             VisualReviewRenderer.WALLPAPER_WIDTH,

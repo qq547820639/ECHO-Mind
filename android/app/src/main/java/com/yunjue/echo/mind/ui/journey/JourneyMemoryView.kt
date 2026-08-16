@@ -18,10 +18,9 @@ import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.identityEvolutionLines
 import com.yunjue.echo.mind.journey.landmarkKindLabel
 import com.yunjue.echo.mind.journey.reconstructJourneyFrame
+import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.journey.seasonLabel
 import com.yunjue.echo.mind.journey.shiftExplanationLines
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.drawEchoFrame
 
 /**
  * ERA 16 §84-§87 — Journey 长期记忆 UI 层（Screen 之外的独立组件，保持 JourneyScreen 薄）：
@@ -44,13 +43,20 @@ fun YearViewSection(state: JourneyUiState, seed: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
                 Canvas(Modifier.size(48.dp)) {
-                    val frame = season.visualParams?.let {
-                        computeEchoSceneFrame(
-                            it, seed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height
+                    // §59：季/年聚合用 representative canonical portrait（production organism 管线）
+                    val frame = season.visualParams?.let { params ->
+                        com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                            spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                                com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+                                com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                                JOURNEY_CANONICAL_TIME_SECONDS,
+                            ),
+                            width = this.size.width,
+                            height = this.size.height,
                         )
                     }
                     if (frame != null) {
-                        drawEchoFrame(frame)
+                        drawOrganism(frame)
                     } else {
                         drawCircle(
                             color = placeholderColor,
@@ -121,19 +127,26 @@ fun HistoricalReconstructionSection(
     Column(Modifier.padding(top = 12.dp)) {
         Text("那一天的回声 · ${day.date}", style = MaterialTheme.typography.titleSmall)
         Canvas(Modifier.size(96.dp)) {
+            // V3：历史帧经同一 production organism 管线（Canonical 优先；画像 genome fallback；
+            // 无数据 quiet ring，不编造）
             val frame = reconstructJourneyFrame(
                 canonical = canonical,
                 fallbackPortrait = null,
                 fallbackSeed = fallbackSeed,
                 width = this.size.width,
                 height = this.size.height,
-            ) ?: day.visualParams?.let {
-                computeEchoSceneFrame(
-                    it, fallbackSeed, JOURNEY_CANONICAL_TIME_SECONDS, this.size.width, this.size.height
+            ) ?: day.genome?.let { g ->
+                com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        g, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        JOURNEY_CANONICAL_TIME_SECONDS,
+                    ),
+                    width = this.size.width,
+                    height = this.size.height,
                 )
             }
             if (frame != null) {
-                drawEchoFrame(frame)
+                drawOrganism(frame)
             } else {
                 drawCircle(
                     color = placeholderColor,

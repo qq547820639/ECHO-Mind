@@ -19,7 +19,6 @@ import com.yunjue.echo.mind.presence.LifeSeasonTracker
 import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.buildMomentState
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeLifeSeason
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import java.time.LocalDate
@@ -192,16 +191,37 @@ class QaTimeline(
         /** 场景帧时间锚（与 Journey canonical 一致，保证帧可复现）。 */
         fun frameTimeSeconds(): Float = JOURNEY_CANONICAL_TIME_SECONDS
 
-        fun computeFrame(snap: QaDaySnapshot, surface: SurfaceMode = SurfaceMode.APP) =
-            computeEchoSceneFrame(
-                params = when (surface) {
-                    SurfaceMode.APP -> snap.appVisual
-                    else -> snap.lockVisual
-                },
-                seed = snap.identity.seed,
-                timeSeconds = frameTimeSeconds(),
+        /**
+         * V3：QA 帧走 production organism 管线，与 Canonical 历史重建同一参数链
+         * （EchoVisualMapper → EchoVisualParameters → genomeFromParams → compute）——
+         * canonical roundtrip 与当日渲染同帧由单一映射保证。
+         */
+        fun computeFrame(snap: QaDaySnapshot, surface: SurfaceMode = SurfaceMode.APP): com.yunjue.echo.mind.visual.render.OrganismFrame {
+            val params = when (surface) {
+                SurfaceMode.APP -> snap.appVisual
+                else -> snap.lockVisual
+            }
+            val genome = com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(
+                params, snap.identity.seed,
+            )
+            return com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    genome,
+                    when (surface) {
+                        SurfaceMode.APP -> com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE
+                        SurfaceMode.DREAM -> com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT
+                        SurfaceMode.HOME_WALLPAPER ->
+                            com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY
+                        else -> com.yunjue.echo.mind.visual.surface.EchoSurface.LOCK_PUBLIC_SAFE
+                    },
+                    frameTimeSeconds(),
+                ),
                 width = 1080f,
                 height = 2340f,
+                options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                    maturityName = snap.presence.maturity.name,
+                ),
             )
+        }
     }
 }

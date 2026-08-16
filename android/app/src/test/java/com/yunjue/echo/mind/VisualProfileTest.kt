@@ -6,10 +6,9 @@ import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.computeVisualParameters
 import com.yunjue.echo.mind.presence.dayBrightnessCurve
-import com.yunjue.echo.mind.presence.hsvToArgb
+import com.yunjue.echo.mind.visual.render.ColorSpace
 import com.yunjue.echo.mind.presence.maturityOpenness
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
@@ -93,31 +92,48 @@ class VisualProfileTest {
         }
     }
 
+    private fun organismFrameFor(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        timeSeconds: Float,
+        width: Float,
+        height: Float,
+    ) = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            timeSeconds,
+        ),
+        width = width,
+        height = height,
+    )
+
     @Test
     fun frameIsDeterministic() {
         val params = computeVisualParameters(state(), 13f, SurfaceMode.APP)
-        val f1 = computeEchoSceneFrame(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
-        val f2 = computeEchoSceneFrame(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
+        val f1 = organismFrameFor(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
+        val f2 = organismFrameFor(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
         assertEquals(f1, f2)
-        // 粒子数在密度决定的范围内
-        assertTrue("粒子数异常：${f1.particles.size}", f1.particles.size in 14..60)
-        // 核心半径在合法范围
-        assertTrue(f1.coreRadiusFraction in 0.05f..0.4f)
+        // 粒子数在密度决定的范围内（V3：40+120·density 窗内，质量/成熟度另缩放）
+        assertTrue("粒子数异常：${f1.particles.size}", f1.particles.size in 10..220)
+        // 空心核腔体比在 identity 范围（§18：.29R..43R × 开放度调制）
+        assertTrue(f1.coreCavity.radiusFraction in 0.03f..0.4f)
     }
 
     @Test
     fun differentSeedChangesIdentity() {
         val params = computeVisualParameters(state(), 13f, SurfaceMode.APP)
-        val f1 = computeEchoSceneFrame(params, seed = 42L, timeSeconds = 10f, width = 100f, height = 200f)
-        val f2 = computeEchoSceneFrame(params, seed = 7L, timeSeconds = 10f, width = 100f, height = 200f)
-        // 同一用户不同日子有视觉血缘（粒子轨道同源），但不同 identity 的画面不同
-        assertNotEquals(f1.backgroundCenterColor, f2.backgroundCenterColor)
+        val f1 = organismFrameFor(params, seed = 42L, timeSeconds = 10f, width = 100f, height = 200f)
+        val f2 = organismFrameFor(params, seed = 7L, timeSeconds = 10f, width = 100f, height = 200f)
+        // 同一用户不同日子有视觉血缘，但不同 identity 的画面不同（§82 几何维度也不同）
+        assertNotEquals(f1.ambientField.centerColor, f2.ambientField.centerColor)
     }
 
     @Test
-    fun hsvToArgbIsDeterministicAndOpaque() {
-        val c1 = hsvToArgb(0.6f, 0.7f, 0.75f)
-        val c2 = hsvToArgb(0.6f, 0.7f, 0.75f)
+    fun colorSpaceIsDeterministicAndOpaque() {
+        // V3：identity palette 走感知 LCh（ColorSpace.lch），确定性且不透明
+        val c1 = ColorSpace.lch(0.72f, 0.118f, 240f)
+        val c2 = ColorSpace.lch(0.72f, 0.118f, 240f)
         assertEquals(c1, c2)
         assertEquals(0xFF, c1 ushr 24 and 0xFF)
     }

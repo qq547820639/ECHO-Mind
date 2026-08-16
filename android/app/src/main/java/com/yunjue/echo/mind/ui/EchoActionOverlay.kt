@@ -22,11 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.presence.EchoVisualParameters
-import com.yunjue.echo.mind.presence.NEUTRAL_VISUAL_PARAMS
-import com.yunjue.echo.mind.presence.drawEchoFrame
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.computeVisualParameters
+import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurfaceConfig
 import kotlinx.coroutines.delay
 import java.time.LocalTime
@@ -68,21 +64,22 @@ fun EchoActionOverlay(
     }
 
     val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
-    // ERA 75 §64：行动层同样尊重用户视觉偏好（减少动画 → 流动归零；呼吸引导文字不受影响）
-    val baseParams = if (presence != null) {
-        computeVisualParameters(presence, hourOfDay, config.surface, config.motionLevel, config.nightMode)
-    } else {
-        NEUTRAL_VISUAL_PARAMS
-    }
-    // 呼吸引导：固定 8 秒周期（显式吸/呼），其余视觉参数保持 ECHO 当前状态
-    val actionParams: EchoVisualParameters = if (mode == EchoActionMode.BREATHING) {
-        baseParams.copy(
-            pulsePeriodSeconds = BREATHING_CYCLE_SECONDS,
-            flowSpeed = baseParams.flowSpeed * 0.5f,
-            coreOpenness = (baseParams.coreOpenness * 1.15f).coerceIn(0f, 1f),
-        )
-    } else {
-        baseParams.copy(flowSpeed = baseParams.flowSpeed * 0.3f)
+    // V3：行动层走 production organism（SAME ECHO）；视觉偏好经既有 config 保持。
+    // 呼吸引导语义保持（BREATHING 更慢更开 / PAUSE 更静），只调表现参数，不动 identity。
+    val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
+        presence ?: EchoPresenceState(), hourOfDay,
+    ).let { g ->
+        when (mode) {
+            EchoActionMode.BREATHING -> g.copy(
+                driftRate = (g.driftRate * 0.5f).coerceIn(0f, 1f),
+                coreIntensity = (g.coreIntensity * 1.15f).coerceIn(0f, 1f),
+                // 固定 8s 呼吸引导周期（显式吸/呼）
+                pulseRate = BREATHING_CYCLE_SECONDS,
+            )
+            EchoActionMode.PAUSE -> g.copy(
+                driftRate = (g.driftRate * 0.3f).coerceIn(0f, 1f),
+            )
+        }
     }
 
     // 吸/呼相位：elapsed 在 8s 周期前半 = 吸气（核心扩大），后半 = 呼气
@@ -92,14 +89,20 @@ fun EchoActionOverlay(
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val frame = computeEchoSceneFrame(
-                    params = actionParams,
-                    seed = presence?.identityGenome?.seed ?: 0L,
-                    timeSeconds = timeSeconds,
+                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        genome = genome,
+                        surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        clockSeconds = timeSeconds,
+                    ),
                     width = size.width,
                     height = size.height,
+                    options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                        maturityName = presence?.maturity?.name ?: "SEED",
+                        reducedMotion = config.surface == com.yunjue.echo.mind.presence.SurfaceMode.REDUCED_MOTION,
+                    ),
                 )
-                drawEchoFrame(frame)
+                drawOrganism(frame)
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

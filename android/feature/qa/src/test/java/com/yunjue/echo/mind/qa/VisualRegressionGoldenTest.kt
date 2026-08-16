@@ -22,17 +22,20 @@ class VisualRegressionGoldenTest {
                 hash *= 1099511628211L
             }
         }
-        feed(frame.backgroundCenterColor)
-        feed(frame.backgroundEdgeColor)
-        feed(frame.accentColor)
-        feed(frame.coreRadiusFraction)
-        feed(frame.ringRadiusFraction)
-        feed(frame.ringAlpha)
-        feed(frame.textureFamily)
-        feed(frame.contrast)
-        frame.extraRings.forEach { feed("${it.radiusFraction},${it.alpha}") }
+        feed(frame.ambientField.centerColor)
+        feed(frame.ambientField.edgeColor)
+        feed(frame.frontMembrane.color)
+        feed(frame.coreCavity.radiusFraction)
+        feed(frame.frontMembrane.radiusFraction)
+        feed(frame.frontMembrane.alpha)
+        feed(frame.structuralRings.size)
+        feed(frame.longFilaments.size)
+        feed(frame.localFragments.size)
+        feed(frame.coreKnots.size)
+        frame.structuralRings.forEach { ring -> ring.points.forEach { feed("${it.x},${it.y},${it.alpha}") } }
+        frame.coreKnots.forEach { feed("${it.x},${it.y},${it.radiusFraction},${it.alpha}") }
         frame.particles.forEach { p ->
-            feed("${p.x},${p.y},${p.radiusFraction},${p.alpha},${p.streakLength},${p.streakDirX},${p.streakDirY}")
+            feed("${p.x},${p.y},${p.radiusFraction},${p.alpha},${p.kind},${p.color}")
         }
         return hash
     }
@@ -77,60 +80,60 @@ class VisualRegressionGoldenTest {
         /** 黄金值（ERA 31 R1 生成：sceneRandom index 熵修复 + 帧模型消费纹理族/轨道几何/结构环/对比度）。 */
         val GOLDEN: Map<String, Map<Int, Long>> = mapOf(
             "PROFILE_A_STABLE" to mapOf(
-                0 to 1669986756197806128L,
-                3 to -3519019148247797043L,
-                7 to 507182913284167094L,
-                28 to -6694603047645385794L,
-                90 to 3872031034459735819L,
-                180 to 7621979488207323922L,
+                0 to -4932603199420414005L,
+                3 to -4159758944046632020L,
+                7 to 1196829234767883845L,
+                28 to -540233612281671048L,
+                90 to -4933399914285784102L,
+                180 to -2665717585839627836L,
             ),
             "PROFILE_B_NIGHT_OWL" to mapOf(
-                0 to -244897554995760997L,
-                3 to 6653888985586845277L,
-                7 to -8050449222511522585L,
-                28 to -2422357479064826762L,
-                90 to -9164365190693916417L,
-                180 to 6488824926315496164L,
+                0 to 3512445165336543324L,
+                3 to -338366303148680410L,
+                7 to -9095904767921762688L,
+                28 to -7059604406997008461L,
+                90 to 5984419141591177161L,
+                180 to 1286566988796735577L,
             ),
             "PROFILE_C_IRREGULAR" to mapOf(
-                0 to -3649532375274039188L,
-                3 to 3198974423186129409L,
-                7 to -5659993300333025793L,
-                28 to 3050314129770243300L,
-                90 to -5306239397707646606L,
-                180 to -6626916932635316952L,
+                0 to 6191128551376491257L,
+                3 to -6718074818125645770L,
+                7 to 5482906981971248716L,
+                28 to 256553283131701317L,
+                90 to 5652318223923359935L,
+                180 to 2355801739135257075L,
             ),
             "PROFILE_D_TRAVEL" to mapOf(
-                0 to 3685232399730296287L,
-                3 to -8106371701180884489L,
-                7 to 7207409188845085459L,
-                28 to -4082715309619861362L,
-                90 to 5394654868756790802L,
-                180 to -4776920813325993366L,
+                0 to 4910420804512709084L,
+                3 to -3374152334170159796L,
+                7 to 7876204926987382555L,
+                28 to 8762172178753099431L,
+                90 to -4863255748587113921L,
+                180 to 3323587081800399678L,
             ),
             "PROFILE_E_PROJECT_CRUNCH" to mapOf(
-                0 to 5016293378218045123L,
-                3 to 5385476005824193965L,
-                7 to -3397350885913279956L,
-                28 to 7461543173701993710L,
-                90 to -7804897181299741766L,
-                180 to -4864461286184926862L,
+                0 to 1365408853587917215L,
+                3 to 2329636536875397812L,
+                7 to -2313599425448976813L,
+                28 to 1757657678169745423L,
+                90 to 1244878684959869869L,
+                180 to -4598466376122949459L,
             ),
             "PROFILE_F_LOW_DATA" to mapOf(
-                0 to -6282835688936304473L,
-                3 to 6074665271136645373L,
-                7 to -3295192136292986241L,
-                28 to 6184185341677663071L,
-                90 to 3471352108219402081L,
-                180 to 6982349254142242401L,
+                0 to -5018115487663455255L,
+                3 to 4139518522125876186L,
+                7 to -1278097741409431024L,
+                28 to -4190328338156815862L,
+                90 to -2461482593702795065L,
+                180 to -3502600487266976680L,
             ),
             "PROFILE_G_WEEKEND_DIFFERENT" to mapOf(
-                0 to -8024581698350048516L,
-                3 to -446541527559493373L,
-                7 to 1612456852995724661L,
-                28 to -543810697796165897L,
-                90 to 3113550895566961084L,
-                180 to -8509596057000690899L,
+                0 to 6227233698772701873L,
+                3 to -3565415430377798674L,
+                7 to -124873136932804623L,
+                28 to -7557827707774970432L,
+                90 to 1340770257861729633L,
+                180 to -4493905691882997111L,
             ),
         )
     }

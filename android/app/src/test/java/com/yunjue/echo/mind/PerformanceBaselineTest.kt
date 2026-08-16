@@ -311,10 +311,12 @@ class PerformanceBaselineTest {
         )
         val ms = measureMs(3) {
             repeat(1000) {
-                com.yunjue.echo.mind.presence.computeEchoSceneFrame(
-                    params = params,
-                    seed = 42L,
-                    timeSeconds = com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS,
+                com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                        com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, 42L),
+                        com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS,
+                    ),
                     width = 1080f,
                     height = 2340f,
                 )

@@ -11,7 +11,6 @@ import com.yunjue.echo.mind.presence.EchoPresenceCodec
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -48,6 +47,22 @@ class EchoPresenceCodecTest {
         momentState = EchoMomentState(breathingPeriod = 3.9f, noiseScale = 0.15f),
     )
 
+    private fun organismFrameFor(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        timeSeconds: Float,
+        width: Float,
+        height: Float,
+    ) = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            timeSeconds,
+        ),
+        width = width,
+        height = height,
+    )
+
     @Test
     fun roundTripPreservesFullFourLayers() {
         val state = fullState()
@@ -56,13 +71,13 @@ class EchoPresenceCodecTest {
         assertEquals("v2 往返应完整保留四层状态", state, decoded)
 
         // 跨进程渲染同帧：解码后的状态映射+渲染与编码前一致（进程死亡后同一个 ECHO）
-        val frameLive = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(state, 12f, SurfaceMode.APP),
-            seed = state.identityGenome.seed, timeSeconds = 600f, width = 1080f, height = 2340f,
+        val frameLive = organismFrameFor(
+            EchoVisualMapper.map(state, 12f, SurfaceMode.APP),
+            state.identityGenome.seed, 600f, 1080f, 2340f,
         )
-        val frameRecovered = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(decoded, 12f, SurfaceMode.APP),
-            seed = decoded.identityGenome.seed, timeSeconds = 600f, width = 1080f, height = 2340f,
+        val frameRecovered = organismFrameFor(
+            EchoVisualMapper.map(decoded, 12f, SurfaceMode.APP),
+            decoded.identityGenome.seed, 600f, 1080f, 2340f,
         )
         assertEquals("进程重启后快照恢复的 ECHO 应与前台同帧", frameLive, frameRecovered)
     }

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.qa
 
 import android.graphics.Bitmap
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import kotlin.math.abs
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,12 +38,19 @@ class WallpaperMotionRealityTest {
 
     private fun frameOf(profile: QaProfileSpec, day: Int, timeSeconds: Float): Bitmap {
         val snap = QaTimeline(profile).snapshot(day)
-        val frame = computeEchoSceneFrame(
-            params = snap.lockVisual,
-            seed = snap.identity.seed,
-            timeSeconds = timeSeconds,
+        val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+            spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
+                    snap.presence, VisualReviewRenderer.REVIEW_HOUR,
+                ),
+                com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+                timeSeconds,
+            ),
             width = VisualReviewRenderer.WALLPAPER_WIDTH.toFloat(),
             height = VisualReviewRenderer.WALLPAPER_HEIGHT.toFloat(),
+            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                maturityName = snap.presence.maturity.name,
+            ),
         )
         return VisualReviewRenderer.renderFrame(
             frame, VisualReviewRenderer.WALLPAPER_WIDTH, VisualReviewRenderer.WALLPAPER_HEIGHT,

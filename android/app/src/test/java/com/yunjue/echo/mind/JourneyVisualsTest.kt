@@ -7,7 +7,7 @@ import com.yunjue.echo.mind.journey.journeyChunkDays
 import com.yunjue.echo.mind.journey.journeyDayParams
 import com.yunjue.echo.mind.journey.journeyGroups
 import com.yunjue.echo.mind.journey.journeyRepresentativeIndex
-import com.yunjue.echo.mind.journey.journeyThumbnailFrame
+import com.yunjue.echo.mind.journey.JourneyOrganismVisuals
 import com.yunjue.echo.mind.journey.journeyWeekGroups
 import com.yunjue.echo.mind.journey.journeyWindowDays
 import com.yunjue.echo.mind.model.DailyPortraitDto
@@ -59,16 +59,17 @@ class JourneyVisualsTest {
 
     @Test
     fun thumbnailFrameIsStableAcrossCalls() {
+        // V3：production organism 帧（存参数不存图；同一天同一帧）
         val p = portrait("2026-08-14", 10)
-        val f1 = journeyThumbnailFrame(p, 42L, 100f, 100f)
-        val f2 = journeyThumbnailFrame(p, 42L, 100f, 100f)
+        val f1 = JourneyOrganismVisuals.frameFor(p, 42L, 100f, 100f)
+        val f2 = JourneyOrganismVisuals.frameFor(p, 42L, 100f, 100f)
         assertEquals(f1, f2)
         assertNotNull(f1)
     }
 
     @Test
     fun missingDayHasNoFrame() {
-        assertNull(journeyThumbnailFrame(null, 42L, 100f, 100f))
+        assertNull(JourneyOrganismVisuals.frameFor(null, 42L, 100f, 100f))
         assertNull(journeyDayParams(null))
     }
 

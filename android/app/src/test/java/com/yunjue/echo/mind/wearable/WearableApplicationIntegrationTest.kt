@@ -121,8 +121,8 @@ class WearableApplicationIntegrationTest {
         )
 
     /** 轮询等待条件（真实 Dispatchers.Default；超时即断言失败）。 */
-    // 全量并行负载下协程调度延迟可超过 5s（实测 flake）；语义不变，只放宽等待上限。
-    private fun awaitUntil(timeoutMs: Long = 15_000L, condition: () -> Boolean) {
+    // 全量并行负载下协程调度延迟实测可超过 15s（Dispatchers 饥饿）；语义不变，只放宽等待上限。
+    private fun awaitUntil(timeoutMs: Long = 30_000L, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (condition()) return

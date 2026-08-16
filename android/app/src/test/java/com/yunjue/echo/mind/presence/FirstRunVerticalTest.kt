@@ -41,6 +41,26 @@ class FirstRunVerticalTest {
         )
     }
 
+    private fun organismFrameFor(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        timeSeconds: Float,
+        width: Float,
+        height: Float,
+        maturityName: String = "KNOWN",
+    ) = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            timeSeconds,
+        ),
+        width = width,
+        height = height,
+        options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+            maturityName = maturityName,
+        ),
+    )
+
     @Test
     fun freshInstallWakesUpNeutralDeterministicEcho() {
         val ambient = AmbientEngine.compute(today = null, baseline = null)
@@ -48,13 +68,13 @@ class FirstRunVerticalTest {
         val state = wakeUpPresence(seed = 424_242L)
         assertEquals(EchoMaturity.SEED, state.maturity)
         val params = computeVisualParameters(state, 13f, SurfaceMode.APP)
-        val frame = computeEchoSceneFrame(params, state.identityGenome.seed, 12f, 320f, 320f)
-        // ECHO 苏醒而非空白：有粒子、有核心、有强调色
+        val frame = organismFrameFor(params, state.identityGenome.seed, 12f, 320f, 320f, state.maturity.name)
+        // ECHO 苏醒而非空白：有粒子、有空心核、有强调色（前膜色）
         assertTrue("首帧必须有粒子（ECHO 可见）", frame.particles.isNotEmpty())
-        assertTrue("核心半径必须为正", frame.coreRadiusFraction > 0f)
-        assertTrue("强调色必须非零", frame.accentColor != 0)
+        assertTrue("空心核腔体必须为正", frame.coreCavity.radiusFraction > 0f)
+        assertTrue("强调色必须非零", frame.frontMembrane.color != 0)
         // 完全确定性：同输入两次同帧
-        assertEquals(frame, computeEchoSceneFrame(params, state.identityGenome.seed, 12f, 320f, 320f))
+        assertEquals(frame, organismFrameFor(params, state.identityGenome.seed, 12f, 320f, 320f, state.maturity.name))
     }
 
     @Test

@@ -4,9 +4,7 @@ import com.yunjue.echo.mind.model.echoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
-import com.yunjue.echo.mind.presence.EchoSceneFrame
 import com.yunjue.echo.mind.presence.EchoVisualParameters
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.presence.maturityOpenness
 import kotlin.math.abs
 import kotlin.math.max
@@ -68,22 +66,7 @@ fun journeyDayParams(portrait: DailyPortraitDto?): EchoVisualParameters? {
 /** CANONICAL_SNAPSHOT 时间点：固定 12.0s（同一天永远同一帧）。 */
 const val JOURNEY_CANONICAL_TIME_SECONDS = 12f
 
-/** Journey 缩略帧（确定性；渲染器只画帧）。 */
-fun journeyThumbnailFrame(
-    portrait: DailyPortraitDto?,
-    seed: Long,
-    width: Float,
-    height: Float,
-): EchoSceneFrame? {
-    val params = journeyDayParams(portrait) ?: return null
-    return computeEchoSceneFrame(
-        params = params,
-        seed = seed,
-        timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS,
-        width = width,
-        height = height,
-    )
-}
+
 
 /** 代表日：SIMILAR 维度数最多的日子（平手取最近一天）；空列表 → -1。 */
 fun journeyRepresentativeIndex(portraits: List<DailyPortraitDto>): Int {

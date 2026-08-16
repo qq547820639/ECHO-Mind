@@ -7,19 +7,21 @@ import android.graphics.Paint
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_HOUR
 import com.yunjue.echo.mind.journey.buildCanonicalDay
 import com.yunjue.echo.mind.journey.reconstructJourneyFrame
-import com.yunjue.echo.mind.presence.EchoSceneFrame
-import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
-import com.yunjue.echo.mind.presence.renderEchoFrameToCanvas
+import com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer
+import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.visual.render.OrganismFrame
+import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
+import com.yunjue.echo.mind.visual.surface.EchoSurface
+import com.yunjue.echo.mind.visual.surface.SurfacePolicy
 import java.io.File
 
 /**
  * ERA 31 §5/§6 — Visual Review Renderer（qa/visual-review 工件生成器）。
  *
  * 原则：渲染的是 **production 帧模型 + production android.graphics 渲染器**
- * （computeEchoSceneFrame → renderEchoFrameToCanvas），本类只负责把真实帧落成
- * PNG / 对比拼图 / 参数快照说明，供人眼评审——不是 QA 重写产品。
+ * （V3：GenomeDeriver → SurfacePolicy → OrganismFrameComputer → OrganismCanvasRenderer），
+ * 本类只负责把真实帧落成 PNG / 对比拼图 / 参数快照说明，供人眼评审——不是 QA 重写产品。
  *
  * 所有输出确定性：同一 profile/day/surface 恒同帧（渲染时间锚 = Journey canonical 12:00）。
  */
@@ -46,7 +48,15 @@ object VisualReviewRenderer {
         CANONICAL_JOURNEY(SurfaceMode.APP, APP_WIDTH, APP_HEIGHT),
     }
 
-    fun frameFor(snap: QaDaySnapshot, surface: ReviewSurface): EchoSceneFrame? {
+    /** ReviewSurface → V3 EchoSurface（SAME ECHO 裁剪面）。 */
+    private fun ReviewSurface.toEchoSurface(): EchoSurface = when (this) {
+        ReviewSurface.APP, ReviewSurface.CANONICAL_JOURNEY -> EchoSurface.APP_PRIVATE
+        ReviewSurface.HOME_WALLPAPER -> EchoSurface.WALLPAPER_VISUAL_ONLY
+        ReviewSurface.LOCK_SAFE -> EchoSurface.LOCK_PUBLIC_SAFE
+        ReviewSurface.DREAM -> EchoSurface.DREAM_AMBIENT
+    }
+
+    fun frameFor(snap: QaDaySnapshot, surface: ReviewSurface): OrganismFrame? {
         if (surface == ReviewSurface.CANONICAL_JOURNEY) {
             val canonical = buildCanonicalDay(
                 date = snap.date.toString(),
@@ -62,21 +72,20 @@ object VisualReviewRenderer {
                 height = surface.height.toFloat(),
             )
         }
-        val params = EchoVisualMapper.map(snap.presence, REVIEW_HOUR, surface.mode)
-        return computeEchoSceneFrame(
-            params = params,
-            seed = snap.identity.seed,
-            timeSeconds = QaTimeline.frameTimeSeconds(),
+        val genome = GenomeDeriver.derive(snap.presence, REVIEW_HOUR)
+        return OrganismFrameComputer.compute(
+            spec = SurfacePolicy.crop(genome, surface.toEchoSurface(), QaTimeline.frameTimeSeconds()),
             width = surface.width.toFloat(),
             height = surface.height.toFloat(),
+            options = OrganismFrameComputer.EchoRenderOptions(
+                maturityName = snap.presence.maturity.name,
+            ),
         )
     }
 
     /** 经 production 渲染器把帧画进真 Bitmap。 */
-    fun renderFrame(frame: EchoSceneFrame, width: Int, height: Int): Bitmap {
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        renderEchoFrameToCanvas(Canvas(bitmap), frame, width.toFloat(), height.toFloat())
-        return bitmap
+    fun renderFrame(frame: OrganismFrame, width: Int, height: Int): Bitmap {
+        return OrganismCanvasRenderer.renderToBitmap(frame, width, height)
     }
 
     fun writePng(bitmap: Bitmap, file: File) {

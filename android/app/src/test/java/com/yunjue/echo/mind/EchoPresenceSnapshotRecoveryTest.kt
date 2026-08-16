@@ -14,7 +14,6 @@ import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -84,16 +83,36 @@ class EchoPresenceSnapshotRecoveryTest {
         assertEquals("恢复的 Presence 应与写进程完全一致", fullState(), recovered)
 
         // 同一个 ECHO：恢复后渲染与前台同帧（identity seed 是恢复锚点的核心）
-        val frameLive = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(fullState(), 12f, SurfaceMode.APP),
-            seed = fullState().identityGenome.seed, timeSeconds = 600f, width = 1080f, height = 2340f,
+        val frameLive = organismFrameFor(
+            EchoVisualMapper.map(fullState(), 12f, SurfaceMode.APP),
+            fullState().identityGenome.seed, 600f, 1080f, 2340f,
         )
-        val frameRecovered = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(recovered, 12f, SurfaceMode.APP),
-            seed = recovered.identityGenome.seed, timeSeconds = 600f, width = 1080f, height = 2340f,
+        val frameRecovered = organismFrameFor(
+            EchoVisualMapper.map(recovered, 12f, SurfaceMode.APP),
+            recovered.identityGenome.seed, 600f, 1080f, 2340f,
         )
         assertEquals("重启后恢复的 ECHO 渲染与前台同帧", frameLive, frameRecovered)
     }
+
+    private fun organismFrameFor(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        timeSeconds: Float,
+        width: Float,
+        height: Float,
+        maturityName: String = "KNOWN",
+    ) = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            timeSeconds,
+        ),
+        width = width,
+        height = height,
+        options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+            maturityName = maturityName,
+        ),
+    )
 
     @Test
     fun writingNullRemovesRecoveryAnchor() {

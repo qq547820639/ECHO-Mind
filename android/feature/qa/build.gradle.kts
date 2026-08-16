@@ -37,6 +37,8 @@ dependencies {
     implementation(project(":core:ports"))
     implementation(project(":feature:observation"))
     implementation(project(":feature:presence"))
+    implementation(project(":feature:presencevisual"))
+    implementation(project(":core:visual"))
     implementation(project(":feature:journey"))
     implementation(project(":feature:memory"))
     implementation(project(":feature:intelligence"))

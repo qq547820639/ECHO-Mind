@@ -77,6 +77,26 @@ class IdentityPipelineTruthTest {
 
     // ===== 1. 四层真实进入视觉参数 =====
 
+    private fun organismFrameFor(
+        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        seed: Long,
+        timeSeconds: Float,
+        width: Float,
+        height: Float,
+        maturityName: String = "KNOWN",
+    ) = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
+            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            timeSeconds,
+        ),
+        width = width,
+        height = height,
+        options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+            maturityName = maturityName,
+        ),
+    )
+
     @Test
     fun fourLayersReachVisualParameters() {
         val base = state()
@@ -118,9 +138,8 @@ class IdentityPipelineTruthTest {
     fun canonicalRoundtripReconstructsSameFrame() {
         val original = state(seed = 20260815L)
         val params = EchoVisualMapper.map(original, hourOfDay = 14f, surface = SurfaceMode.APP)
-        val directFrame = computeEchoSceneFrame(
-            params = params, seed = 20260815L,
-            timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS, width = 1080f, height = 2340f,
+        val directFrame = organismFrameFor(
+            params, 20260815L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, original.maturity.name,
         )
 
         val day = buildCanonicalDay(
@@ -148,19 +167,19 @@ class IdentityPipelineTruthTest {
         val day1 = state(seed = 777L, maturity = echoMaturity(3), dailyFlow = 0f, dailyCoherence = 0f, dailyOpenness = 0f)
         val day180 = state(seed = 777L, maturity = echoMaturity(180), dailyFlow = 0f, dailyCoherence = 0f, dailyOpenness = 0f)
 
-        val frameDay1 = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(day1, 12f, SurfaceMode.APP),
-            seed = 777L, timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS, width = 1080f, height = 2340f,
+        val frameDay1 = organismFrameFor(
+            EchoVisualMapper.map(day1, 12f, SurfaceMode.APP),
+            777L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, day1.maturity.name,
         )
-        val frameDay180 = computeEchoSceneFrame(
-            params = EchoVisualMapper.map(day180, 12f, SurfaceMode.APP),
-            seed = 777L, timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS, width = 1080f, height = 2340f,
+        val frameDay180 = organismFrameFor(
+            EchoVisualMapper.map(day180, 12f, SurfaceMode.APP),
+            777L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, day180.maturity.name,
         )
 
         // 颜色族（Identity 决定，非状态决定）跨成熟度不变 → 同一个 ECHO
-        assertEquals("主色应由 Identity 决定：Day1/Day180 背景中心色一致", frameDay1.backgroundCenterColor, frameDay180.backgroundCenterColor)
-        assertEquals("主色应由 Identity 决定：Day1/Day180 强调色一致", frameDay1.accentColor, frameDay180.accentColor)
+        assertEquals("主色应由 Identity 决定：Day1/Day180 背景中心色一致", frameDay1.ambientField.centerColor, frameDay180.ambientField.centerColor)
+        assertEquals("主色应由 Identity 决定：Day1/Day180 强调色一致", frameDay1.frontMembrane.color, frameDay180.frontMembrane.color)
         // 成熟度只塑形开放度，不重置身份
-        assertNotEquals("成熟度应塑形开放度（成长），但颜色保持连续", frameDay1.coreRadiusFraction, frameDay180.coreRadiusFraction)
+        assertNotEquals("成熟度应塑形开放度（成长），但颜色保持连续", frameDay1.coreCavity.radiusFraction, frameDay180.coreCavity.radiusFraction)
     }
 }

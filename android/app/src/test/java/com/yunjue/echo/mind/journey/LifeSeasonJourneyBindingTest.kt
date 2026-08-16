@@ -4,7 +4,6 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.presence.computeLifeSeason
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -112,7 +111,18 @@ class LifeSeasonJourneyBindingTest {
         val params = requireNotNull(journeyDayParams(portrait))
         assertEquals(
             "回退重建应与 journeyDayParams 直接渲染同帧",
-            computeEchoSceneFrame(params, 777L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f),
+            com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+                spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                    com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, 777L),
+                    com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                    JOURNEY_CANONICAL_TIME_SECONDS,
+                ),
+                width = 1080f,
+                height = 2340f,
+                options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                    maturityName = com.yunjue.echo.mind.model.echoMaturity(portrait.baselineDays).name,
+                ),
+            ),
             frameA,
         )
 

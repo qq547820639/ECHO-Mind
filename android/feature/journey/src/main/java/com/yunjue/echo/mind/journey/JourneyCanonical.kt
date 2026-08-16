@@ -4,11 +4,9 @@ import com.yunjue.echo.mind.model.EchoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.presence.EchoSceneFrame
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.computeEchoSceneFrame
 
 /**
  * ERA 16 §83/§84 — Canonical Daily State 与历史重建。
@@ -80,23 +78,35 @@ fun reconstructJourneyFrame(
     fallbackSeed: Long,
     width: Float,
     height: Float,
-): EchoSceneFrame? {
+): com.yunjue.echo.mind.visual.render.OrganismFrame? {
+    // V3：历史帧经同一 production organism 管线重建（存参数不存图原则不变；
+    // maturity 取自 canonical/presence 真值——§13 乘数影响丰富度拓扑）。
     if (canonical != null) {
-        return computeEchoSceneFrame(
-            params = canonical.visualParams,
-            seed = canonical.visualSeed,
-            timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS,
+        val genome = JourneyOrganismVisuals.genomeFromParams(canonical.visualParams, canonical.visualSeed)
+        return com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+            spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+                genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                JOURNEY_CANONICAL_TIME_SECONDS,
+            ),
             width = width,
             height = height,
+            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                maturityName = canonical.maturity.name,
+            ),
         )
     }
     val params = journeyDayParams(fallbackPortrait) ?: return null
-    return computeEchoSceneFrame(
-        params = params,
-        seed = fallbackSeed,
-        timeSeconds = JOURNEY_CANONICAL_TIME_SECONDS,
+    val genome = JourneyOrganismVisuals.genomeFromParams(params, fallbackSeed)
+    return com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
+        spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
+            genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+            JOURNEY_CANONICAL_TIME_SECONDS,
+        ),
         width = width,
         height = height,
+        options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+            maturityName = com.yunjue.echo.mind.model.echoMaturity(fallbackPortrait!!.baselineDays).name,
+        ),
     )
 }
 
