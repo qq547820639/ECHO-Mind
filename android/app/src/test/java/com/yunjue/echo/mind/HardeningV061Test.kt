@@ -79,7 +79,7 @@ class HardeningV061Test {
         val apiClient = ApiClient(tokenProvider = { null })
         escalationRepository = EscalationRepository(db, cipher, Outbox(db, cipher), preferences, apiClient)
         skillRepository = SkillRepository(db, Outbox(db, cipher), preferences, apiClient)
-        onboardingRepository = OnboardingRepository(db.portraitDao(), preferences, apiClient)
+        onboardingRepository = OnboardingRepository(db.portraitDao(), preferences, apiClient, Outbox(db, cipher))
         consentRepository = ConsentRepository(db, Outbox(db, cipher), preferences)
         featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
     }

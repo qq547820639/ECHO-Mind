@@ -53,6 +53,17 @@ class ScreenCollector(context: Context, private val hub: SensingEventHub) {
 
     fun start() {
         if (running) return
+        // ERA 32 R26：启动时按系统真实屏幕状态播种 carry——服务重启期间屏幕一直 ON 时，
+        // 此前要等下一次 OFF→ON 边缘才恢复 carry，导致跨重启的 on-duration 长期漏算。
+        val now = System.currentTimeMillis()
+        runCatching {
+            val pm = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            if (pm.isInteractive) {
+                screenOn = true
+                screenOnSinceMs = now
+                sharedCarry = ScreenStateCarry(now)
+            }
+        }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)

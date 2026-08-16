@@ -108,7 +108,7 @@ class CoreContainer(
 
     val featureFlagRepository = FeatureFlagRepository(preferences, apiClient)
     val syncStateRepository = SyncStateRepository(database, preferences)
-    val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient)
+    val onboardingRepository = OnboardingRepository(database.portraitDao(), preferences, apiClient, outbox)
     val escalationRepository = EscalationRepository(database, cipher, outbox, preferences, apiClient)
 
     companion object {

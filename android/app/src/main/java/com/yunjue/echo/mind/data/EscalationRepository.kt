@@ -103,14 +103,25 @@ class EscalationRepository(
         )
     }
 
-    /** 拉取某 escalation 的 user-status 并回写。 */
+    /** 拉取某 escalation 的 user-status 并回写。
+     *  ERA 32 R26：参数是**服务端** escalation id——GET 用它拼 URL，
+     *  回写则按 serverEscalationId 查本地行（此前误用本地 eventId 查行，
+     *  导致查无此行使「人工已收到」状态永远无法落回本地）。 */
     suspend fun refreshEscalationStatus(escalationId: String) {
         if (escalationId.isBlank()) return
         withContext(Dispatchers.IO) {
             runCatching {
                 val (code, body) = apiClient.get("/v1/escalations/$escalationId/user-status")
                 if (code in 200..299 && !body.isNullOrBlank()) {
-                    updateEscalationServerStatus(escalationId, body)
+                    val row = db.escalationDao().byServerEscalationId(escalationId) ?: return@runCatching
+                    val status = parseServerStatus(body)
+                    db.escalationDao().upsert(
+                        row.copy(
+                            status = status,
+                            serverStatusJson = body,
+                            updatedAtEpochMs = System.currentTimeMillis()
+                        )
+                    )
                 }
             }
         }

@@ -11,6 +11,7 @@ import com.yunjue.echo.mind.data.EveningReminderWorker
 import com.yunjue.echo.mind.data.MessageCheckWorker
 import com.yunjue.echo.mind.data.PresenceRefreshWorker
 import com.yunjue.echo.mind.data.SensingWatchdogWorker
+import com.yunjue.echo.mind.data.SyncWorker
 import java.util.concurrent.TimeUnit
 
 class EchoMindApplication : Application(), Configuration.Provider {
@@ -79,6 +80,18 @@ class EchoMindApplication : Application(), Configuration.Provider {
             "echo-presence-refresh",
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<PresenceRefreshWorker>(15, TimeUnit.MINUTES).build()
+        )
+
+        // ERA 32 R26：周期同步兜底（6h，需联网）——outbox 上行不再只依赖 UI/窗口触发；
+        // 本地模式 doWork 直接短路（零网络开销）。
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "echo-outbox-sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
+                .setConstraints(
+                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+                )
+                .build()
         )
 
         // v0.7.4 UX：每晚小结提醒（21:00 自续期一次性任务；开关见支持页）

@@ -130,26 +130,42 @@ class CollectorConsumptionTest {
         // NotificationCollector 由系统绑定，其数据经 hub 单例（SensingEventHub.getInstance()）共享
         val hub = SensingEventHub.getInstance()
         val collector = NotificationCollector()
+        // ERA 32 R26：感知同意门控——测试显式置位（生产由感知服务启动时置位）
+        com.yunjue.echo.mind.sensing.SensingConsentGate.active = true
+        try {
+            // 构造最小化 StatusBarNotification（仅 metadata 入库：timestamp/packageName/category）
+            val notification = Notification.Builder(context, "test_ch")
+                .setContentTitle("secret-title") // 仅测试构造用；hub 不保存 title
+                .setContentText("secret-body")
+                .build()
+            // postTime 需落在 [windowStart, windowEnd) 窗口内（extractFromSnapshot 按窗口过滤）
+            val sbn = statusBarNotification(notification, postTime = windowEnd.toEpochMilli() - 60_000L)
+            collector.onNotificationPosted(sbn)
 
-        // 构造最小化 StatusBarNotification（仅 metadata 入库：timestamp/packageName/category）
-        val notification = Notification.Builder(context, "test_ch")
-            .setContentTitle("secret-title") // 仅测试构造用；hub 不保存 title
-            .setContentText("secret-body")
-            .build()
-        // postTime 需落在 [windowStart, windowEnd) 窗口内（extractFromSnapshot 按窗口过滤）
-        val sbn = statusBarNotification(notification, postTime = windowEnd.toEpochMilli() - 60_000L)
-        collector.onNotificationPosted(sbn)
+            val meta = hub.snapshotNotifications()
+            assertEquals("通知 metadata 应写入 hub", 1, meta.size)
+            assertEquals("com.example.pkg", meta.first().packageName)
+            // 隐私不变量：hub 快照不暴露标题/正文
+            assertTrue("hub 只保存最小化 metadata（无 title）", hub.snapshotAll().notifications.none { it.toString().contains("secret-title") })
 
-        val meta = hub.snapshotNotifications()
-        assertEquals("通知 metadata 应写入 hub", 1, meta.size)
-        assertEquals("com.example.pkg", meta.first().packageName)
-        // 隐私不变量：hub 快照不暴露标题/正文
-        assertTrue("hub 只保存最小化 metadata（无 title）", hub.snapshotAll().notifications.none { it.toString().contains("secret-title") })
+            // 通知 metadata 时间戳为 System.currentTimeMillis()（采集时刻），提取窗口需覆盖此刻
+            val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
+            assertEquals(1, features.size)
+            assertEquals("notification", features.first().source)
+        } finally {
+            com.yunjue.echo.mind.sensing.SensingConsentGate.active = false
+        }
+    }
 
-        // 通知 metadata 时间戳为 System.currentTimeMillis()（采集时刻），提取窗口需覆盖此刻
-        val features = extractor.extractFromSnapshot(windowStart, Instant.now().plusSeconds(10), hub.snapshotAll())
-        assertEquals(1, features.size)
-        assertEquals("notification", features.first().source)
+    @Test
+    fun notificationCollectorDropsPostsWhenConsentGateOff() {
+        // ERA 32 R26 回归：感知关闭/撤回期间通知元数据不得累积（数据最小化）
+        val hub = SensingEventHub.getInstance()
+        val collector = NotificationCollector()
+        com.yunjue.echo.mind.sensing.SensingConsentGate.active = false
+        val notification = Notification.Builder(context, "test_ch").setContentTitle("t").setContentText("b").build()
+        collector.onNotificationPosted(statusBarNotification(notification, postTime = windowEnd.toEpochMilli() - 60_000L))
+        assertEquals("门控关闭时不应写入 hub", 0, hub.snapshotNotifications().size)
     }
 
     // ===== app_activity：hub → extractFromSnapshot（pollOnce 依赖 UsageStatsManager，端侧轮询路径） =====

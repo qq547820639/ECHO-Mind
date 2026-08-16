@@ -48,7 +48,9 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         // 同步队列静默（不再高频重试），用户绑定机构后自动恢复同步。
         if (container.preferences.localMode) return Result.success()
         val dao = container.database.dao()
-        val client = ApiClient(tokenProvider = { container.preferences.accessToken })
+        // ERA 32 R26：复用容器 ApiClient（携带 401 静默续期钩子）——此前本 worker 自建
+        // 无续期能力的 client，是 401 认证暂停的主要触发点。
+        val client = container.apiClient
         val context = applicationContext
         if (container.preferences.accessToken.isNullOrBlank()) return Result.success()
 
@@ -357,7 +359,10 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, backoffSeconds, TimeUnit.SECONDS)
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork("echo-mind-outbox", ExistingWorkPolicy.KEEP, request)
+            // ERA 32 R26：APPEND_OR_REPLACE——KEEP 会丢弃运行中批次之后的新请求，
+            // 导致批内新写入事件滞留（已 snapshot 的批次看不到它，被丢弃的请求又不再跑）。
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork("echo-mind-outbox", ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
     }
 }

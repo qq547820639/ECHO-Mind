@@ -30,10 +30,13 @@ class SensingWatchdogWorker(
             container.passiveSensingPrefs.passiveSensingEnabled.first()
         }.getOrDefault(false)
         val now = System.currentTimeMillis()
+        // ERA 32 R26：活性依据改为调度循环心跳（空窗也刷新）——
+        // 空闲设备不再被每 15 分钟误拉起；无心跳历史（升级前）回退采集时间戳。
+        val heartbeatAt = container.preferences.sensingHeartbeatAt
         val should = SensingWatchdog.shouldAttemptRestart(
             consentOn = consentOn,
             serviceActive = container.preferences.sensingActive,
-            lastCollectionAt = container.preferences.lastCollectionTimestamp,
+            lastCollectionAt = if (heartbeatAt > 0L) heartbeatAt else container.preferences.lastCollectionTimestamp,
             now = now,
         )
         if (should && hasCoreSensorHardware(applicationContext)) {

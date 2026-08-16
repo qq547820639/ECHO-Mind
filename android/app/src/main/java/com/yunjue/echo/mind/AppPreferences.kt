@@ -177,6 +177,15 @@ class AppPreferences(
         get() = prefs.getLong("last_collection_timestamp", 0L)
         set(value) = prefs.edit().putLong("last_collection_timestamp", value).apply()
 
+    /**
+     * ERA 32 R26：感知循环活性心跳（epoch ms；每个窗口边界刷新，空窗也刷新）。
+     * 语义 ≠ lastCollectionTimestamp（数据新鲜度）——watchdog 以心跳判断
+     * 「空闲但活着」vs「假活」，避免空窗设备每 15 分钟被误拉起。
+     */
+    var sensingHeartbeatAt: Long
+        get() = prefs.getLong("sensing_heartbeat_at", 0L)
+        set(value) = prefs.edit().putLong("sensing_heartbeat_at", value).apply()
+
     /** 最近成功同步时间（epoch ms；SyncWorker 处理完一批后刷新）。 */
     var lastSyncTimestamp: Long
         get() = prefs.getLong("last_sync_timestamp", 0L)

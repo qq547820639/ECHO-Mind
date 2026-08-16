@@ -15,6 +15,9 @@ import android.service.notification.StatusBarNotification
 class NotificationCollector : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        // ERA 32 R26：同意门控——感知关闭/撤回期间不累积通知元数据
+        // （数据最小化：consent off = 零新特征，含内存缓冲）。
+        if (!SensingConsentGate.active) return
         val pkg = sbn?.packageName ?: return
         val category = sbn.notification?.category ?: CATEGORY_UNKNOWN
         SensingEventHub.getInstance()

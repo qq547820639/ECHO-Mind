@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.data.outbox
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.OutboxEventEntity
 import com.yunjue.echo.mind.security.FieldCipher
+import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 
@@ -41,5 +42,39 @@ class Outbox(
                 createdAtEpochMs = System.currentTimeMillis()
             )
         )
+    }
+
+    /**
+     * ERA 32 R26：本地→云端切换补发——本地模式期间已落库但未入队的事件
+     * （escalation outboxSynced=false / derived_feature synced=false）重新入队，
+     * 订阅后不再「永远等待送达」。调用时机：绑定成功（accessToken 已写入）之后。
+     */
+    suspend fun reEnqueueLocalBacklog() {
+        for (esc in db.escalationDao().unsyncedEscalations()) {
+            val summary = runCatching { cipher.decrypt(esc.evidenceSummaryCiphertext) }
+                .getOrNull() ?: "用户主动请求机构人工支持"
+            val payload = JSONObject().apply {
+                put("event_id", esc.eventId)
+                put("user_id", esc.userId)
+                put("trigger", esc.trigger)
+                put("evidence_summary", summary)
+            }
+            enqueue(esc.eventId, "escalation", payload, 2000)
+        }
+        for (feat in db.dao().pendingFeatureVectors()) {
+            val summary = runCatching { cipher.decrypt(feat.summaryCiphertext) }.getOrNull() ?: continue
+            val payload = basePayload(feat.id, Instant.ofEpochMilli(feat.windowStart), feat.userId).apply {
+                put("schema_version", feat.schemaVersion)
+                put("source", feat.source)
+                put("window_start", Instant.ofEpochMilli(feat.windowStart).toString())
+                put("window_end", Instant.ofEpochMilli(feat.windowEnd).toString())
+                put("summary", summary)
+                put("vector", JSONArray(feat.vector))
+                if (!feat.sourcesPresentJson.isNullOrBlank()) {
+                    put("sources_present", JSONArray(feat.sourcesPresentJson))
+                }
+            }
+            enqueue(feat.id, "derived_feature", payload, 20)
+        }
     }
 }

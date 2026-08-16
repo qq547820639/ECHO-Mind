@@ -262,6 +262,14 @@ interface EscalationDao {
     @Query("SELECT * FROM escalation_requests WHERE eventId = :eventId")
     suspend fun byEventId(eventId: String): EscalationEntity?
 
+    /** ERA 32 R26：按服务端 escalation id 查本地行（user-status 轮询回写用）。 */
+    @Query("SELECT * FROM escalation_requests WHERE serverEscalationId = :serverId")
+    suspend fun byServerEscalationId(serverId: String): EscalationEntity?
+
+    /** ERA 32 R26：本地模式期间落库但未入队的人工支持请求（订阅切换补发用）。 */
+    @Query("SELECT * FROM escalation_requests WHERE outboxSynced = 0")
+    suspend fun unsyncedEscalations(): List<EscalationEntity>
+
     @Query("SELECT * FROM escalation_requests ORDER BY createdAtEpochMs DESC LIMIT 1")
     suspend fun latest(): EscalationEntity?
 

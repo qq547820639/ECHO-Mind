@@ -49,6 +49,7 @@ class OnboardingRepository(
     private val portraitDao: PortraitDao,
     private val preferences: AppPreferences,
     private val apiClient: ApiClient,
+    private val outbox: com.yunjue.echo.mind.data.outbox.Outbox,
 ) {
     /**
      * 服务端 ack 依据收敛：GET /v1/onboarding/consents/latest 核对本地已提交的
@@ -66,7 +67,10 @@ class OnboardingRepository(
                     val localPassive = preferences.passiveSensingPrefs.passiveSensingEnabled.first()
                     val serverPassive = o.optJSONObject("passive_sensing")
                     val passiveOk = if (localPassive) {
-                        serverPassive?.optBoolean("granted") == true && (serverPassive.isNull("revoked_at") || !serverPassive.optBoolean("revoked_at"))
+                        // ERA 32 R26：revoked_at 是 ISO 时间串——optBoolean 恒 false 会
+                        // 把已撤回的同意误判为「未撤回」（fail-open）；改按字符串判空。
+                        serverPassive?.optBoolean("granted") == true &&
+                            serverPassive.optString("revoked_at").isNullOrEmpty()
                     } else {
                         serverPassive == null || serverPassive.optBoolean("granted") == false
                     }
@@ -114,6 +118,9 @@ class OnboardingRepository(
                         runCatching { portraitDao.deleteByUser(previousUserId) }
                     }
                     preferences.clearAuthBlocked()
+                    // ERA 32 R26：绑定成功 = 本地→云端切换——补发本地模式期间
+                    // 落库但未入队的事件（人工支持请求/派生特征），不再「永远等待送达」。
+                    runCatching { outbox.reEnqueueLocalBacklog() }
                     // v0.7 订阅生命周期：verify-code 响应携带订阅状态 → 持久化（epoch ms）
                     preferences.subscriptionExpiresAt = result.subscriptionExpiresAt
                         ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }

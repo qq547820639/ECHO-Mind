@@ -107,9 +107,22 @@ class ConsentRepository(
     }
 
     suspend fun saveEmergencyContact(name: String, phone: String, relationship: String) {
+        // ERA 32 R26：后端 create_emergency_contact 要求 active emergency_contact 同意
+        // （否则 412 → 重试耗尽静默 dead-letter）——先落同意证据（本地+outbox），再落联系人。
+        val userId = preferences.userId
+        val evidence = MessageDigest.getInstance("SHA-256")
+            .digest("emergency-contact-consent-2026.07:$userId:true".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        saveConsent(
+            granted = true,
+            evidenceHash = evidence,
+            consentType = "emergency_contact",
+            version = "emergency-contact-consent-2026.07",
+            priority = 500
+        )
         val eventId = "ec_${UUID.randomUUID()}"
         val payload = JSONObject().apply {
-            put("user_id", preferences.userId)
+            put("user_id", userId)
             put("name", name)
             put("phone", phone)
             put("relationship", relationship)

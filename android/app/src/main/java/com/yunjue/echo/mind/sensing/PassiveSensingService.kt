@@ -229,6 +229,8 @@ class PassiveSensingService : Service() {
         if (started) return
         val notification = buildNotification()
         startForegroundWithTypes(notification, micReady)
+        // ERA 32 R26：感知真正运行才置同意门控（通知监听按此写入）
+        SensingConsentGate.active = true
         sensorCollector?.start()
         screenCollector?.start()
         appActivityCollector?.start()
@@ -240,16 +242,23 @@ class PassiveSensingService : Service() {
         val container = runCatching { (application as? EchoMindApplication)?.container }.getOrNull()
         val scheduler = SensingWindowScheduler(hub, micCollector = micCollector)
         this.scheduler = scheduler
-        scheduler.start(sensingScope) { inputs ->
-            // ACK 语义：持久化成功（true）才返回；失败保留快照/缓冲，由调度器 bounded retry。
-            // 失败必须可观测（AppPreferences.consecutivePersistenceFailures / lastPersistenceFailure 由 repository 记录）。
-            val c = container ?: return@start false
-            val ok = c.sensingRepository.saveDerivedFeatures(inputs)
-            if (ok) {
-                runCatching { enqueueSync(this@PassiveSensingService) }
-            }
-            ok
-        }
+        scheduler.start(
+            scope = sensingScope,
+            onBoundary = {
+                // ERA 32 R26：空窗也刷新活性心跳——watchdog 以心跳区分「空闲活着」与「假活」
+                container?.preferences?.sensingHeartbeatAt = System.currentTimeMillis()
+            },
+            onWindowReady = { inputs ->
+                // ACK 语义：持久化成功（true）才返回；失败保留快照/缓冲，由调度器 bounded retry。
+                // 失败必须可观测（AppPreferences.consecutivePersistenceFailures / lastPersistenceFailure 由 repository 记录）。
+                val c = container ?: return@start false
+                val ok = c.sensingRepository.saveDerivedFeatures(inputs)
+                if (ok) {
+                    runCatching { enqueueSync(this@PassiveSensingService) }
+                }
+                ok
+            },
+        )
         container?.preferences?.sensingActive = true
         started = true
     }
@@ -262,6 +271,8 @@ class PassiveSensingService : Service() {
         screenCollector?.stop()
         appActivityCollector?.stop()
         micCollector?.stop()
+        // ERA 32 R26：停止即关同意门控（通知监听停止写入）
+        SensingConsentGate.active = false
         // 停止路径清空 hub 缓冲（进程内共享层，保证"后续零新特征"）
         hub.clearAll()
         runCatching { (application as? EchoMindApplication)?.container?.preferences?.sensingActive = false }

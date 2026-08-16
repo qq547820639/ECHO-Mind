@@ -57,16 +57,23 @@ class SensingWindowScheduler(
 
     /**
      * 启动调度循环。每到一个对齐边界调用 [onWindowReady]（携带该窗口产出的特征列表，
-     * 返回 true 表示持久化成功）。
+     * 返回 true 表示持久化成功）。[onBoundary]（可选）在每个循环周期开始调用——
+     * 供上层刷新活性心跳（空窗也刷新，watchdog 区分「空闲活着」与「假活」）。
      *
      * 每个循环周期先重试失败窗口（bounded retry，最多每周期一次），再等待当前窗口边界。
      * 重复调用幂等：已 running 时直接返回。
      */
-    fun start(scope: CoroutineScope, onWindowReady: suspend (List<DerivedFeatureInput>) -> Boolean) {
+    fun start(
+        scope: CoroutineScope,
+        onBoundary: (() -> Unit)? = null,
+        onWindowReady: suspend (List<DerivedFeatureInput>) -> Boolean,
+    ) {
         if (running) return
         running = true
         job = scope.launch {
             while (isActive && running) {
+                // ERA 32 R26：周期活性心跳（含空窗——心跳 ≠ 数据新鲜度）
+                onBoundary?.invoke()
                 // 1. 重试失败窗口（bounded retry ≤ MAX_WINDOW_RETRY；重放同一不可变快照）
                 val pending = pendingRetries.keys.toList()
                 for (startMs in pending) {
