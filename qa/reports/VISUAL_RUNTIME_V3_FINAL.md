@@ -81,6 +81,14 @@
 | Human Visual Review（§83 五问） | PENDING_HUMAN_REVIEW |
 | ULTRA 启用门（AVP 设备/benchmark/三厂商/电池） | ULTRA_DISABLED_BY_CAPABILITY（成功态） |
 
+## 4.1 交付形态
+
+全量工作已提交在本仓库分支 `visual-runtime-v3`（20 个 slice commit，逐 commit 可构建，
+最终全门禁实测绿）。`git push origin visual-runtime-v3` 在本环境两次超时
+（github.com 22/443 均不可达——与工具链切片记录的官方 Gradle 落地主机不可达同一网络限制）。
+**推送 = 外部门**：分支在有网环境一键 `git push -u origin visual-runtime-v3` 即可；
+本地 git 受控状态完整（SOURCE_MANIFEST 1254 文件 verify 一致）。
+
 ## 4. 冻结契约一致性声明
 
 Observation Ground Truth / Personal Intelligence / Affective（恒 null）/ Memory 语义 /
