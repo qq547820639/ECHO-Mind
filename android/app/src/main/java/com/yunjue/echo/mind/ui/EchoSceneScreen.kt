@@ -3,6 +3,7 @@ import com.yunjue.echo.mind.model.EchoMaturity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -320,6 +321,8 @@ fun EchoSceneContent(
                 )
             }
 
+        // 视觉区以下（narrative + Why/Ask/Action）允许滚动（§79：fontScale 1.5 不裁剪信息）
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             // 2. narrative（左右 24dp；testTag: echo_scene_narrative）
             Column(
                 Modifier
@@ -423,6 +426,7 @@ fun EchoSceneContent(
             // ERA 29 §64：内部质量反馈（仅 DEBUG 构建渲染）
             qualityFeedback()
         }
+        }
 
         // 6. Scene 内行动覆盖层（running 状态驱动；结束回 Ambient Scene）
         state.runningAction?.let { actionOverlay() }
@@ -467,7 +471,12 @@ private fun SceneBottomSheet(
     content: @Composable (androidx.compose.runtime.MutableState<Float>) -> Unit,
 ) {
     val fraction = remember { mutableStateOf(initialFraction) }
-    Box(Modifier.fillMaxSize()) {
+    // §30：scene transition = 180ms crossfade（无 overshoot / 无大尺度 fly）
+    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) {
+        appear.animateTo(1f, androidx.compose.animation.core.tween(durationMillis = 180))
+    }
+    Box(Modifier.fillMaxSize().alpha(appear.value)) {
         // scrim（点击关闭；只覆盖 sheet 上方区域，不与 sheet 内容重叠）
         Box(
             Modifier

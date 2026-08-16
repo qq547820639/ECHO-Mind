@@ -39,8 +39,8 @@ import kotlin.math.min
  * - presence 为 null → 中性占位（不编造状态）。
  */
 
-/** 聚合语义描述（无障碍；不逐粒子朗读）。 */
-private const val DEFAULT_DESCRIPTION = "ECHO 生命体，反映你今天的节奏"
+/** §79：聚合语义默认由真实 state 派生（见 organismDescriptionFor）。 */
+private val DEFAULT_DESCRIPTION: String? = null
 
 @Composable
 fun EchoOrganism(
@@ -48,7 +48,7 @@ fun EchoOrganism(
     modifier: Modifier = Modifier,
     surface: EchoSurface = EchoSurface.APP_PRIVATE,
     reducedMotion: Boolean = false,
-    aggregateDescription: String = DEFAULT_DESCRIPTION,
+    aggregateDescription: String? = DEFAULT_DESCRIPTION,
     options: OrganismFrameComputer.EchoRenderOptions = OrganismFrameComputer.EchoRenderOptions(),
     /** §45 Correction 脉冲触发（递增计数；只触发 transient 视觉反馈，不改任何状态层）。 */
     correctionPulseTrigger: Int = 0,
@@ -91,8 +91,9 @@ fun EchoOrganism(
     val agslUsable = remember { AgslEchoBackend.isAvailable() }
     val sessionHolder = remember { AgslSessionHolder() }
 
+    val semanticsText = aggregateDescription ?: com.yunjue.echo.mind.visual.surface.organismDescriptionFor(presence)
     Canvas(
-        modifier = modifier.semantics { contentDescription = aggregateDescription },
+        modifier = modifier.semantics { contentDescription = semanticsText },
     ) {
         val base = genome ?: GenomeDeriver.derive(EchoPresenceState(), hourOfDay)
         val spec = SurfacePolicy.crop(base, surface, clockSeconds)
