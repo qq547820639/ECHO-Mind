@@ -47,7 +47,7 @@
 | viewport | onSurfaceChanged 保存 surfaceW/H，触点归一化用真实视口（弃 displayMetrics） |
 | env | 每帧至多一次 5s-TTL 快照；request 仅在输入键变化时重建 |
 | Dream | Paint/Typeface init 一次分配；单一复用 invalidate Runnable；每帧单次 LocalDateTime；
-  AGSL 可用设备 Dream 走真实材质后端 |
+  生产默认 Canvas/LEGACY（§V：真机功耗 benchmark 前 AGSL 不默认启用） |
 
 ## 4. UI 熟悉化（ONLY ECHO MAY BE UNFAMILIAR）
 
@@ -77,7 +77,7 @@
 2. 相位连续（§2）：壁纸/屏保重入不再「重新开始呼吸」。
 3. Journey minis 低预算（MINIMAL+JOURNEY_PRIVATE）：缩略图更轻量。
 4. 感知关闭降级改为 genome 字段缩放（driftRate×0.30、密度×0.55），语义等价。
-5. AGSL glow 分辨率无关；AGSL 设备上 Dream/Lab 导出产出真实 AGSL 渲染（此前恒 Canvas）。
+5. AGSL glow 分辨率无关；AGSL 设备上 Lab 导出产出真实 AGSL 渲染（此前恒 Canvas）。生产 surface（App/Wallpaper/Dream）默认一律 Canvas——§V 纪律：AGSL 仅经 Lab 显式选择与设备门评估。
 6. 深色主题全局（此前浅色）。
 
 ## 7. 门禁（本轮实测）

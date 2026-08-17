@@ -39,6 +39,17 @@ class OnboardingStepContentSmokeTest {
         assertTrue("AWAKENING_DURATION_MS 超出 Time-to-ECHO 预算", AWAKENING_DURATION_MS <= 3000L)
     }
 
+    /** V3 §AW/§BL：步骤枚举结构性锁定——无 DONE、无 enhanced optional permission wall 步骤。 */
+    @Test
+    fun onboardingStepsExactlyWelcomePrivacyCoreSensing() {
+        val names = OnboardingStep.entries.map { it.name }.toSet()
+        assertEquals(
+            "Onboarding 步骤必须恰为三步（不得回归 DONE / 可选权限墙）",
+            setOf("WELCOME", "PRIVACY_PLEDGE", "CORE_SENSING"),
+            names,
+        )
+    }
+
     @get:Rule
     val compose = createComposeRule()
 

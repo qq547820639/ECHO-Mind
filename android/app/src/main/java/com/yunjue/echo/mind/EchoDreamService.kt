@@ -18,6 +18,7 @@ import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.WallpaperScheduler
 import com.yunjue.echo.mind.presence.resolveRenderPolicy
 import com.yunjue.echo.mind.presencevisual.EchoRenderRequest
+import com.yunjue.echo.mind.visual.render.EchoRenderTier
 import com.yunjue.echo.mind.presencevisual.EchoRenderSession
 import com.yunjue.echo.mind.presencevisual.EchoRenderEnvironmentState
 import com.yunjue.echo.mind.presencevisual.EchoRendererFacade
@@ -232,7 +233,10 @@ internal class EchoDreamView(context: Context) : View(context) {
                 surface = EchoSurface.DREAM_AMBIENT,
                 motion = policy.motion, // §BF：reducedMotion 经 facade request 的 MotionPolicy
                 maturityName = presenceState.maturity.name,
-                requestedTier = env.tier, // 设备能力解析（AGSL 可用即走材质后端）
+                // V3 §V：AGSL 未做真机功耗/帧预算 benchmark 前不默认启用——
+                // Dream 是电池敏感 surface，默认 Canvas（LEGACY）；
+                // AGSL 评估路径 = Visual Lab 显式选择 + AdvancedBackendVisualGate 设备门。
+                requestedTier = EchoRenderTier.LEGACY,
             ),
             width,
             height,
