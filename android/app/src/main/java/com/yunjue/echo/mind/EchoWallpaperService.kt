@@ -9,12 +9,24 @@ import com.yunjue.echo.mind.presence.WallpaperRenderController
 import com.yunjue.echo.mind.presence.WallpaperScheduler
 import com.yunjue.echo.mind.presence.resolveRenderPolicy
 import com.yunjue.echo.mind.presence.shouldRefreshSnapshot
+import com.yunjue.echo.mind.presencevisual.EchoEnvironmentSnapshot
+import com.yunjue.echo.mind.presencevisual.EchoRenderRequest
+import com.yunjue.echo.mind.presencevisual.EchoRenderSession
+import com.yunjue.echo.mind.presencevisual.EchoRenderEnvironmentState
+import com.yunjue.echo.mind.presencevisual.EchoRendererFacade
+import com.yunjue.echo.mind.presencevisual.EchoVisualClock
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
+import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
+import com.yunjue.echo.mind.visual.motion.MotionEvaluator
+import com.yunjue.echo.mind.visual.render.EchoInteractionSpec
+import com.yunjue.echo.mind.visual.render.EchoRenderTier
+import com.yunjue.echo.mind.visual.surface.EchoSurface
 import java.time.LocalTime
 
 /**
@@ -28,6 +40,9 @@ import java.time.LocalTime
  * - AI/sensing 更新率 ≠ 渲染帧率：快照分钟级变化，渲染只在可见时发生；
  * - **仅渲染视觉，不渲染任何文字** → 锁屏 Public Safe 由构造保证（无文字 = 无敏感文字）；
  * - 确定性帧模型：同一快照/种子/时间 → 同一画面（Journey 视觉记忆的前提）。
+ * - V3 §R/§AY–§BC：渲染经 EchoRendererFacade session（帧路径只喂
+ *   EchoVisualClock + interaction）；时间戳全部 SystemClock.elapsedRealtime；
+ *   环境读数走 EchoRenderEnvironmentState（5s 缓存），无逐帧系统服务查询。
  */
 class EchoWallpaperService : WallpaperService() {
 
@@ -37,27 +52,39 @@ class EchoWallpaperService : WallpaperService() {
         /** 触摸涟漪衰减时长。 */
         const val RIPPLE_DURATION_MS = 1200L
 
-        /** PowerManager.THERMAL_STATUS_SEVERE 的值（API 29 常量；低 API 不参与热态调度，仅作数值比较）。 */
-        private const val THERMAL_SEVERE_LEVEL = 4
+        /** §AZ：launcher offset 目标幅度（xOffset 全程 → ±10% → 裁到 ±5% width）。 */
+        private const val LAUNCHER_OFFSET_SCALE = 0.10f
+        private const val LAUNCHER_OFFSET_MAX = 0.05f
+
+        /** §AZ：每帧轻平滑（current += (target-current)*0.15）。 */
+        private const val LAUNCHER_OFFSET_LERP = 0.15f
     }
 
     inner class EchoEngine : Engine() {
         /** ERA 14 §65：渲染生命周期唯一事实源（不可见 → 0 帧率，可单测状态机）。 */
         private val render = WallpaperRenderController()
         private var frameCallback: Choreographer.FrameCallback? = null
-        private var startNanos = 0L
 
         /** ERA 31 R13（§16）：最近一次视觉变化时刻（快照更新/触摸涟漪）——自适应帧间隔依据。 */
         private var lastVisualChangeMs = 0L
 
-        /** ERA 3 收尾（WORK-ERA3-2）：触摸涟漪衰减截止时间（0 = 无涟漪）。 */
+        /** §AY：触摸涟漪/触点时间戳（SystemClock.elapsedRealtime 基准）。 */
         private var rippleUntilMs = 0L
+        private var lastTouchMs = 0L
         /** §70：触摸点（归一化；进入 transient interaction ripple）。 */
         private var touchX = 0.5f
         private var touchY = 0.5f
-        private var lastTouchMs = 0L
-        /** §68：launcher offset 平移（±5% width 上限；Reduced Motion 关闭）。 */
+        /** §AZ：launcher offset 目标 + 当前值（轻平滑；Reduced Motion 关闭）。 */
+        private var launcherOffsetTargetX = 0f
         private var launcherOffsetX = 0f
+
+        /** §BA：视口尺寸（onSurfaceChanged 保存；触点归一化用真实 surface，非 displayMetrics）。 */
+        private var surfaceW = 0
+        private var surfaceH = 0
+
+        /** §R/§BC：facade 渲染会话（surface 尺寸/输入变化时重建；帧路径只 draw）。 */
+        private var renderSession: EchoRenderSession? = null
+        private var sessionInputs: SessionInputs? = null
 
         private val prefs: SharedPreferences by lazy {
             applicationContext.getSharedPreferences(
@@ -69,7 +96,7 @@ class EchoWallpaperService : WallpaperService() {
         private var snapshot: EchoPresenceState? = EchoPresenceCodec.decode(
             prefs.getString(AppPreferences.KEY_ECHO_PRESENCE_SNAPSHOT, null)
         )
-        /** ERA 74 §65：快照重读节流（每帧 JSON 解码 → 至多每秒一次）。 */
+        /** ERA 74 §65：快照重读节流（每帧 JSON 解码 → 至多每秒一次；elapsedRealtime 基准）。 */
         private var lastSnapshotReadMs = 0L
 
         override fun onCreate(surfaceHolder: SurfaceHolder?) {
@@ -82,10 +109,13 @@ class EchoWallpaperService : WallpaperService() {
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     if (render.onTouch()) {
-                        rippleUntilMs = System.currentTimeMillis() + RIPPLE_DURATION_MS
-                        lastTouchMs = System.currentTimeMillis()
-                        val w = resources.displayMetrics.widthPixels.takeIf { it > 0 } ?: 1
-                        val h = resources.displayMetrics.heightPixels.takeIf { it > 0 } ?: 1
+                        // §AY：触摸时间戳一律 SystemClock.elapsedRealtime
+                        val now = SystemClock.elapsedRealtime()
+                        rippleUntilMs = now + RIPPLE_DURATION_MS
+                        lastTouchMs = now
+                        // §BA：触点归一化用保存的 surface 视口（非 resources.displayMetrics）
+                        val w = surfaceW.takeIf { it > 0 } ?: 1
+                        val h = surfaceH.takeIf { it > 0 } ?: 1
                         touchX = (event.x / w).coerceIn(0f, 1f)
                         touchY = (event.y / h).coerceIn(0f, 1f)
                         drawFrame()
@@ -114,14 +144,22 @@ class EchoWallpaperService : WallpaperService() {
             xPixelOffset: Int,
             yPixelOffset: Int,
         ) {
-            // §68：launcher offset 最多 ±5% width；Reduced Motion → parallax off
+            // §AZ：launcher 滚动 → 目标 offset = ((xOffset-.5)*.10) 裁到 ±5%；
+            // 每帧向目标轻平滑（drawFrame 内 lerp 0.15）；Reduced Motion → parallax off
             val reduced = prefs.getBoolean("presence_reduce_motion", false)
-            launcherOffsetX = if (reduced) 0f else (xOffset - 0.5f).coerceIn(-0.05f, 0.05f)
+            launcherOffsetTargetX = if (reduced) {
+                0f
+            } else {
+                ((xOffset - 0.5f) * LAUNCHER_OFFSET_SCALE).coerceIn(-LAUNCHER_OFFSET_MAX, LAUNCHER_OFFSET_MAX)
+            }
             super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset)
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
+            // §BA：保存真实 surface 视口（触点归一化 + session 尺寸键）
+            surfaceW = width
+            surfaceH = height
             // 快照可能已更新：每次 surface 变化前重读
             render.onSurfaceChanged()
             refreshSnapshot()
@@ -141,14 +179,14 @@ class EchoWallpaperService : WallpaperService() {
             )
             if (snapshot?.updatedAt != previous) {
                 // ERA 31 R13：快照变化 → 视觉参数将变化 → 进入流畅过渡窗口
-                lastVisualChangeMs = System.currentTimeMillis()
+                lastVisualChangeMs = SystemClock.elapsedRealtime()
             }
-            lastSnapshotReadMs = System.currentTimeMillis()
+            lastSnapshotReadMs = SystemClock.elapsedRealtime()
         }
 
         /** ERA 74 §64：用户视觉偏好进入渲染（减少动画/动态程度/夜间模式；键与 AppPreferences 同源）。 */
         private fun renderPolicy(): PresenceRenderPolicy = resolveRenderPolicy(
-            baseSurface = com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+            baseSurface = EchoSurface.WALLPAPER_VISUAL_ONLY,
             reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
             motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
             nightMode = prefs.getBoolean("presence_night_mode", false),
@@ -156,21 +194,20 @@ class EchoWallpaperService : WallpaperService() {
 
         private fun startRendering() {
             if (frameCallback != null) return
-            startNanos = 0L
-            lastVisualChangeMs = System.currentTimeMillis()
+            lastVisualChangeMs = SystemClock.elapsedRealtime()
             val callback = object : Choreographer.FrameCallback {
                 override fun doFrame(frameTimeNanos: Long) {
                     drawFrame()
-                    // V3 §69：调度优先级表（0/8/10/12/18/30fps；30 cap）
-                    val now = System.currentTimeMillis()
+                    // V3 §69/§BC：调度优先级表（0/8/10/12/18/30fps；30 cap）——
+                    // 热态/省电输入来自 5s 缓存环境快照（无逐帧系统服务查询）
+                    val now = SystemClock.elapsedRealtime()
+                    val env = EchoRenderEnvironmentState.current(applicationContext)
                     val policy = renderPolicy()
                     val delay = WallpaperScheduler.wallpaperFrameDelayMs(
                         visible = render.renderActive,
                         reducedMotion = policy.reduceMotion,
-                        thermalSevereOrWorse = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
-                            .currentThermalStatus(applicationContext) >= THERMAL_SEVERE_LEVEL,
-                        powerSave = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
-                            .isPowerSave(applicationContext),
+                        thermalSevereOrWorse = env.thermalSevereOrWorse,
+                        powerSave = env.powerSave,
                         msSinceTouch = now - lastTouchMs,
                         msSincePresenceUpdate = now - lastVisualChangeMs,
                         night = policy.nightMode,
@@ -200,75 +237,71 @@ class EchoWallpaperService : WallpaperService() {
             } ?: return
             try {
                 // ERA 74 §65：节流重读（可见/表面变化时已强制刷新；帧循环内至多每秒一次）
-                if (shouldRefreshSnapshot(lastSnapshotReadMs, System.currentTimeMillis())) {
+                val nowMs = SystemClock.elapsedRealtime()
+                if (shouldRefreshSnapshot(lastSnapshotReadMs, nowMs)) {
                     refreshSnapshot()
                 }
-                val presence = snapshot
-                val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
+                // §BB：环境快照每帧至多一次（5s 缓存内零系统调用）
+                val env = EchoRenderEnvironmentState.current(applicationContext)
+                val presenceState = snapshot ?: EchoPresenceState()
                 val policy = renderPolicy()
-                if (startNanos == 0L) startNanos = System.nanoTime()
-                val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-                // visual-runtime V3 §H：Wallpaper 复用 core/visual organism（SAME ECHO；无文字 Public Safe）；
-                // genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算。
-                val presenceState = presence ?: EchoPresenceState()
-                val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
-                    EchoVisualMapper.map(
-                        presenceState, hourOfDay,
-                        policy.motionLevel, policy.nightMode, policy.reduceMotion,
-                    ),
-                    presenceState.identityGenome,
+                val localNow = LocalTime.now()
+                val inputs = SessionInputs(
+                    presenceUpdatedAt = presenceState.updatedAt,
+                    maturityName = presenceState.maturity.name,
+                    policy = policy,
+                    env = env,
+                    minuteOfDay = localNow.hour * 60 + localNow.minute,
+                    width = canvas.width,
+                    height = canvas.height,
                 )
+                // §R：session 只在输入（快照/策略/环境/分钟/尺寸）变化时重建；帧路径只 draw
+                if (renderSession == null || sessionInputs != inputs) {
+                    sessionInputs = inputs
+                    val hourOfDay = localNow.hour + localNow.minute / 60f
+                    // visual-runtime V3 §H：Wallpaper 复用 core/visual organism（SAME ECHO）；
+                    // genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算。
+                    val genome = VisualGenomeCompiler.compile(
+                        EchoVisualMapper.map(
+                            presenceState, hourOfDay,
+                            policy.motionLevel, policy.nightMode, policy.reduceMotion,
+                        ),
+                        presenceState.identityGenome,
+                    )
+                    renderSession = EchoRendererFacade.createSession(
+                        EchoRenderRequest(
+                            genome = genome,
+                            surface = EchoSurface.WALLPAPER_VISUAL_ONLY,
+                            motion = policy.motion,
+                            maturityName = presenceState.maturity.name,
+                            requestedTier = EchoRenderTier.LEGACY,
+                        ),
+                        canvas.width,
+                        canvas.height,
+                    )
+                }
+                // §AZ：launcher offset 轻平滑（目标 ≠ 立即，避免 page swipe 跳变）
+                launcherOffsetX += (launcherOffsetTargetX - launcherOffsetX) * LAUNCHER_OFFSET_LERP
                 // §70：触摸窗口内使用与 App 同一 transient ripple（Gaussian 形变 + 1 ripple）；
                 // 不开 App / 不 call AI / 不写 Presence。
-                val rippleAgeMs = if (rippleUntilMs > System.currentTimeMillis()) {
-                    RIPPLE_DURATION_MS - (rippleUntilMs - System.currentTimeMillis())
-                } else {
-                    -1L
-                }
+                val rippleAgeMs = if (rippleUntilMs > nowMs) RIPPLE_DURATION_MS - (rippleUntilMs - nowMs) else -1L
                 val interaction = if (rippleAgeMs >= 0L) {
-                    com.yunjue.echo.mind.visual.render.EchoInteractionSpec(
+                    EchoInteractionSpec(
                         active = true,
                         touchX = touchX,
                         touchY = touchY,
-                        envelope = com.yunjue.echo.mind.visual.motion.MotionEvaluator
-                            .interactionEnvelope(rippleAgeMs),
+                        envelope = MotionEvaluator.interactionEnvelope(rippleAgeMs),
                     )
                 } else {
-                    com.yunjue.echo.mind.visual.render.EchoInteractionSpec()
+                    EchoInteractionSpec()
                 }
-                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                        genome = genome,
-                        surface = com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
-                        clockSeconds = timeSeconds,
-                    ),
-                    width = canvas.width.toFloat(),
-                    height = canvas.height.toFloat(),
-                    options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
-                        maturityName = presenceState.maturity.name,
-                        // V3 §M：质量 = Surface 默认预算与环境实际质量取更差者；
-                        // 动效由 MotionPolicy 正交承载（reducedMotion/motionScale）。
-                        quality = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment.worseOf(
-                            com.yunjue.echo.mind.visual.surface.defaultQualityFor(
-                                com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
-                            ),
-                            com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
-                                .currentQuality(applicationContext),
-                        ),
-                        reducedMotion = com.yunjue.echo.mind.visual.surface.reducedMotionFor(policy.motion),
-                        motionScale = com.yunjue.echo.mind.visual.surface.motionScaleFor(policy.motion),
-                        interaction = interaction,
-                    ),
-                )
                 // §68：portrait center x=.50W / y=.43H；launcher offset ≤±5% width
                 canvas.save()
                 canvas.translate(
                     launcherOffsetX * canvas.width,
                     (0.43f - 0.50f) * canvas.height,
                 )
-                com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer.draw(
-                    canvas, frame, canvas.width.toFloat(), canvas.height.toFloat(),
-                )
+                renderSession?.draw(canvas, EchoVisualClock.nowNanos(), interaction)
                 canvas.restore()
             } finally {
                 runCatching { holder.unlockCanvasAndPost(canvas) }
@@ -276,3 +309,18 @@ class EchoWallpaperService : WallpaperService() {
         }
     }
 }
+
+/**
+ * §R：request 重建输入键（任一变化 → 重建 genome/request/session；
+ * env 为 data class——quality/tier/runtimeShader 变化即触发重建，§BB/§BG）。
+ * （Kotlin 禁止 inner class 内声明嵌套 class → 提升为文件级私有。）
+ */
+private data class SessionInputs(
+    val presenceUpdatedAt: java.time.Instant,
+    val maturityName: String,
+    val policy: PresenceRenderPolicy,
+    val env: EchoEnvironmentSnapshot,
+    val minuteOfDay: Int,
+    val width: Int,
+    val height: Int,
+)

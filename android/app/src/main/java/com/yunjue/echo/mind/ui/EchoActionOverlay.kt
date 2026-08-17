@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.presencevisual.EchoVisualClock
 import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.ui.echo.components.EchoVisualSurfaceConfig
 import kotlinx.coroutines.delay
@@ -50,10 +51,11 @@ fun EchoActionOverlay(
     var remaining by remember { mutableIntStateOf(ACTION_DURATION_SECONDS) }
     var timeSeconds by remember { mutableFloatStateOf(0f) }
 
+    // §N：ticker 只请求帧，视觉时间来自 boot-global EchoVisualClock（行动层呼吸
+    // 覆盖与主 Scene 同一时间基准，不因 overlay 重组重启相位）
     LaunchedEffect(Unit) {
-        val start = withFrameNanos { it }
         while (true) {
-            withFrameNanos { now -> timeSeconds = (now - start) / 1_000_000_000f }
+            withFrameNanos { timeSeconds = EchoVisualClock.nowSeconds() }
         }
     }
     LaunchedEffect(Unit) {

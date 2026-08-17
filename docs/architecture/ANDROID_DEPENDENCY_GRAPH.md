@@ -37,7 +37,7 @@ observation ──► model
 ports ──► model
 presence ──► model, observation, visual
 presencevisual ──► visual
-root ──► data, model, observation, presence, security
+root ──► data, model, observation, presence, presencevisual, security, visual
 runtime ──► data, intelligence, model, observation
 ui ──► actions, data, intelligence, journey, memory, model, observation, presence, presencevisual, root, visual, wearable
 visual ──► model
@@ -58,7 +58,7 @@ wearable ──► model, ports
 | observation | 17 |
 | ports | 3 |
 | presence | 10 |
-| presencevisual | 5 |
+| presencevisual | 7 |
 | root | 14 |
 | runtime | 1 |
 | security | 9 |
@@ -107,7 +107,9 @@ wearable ──► model, ports
 - root → model
 - root → observation
 - root → presence
+- root → presencevisual
 - root → security
+- root → visual
 - runtime → data
 - runtime → intelligence
 - runtime → model

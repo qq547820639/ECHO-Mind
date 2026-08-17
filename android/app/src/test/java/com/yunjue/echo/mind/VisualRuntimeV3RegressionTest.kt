@@ -133,4 +133,35 @@ class VisualRuntimeV3RegressionTest {
             read(scene).contains("computeEchoSceneFrame"),
         )
     }
+
+    @Test
+    fun noComponentLocalClockStartsForVisualPhase() {
+        // §N：production src/main 不得再有组件本地帧钟起表
+        // （`val start = withFrameNanos`）——视觉相位一律 boot-global EchoVisualClock。
+        val androidRoot = File("..")
+        val mainSources = androidRoot.walkTopDown()
+            .filter {
+                it.isFile && it.extension == "kt" &&
+                    it.absolutePath.contains("/src/main/") && !it.absolutePath.contains("/build/")
+            }
+            .toList()
+        assertTrue("应能扫描到 production main 源码", mainSources.isNotEmpty())
+        val offenders = mainSources.filter { it.readText().contains("val start = withFrameNanos") }
+        assertTrue(
+            "组件本地视觉时钟不得复活（一律 EchoVisualClock）：${offenders.map { it.name }}",
+            offenders.isEmpty(),
+        )
+    }
+
+    @Test
+    fun wallpaperAndDreamNeverUseSystemNanoTimeForVisualClock() {
+        // §AY/§BD：Wallpaper/Dream 视觉时间一律 EchoVisualClock（boot-global），
+        // 不得回退 System.nanoTime() 本地起表。
+        val wallpaper = File("src/main/java/com/yunjue/echo/mind/EchoWallpaperService.kt")
+        val dream = File("src/main/java/com/yunjue/echo/mind/EchoDreamService.kt")
+        assertFalse("Wallpaper 不得用 System.nanoTime 视觉钟", wallpaper.readText().contains("System.nanoTime"))
+        assertFalse("Dream 不得用 System.nanoTime 视觉钟", dream.readText().contains("System.nanoTime"))
+        assertTrue("Wallpaper 必须消费 EchoVisualClock", wallpaper.readText().contains("EchoVisualClock"))
+        assertTrue("Dream 必须消费 EchoVisualClock", dream.readText().contains("EchoVisualClock"))
+    }
 }

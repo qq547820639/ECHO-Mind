@@ -8,13 +8,18 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,11 +35,13 @@ import com.yunjue.echo.mind.journey.TrendNoDataReason
 import com.yunjue.echo.mind.journey.TrendUiState
 import com.yunjue.echo.mind.journey.journeySegmentKindLabel
 import com.yunjue.echo.mind.journey.trendNoDataReasonText
-import com.yunjue.echo.mind.presencevisual.drawOrganism
+import com.yunjue.echo.mind.presencevisual.EchoRenderSession
+import com.yunjue.echo.mind.presencevisual.EchoRendererFacade
 import com.yunjue.echo.mind.ui.Page
 import com.yunjue.echo.mind.ui.TREND_DISCLAIMER
 import com.yunjue.echo.mind.ui.batteryOptimizationSettingsIntent
 import com.yunjue.echo.mind.ui.formatTimestamp
+import com.yunjue.echo.mind.visual.model.EchoVisualGenome
 import java.time.LocalDate
 
 /**
@@ -495,37 +502,52 @@ private fun MonthConstellation(
     }
 }
 
-/** 单日确定性肖像（production renderer；无 genome = quiet ring 占位，不编造）。 */
+/** Journey canonical 确定性时钟（纳秒；JOURNEY_CANONICAL_TIME_SECONDS 固定相位）。 */
+internal val JOURNEY_CANONICAL_NANOS: Long = (JOURNEY_CANONICAL_TIME_SECONDS * 1_000_000_000f).toLong()
+
+/**
+ * §AP：Journey mini 肖像经 EchoRendererFacade 低预算 session（journeyThumbnailRequest：
+ * tier LEGACY / quality MINIMAL / JOURNEY_PRIVATE）；静态确定性（canonical 时钟，无 ticker）；
+ * session remembered per（genome, 尺寸）避免逐帧重算。无 genome = quiet ring（不编造）。
+ */
+@Composable
+internal fun JourneyMiniOrganism(
+    genome: EchoVisualGenome?,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val sizePx = with(density) { size.roundToPx() }.coerceAtLeast(1)
+    val session = remember(genome, sizePx) {
+        genome?.let { EchoRendererFacade.createSession(EchoRenderSession.journeyThumbnailRequest(it), sizePx, sizePx) }
+    }
+    val quietRing = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
+    Canvas(modifier.size(size)) {
+        val s = session
+        if (s == null) {
+            // §58：无数据 = quiet ring（不 X / 不 warning）
+            drawCircle(
+                color = quietRing,
+                radius = this.size.minDimension * 0.30f,
+                style = Stroke(width = this.size.minDimension * 0.03f),
+            )
+        } else {
+            drawIntoCanvas { c -> s.draw(c.nativeCanvas, JOURNEY_CANONICAL_NANOS) }
+        }
+    }
+}
+
+/** 单日确定性肖像（production facade；无 genome = quiet ring 占位，不编造）。 */
 @Composable
 private fun JourneyPortrait(
     day: JourneyDay?,
     size: androidx.compose.ui.unit.Dp,
     alpha: Float,
 ) {
-    val quietRing = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
-    Canvas(Modifier.size(size).alpha(alpha)) {
-        val genome = day?.genome
-        if (genome != null) {
-            val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                    genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                    JOURNEY_CANONICAL_TIME_SECONDS,
-                ),
-                width = this.size.width, height = this.size.height,
-            )
-            drawOrganism(frame)
-        } else {
-            // §58：无数据 = quiet ring（不 X / 不 warning）
-            drawCircle(
-                color = quietRing,
-                radius = this.size.minDimension * 0.30f,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = this.size.minDimension * 0.03f),
-            )
-        }
-    }
+    JourneyMiniOrganism(genome = day?.genome, size = size, modifier = Modifier.alpha(alpha))
 }
 
-/** 周/月聚合帧（SEASON/YEAR 尺度保留；参数由 JourneyPeriod 预装配）。 */
+/** 周/月聚合帧（SEASON/YEAR 尺度保留；参数由 JourneyPeriod 预装配；§AP facade mini）。 */
 @Composable
 private fun JourneyAggregateCell(
     period: JourneyPeriod,
@@ -534,27 +556,8 @@ private fun JourneyAggregateCell(
     large: Boolean = false,
 ) {
     val cellSize = if (large) 140.dp else 72.dp
-    val quietRing = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(Modifier.size(cellSize)) {
-            val aggGenome = period.aggregateGenome
-            if (aggGenome != null) {
-                val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                        aggGenome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                        JOURNEY_CANONICAL_TIME_SECONDS,
-                    ),
-                    width = this.size.width, height = this.size.height,
-                )
-                drawOrganism(frame)
-            } else {
-                drawCircle(
-                    color = quietRing,
-                    radius = this.size.minDimension * 0.30f,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = this.size.minDimension * 0.03f),
-                )
-            }
-        }
+        JourneyMiniOrganism(genome = period.aggregateGenome, size = cellSize)
         Text(label, style = MaterialTheme.typography.labelSmall)
     }
 }

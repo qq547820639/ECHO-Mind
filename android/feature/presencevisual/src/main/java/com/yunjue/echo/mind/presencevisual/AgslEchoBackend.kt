@@ -33,6 +33,7 @@ uniform float2 iResolution;
 uniform float iExposure;
 uniform float iCavity;
 uniform float iHalo;
+uniform float iGlowRadius;
 layout(color) uniform half4 iPrimary;
 layout(color) uniform half4 iSecondary;
 layout(color) uniform half4 iWarm;
@@ -57,16 +58,19 @@ half4 main(float2 fragCoord) {
     half geom = mask.r;
     half warm = mask.g;
 
-    // glow：8 向 3px 多采近似边缘散射（§20 edge scattering）
+    // glow：8 向 uniform 半径多采近似边缘散射（§20/§W edge scattering，
+    // 采样半径由宿主按分辨率/密度注入 iGlowRadius，分辨率无关）
     half glow = 0.0;
-    glow += iVectorMask.eval(fragCoord + float2(3.0, 0.0)).r;
-    glow += iVectorMask.eval(fragCoord - float2(3.0, 0.0)).r;
-    glow += iVectorMask.eval(fragCoord + float2(0.0, 3.0)).r;
-    glow += iVectorMask.eval(fragCoord - float2(0.0, 3.0)).r;
-    glow += iVectorMask.eval(fragCoord + float2(2.12, 2.12)).r;
-    glow += iVectorMask.eval(fragCoord - float2(2.12, 2.12)).r;
-    glow += iVectorMask.eval(fragCoord + float2(2.12, -2.12)).r;
-    glow += iVectorMask.eval(fragCoord + float2(-2.12, 2.12)).r;
+    float gr = iGlowRadius;
+    float gd = iGlowRadius * 0.7071;
+    glow += iVectorMask.eval(fragCoord + float2(gr, 0.0)).r;
+    glow += iVectorMask.eval(fragCoord - float2(gr, 0.0)).r;
+    glow += iVectorMask.eval(fragCoord + float2(0.0, gr)).r;
+    glow += iVectorMask.eval(fragCoord - float2(0.0, gr)).r;
+    glow += iVectorMask.eval(fragCoord + float2(gd, gd)).r;
+    glow += iVectorMask.eval(fragCoord - float2(gd, gd)).r;
+    glow += iVectorMask.eval(fragCoord + float2(gd, -gd)).r;
+    glow += iVectorMask.eval(fragCoord + float2(-gd, gd)).r;
     glow *= 0.125;
 
     // 空心核 SDF：腔内压暗（dark cavity），腔缘一圈 internal atmosphere 微亮
@@ -106,27 +110,55 @@ half4 main(half4 c) {
 }
 """
 
-    /** RuntimeShader 是否可用（API 33+ 且 AGSL 编译成功）。 */
+    /**
+     * §X：RuntimeShader 是否可用（API 33+ 且 AGSL 编译成功）——**进程级只算一次**
+     * （首次探测含着色器编译，属高成本路径；禁止任何帧路径重复探测）。
+     */
+    @Volatile
+    private var availableCache: Boolean? = null
+
     fun isAvailable(): Boolean {
-        if (Build.VERSION.SDK_INT < 33) return false
-        return try {
-            RuntimeShader(SHADER_SOURCE)
-            true
-        } catch (_: Throwable) {
+        availableCache?.let { return it }
+        val v = if (Build.VERSION.SDK_INT < 33) {
             false
+        } else {
+            try {
+                RuntimeShader(SHADER_SOURCE)
+                true
+            } catch (_: Throwable) {
+                false
+            }
         }
+        availableCache = v
+        return v
     }
 
-    /** ADVANCED 合成（RuntimeColorFilter）是否可用（API 36+ 且编译成功；§9 ADVANCED tier）。 */
+    /** §X：ADVANCED 合成（RuntimeColorFilter）是否可用——进程级只算一次。 */
+    @Volatile
+    private var advancedAvailableCache: Boolean? = null
+
     fun isAdvancedAvailable(): Boolean {
-        if (Build.VERSION.SDK_INT < 36) return false
-        return try {
-            android.graphics.RuntimeColorFilter(GRADING_SOURCE)
-            true
-        } catch (_: Throwable) {
+        advancedAvailableCache?.let { return it }
+        val v = if (Build.VERSION.SDK_INT < 36) {
             false
+        } else {
+            try {
+                android.graphics.RuntimeColorFilter(GRADING_SOURCE)
+                true
+            } catch (_: Throwable) {
+                false
+            }
         }
+        advancedAvailableCache = v
+        return v
     }
+
+    /**
+     * §W：glow 采样半径（px）——分辨率/密度无关：基准 1080px 视口下 2.5–6px，
+     * 随 minDim 线性缩放并由 halo 强度调制（8-tap 边缘散射视觉特征不变）。
+     */
+    fun glowRadiusPxFor(haloIntensity: Float, minDim: Float): Float =
+        ((2.5f + 3.5f * haloIntensity.coerceIn(0f, 1f)) * (minDim / 1080f)).coerceIn(2f, 6f)
 
     /**
      * AGSL 会话（RuntimeShader 编译一次复用 + mask bitmap 复用——§32 hot path 零位图分配）。
@@ -173,6 +205,11 @@ half4 main(half4 c) {
             shader.setFloatUniform("iExposure", exposure.coerceIn(0f, 1f))
             shader.setFloatUniform("iCavity", frame.coreCavity.radiusFraction)
             shader.setFloatUniform("iHalo", halo.coerceIn(0f, 1f))
+            // §W：glow 采样半径随分辨率/密度缩放（分辨率无关的 8-tap 边缘散射）
+            shader.setFloatUniform(
+                "iGlowRadius",
+                glowRadiusPxFor(halo, min(widthPx, heightPx)),
+            )
             shader.setColorUniform("iPrimary", primaryColor)
             shader.setColorUniform("iSecondary", secondaryColor)
             shader.setColorUniform("iWarm", warmColor)

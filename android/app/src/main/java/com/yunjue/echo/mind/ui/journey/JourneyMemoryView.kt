@@ -8,19 +8,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.journey.JourneyCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyDay
+import com.yunjue.echo.mind.journey.JourneyOrganismVisuals
 import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.identityEvolutionLines
 import com.yunjue.echo.mind.journey.landmarkKindLabel
-import com.yunjue.echo.mind.journey.reconstructJourneyFrame
-import com.yunjue.echo.mind.presencevisual.drawOrganism
 import com.yunjue.echo.mind.journey.seasonLabel
 import com.yunjue.echo.mind.journey.shiftExplanationLines
+import com.yunjue.echo.mind.presencevisual.EchoRenderRequest
+import com.yunjue.echo.mind.presencevisual.EchoRendererFacade
+import com.yunjue.echo.mind.visual.model.EchoVisualGenome
+import com.yunjue.echo.mind.visual.render.EchoRenderQuality
+import com.yunjue.echo.mind.visual.render.EchoRenderTier
+import com.yunjue.echo.mind.visual.surface.EchoSurface
 
 /**
  * ERA 16 §84-§87 — Journey 长期记忆 UI 层（Screen 之外的独立组件，保持 JourneyScreen 薄）：
@@ -42,22 +50,16 @@ fun YearViewSection(state: JourneyUiState, seed: Long) {
         year.seasons.forEach { season ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
-                Canvas(Modifier.size(48.dp)) {
-                    // §59：季/年聚合用 representative canonical portrait（production organism 管线）
-                    val frame = season.visualParams?.let { params ->
-                        com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                            spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                                com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(params, seed),
-                                com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                                JOURNEY_CANONICAL_TIME_SECONDS,
-                            ),
-                            width = this.size.width,
-                            height = this.size.height,
-                        )
+                // §59/§AP：季/年聚合用 representative canonical portrait——
+                // 经 facade 低预算 mini session（production organism 管线）
+                val params = season.visualParams
+                if (params != null) {
+                    val genome = remember(params, seed) {
+                        JourneyOrganismVisuals.genomeFromParams(params, seed)
                     }
-                    if (frame != null) {
-                        drawOrganism(frame)
-                    } else {
+                    JourneyMiniOrganism(genome = genome, size = 48.dp)
+                } else {
+                    Canvas(Modifier.size(48.dp)) {
                         drawCircle(
                             color = placeholderColor,
                             radius = this.size.minDimension * 0.2f,
@@ -126,32 +128,41 @@ fun HistoricalReconstructionSection(
     val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
     Column(Modifier.padding(top = 12.dp)) {
         Text("那一天的回声 · ${day.date}", style = MaterialTheme.typography.titleSmall)
-        Canvas(Modifier.size(96.dp)) {
-            // V3：历史帧经同一 production organism 管线（Canonical 优先；画像 genome fallback；
-            // 无数据 quiet ring，不编造）
-            val frame = reconstructJourneyFrame(
-                canonical = canonical,
-                fallbackPortrait = null,
-                fallbackSeed = fallbackSeed,
-                width = this.size.width,
-                height = this.size.height,
-            ) ?: day.genome?.let { g ->
-                com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
-                    spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                        g, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                        JOURNEY_CANONICAL_TIME_SECONDS,
+        // V3/§AP：历史帧经同一 production organism 管线（Canonical 优先；画像 genome fallback；
+        // 无数据 quiet placeholder，不编造）——detail portrait 走**全质量** facade request
+        // （JOURNEY_PRIVATE / quality NORMAL / tier LEGACY / canonical 确定时钟，静态无 ticker）。
+        val canonicalGenome = remember(canonical) {
+            canonical?.let { JourneyOrganismVisuals.genomeFromParams(it.visualParams, it.visualSeed) }
+        }
+        val genome: EchoVisualGenome? = canonicalGenome ?: day.genome
+        val maturityName = canonical?.maturity?.name ?: "KNOWN"
+        val density = LocalDensity.current
+        val sizePx = with(density) { 96.dp.roundToPx() }.coerceAtLeast(1)
+        val session = remember(genome, sizePx, maturityName) {
+            genome?.let {
+                EchoRendererFacade.createSession(
+                    EchoRenderRequest(
+                        genome = it,
+                        surface = EchoSurface.JOURNEY_PRIVATE,
+                        motion = com.yunjue.echo.mind.visual.surface.MotionPolicy.NORMAL,
+                        maturityName = maturityName,
+                        requestedTier = EchoRenderTier.LEGACY,
+                        quality = EchoRenderQuality.NORMAL,
                     ),
-                    width = this.size.width,
-                    height = this.size.height,
+                    sizePx,
+                    sizePx,
                 )
             }
-            if (frame != null) {
-                drawOrganism(frame)
-            } else {
+        }
+        Canvas(Modifier.size(96.dp)) {
+            val s = session
+            if (s == null) {
                 drawCircle(
                     color = placeholderColor,
                     radius = this.size.minDimension * 0.25f,
                 )
+            } else {
+                drawIntoCanvas { c -> s.draw(c.nativeCanvas, JOURNEY_CANONICAL_NANOS) }
             }
         }
         if (day.headline.isNotBlank()) {

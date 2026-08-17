@@ -415,10 +415,15 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
     // V3 §54：固定 2200ms 时间线（halo/filament/ring/first-breath/headline 分段进入），
     // 使用真实 identitySeed + dayZeroSeedPresence + production renderer（EchoOrganism）。
     var elapsedMs by remember { mutableLongStateOf(0L) }
+    // §N：苏醒时间线的会话起点取自 boot-global EchoVisualClock（ticker 只请求帧）；
+    // 时间线语义 = 进入苏醒后经过的毫秒（2200ms 固定脚本），非 organism 视觉相位。
+    val awakeningStartNanos = remember { com.yunjue.echo.mind.presencevisual.EchoVisualClock.nowNanos() }
     LaunchedEffect(Unit) {
-        val start = withFrameNanos { it }
         while (true) {
-            withFrameNanos { now -> elapsedMs = (now - start) / 1_000_000L }
+            withFrameNanos {
+                elapsedMs = (com.yunjue.echo.mind.presencevisual.EchoVisualClock.nowNanos() - awakeningStartNanos) /
+                    1_000_000L
+            }
         }
     }
     val timeline = AwakeningTimeline.at(elapsedMs)

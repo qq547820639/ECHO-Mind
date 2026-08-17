@@ -131,7 +131,10 @@ object OrganismCanvasRenderer {
         }
     }
 
-    /** 逐段描边（per-point alpha 已烘焙 3D 深度/遮挡）；glow 追加一次更宽更淡的辉光。 */
+    /**
+     * 逐段描边（per-point alpha 已烘焙 3D 深度/遮挡）。
+     * §Y：每段先画宽而淡的 GLOW，再画细而实的 core（与 Compose 渲染器同序）。
+     */
     private fun drawStroke(
         canvas: Canvas,
         stroke: FilamentStroke,
@@ -148,9 +151,6 @@ object OrganismCanvasRenderer {
             val b = pts[i]
             val alpha = ((a.alpha + b.alpha) * 0.5f).coerceIn(0f, 1f)
             if (alpha <= 0.004f) continue
-            paint.strokeWidth = w
-            paint.alpha = (alpha * 255f).toInt()
-            canvas.drawLine(a.x * canvas.width, a.y * canvas.height, b.x * canvas.width, b.y * canvas.height, paint)
             if (glow && stroke.glow > 0f) {
                 paint.strokeWidth = w * 3.2f
                 paint.alpha = (alpha * stroke.glow * 0.4f * 255f).toInt()
@@ -158,6 +158,9 @@ object OrganismCanvasRenderer {
                     a.x * canvas.width, a.y * canvas.height, b.x * canvas.width, b.y * canvas.height, paint,
                 )
             }
+            paint.strokeWidth = w
+            paint.alpha = (alpha * 255f).toInt()
+            canvas.drawLine(a.x * canvas.width, a.y * canvas.height, b.x * canvas.width, b.y * canvas.height, paint)
         }
     }
 

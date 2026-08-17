@@ -13,16 +13,20 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * V3 §35/§82 — Reference KNOWN Day28 自动视觉门（调用 production renderer，非镜像）。
+ * V3 §35/§82 — Reference KNOWN Day28 自动视觉门（Canvas fallback 后端，V3 §S）。
  *
- * APP / 412×915 基准（这里用 1080×2340 等比）/ normal motion / 当前生产后端。
+ * 本门只锚定 **Canvas fallback** 参考帧（Robolectric JVM 无法执行真实 AGSL）；
+ * 生产 AGSL/ADVANCED 后端由设备 instrumented 视觉门
+ * （app androidTest `AdvancedBackendVisualGate`）承担。
+ *
+ * APP / 412×915 基准（这里用 1080×2340 等比）/ normal motion / Canvas 后端。
  * 指标阈值：near-black ≥58% / highlight ≤4% / warm ≤15% / negative-space ≥40% /
  * visual-mass@.9R ≥82% / core cavity 清楚（中心非高亮）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class VisualReferenceGateTest {
+class CanvasFallbackVisualGateTest {
 
     private val W = 1080
     private val H = 2340

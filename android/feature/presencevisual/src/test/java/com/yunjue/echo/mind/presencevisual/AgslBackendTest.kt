@@ -20,13 +20,28 @@ class AgslBackendTest {
     @Test
     fun shaderSourceDeclaresRequiredInputs() {
         val src = AgslEchoBackend.SHADER_SOURCE
-        // §20：resolution / exposure / core ratio(cavity) / halo / 三色 / vector mask
-        for (u in listOf("iResolution", "iExposure", "iCavity", "iHalo", "iPrimary", "iSecondary", "iWarm")) {
+        // §20/§W：resolution / exposure / core ratio(cavity) / halo / glow 半径 / 三色 / vector mask
+        for (u in listOf(
+            "iResolution", "iExposure", "iCavity", "iHalo", "iGlowRadius",
+            "iPrimary", "iSecondary", "iWarm",
+        )) {
             assertTrue("缺少 uniform $u", src.contains(u))
         }
         assertTrue(src.contains("uniform shader iVectorMask"))
         assertTrue("必须 premultiplied alpha 输出", src.contains("col * alpha"))
         assertTrue("tone soft knee（§24 禁止 hard clip）", src.contains("softKnee"))
+    }
+
+    @Test
+    fun glowRadiusIsResolutionAndHaloAware() {
+        // §W：基准 1080px → 2.5..6px；halo 高 → 更大；minDim 缩放；始终夹在 2..6
+        val base1080 = AgslEchoBackend.glowRadiusPxFor(haloIntensity = 0f, minDim = 1080f)
+        val halo1080 = AgslEchoBackend.glowRadiusPxFor(haloIntensity = 1f, minDim = 1080f)
+        org.junit.Assert.assertEquals(2.5f, base1080, 1e-4f)
+        org.junit.Assert.assertEquals(6.0f, halo1080, 1e-4f)
+        // 小视口（540px）不跌破下限 2px；大视口（2160px）不突破上限 6px
+        org.junit.Assert.assertEquals(2.0f, AgslEchoBackend.glowRadiusPxFor(0f, 540f), 1e-4f)
+        org.junit.Assert.assertEquals(6.0f, AgslEchoBackend.glowRadiusPxFor(1f, 2160f), 1e-4f)
     }
 
     @Test
