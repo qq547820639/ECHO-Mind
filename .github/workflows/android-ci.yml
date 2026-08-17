@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3  # v4
         with: {distribution: temurin, java-version: "17"}
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407  # v3
-      - run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: yes | sdkmanager "platforms;android-37"
       - run: cd android && chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug lintDebug --stacktrace
       # Kotlin SAST（detekt 27 规则，maxIssues=0；本地每轮实测全绿，配置见 android/detekt.yml）
       - run: cd android && ./gradlew detekt --stacktrace

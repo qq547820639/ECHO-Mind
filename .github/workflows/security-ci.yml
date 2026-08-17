@@ -42,8 +42,8 @@ jobs:
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3  # v4
         with: {distribution: temurin, java-version: "17"}
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407  # v3
-      # ERA 41 对齐 android-ci：显式安装 platform/build-tools（确定性，不依赖 gradle 自动下载）
-      - run: yes | sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      # ERA 41 对齐 android-ci：显式安装 platform（build-tools 由 AGP 选择兼容版本）
+      - run: yes | sdkmanager "platforms;android-37"
       - name: Kotlin/Java 构建（CodeQL build tracing 提取用；仅编译不跑测试）
         run: (cd android && ./gradlew compileDebugKotlin --no-daemon)
       - uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3
