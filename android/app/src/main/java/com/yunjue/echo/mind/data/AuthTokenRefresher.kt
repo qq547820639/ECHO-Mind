@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.data.AppPreferences
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL

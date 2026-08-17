@@ -72,10 +72,30 @@ fun MeScreen(container: AppContainer) {
                     onOpenMemory = { onOpenDomain(MeDomain.MEMORY) },
                     onOpenPresence = { onOpenDomain(MeDomain.PRESENCE) },
                     organism = {
+                        // V3 §H：genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算
+                        val hourOfDay = remember { java.time.LocalTime.now().let { it.hour + it.minute / 60f } }
+                        val reduceMotion = state.presence.reduceMotion
+                        val genome = remember(presence, hourOfDay, reduceMotion) {
+                            presence?.let {
+                                com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                                    com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+                                        it, hourOfDay, reduceMotion = reduceMotion,
+                                    ),
+                                    it.identityGenome,
+                                )
+                            }
+                        }
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            presence = presence,
+                            genome = genome,
                             surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                            reducedMotion = state.presence.reduceMotion,
+                            motion = if (reduceMotion) {
+                                com.yunjue.echo.mind.visual.surface.MotionPolicy.REDUCED
+                            } else {
+                                com.yunjue.echo.mind.visual.surface.MotionPolicy.NORMAL
+                            },
+                            maturityName = presence?.maturity?.name ?: "SEED",
+                            aggregateDescription = com.yunjue.echo.mind.visual.surface
+                                .organismDescriptionFor(presence),
                         )
                     },
                 )

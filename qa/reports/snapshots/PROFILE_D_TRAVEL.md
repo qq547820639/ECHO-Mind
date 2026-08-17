@@ -23,7 +23,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.32 coherence=0.19 turbulence=0.29 pulse=4.4s · 粒子 23
+- flow=0.59 coherence=0.19 turbulence=0.29 pulse=4.4s · 粒子 23
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -77,7 +77,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.30 coherence=0.30 turbulence=0.82 pulse=4.5s · 粒子 40
+- flow=0.55 coherence=0.30 turbulence=0.82 pulse=4.5s · 粒子 40
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -135,7 +135,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.33 coherence=0.39 turbulence=0.86 pulse=4.4s · 粒子 49
+- flow=0.60 coherence=0.39 turbulence=0.86 pulse=4.4s · 粒子 50
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -195,7 +195,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.32 coherence=0.46 turbulence=0.89 pulse=4.4s · 粒子 55
+- flow=0.58 coherence=0.46 turbulence=0.89 pulse=4.4s · 粒子 57
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -256,7 +256,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.32 coherence=0.45 turbulence=0.88 pulse=4.4s · 粒子 54
+- flow=0.59 coherence=0.45 turbulence=0.88 pulse=4.4s · 粒子 55
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -322,7 +322,7 @@
 - 你告诉过我：出差（2026-05-15 起）
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.33 coherence=0.43 turbulence=0.86 pulse=4.3s · 粒子 55
+- flow=0.60 coherence=0.43 turbulence=0.86 pulse=4.3s · 粒子 55
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream

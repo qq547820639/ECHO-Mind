@@ -42,6 +42,18 @@ internal fun l0OnboardingBlocked(
     substanceImpairment: Boolean
 ): Boolean = currentDanger || psychosisOrMania || substanceImpairment
 
+/** V3 §H：Onboarding 的 Seed ECHO genome（唯一语义链：EchoVisualMapper → VisualGenomeCompiler）。 */
+@Composable
+private fun rememberSeedGenome(
+    seed: com.yunjue.echo.mind.model.EchoPresenceState,
+): com.yunjue.echo.mind.visual.model.EchoVisualGenome = remember(seed) {
+    val hourOfDay = java.time.LocalTime.now().let { it.hour + it.minute / 60f }
+    com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+        com.yunjue.echo.mind.presence.EchoVisualMapper.map(seed, hourOfDay),
+        seed.identityGenome,
+    )
+}
+
 /**
  * ERA 1 Onboarding（Master Prompt PART 63）：
  * `WELCOME → PRIVACY_PLEDGE → CORE_SENSING → ECHO AWAKENING →（自动进入主界面）`
@@ -256,8 +268,9 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         Modifier.fillMaxWidth().height(280.dp).testTag("onboarding_visual"),
                     ) {
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            presence = seed,
+                            genome = rememberSeedGenome(seed),
                             modifier = Modifier.fillMaxSize(),
+                            maturityName = seed.maturity.name,
                         )
                     }
                 }
@@ -339,8 +352,9 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         Modifier.fillMaxWidth().height(224.dp).testTag("onboarding_visual"),
                     ) {
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            presence = seed,
+                            genome = rememberSeedGenome(seed),
                             modifier = Modifier.fillMaxSize(),
+                            maturityName = seed.maturity.name,
                         )
                     }
                 }
@@ -428,8 +442,9 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
         ) {
             Box(Modifier.size(280.dp).testTag("onboarding_visual")) {
                 com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                    presence = seedPresence,
+                    genome = rememberSeedGenome(seedPresence),
                     modifier = Modifier.fillMaxSize(),
+                    maturityName = seedPresence.maturity.name,
                     options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
                         maturityName = "SEED",
                         haloScale = timeline.haloScale,

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.data
 
 import androidx.room.withTransaction
-import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.DerivedFeatureInput
 import com.yunjue.echo.mind.model.SafetyDecision

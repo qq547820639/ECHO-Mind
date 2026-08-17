@@ -3,10 +3,11 @@ package com.yunjue.echo.mind
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
-import com.yunjue.echo.mind.presence.SurfaceMode
+import com.yunjue.echo.mind.presence.EchoVisualMapper
+import com.yunjue.echo.mind.presence.PresenceRenderPolicy
 import com.yunjue.echo.mind.presence.WallpaperRenderController
 import com.yunjue.echo.mind.presence.WallpaperScheduler
-import com.yunjue.echo.mind.presence.resolveSurfaceConfig
+import com.yunjue.echo.mind.presence.resolveRenderPolicy
 import com.yunjue.echo.mind.presence.shouldRefreshSnapshot
 
 import android.content.Context
@@ -146,8 +147,8 @@ class EchoWallpaperService : WallpaperService() {
         }
 
         /** ERA 74 §64：用户视觉偏好进入渲染（减少动画/动态程度/夜间模式；键与 AppPreferences 同源）。 */
-        private fun surfaceConfig() = resolveSurfaceConfig(
-            baseSurface = SurfaceMode.HOME_WALLPAPER,
+        private fun renderPolicy(): PresenceRenderPolicy = resolveRenderPolicy(
+            baseSurface = com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
             reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
             motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
             nightMode = prefs.getBoolean("presence_night_mode", false),
@@ -162,17 +163,17 @@ class EchoWallpaperService : WallpaperService() {
                     drawFrame()
                     // V3 §69：调度优先级表（0/8/10/12/18/30fps；30 cap）
                     val now = System.currentTimeMillis()
-                    val config = surfaceConfig()
+                    val policy = renderPolicy()
                     val delay = WallpaperScheduler.wallpaperFrameDelayMs(
                         visible = render.renderActive,
-                        reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+                        reducedMotion = policy.reduceMotion,
                         thermalSevereOrWorse = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
                             .currentThermalStatus(applicationContext) >= THERMAL_SEVERE_LEVEL,
                         powerSave = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
                             .isPowerSave(applicationContext),
                         msSinceTouch = now - lastTouchMs,
                         msSincePresenceUpdate = now - lastVisualChangeMs,
-                        night = config.nightMode,
+                        night = policy.nightMode,
                     ) ?: run {
                         stopRendering()
                         return
@@ -204,12 +205,18 @@ class EchoWallpaperService : WallpaperService() {
                 }
                 val presence = snapshot
                 val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
-                val config = surfaceConfig()
+                val policy = renderPolicy()
                 if (startNanos == 0L) startNanos = System.nanoTime()
                 val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-                // visual-runtime R2 + V3：Wallpaper 复用 core/visual organism（SAME ECHO；无文字 Public Safe）。
-                val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
-                    presence ?: EchoPresenceState(), hourOfDay,
+                // visual-runtime V3 §H：Wallpaper 复用 core/visual organism（SAME ECHO；无文字 Public Safe）；
+                // genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算。
+                val presenceState = presence ?: EchoPresenceState()
+                val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                    EchoVisualMapper.map(
+                        presenceState, hourOfDay,
+                        policy.motionLevel, policy.nightMode, policy.reduceMotion,
+                    ),
+                    presenceState.identityGenome,
                 )
                 // §70：触摸窗口内使用与 App 同一 transient ripple（Gaussian 形变 + 1 ripple）；
                 // 不开 App / 不 call AI / 不写 Presence。
@@ -238,10 +245,18 @@ class EchoWallpaperService : WallpaperService() {
                     width = canvas.width.toFloat(),
                     height = canvas.height.toFloat(),
                     options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
-                        maturityName = (presence ?: EchoPresenceState()).maturity.name,
-                        quality = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
-                            .currentQuality(applicationContext),
-                        reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+                        maturityName = presenceState.maturity.name,
+                        // V3 §M：质量 = Surface 默认预算与环境实际质量取更差者；
+                        // 动效由 MotionPolicy 正交承载（reducedMotion/motionScale）。
+                        quality = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment.worseOf(
+                            com.yunjue.echo.mind.visual.surface.defaultQualityFor(
+                                com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
+                            ),
+                            com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment
+                                .currentQuality(applicationContext),
+                        ),
+                        reducedMotion = com.yunjue.echo.mind.visual.surface.reducedMotionFor(policy.motion),
+                        motionScale = com.yunjue.echo.mind.visual.surface.motionScaleFor(policy.motion),
                         interaction = interaction,
                     ),
                 )

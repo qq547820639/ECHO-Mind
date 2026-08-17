@@ -35,8 +35,8 @@ journey ──► data, intelligence, memory, model, observation, presence, visu
 memory ──► model, ports
 observation ──► model
 ports ──► model
-presence ──► model, observation
-presencevisual ──► model, visual
+presence ──► model, observation, visual
+presencevisual ──► visual
 root ──► data, model, observation, presence, security
 runtime ──► data, intelligence, model, observation
 ui ──► actions, data, intelligence, journey, memory, model, observation, presence, presencevisual, root, visual, wearable
@@ -63,7 +63,7 @@ wearable ──► model, ports
 | runtime | 1 |
 | security | 9 |
 | ui | 44 |
-| visual | 18 |
+| visual | 20 |
 | wearable | 25 |
 
 ## 4. 跨领域边清单
@@ -101,7 +101,7 @@ wearable ──► model, ports
 - ports → model
 - presence → model
 - presence → observation
-- presencevisual → model
+- presence → visual
 - presencevisual → visual
 - root → data
 - root → model

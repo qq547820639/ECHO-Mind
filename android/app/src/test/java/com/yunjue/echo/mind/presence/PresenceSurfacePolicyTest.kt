@@ -6,15 +6,18 @@ import com.yunjue.echo.mind.model.EchoIdentityGenome
 import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
+import com.yunjue.echo.mind.visual.surface.EchoSurface
+import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * ERA 74 §64/§65 — Presence 表面功耗策略锚点：
- * 用户偏好（减少动画/动态程度/夜间模式）→ 表面配置；
- * REDUCED_MOTION/LOW_POWER 的功耗方向；快照重读节流边界。
+ * ERA 74 §64/§65 + V3 §L/§M — Presence 渲染策略锚点：
+ * 用户偏好（减少动画/动态程度/夜间模式）→ [resolveRenderPolicy]（PresenceRenderPolicy）；
+ * reduceMotion → MotionPolicy.REDUCED 且 surface 保持基底；mapper flowSpeed 归零；
+ * 快照重读节流边界不变。
  */
 class PresenceSurfacePolicyTest {
 
@@ -28,50 +31,70 @@ class PresenceSurfacePolicyTest {
     )
 
     @Test
-    fun reduceMotionOverridesSurfaceToZeroFlow() {
-        val config = resolveSurfaceConfig(
-            baseSurface = SurfaceMode.HOME_WALLPAPER,
+    fun reduceMotionYieldsReducedPolicyAndZeroFlow() {
+        val policy = resolveRenderPolicy(
+            baseSurface = EchoSurface.WALLPAPER_VISUAL_ONLY,
             reduceMotion = true,
             motionLevelName = "DEFAULT",
             nightMode = false,
         )
-        assertEquals(SurfaceMode.REDUCED_MOTION, config.surface)
+        assertTrue("减少动画 → MotionPolicy.REDUCED", policy.reduceMotion)
+        assertEquals(MotionPolicy.REDUCED, policy.motion)
+        assertEquals("surface 保持基底（V3：REDUCED 不再是 surface）",
+            EchoSurface.WALLPAPER_VISUAL_ONLY, policy.surface)
         // §64 冻结语义：减少动画 → flowSpeed 归零（无障碍硬契约）
-        assertEquals(0f, computeVisualParameters(state(), 13f, config.surface).flowSpeed, 1e-6f)
+        assertEquals(
+            0f,
+            EchoVisualMapper.map(state(), 13f, reduceMotion = policy.reduceMotion).flowSpeed,
+            1e-6f,
+        )
     }
 
     @Test
     fun baseSurfacePreservedWithoutReduceMotion() {
-        val wallpaper = resolveSurfaceConfig(SurfaceMode.HOME_WALLPAPER, false, "DEFAULT", false)
-        assertEquals(SurfaceMode.HOME_WALLPAPER, wallpaper.surface)
-        val dream = resolveSurfaceConfig(SurfaceMode.DREAM, false, "DEFAULT", false)
-        assertEquals(SurfaceMode.DREAM, dream.surface)
+        val wallpaper = resolveRenderPolicy(EchoSurface.WALLPAPER_VISUAL_ONLY, false, "DEFAULT", false)
+        assertEquals(EchoSurface.WALLPAPER_VISUAL_ONLY, wallpaper.surface)
+        assertEquals(MotionPolicy.NORMAL, wallpaper.motion)
+        val dream = resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "DEFAULT", false)
+        assertEquals(EchoSurface.DREAM_AMBIENT, dream.surface)
     }
 
     @Test
     fun motionLevelAndNightModeMapThrough() {
         assertEquals(
             PresenceMotionLevel.QUIET,
-            resolveSurfaceConfig(SurfaceMode.DREAM, false, "QUIET", false).motionLevel
+            resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "QUIET", false).motionLevel,
         )
         assertEquals(
             PresenceMotionLevel.LIVELY,
-            resolveSurfaceConfig(SurfaceMode.DREAM, false, "LIVELY", false).motionLevel
+            resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "LIVELY", false).motionLevel,
+        )
+        // 未知动态程度名 fail-closed 到 DEFAULT
+        assertEquals(
+            PresenceMotionLevel.DEFAULT,
+            resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "UNKNOWN", false).motionLevel,
         )
         assertEquals(
             PresenceMotionLevel.DEFAULT,
-            resolveSurfaceConfig(SurfaceMode.DREAM, false, "UNKNOWN", false).motionLevel
+            resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "", false).motionLevel,
         )
-        assertTrue(resolveSurfaceConfig(SurfaceMode.DREAM, false, "DEFAULT", true).nightMode)
+        assertTrue(resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "DEFAULT", true).nightMode)
     }
 
     @Test
-    fun quietAndLowPowerReduceFlowVersusDefault() {
-        val base = computeVisualParameters(state(), 13f, SurfaceMode.HOME_WALLPAPER)
-        val quiet = computeVisualParameters(state(), 13f, SurfaceMode.HOME_WALLPAPER, PresenceMotionLevel.QUIET)
-        val lowPower = computeVisualParameters(state(), 13f, SurfaceMode.LOW_POWER)
-        assertTrue("QUIET 应比 DEFAULT 更静", quiet.flowSpeed < base.flowSpeed)
-        assertTrue("LOW_POWER 应比 HOME_WALLPAPER 更静", lowPower.flowSpeed < base.flowSpeed)
+    fun quietMapsToQuietMotionAndSlowerFlow() {
+        val policy = resolveRenderPolicy(EchoSurface.WALLPAPER_VISUAL_ONLY, false, "QUIET", false)
+        assertEquals(MotionPolicy.QUIET, policy.motion)
+        assertFalse(policy.reduceMotion)
+        val base = EchoVisualMapper.map(state(), 13f)
+        val quiet = EchoVisualMapper.map(state(), 13f, motionLevel = policy.motionLevel)
+        assertTrue("QUIET 应比 DEFAULT 更慢", quiet.flowSpeed < base.flowSpeed)
+    }
+
+    @Test
+    fun livelyMapsToNormalMotion() {
+        val policy = resolveRenderPolicy(EchoSurface.DREAM_AMBIENT, false, "LIVELY", false)
+        assertEquals(MotionPolicy.NORMAL, policy.motion)
     }
 
     @Test

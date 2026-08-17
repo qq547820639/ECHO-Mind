@@ -100,11 +100,11 @@ class IdentityPipelineTruthTest {
     @Test
     fun fourLayersReachVisualParameters() {
         val base = state()
-        val baseParams = EchoVisualMapper.map(base, hourOfDay = 12f, surface = SurfaceMode.APP)
+        val baseParams = EchoVisualMapper.map(base, hourOfDay = 12f)
 
         // LifeSeason.drift → 慢湍流下限（§56 进入视觉但不突变）
         val highDrift = state(drift = 0.9f)
-        val driftParams = EchoVisualMapper.map(highDrift, 12f, SurfaceMode.APP)
+        val driftParams = EchoVisualMapper.map(highDrift, 12f)
         assertTrue(
             "lifeSeason.drift 升高应抬高 turbulence（真实数据流）",
             driftParams.turbulence > baseParams.turbulence,
@@ -112,23 +112,23 @@ class IdentityPipelineTruthTest {
 
         // IdentityGenome.motionPersonality → 长效流动调制（§53）
         val lively = state(motion = 0.9f)
-        val livelyParams = EchoVisualMapper.map(lively, 12f, SurfaceMode.APP)
+        val livelyParams = EchoVisualMapper.map(lively, 12f)
         assertTrue("运动人格应改变 flowSpeed", livelyParams.flowSpeed > baseParams.flowSpeed)
 
         // IdentityGenome.symmetryTendency → coherence
         val symmetric = state(symmetry = 0.95f)
-        val symmetricParams = EchoVisualMapper.map(symmetric, 12f, SurfaceMode.APP)
+        val symmetricParams = EchoVisualMapper.map(symmetric, 12f)
         assertTrue("对称倾向应改变 coherence", symmetricParams.coherence > baseParams.coherence)
 
         // DailyComposition → 密度/开放度
         val dense = state(dailyFlow = 0.9f, dailyOpenness = 0.2f)
-        val denseParams = EchoVisualMapper.map(dense, 12f, SurfaceMode.APP)
+        val denseParams = EchoVisualMapper.map(dense, 12f)
         assertTrue("日构图 flow 应改变粒子流动", denseParams.flowSpeed > baseParams.flowSpeed)
         assertTrue("日构图 openness 应改变核心开放度", denseParams.coreOpenness < baseParams.coreOpenness)
 
         // MomentState.breathingPeriod → 帧呼吸周期（§59 优先）
         val breathing = state(breathing = 4.2f)
-        val breathingParams = EchoVisualMapper.map(breathing, 12f, SurfaceMode.APP)
+        val breathingParams = EchoVisualMapper.map(breathing, 12f)
         assertEquals("分钟级呼吸周期应优先进入参数", 4.2f, breathingParams.pulsePeriodSeconds, 1e-4f)
     }
 
@@ -137,7 +137,7 @@ class IdentityPipelineTruthTest {
     @Test
     fun canonicalRoundtripReconstructsSameFrame() {
         val original = state(seed = 20260815L)
-        val params = EchoVisualMapper.map(original, hourOfDay = 14f, surface = SurfaceMode.APP)
+        val params = EchoVisualMapper.map(original, hourOfDay = 14f)
         val directFrame = organismFrameFor(
             params, 20260815L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, original.maturity.name,
         )
@@ -168,11 +168,11 @@ class IdentityPipelineTruthTest {
         val day180 = state(seed = 777L, maturity = echoMaturity(180), dailyFlow = 0f, dailyCoherence = 0f, dailyOpenness = 0f)
 
         val frameDay1 = organismFrameFor(
-            EchoVisualMapper.map(day1, 12f, SurfaceMode.APP),
+            EchoVisualMapper.map(day1, 12f),
             777L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, day1.maturity.name,
         )
         val frameDay180 = organismFrameFor(
-            EchoVisualMapper.map(day180, 12f, SurfaceMode.APP),
+            EchoVisualMapper.map(day180, 12f),
             777L, JOURNEY_CANONICAL_TIME_SECONDS, 1080f, 2340f, day180.maturity.name,
         )
 

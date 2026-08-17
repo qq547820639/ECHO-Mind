@@ -307,7 +307,6 @@ class PerformanceBaselineTest {
                 identityGenome = deriveIdentityGenome(42L, 0.6f, PresenceMotionLevel.DEFAULT),
             ),
             hourOfDay = 14f,
-            surface = com.yunjue.echo.mind.presence.SurfaceMode.APP,
         )
         val ms = measureMs(3) {
             repeat(1000) {

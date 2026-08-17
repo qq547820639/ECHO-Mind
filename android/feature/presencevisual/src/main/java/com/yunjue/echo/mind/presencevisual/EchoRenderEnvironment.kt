@@ -51,6 +51,13 @@ object EchoRenderEnvironment {
         }
     }
 
+    /**
+     * V3 §M：取两者中更保守的质量（ordinal 越大越保守：NORMAL < CONSERVE < MINIMAL）。
+     * Surface 默认预算（defaultQualityFor）与环境实际质量（power/thermal）组合时取更差者。
+     */
+    fun worseOf(a: EchoRenderQuality, b: EchoRenderQuality): EchoRenderQuality =
+        if (a.ordinal >= b.ordinal) a else b
+
     fun isPowerSave(context: Context): Boolean = try {
         (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
     } catch (_: Throwable) {

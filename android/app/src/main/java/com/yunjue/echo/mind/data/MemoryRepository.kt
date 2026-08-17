@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.memory.EchoMemory
 import com.yunjue.echo.mind.memory.MemorySensitivity
 import com.yunjue.echo.mind.memory.MemoryType

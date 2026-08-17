@@ -64,10 +64,16 @@ fun EchoActionOverlay(
     }
 
     val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
-    // V3：行动层走 production organism（SAME ECHO）；视觉偏好经既有 config 保持。
+    // V3 §H：行动层走 production organism（SAME ECHO）；genome 经唯一语义链计算
+    // （EchoVisualMapper → VisualGenomeCompiler），视觉偏好经既有 config 保持。
     // 呼吸引导语义保持（BREATHING 更慢更开 / PAUSE 更静），只调表现参数，不动 identity。
-    val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
-        presence ?: EchoPresenceState(), hourOfDay,
+    val presenceState = presence ?: EchoPresenceState()
+    val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+        com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+            presenceState, hourOfDay,
+            config.motionLevel, config.nightMode, config.reduceMotion,
+        ),
+        presenceState.identityGenome,
     ).let { g ->
         when (mode) {
             EchoActionMode.BREATHING -> g.copy(
@@ -99,7 +105,7 @@ fun EchoActionOverlay(
                     height = size.height,
                     options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
                         maturityName = presence?.maturity?.name ?: "SEED",
-                        reducedMotion = config.surface == com.yunjue.echo.mind.presence.SurfaceMode.REDUCED_MOTION,
+                        reducedMotion = config.reduceMotion,
                     ),
                 )
                 drawOrganism(frame)

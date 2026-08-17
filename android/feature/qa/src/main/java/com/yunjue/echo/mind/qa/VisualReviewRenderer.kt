@@ -7,9 +7,9 @@ import android.graphics.Paint
 import com.yunjue.echo.mind.journey.JOURNEY_CANONICAL_HOUR
 import com.yunjue.echo.mind.journey.buildCanonicalDay
 import com.yunjue.echo.mind.journey.reconstructJourneyFrame
-import com.yunjue.echo.mind.presence.SurfaceMode
+import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presencevisual.OrganismCanvasRenderer
-import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
@@ -20,7 +20,8 @@ import java.io.File
  * ERA 31 §5/§6 — Visual Review Renderer（qa/visual-review 工件生成器）。
  *
  * 原则：渲染的是 **production 帧模型 + production android.graphics 渲染器**
- * （V3：GenomeDeriver → SurfacePolicy → OrganismFrameComputer → OrganismCanvasRenderer），
+ * （V3 §H：EchoVisualMapper → VisualGenomeCompiler → SurfacePolicy
+ *   → OrganismFrameComputer → OrganismCanvasRenderer），
  * 本类只负责把真实帧落成 PNG / 对比拼图 / 参数快照说明，供人眼评审——不是 QA 重写产品。
  *
  * 所有输出确定性：同一 profile/day/surface 恒同帧（渲染时间锚 = Journey canonical 12:00）。
@@ -38,22 +39,14 @@ object VisualReviewRenderer {
     /** 评审基准时刻 = Journey canonical 正午 12:00（与生产 Journey 同锚，跨天可比）。 */
     const val REVIEW_HOUR: Float = JOURNEY_CANONICAL_HOUR
 
-    /** 评审表面（Part 5 要求的五个渲染面）。 */
-    enum class ReviewSurface(val mode: SurfaceMode, val width: Int, val height: Int) {
-        APP(SurfaceMode.APP, APP_WIDTH, APP_HEIGHT),
-        HOME_WALLPAPER(SurfaceMode.HOME_WALLPAPER, WALLPAPER_WIDTH, WALLPAPER_HEIGHT),
-        LOCK_SAFE(SurfaceMode.LOCK_SAFE, WALLPAPER_WIDTH, WALLPAPER_HEIGHT),
-        DREAM(SurfaceMode.DREAM, APP_WIDTH, APP_HEIGHT),
+    /** 评审表面（Part 5 要求的五个渲染面；V3 直接携带 EchoSurface 裁剪面）。 */
+    enum class ReviewSurface(val surface: EchoSurface, val width: Int, val height: Int) {
+        APP(EchoSurface.APP_PRIVATE, APP_WIDTH, APP_HEIGHT),
+        HOME_WALLPAPER(EchoSurface.WALLPAPER_VISUAL_ONLY, WALLPAPER_WIDTH, WALLPAPER_HEIGHT),
+        LOCK_SAFE(EchoSurface.LOCK_PUBLIC_SAFE, WALLPAPER_WIDTH, WALLPAPER_HEIGHT),
+        DREAM(EchoSurface.DREAM_AMBIENT, APP_WIDTH, APP_HEIGHT),
         /** Journey 专用：走 production reconstructJourneyFrame（canonical 重建）。 */
-        CANONICAL_JOURNEY(SurfaceMode.APP, APP_WIDTH, APP_HEIGHT),
-    }
-
-    /** ReviewSurface → V3 EchoSurface（SAME ECHO 裁剪面）。 */
-    private fun ReviewSurface.toEchoSurface(): EchoSurface = when (this) {
-        ReviewSurface.APP, ReviewSurface.CANONICAL_JOURNEY -> EchoSurface.APP_PRIVATE
-        ReviewSurface.HOME_WALLPAPER -> EchoSurface.WALLPAPER_VISUAL_ONLY
-        ReviewSurface.LOCK_SAFE -> EchoSurface.LOCK_PUBLIC_SAFE
-        ReviewSurface.DREAM -> EchoSurface.DREAM_AMBIENT
+        CANONICAL_JOURNEY(EchoSurface.APP_PRIVATE, APP_WIDTH, APP_HEIGHT),
     }
 
     fun frameFor(snap: QaDaySnapshot, surface: ReviewSurface): OrganismFrame? {
@@ -72,9 +65,13 @@ object VisualReviewRenderer {
                 height = surface.height.toFloat(),
             )
         }
-        val genome = GenomeDeriver.derive(snap.presence, REVIEW_HOUR)
+        // V3 §H：genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算
+        val genome = VisualGenomeCompiler.compile(
+            EchoVisualMapper.map(snap.presence, REVIEW_HOUR),
+            snap.presence.identityGenome,
+        )
         return OrganismFrameComputer.compute(
-            spec = SurfacePolicy.crop(genome, surface.toEchoSurface(), QaTimeline.frameTimeSeconds()),
+            spec = SurfacePolicy.crop(genome, surface.surface, QaTimeline.frameTimeSeconds()),
             width = surface.width.toFloat(),
             height = surface.height.toFloat(),
             options = OrganismFrameComputer.EchoRenderOptions(

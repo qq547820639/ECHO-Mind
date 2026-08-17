@@ -18,43 +18,48 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.visual.model.EchoVisualGenome
 import com.yunjue.echo.mind.visual.render.ColorSpace
 import com.yunjue.echo.mind.visual.render.FilamentStroke
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
+import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import com.yunjue.echo.mind.visual.surface.SurfacePolicy
-import java.time.LocalTime
+import com.yunjue.echo.mind.visual.surface.motionScaleFor
+import com.yunjue.echo.mind.visual.surface.reducedMotionFor
 import kotlin.math.min
 
 /**
  * EchoOrganismRenderer — Compose 渲染器（APP Scene / Me / 其他 Compose Surface）。
  *
- * 渲染管线：EchoPresenceState → GenomeDeriver → SurfacePolicy.crop
- *   → OrganismFrameComputer（V3：EchoSceneCompiler packet + 缓存拓扑 + MotionEvaluator）→ 绘制。
- * - 渲染器不依赖业务数据库，不重新推理用户状态；帧钟与 presence 更新是两个时间尺度。
- * - TalkBack：organism 作为装饰/状态视觉给**聚合语义描述**（[aggregateDescription]），不朗读粒子。
- * - presence 为 null → 中性占位（不编造状态）。
+ * V3 §H/§M：genome 由调用方（:app）经唯一语义链
+ * `EchoVisualMapper.map → VisualGenomeCompiler.compile` 计算后传入——
+ * 本模块（core:visual + core:model 边界）不再解释 Presence，只消费 genome。
+ * 渲染管线：EchoVisualGenome → SurfacePolicy.crop
+ *   → OrganismFrameComputer（EchoSceneCompiler packet + 缓存拓扑 + MotionEvaluator）→ 绘制。
+ * - MotionPolicy（NORMAL/REDUCED/QUIET）在编译期展开为 reducedMotion/motionScale；
+ * - TalkBack：organism 作为装饰/状态视觉给**聚合语义描述**（[aggregateDescription]），不朗读粒子；
+ * - genome 为 null → 静默空画布（不编造状态）。
  */
 
-/** §79：聚合语义默认由真实 state 派生（见 organismDescriptionFor）。 */
+/** §79：聚合语义默认中性描述（真实 state 派生描述由调用方经 aggregateDescription 传入）。 */
 private val DEFAULT_DESCRIPTION: String? = null
 
 @Composable
 fun EchoOrganism(
-    presence: EchoPresenceState?,
+    genome: EchoVisualGenome?,
     modifier: Modifier = Modifier,
     surface: EchoSurface = EchoSurface.APP_PRIVATE,
-    reducedMotion: Boolean = false,
+    motion: MotionPolicy = MotionPolicy.NORMAL,
+    maturityName: String = "KNOWN",
     aggregateDescription: String? = DEFAULT_DESCRIPTION,
     options: OrganismFrameComputer.EchoRenderOptions = OrganismFrameComputer.EchoRenderOptions(),
     /** §45 Correction 脉冲触发（递增计数；只触发 transient 视觉反馈，不改任何状态层）。 */
     correctionPulseTrigger: Int = 0,
 ) {
     var clockSeconds by remember { mutableFloatStateOf(0f) }
-    // 帧钟：REDUCED_MOTION 下仍推进（低频呼吸/亮度漂移保留），运动系数在编译期已降级
+    // 帧钟：REDUCED 下仍推进（低频呼吸/亮度漂移保留），运动系数在编译期已降级
     LaunchedEffect(Unit) {
         val start = withFrameNanos { it }
         while (true) {
@@ -62,27 +67,16 @@ fun EchoOrganism(
         }
     }
 
-    val hourOfDay = remember(presence?.updatedAt) {
-        LocalTime.now().let { it.hour + it.minute / 60f }
-    }
-    val genome = remember(presence, hourOfDay) {
-        presence?.let { GenomeDeriver.derive(it, hourOfDay) }
-    }
     // §45：触发沿捕获当前帧钟；每帧年龄 = clockSeconds - pulseStart
     var pulseStartSeconds by remember { mutableFloatStateOf(Float.NaN) }
     LaunchedEffect(correctionPulseTrigger) {
         if (correctionPulseTrigger > 0) pulseStartSeconds = clockSeconds
     }
-    val effectiveOptions = remember(options, reducedMotion, presence?.maturity, presence?.sensingStatus) {
-        // §42：Sensing Disabled（USER_PAUSED / NOT_AUTHORIZED）→ motion ×.30 / detail ×.55；
-        // identity 保留，不是 error screen。
-        val sensingOff = presence?.sensingStatus == com.yunjue.echo.mind.model.SensingRuntimeStatus.USER_PAUSED ||
-            presence?.sensingStatus == com.yunjue.echo.mind.model.SensingRuntimeStatus.NOT_AUTHORIZED
+    val effectiveOptions = remember(options, motion, maturityName) {
         options.copy(
-            reducedMotion = reducedMotion || options.reducedMotion,
-            maturityName = presence?.maturity?.name ?: options.maturityName,
-            motionScale = if (sensingOff) 0.30f else options.motionScale,
-            detailScale = if (sensingOff) 0.55f else options.detailScale,
+            reducedMotion = reducedMotionFor(motion) || options.reducedMotion,
+            maturityName = maturityName,
+            motionScale = motionScaleFor(motion) * options.motionScale,
         )
     }
 
@@ -91,11 +85,11 @@ fun EchoOrganism(
     val agslUsable = remember { AgslEchoBackend.isAvailable() }
     val sessionHolder = remember { AgslSessionHolder() }
 
-    val semanticsText = aggregateDescription ?: com.yunjue.echo.mind.visual.surface.organismDescriptionFor(presence)
+    val semanticsText = aggregateDescription ?: "ECHO 生命体"
     Canvas(
         modifier = modifier.semantics { contentDescription = semanticsText },
     ) {
-        val base = genome ?: GenomeDeriver.derive(EchoPresenceState(), hourOfDay)
+        val base = genome ?: return@Canvas // null genome → 静默空画布（不编造状态）
         val spec = SurfacePolicy.crop(base, surface, clockSeconds)
         val pulseAge = if (pulseStartSeconds.isNaN()) null else clockSeconds - pulseStartSeconds
         val frame = OrganismFrameComputer.compute(

@@ -1,10 +1,9 @@
 package com.yunjue.echo.mind.visual
 
 import com.yunjue.echo.mind.model.EchoIdentityGenome
-import com.yunjue.echo.mind.model.EchoMaturity
-import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.model.RhythmState
-import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.visual.model.EchoVisualGenome
+import com.yunjue.echo.mind.visual.model.EchoVisualParameters
+import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
 import com.yunjue.echo.mind.visual.surface.WristVisualProjector
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -20,19 +19,33 @@ import org.junit.Test
  */
 class WristVisualSpecTest {
 
-    private fun genome(seed: Long, hue: Float, topology: Float, core: Float) = GenomeDeriver.derive(
-        EchoPresenceState(
-            maturity = EchoMaturity.KNOWN,
-            confidence = 0.8f,
-            rhythmState = RhythmState(activityLevel = 0.6f, coverage = 0.85f),
-            identityGenome = EchoIdentityGenome(
+    private fun genome(
+        seed: Long,
+        hue: Float,
+        topology: Float,
+        core: Float,
+    ): EchoVisualGenome =
+        VisualGenomeCompiler.compile(
+            EchoVisualParameters(
+                flowSpeed = 0.5f,
+                coherence = 0.8f,
+                turbulence = 0.2f,
+                particleDensity = 0.6f,
+                coreOpenness = 0.75f,
+                dispersion = 0.35f,
+                pulsePeriodSeconds = 4.5f,
+                depth = 0.6f,
+                brightness = 0.8f,
+                contrast = 0.45f,
+                accentIntensity = 0.7f,
+                structureComplexity = 0.75f,
+            ),
+            EchoIdentityGenome(
                 seed = seed, accentHue = hue, coreTopology = topology,
                 textureFamily = 2, colorFamily = 1, symmetryTendency = 0.6f,
                 orbitGeometry = 0.45f, motionPersonality = 0.5f,
             ),
-        ),
-        hourOfDay = 14f,
-    ).let { it.copy(coreIntensity = core) }
+        ).let { it.copy(coreIntensity = core) }
 
     @Test
     fun downsampleIsDeterministic() {

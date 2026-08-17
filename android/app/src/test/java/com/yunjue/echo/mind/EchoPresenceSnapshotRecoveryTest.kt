@@ -14,7 +14,6 @@ import com.yunjue.echo.mind.model.RhythmState
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
 import com.yunjue.echo.mind.presence.EchoVisualMapper
-import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -85,11 +84,11 @@ class EchoPresenceSnapshotRecoveryTest {
 
         // 同一个 ECHO：恢复后渲染与前台同帧（identity seed 是恢复锚点的核心）
         val frameLive = organismFrameFor(
-            EchoVisualMapper.map(fullState(), 12f, SurfaceMode.APP),
+            EchoVisualMapper.map(fullState(), 12f),
             fullState().identityGenome.seed, 600f, 1080f, 2340f,
         )
         val frameRecovered = organismFrameFor(
-            EchoVisualMapper.map(recovered, 12f, SurfaceMode.APP),
+            EchoVisualMapper.map(recovered, 12f),
             recovered.identityGenome.seed, 600f, 1080f, 2340f,
         )
         assertEquals("重启后恢复的 ECHO 渲染与前台同帧", frameLive, frameRecovered)

@@ -40,8 +40,11 @@ class WallpaperMotionRealityTest {
         val snap = QaTimeline(profile).snapshot(day)
         val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
             spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
-                    snap.presence, VisualReviewRenderer.REVIEW_HOUR,
+                com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                    com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+                        snap.presence, VisualReviewRenderer.REVIEW_HOUR,
+                    ),
+                    snap.presence.identityGenome,
                 ),
                 com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY,
                 timeSeconds,

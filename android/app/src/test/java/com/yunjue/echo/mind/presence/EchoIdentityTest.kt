@@ -164,12 +164,13 @@ class EchoIdentityTest {
             momentState = buildMomentState(vector(), 12f),
         )
         // 同一 state 映射两次结果一致（确定性；§63 One ECHO / Multiple Surfaces）
-        val app1 = EchoVisualMapper.map(state, 12f, SurfaceMode.APP)
-        val app2 = EchoVisualMapper.map(state, 12f, SurfaceMode.APP)
+        val app1 = EchoVisualMapper.map(state, 12f)
+        val app2 = EchoVisualMapper.map(state, 12f)
         assertEquals(app1, app2)
-        // 不同 Surface 只改强度，不改身份（色相/纹理族不变；参数同构）
-        val lock = EchoVisualMapper.map(state, 12f, SurfaceMode.LOCK_SAFE)
-        assertTrue(lock.flowSpeed <= app1.flowSpeed) // LOCK_SAFE 更静（§64）
+        // V3 §M：Surface 不进入参数映射——LOCK 与 APP 参数完全同构
+        //（表面差异由 SurfacePolicy.crop + MotionPolicy/RenderQuality 在渲染层正交承载）
+        val lock = EchoVisualMapper.map(state, 12f)
+        assertEquals(lock, app1)
         // §64 lock-safe privacy：视觉参数不含任何文字（无 narrative 字段）
         assertFalse(app1.toString().contains("narrative"))
     }

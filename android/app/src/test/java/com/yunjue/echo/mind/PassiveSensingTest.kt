@@ -17,7 +17,6 @@ import com.yunjue.echo.mind.data.ConsentEntity
 import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.AppActivityCollector
-import com.yunjue.echo.mind.PassiveSensingService
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensorCollector

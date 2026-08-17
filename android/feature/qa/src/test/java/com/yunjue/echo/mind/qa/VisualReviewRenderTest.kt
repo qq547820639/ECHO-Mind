@@ -125,7 +125,10 @@ class VisualReviewRenderTest {
         //    静态帧无法体现 motion character，用 36s 时间序列拼图表达运动（呼吸 + 轨道 + 流线方向）
         for (profile in QaProfiles.ALL) {
             val snap = snapshot(profile, 90)
-            val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
+            val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                com.yunjue.echo.mind.presence.EchoVisualMapper.map(snap.presence, 12f),
+                snap.presence.identityGenome,
+            )
             val cells = (0 until 12).map { step ->
                 val time = step * 3f
                 val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
@@ -152,7 +155,10 @@ class VisualReviewRenderTest {
         }
         for (profile in realRateProfiles) {
             val snap = snapshot(profile, 90)
-            val lockGenome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
+            val lockGenome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                com.yunjue.echo.mind.presence.EchoVisualMapper.map(snap.presence, 12f),
+                snap.presence.identityGenome,
+            )
             val idleCells = (0 until 12).map { step ->
                 val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
                     com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
@@ -234,7 +240,10 @@ class VisualReviewRenderTest {
         val displacements = HashMap<String, Double>()
         for (profile in QaProfiles.ALL) {
             val snap = snapshot(profile, 90)
-            val genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(snap.presence, 12f)
+            val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                com.yunjue.echo.mind.presence.EchoVisualMapper.map(snap.presence, 12f),
+                snap.presence.identityGenome,
+            )
             val t0 = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
                 com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
                     genome, com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE, 0f,

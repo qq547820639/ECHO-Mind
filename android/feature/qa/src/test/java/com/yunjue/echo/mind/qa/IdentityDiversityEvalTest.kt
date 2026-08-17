@@ -4,7 +4,6 @@ import com.yunjue.echo.mind.presence.AmbientVector
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
-import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import com.yunjue.echo.mind.presence.identityDistance
@@ -116,7 +115,7 @@ class IdentityDiversityEvalTest {
                 identityGenome = identity,
                 dailyComposition = buildDailyComposition(identity, vector),
             )
-            val params = EchoVisualMapper.map(state, 12f, SurfaceMode.APP)
+            val params = EchoVisualMapper.map(state, 12f)
             // 结构签名：流动 / 凝聚 / 开放度（不含颜色）
             Triple(
                 (params.flowSpeed * 20f).roundToInt(),
@@ -143,7 +142,9 @@ class IdentityDiversityEvalTest {
             )
             com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
                 spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                    com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(state, 12f),
+                    com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+                        EchoVisualMapper.map(state, 12f), state.identityGenome,
+                    ),
                     com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
                     QaTimeline.frameTimeSeconds(),
                 ),

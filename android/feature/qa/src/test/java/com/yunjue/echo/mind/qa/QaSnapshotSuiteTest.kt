@@ -71,7 +71,9 @@ class QaSnapshotSuiteTest {
         for (profile in QaProfiles.ALL) {
             val s = QaProductSnapshot.snapshot(QaTimeline(profile), 180)
             assertTrue(s.wallpaper.lockSafeNote.contains("Presence"))
-            assertTrue("$profile 锁屏 flow ≤ 0.6（LOW 更静）", s.wallpaper.flowSpeed <= 0.6f)
+            // V3 §M：Surface 不再进入参数映射——锁屏参数与 APP 同构且恒有界
+            //（锁屏的「更静」由渲染层 MotionPolicy/RenderQuality 正交承载，不再压 flowSpeed）。
+            assertTrue("$profile 锁屏 flow 有界（实际 ${s.wallpaper.flowSpeed}）", s.wallpaper.flowSpeed in 0f..1f)
         }
     }
 

@@ -10,8 +10,8 @@ import com.yunjue.echo.mind.memory.echoKnowsLines
 import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.model.RetentionClass
+import com.yunjue.echo.mind.visual.surface.EchoSurface
 
-import com.yunjue.echo.mind.presence.SurfaceMode
 import java.time.LocalDate
 
 /**
@@ -178,7 +178,7 @@ object QaProductSnapshot {
 
     private fun wallpaper(snap: QaDaySnapshot): WallpaperSection {
         val lock = snap.lockVisual
-        val frame = QaTimeline.computeFrame(snap, SurfaceMode.LOCK_SAFE)
+        val frame = QaTimeline.computeFrame(snap, EchoSurface.LOCK_PUBLIC_SAFE)
         return WallpaperSection(
             flowSpeed = lock.flowSpeed,
             coherence = lock.coherence,

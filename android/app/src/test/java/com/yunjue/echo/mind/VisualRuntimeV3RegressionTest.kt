@@ -91,6 +91,31 @@ class VisualRuntimeV3RegressionTest {
         val visualRoot = File("../core/visual/src/main/java/com/yunjue/echo/mind/visual/render")
         val computers = visualRoot.listFiles()?.filter { it.name.contains("FrameComputer") } ?: emptyList()
         assertEquals("唯一帧求值器", 1, computers.size)
+
+        // V3 §H：唯一 Presence → Visual 语义路径——GenomeDeriver 已删除，
+        // production main 源码任何位置不得复活它或第二套 derive(state) 解释器。
+        val androidRoot = File("..")
+        val mainSources = androidRoot.walkTopDown()
+            .filter {
+                it.isFile && it.extension == "kt" &&
+                    it.absolutePath.contains("/src/main/") && !it.absolutePath.contains("/build/")
+            }
+            .toList()
+        assertTrue("应能扫描到 production main 源码", mainSources.isNotEmpty())
+        val deriverRefs = mainSources.filter { it.readText().contains("GenomeDeriver") }
+        assertTrue(
+            "GenomeDeriver 不得存在于任何 src/main（实际：${deriverRefs.map { it.name }}）",
+            deriverRefs.isEmpty(),
+        )
+        val secondMappers = mainSources.filter { f ->
+            Regex("""fun\s+derive\s*\(\s*state\s*:\s*EchoPresenceState""").containsMatchIn(f.readText())
+        }
+        assertTrue(
+            "EchoVisualMapper 必须是唯一 Presence→Visual 映射（不得出现第二个 derive(state)）：${
+                secondMappers.map { it.name }
+            }",
+            secondMappers.isEmpty(),
+        )
     }
 
     @Test

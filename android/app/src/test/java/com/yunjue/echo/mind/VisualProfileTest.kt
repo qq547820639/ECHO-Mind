@@ -5,7 +5,7 @@ import com.yunjue.echo.mind.model.EchoIdentityGenome
 import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.presence.SurfaceMode
+import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.computeVisualParameters
 import com.yunjue.echo.mind.presence.dayBrightnessCurve
 import com.yunjue.echo.mind.visual.render.ColorSpace
@@ -19,6 +19,8 @@ import org.junit.Test
 /**
  * ERA 2：Visual Profile + EchoSceneModel 回归。
  * 确定性（同一输入同一帧）+ 参数边界 + 低置信度更弥散 + 夜间更暗更慢。
+ * V3 §H/§M：computeVisualParameters 不再有 surface 参数——
+ * reduceMotion/motionLevel/nightMode 直接进入映射；Surface/Quality 由渲染层正交承载。
  */
 class VisualProfileTest {
 
@@ -50,7 +52,7 @@ class VisualProfileTest {
     @Test
     fun parametersStayInBounds() {
         for (hour in listOf(2f, 8f, 13f, 19f, 23f)) {
-            val p = computeVisualParameters(state(), hour, SurfaceMode.APP)
+            val p = computeVisualParameters(state(), hour)
             assertTrue("flowSpeed 越界", p.flowSpeed in 0f..1f)
             assertTrue("coherence 越界", p.coherence in 0f..1f)
             assertTrue("turbulence 越界", p.turbulence in 0f..1f)
@@ -61,21 +63,54 @@ class VisualProfileTest {
             assertTrue("contrast 越界", p.contrast in 0f..1f)
             assertTrue("accentIntensity 越界", p.accentIntensity in 0f..1f)
             assertTrue("pulsePeriod 越界", p.pulsePeriodSeconds in 3.8f..5.6f)
+            // V3 新字段同界
+            assertTrue("dataClarity 越界", p.dataClarity in 0f..1f)
+            assertTrue("haloIntensity 越界", p.haloIntensity in 0f..1f)
+            assertTrue("momentIntensity 越界", p.momentIntensity in 0f..1f)
+            assertTrue("filamentDensity 越界", p.filamentDensity in 0f..1f)
+            assertTrue("seasonPhase 越界", p.seasonPhase in 0f..1f)
+            assertTrue("dayComposition 越界", p.dayComposition in 0f..1f)
         }
     }
 
     @Test
     fun nightModeDimsAndSlows() {
-        val day = computeVisualParameters(state(), 13f, SurfaceMode.APP, nightMode = false)
-        val night = computeVisualParameters(state(), 13f, SurfaceMode.APP, nightMode = true)
+        val day = computeVisualParameters(state(), 13f, nightMode = false)
+        val night = computeVisualParameters(state(), 13f, nightMode = true)
         assertTrue("夜间应更暗", night.brightness < day.brightness)
         assertTrue("夜间应更慢", night.flowSpeed <= day.flowSpeed)
     }
 
     @Test
     fun reducedMotionStopsFlow() {
-        val p = computeVisualParameters(state(), 13f, SurfaceMode.REDUCED_MOTION)
-        assertEquals(0f, p.flowSpeed)
+        val p = computeVisualParameters(state(), 13f, reduceMotion = true)
+        assertEquals("reduceMotion → flowSpeed 归零（无障碍硬契约）", 0f, p.flowSpeed, 1e-6f)
+    }
+
+    @Test
+    fun quietMotionLevelIsSlowerThanDefault() {
+        val base = computeVisualParameters(state(), 13f)
+        val quiet = computeVisualParameters(state(), 13f, motionLevel = PresenceMotionLevel.QUIET)
+        val lively = computeVisualParameters(state(), 13f, motionLevel = PresenceMotionLevel.LIVELY)
+        assertTrue("QUIET 应比 DEFAULT 更慢", quiet.flowSpeed < base.flowSpeed)
+        assertTrue("LIVELY 应比 DEFAULT 更快", lively.flowSpeed > base.flowSpeed)
+    }
+
+    @Test
+    fun newFieldsArePopulatedFromState() {
+        val p = computeVisualParameters(state(), 13f)
+        // dataClarity ← coverage（coverage>0 → 有值且 > 0）
+        assertTrue("coverage=0.6 → dataClarity > 0", p.dataClarity > 0f)
+        // haloIntensity ← coherence 调制（0.3 + coherence*0.6 > 0）
+        assertTrue(p.haloIntensity > 0f)
+        // filamentDensity ← 纹理族 + coherence（> 0）
+        assertTrue(p.filamentDensity > 0f)
+        // 零覆盖日仍有 dataClarity 兜底（0.3 + confidence*0.7）
+        val noData = computeVisualParameters(
+            state().copy(rhythmState = RhythmState(activityLevel = 0.5f, rhythmDelta = 0f, coverage = 0f)),
+            13f,
+        )
+        assertTrue("coverage=0 → dataClarity 走 confidence 兜底", noData.dataClarity > 0f)
     }
 
     @Test
@@ -110,7 +145,7 @@ class VisualProfileTest {
 
     @Test
     fun frameIsDeterministic() {
-        val params = computeVisualParameters(state(), 13f, SurfaceMode.APP)
+        val params = computeVisualParameters(state(), 13f)
         val f1 = organismFrameFor(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
         val f2 = organismFrameFor(params, seed = 42L, timeSeconds = 123.4f, width = 1080f, height = 2400f)
         assertEquals(f1, f2)
@@ -122,7 +157,7 @@ class VisualProfileTest {
 
     @Test
     fun differentSeedChangesIdentity() {
-        val params = computeVisualParameters(state(), 13f, SurfaceMode.APP)
+        val params = computeVisualParameters(state(), 13f)
         val f1 = organismFrameFor(params, seed = 42L, timeSeconds = 10f, width = 100f, height = 200f)
         val f2 = organismFrameFor(params, seed = 7L, timeSeconds = 10f, width = 100f, height = 200f)
         // 同一用户不同日子有视觉血缘，但不同 identity 的画面不同（§82 几何维度也不同）

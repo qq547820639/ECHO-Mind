@@ -6,7 +6,6 @@ import com.yunjue.echo.mind.journey.buildYearView
 import com.yunjue.echo.mind.memory.rankMemories
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
 import com.yunjue.echo.mind.presence.EchoVisualMapper
-import com.yunjue.echo.mind.presence.SurfaceMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,8 +40,8 @@ class QaPerformanceBudgetTest {
         val decoded = EchoPresenceCodec.decode(encoded)
         requireNotNull(decoded)
         // 冷启动路径：持久化快照解码后直接映射视觉参数 → 与活体完全同帧
-        val coldParams = EchoVisualMapper.map(decoded, 12f, SurfaceMode.APP)
-        val liveParams = EchoVisualMapper.map(live.presence, 12f, SurfaceMode.APP)
+        val coldParams = EchoVisualMapper.map(decoded, 12f)
+        val liveParams = EchoVisualMapper.map(live.presence, 12f)
         assertEquals("冷启动首帧 = 活体首帧（First Meaningful Presence 语义）", liveParams, coldParams)
         // 解码不重跑身份/季节管道：1000 次解码在宽松预算内
         val decodeMs = timed { repeat(1000) { EchoPresenceCodec.decode(encoded) } }
@@ -120,8 +119,8 @@ class QaPerformanceBudgetTest {
     fun dreamSurfaceParamsAreBoundedAndDeterministic() {
         for (profile in QaProfiles.ALL) {
             val snap = QaTimeline(profile).snapshotAt(90)
-            val dream = EchoVisualMapper.map(snap.presence, 22f, SurfaceMode.DREAM)
-            val dream2 = EchoVisualMapper.map(snap.presence, 22f, SurfaceMode.DREAM)
+            val dream = EchoVisualMapper.map(snap.presence, 22f)
+            val dream2 = EchoVisualMapper.map(snap.presence, 22f)
             assertEquals("${profile.id} Dream 映射确定性", dream, dream2)
             assertTrue("${profile.id} Dream flow 有界", dream.flowSpeed in 0f..1f)
             assertTrue("${profile.id} Dream pulse 有界", dream.pulsePeriodSeconds in 3.8f..5.6f)

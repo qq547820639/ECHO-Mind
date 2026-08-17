@@ -16,7 +16,6 @@ import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.LifeSeasonTracker
-import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.buildMomentState
 import com.yunjue.echo.mind.presence.computeLifeSeason
@@ -155,8 +154,9 @@ class QaTimeline(
             dailyComposition = buildDailyComposition(identity, ambient.vector),
             momentState = buildMomentState(ambient.vector, hourOfDay = 12f),
         )
-        val appVisual = EchoVisualMapper.map(presence, 12f, SurfaceMode.APP)
-        val lockVisual = EchoVisualMapper.map(presence, 12f, SurfaceMode.LOCK_SAFE)
+        // V3 §M：Surface/MotionPolicy/RenderQuality 不进入参数映射——
+        // APP 与 LOCK 视觉参数同源（表面差异由 SurfacePolicy.crop + 渲染层正交承载）。
+        val visual = EchoVisualMapper.map(presence, 12f)
 
         val snap = QaDaySnapshot(
             dayIndex = dayIndex,
@@ -170,8 +170,8 @@ class QaTimeline(
             season = tracker.effective,
             tracker = tracker,
             presence = presence,
-            appVisual = appVisual,
-            lockVisual = lockVisual,
+            appVisual = visual,
+            lockVisual = visual,
         )
         snapshotCache[dayIndex] = snap
         return snap
@@ -195,31 +195,28 @@ class QaTimeline(
          * V3：QA 帧走 production organism 管线，与 Canonical 历史重建同一参数链
          * （EchoVisualMapper → EchoVisualParameters → genomeFromParams → compute）——
          * canonical roundtrip 与当日渲染同帧由单一映射保证。
+         * V3 §M：表面差异只经 SurfacePolicy.crop（EchoSurface）进入，不再进参数映射。
          */
-        fun computeFrame(snap: QaDaySnapshot, surface: SurfaceMode = SurfaceMode.APP): com.yunjue.echo.mind.visual.render.OrganismFrame {
-            val params = when (surface) {
-                SurfaceMode.APP -> snap.appVisual
-                else -> snap.lockVisual
-            }
+        fun computeFrame(
+            snap: QaDaySnapshot,
+            surface: com.yunjue.echo.mind.visual.surface.EchoSurface =
+                com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+        ): com.yunjue.echo.mind.visual.render.OrganismFrame {
             val genome = com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFromParams(
-                params, snap.identity.seed,
+                snap.appVisual, snap.identity.seed,
             )
             return com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
                 spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
                     genome,
-                    when (surface) {
-                        SurfaceMode.APP -> com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE
-                        SurfaceMode.DREAM -> com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT
-                        SurfaceMode.HOME_WALLPAPER ->
-                            com.yunjue.echo.mind.visual.surface.EchoSurface.WALLPAPER_VISUAL_ONLY
-                        else -> com.yunjue.echo.mind.visual.surface.EchoSurface.LOCK_PUBLIC_SAFE
-                    },
+                    surface,
                     frameTimeSeconds(),
                 ),
                 width = 1080f,
                 height = 2340f,
                 options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
                     maturityName = snap.presence.maturity.name,
+                    // V3 §M：与生产 Service 同源——Surface 默认质量预算承载粒子/光晕数量
+                    quality = com.yunjue.echo.mind.visual.surface.defaultQualityFor(surface),
                 ),
             )
         }

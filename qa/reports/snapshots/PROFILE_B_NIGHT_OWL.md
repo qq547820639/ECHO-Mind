@@ -22,7 +22,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.35 coherence=0.48 turbulence=0.08 pulse=4.4s · 粒子 22
+- flow=0.63 coherence=0.48 turbulence=0.08 pulse=4.4s · 粒子 23
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -76,7 +76,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.35 coherence=0.63 turbulence=0.61 pulse=4.4s · 粒子 40
+- flow=0.64 coherence=0.63 turbulence=0.61 pulse=4.4s · 粒子 41
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -134,7 +134,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.33 coherence=0.73 turbulence=0.63 pulse=4.5s · 粒子 49
+- flow=0.61 coherence=0.73 turbulence=0.63 pulse=4.5s · 粒子 50
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -191,7 +191,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.34 coherence=0.82 turbulence=0.66 pulse=4.5s · 粒子 54
+- flow=0.61 coherence=0.82 turbulence=0.66 pulse=4.5s · 粒子 55
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -253,7 +253,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.37 coherence=0.76 turbulence=0.66 pulse=4.3s · 粒子 55
+- flow=0.67 coherence=0.76 turbulence=0.66 pulse=4.3s · 粒子 54
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream
@@ -318,7 +318,7 @@
 - 我还在慢慢积累关于你的了解。
 
 ### Wallpaper（LOCK_SAFE）
-- flow=0.35 coherence=0.76 turbulence=0.66 pulse=4.5s · 粒子 54
+- flow=0.64 coherence=0.76 turbulence=0.66 pulse=4.5s · 粒子 54
 - 锁屏只表达 Presence：无心理推断、无习惯异常、无具体事件。
 
 ### Dream

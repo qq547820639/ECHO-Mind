@@ -11,7 +11,6 @@ import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
-import com.yunjue.echo.mind.presence.SurfaceMode
 import com.yunjue.echo.mind.presence.WallpaperRenderController
 import com.yunjue.echo.mind.presence.deriveIdentityGenome
 import org.junit.Assert.assertFalse
@@ -69,7 +68,7 @@ class EchoSceneFrameDeviceBenchmarkInstrumentedTest {
             maturity = echoMaturity(30),
             identityGenome = deriveIdentityGenome(42L, 0.6f, PresenceMotionLevel.DEFAULT),
         )
-        val params = EchoVisualMapper.map(state = state, hourOfDay = 14f, surface = SurfaceMode.APP)
+        val params = EchoVisualMapper.map(state = state, hourOfDay = 14f)
         val ms = measureMs(3) {
             repeat(1000) {
                 com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(

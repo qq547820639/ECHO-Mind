@@ -4,7 +4,6 @@ import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
 import com.yunjue.echo.mind.presence.EchoVisualMapper
-import com.yunjue.echo.mind.presence.SurfaceMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -60,7 +59,6 @@ class JourneyCanonicalTest {
         val expected = EchoVisualMapper.map(
             state = state,
             hourOfDay = JOURNEY_CANONICAL_HOUR,
-            surface = SurfaceMode.APP,
         )
         assertEquals(expected, day.visualParams)
         assertEquals(state.identityGenome, day.identityReference)

@@ -3,9 +3,12 @@ package com.yunjue.echo.mind.journey
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
 import com.yunjue.echo.mind.model.echoMaturity
+import com.yunjue.echo.mind.presence.EchoVisualParameters
+import com.yunjue.echo.mind.presence.maturityOpenness
 import com.yunjue.echo.mind.visual.model.EchoPortraitSnapshot
 import com.yunjue.echo.mind.visual.model.EchoVisualGenome
 import com.yunjue.echo.mind.visual.model.PORTRAIT_CANONICAL_TIME_SECONDS
+import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
@@ -15,11 +18,19 @@ import kotlin.math.abs
 /**
  * JourneyOrganismVisuals — Journey 的新版 organism portrait（visual-runtime）。
  *
- * 与旧 [journeyDayParams]（单环+圆点）平行的新实现：画像维度 → EchoVisualGenome →
- * 9 层 organism 帧。**确定性重建**（同一天 + 同一 identity → 同一帧，PORTRAIT_CANONICAL_TIME_SECONDS 固定）。
+ * 与旧 [journeyDayParams]（单环+圆点）平行的新实现：画像维度 → EchoVisualParameters →
+ * VisualGenomeCompiler（机械编译，中性恒定 identity）→ 9 层 organism 帧。
+ * **确定性重建**（同一天 + 同一 identity → 同一帧，PORTRAIT_CANONICAL_TIME_SECONDS 固定）。
  * 纯 Kotlin（经 core:visual），无 Android 依赖，JVM 可测。
+ *
+ * V3 §H/§J：禁止在本文件硬编码 identityTopology/orbitalEccentricity/luminance——
+ * 恒定身份一律来自 [VisualGenomeCompiler.neutralIdentity]（canonical 单一定义），
+ * 亮度经 params.brightness = [CANONICAL_DAY_BRIGHTNESS] 进入编译。
  */
 object JourneyOrganismVisuals {
+
+    /** Journey portrait 基准亮度（白天 canonical；一致性优先）。 */
+    private const val CANONICAL_DAY_BRIGHTNESS = 0.7f
 
     /** 画像 + identity seed → 当日 organism genome（确定性；无画像 = null）。 */
     fun genomeFor(portrait: DailyPortraitDto?, identitySeed: Long): EchoVisualGenome? {
@@ -55,31 +66,27 @@ object JourneyOrganismVisuals {
         // 用「年/月/日数字确定性混合」而非 String.hashCode()（后者对相邻日期可能低位碰撞）。
         val dayPhase = frac(dayNumber(portrait.date) * 2654435761L)
 
-        return EchoVisualGenome(
-            identitySeed = identitySeed,
-            identityTopology = 0.6f, // Journey portrait 用 identity 中性拓扑（跨天可辨同一 ECHO）
-            // identity 相位 = 长期 identity 相位 + 当日相位偏移（同 identity 可辨，时间流逝可见）
-            identityPhase = frac(
-                com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(identitySeed, 7),
-            ) + dayPhase * 0.15f,
+        val params = EchoVisualParameters(
+            flowSpeed = ((activation * 0.6f + density * 0.4f) * 0.7f).coerceIn(0f, 1f),
+            coherence = coherence,
+            turbulence = deviation,
+            particleDensity = (density * 0.8f + 0.15f).coerceIn(0f, 1f),
+            coreOpenness = openness,
+            dispersion = ((1f - coherence) * 0.5f + 0.2f).coerceIn(0.15f, 0.8f),
+            pulsePeriodSeconds = (5.6f - activation * 1.8f).coerceIn(3.6f, 6f),
+            depth = (0.3f + regularity * 0.7f).coerceIn(0f, 1f),
+            brightness = CANONICAL_DAY_BRIGHTNESS,
+            contrast = (0.4f + deviation * 0.6f).coerceIn(0f, 1f),
+            accentIntensity = (0.3f + coherence * 0.7f).coerceIn(0f, 1f),
+            structureComplexity = openness,
+            dataClarity = (0.4f + portrait.baselineDays.coerceIn(0, 28) / 28f * 0.6f).coerceIn(0f, 1f),
+            haloIntensity = (0.4f + coherence * 0.5f).coerceIn(0f, 1f),
+            momentIntensity = 0f, // Journey 缩略帧无瞬时调制
+            filamentDensity = (0.5f + coherence * 0.4f).coerceIn(0f, 1f),
             seasonPhase = frac(maturity.ordinal * 0.2f),
             dayComposition = dayPhase,
-            coherence = coherence,
-            radialSpread = ((1f - coherence) * 0.5f + 0.2f).coerceIn(0.15f, 0.8f),
-            orbitalEccentricity = 0.45f,
-            particleDensity = (density * 0.8f + 0.15f).coerceIn(0f, 1f),
-            filamentDensity = (0.5f + coherence * 0.4f).coerceIn(0f, 1f),
-            driftRate = ((activation * 0.6f + density * 0.4f) * 0.7f).coerceIn(0f, 1f),
-            pulseRate = (5.6f - activation * 1.8f).coerceIn(3.6f, 6f),
-            turbulence = deviation,
-            luminance = 0.7f, // CANONICAL：白天基准亮度（Journey 一致性优先）
-            spectralBias = frac(com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(identitySeed, 1)),
-            coreIntensity = openness,
-            haloIntensity = (0.4f + coherence * 0.5f).coerceIn(0f, 1f),
-            dataClarity = (0.4f + portrait.baselineDays.coerceIn(0, 28) / 28f * 0.6f).coerceIn(0f, 1f),
-            depth = (0.3f + regularity * 0.7f).coerceIn(0f, 1f),
-            momentIntensity = 0f, // Journey 缩略帧无瞬时调制
         )
+        return VisualGenomeCompiler.compile(params, VisualGenomeCompiler.neutralIdentity(identitySeed))
     }
 
     /** 画像 → 确定性 organism 帧（同一天同一帧）。 */
@@ -127,44 +134,15 @@ object JourneyOrganismVisuals {
     /**
      * EchoVisualParameters → EchoVisualGenome 机械映射（V3 删除纪律迁移桥：
      * 历史 Canonical Daily State / QA 链存的是 EchoVisualParameters——
-     * 同一确定性参数集，逐字段对应，不新增语义）。
+     * 经 canonical 编译器 + 中性恒定身份编译，不新增语义）。
      */
     fun genomeFromParams(
-        params: com.yunjue.echo.mind.presence.EchoVisualParameters,
+        params: EchoVisualParameters,
         seed: Long,
         dayComposition: Float = 0.47f,
-    ): EchoVisualGenome = EchoVisualGenome(
-        identitySeed = seed,
-        identityTopology = 0.65f,
-        identityPhase = mixFrac(com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(seed, 7)),
-        seasonPhase = 0.3f,
-        dayComposition = dayComposition,
-        coherence = params.coherence,
-        radialSpread = params.dispersion,
-        orbitalEccentricity = 0.45f,
-        particleDensity = params.particleDensity,
-        filamentDensity = params.structureComplexity,
-        driftRate = params.flowSpeed,
-        pulseRate = params.pulsePeriodSeconds,
-        turbulence = params.turbulence,
-        luminance = params.brightness,
-        spectralBias = mixFrac(com.yunjue.echo.mind.visual.math.DeterministicRandom.mix(seed, 1)),
-        coreIntensity = params.coreOpenness,
-        haloIntensity = params.accentIntensity,
-        dataClarity = 0.95f,
-        depth = params.depth,
-        momentIntensity = 0f,
-    )
-
-    private fun mixFrac(v: Long): Float = (v ushr 40 and 0xFFFFFF).toFloat() / 16777215f
-
-    private fun maturityOpenness(maturity: com.yunjue.echo.mind.model.EchoMaturity): Float = when (maturity) {
-        com.yunjue.echo.mind.model.EchoMaturity.SEED -> 0.15f
-        com.yunjue.echo.mind.model.EchoMaturity.DISCOVERING -> 0.3f
-        com.yunjue.echo.mind.model.EchoMaturity.EMERGING -> 0.5f
-        com.yunjue.echo.mind.model.EchoMaturity.KNOWN -> 0.75f
-        com.yunjue.echo.mind.model.EchoMaturity.MATURE -> 0.9f
-    }
+    ): EchoVisualGenome = VisualGenomeCompiler.compile(
+        params, VisualGenomeCompiler.neutralIdentity(seed),
+    ).copy(dayComposition = dayComposition)
 
     /** Long → [0,1)：取模 1e6 的小数部分（保留低位差异，相邻日期可辨）。 */
     private fun frac(v: Long): Float {

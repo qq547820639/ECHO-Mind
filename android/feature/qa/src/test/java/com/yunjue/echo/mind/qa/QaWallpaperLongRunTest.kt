@@ -92,7 +92,9 @@ class QaWallpaperLongRunTest {
                 if (changed) {
                     lastParams = params
                     paramChanges++
-                    val frame = QaTimeline.computeFrame(snap, com.yunjue.echo.mind.presence.SurfaceMode.LOCK_SAFE)
+                    val frame = QaTimeline.computeFrame(
+                        snap, com.yunjue.echo.mind.visual.surface.EchoSurface.LOCK_PUBLIC_SAFE,
+                    )
                     framesRendered++
                     maxParticles = maxOf(maxParticles, frame.particles.size)
                     accentRgbs += frame.frontMembrane.color and 0x00FFFFFF

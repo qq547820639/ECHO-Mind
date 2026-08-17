@@ -1,7 +1,5 @@
 package com.yunjue.echo.mind
 
-import com.yunjue.echo.mind.SyncAction
-import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.data.parseRetryAfterSeconds
 import com.yunjue.echo.mind.data.syncStateText

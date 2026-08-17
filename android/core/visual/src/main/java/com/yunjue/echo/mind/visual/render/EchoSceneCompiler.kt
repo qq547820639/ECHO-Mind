@@ -9,7 +9,8 @@ import com.yunjue.echo.mind.visual.surface.EchoVisualSpec
  * EchoSceneCompiler — V3 §7 渲染编译器（纯函数，JVM 可测）。
  *
  * 管线位置：
- *   EchoPresenceState → GenomeDeriver → EchoVisualGenome → SurfacePolicy.crop → EchoVisualSpec
+ *   EchoPresenceState → EchoVisualMapper → EchoVisualParameters → VisualGenomeCompiler
+ *     → EchoVisualGenome → SurfacePolicy.crop → EchoVisualSpec
  *     → **EchoSceneCompiler.compile → EchoRenderPacket** → Backend（LEGACY Canvas / AGSL / ADVANCED）
  *
  * 职责（V3 §8 CPU 侧）：把已裁剪的语义参数编译为 renderer-internal packet——

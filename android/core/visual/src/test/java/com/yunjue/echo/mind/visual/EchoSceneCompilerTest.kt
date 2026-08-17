@@ -1,7 +1,8 @@
 package com.yunjue.echo.mind.visual
 
-import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.visual.model.GenomeDeriver
+import com.yunjue.echo.mind.model.EchoIdentityGenome
+import com.yunjue.echo.mind.visual.model.EchoVisualParameters
+import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
 import com.yunjue.echo.mind.visual.render.DeviceRenderCapabilities
 import com.yunjue.echo.mind.visual.render.EchoRenderQuality
 import com.yunjue.echo.mind.visual.render.EchoRenderTier
@@ -18,11 +19,26 @@ import org.junit.Test
  */
 class EchoSceneCompilerTest {
 
+    private val params = EchoVisualParameters(
+        flowSpeed = 0.5f,
+        coherence = 0.7f,
+        turbulence = 0.2f,
+        particleDensity = 0.6f,
+        coreOpenness = 0.75f,
+        dispersion = 0.35f,
+        pulsePeriodSeconds = 4.6f,
+        depth = 0.6f,
+        brightness = 0.8f,
+        contrast = 0.45f,
+        accentIntensity = 0.7f,
+        structureComplexity = 0.75f,
+    )
+
     private fun specFor(seed: Long, surface: EchoSurface, clock: Float = 12f) =
         SurfacePolicy.crop(
-            GenomeDeriver.derive(
-                EchoPresenceState(identityGenome = com.yunjue.echo.mind.model.EchoIdentityGenome(seed = seed)),
-                hourOfDay = 14f,
+            VisualGenomeCompiler.compile(
+                params,
+                EchoIdentityGenome(seed = seed, coreTopology = 0.7f, orbitGeometry = 0.4f),
             ),
             surface,
             clock,

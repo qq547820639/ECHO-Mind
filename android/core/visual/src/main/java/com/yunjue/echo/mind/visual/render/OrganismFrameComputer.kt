@@ -171,7 +171,7 @@ object OrganismFrameComputer {
                 0.008f + exposure * 0.010f,
                 identity.palette.primary.c * 0.60f, identity.palette.primary.h,
             ),
-            grainIntensity = (0.25f + clarity * 0.5f) * spec.capabilities.motionComplexity,
+            grainIntensity = 0.25f + clarity * 0.5f,
         )
 
         // Daily 层相位：同一天恒定、跨天可辨（Journey 时间流逝）；identity 拓扑不变。
@@ -268,8 +268,8 @@ object OrganismFrameComputer {
         val haloBase = field.halo.coerceIn(0f, 1f) * motion.haloMultiplier
         halos += Halo(
             radiusFraction = baseR * 1.24f,
-            alpha = (0.006f + haloBase * 0.016f) * (0.5f + spec.capabilities.motionComplexity * 0.5f) *
-                options.haloScale.coerceIn(0f, 1f),
+            // V3 §M：surface 不再携带动效复杂度——halo 强度只由数据清晰度/质量/haloScale 承载
+            alpha = (0.006f + haloBase * 0.016f) * options.haloScale.coerceIn(0f, 1f),
             widthFraction = 0.0028f,
         )
         if (profile.farHaloEnabled && field.halo > 0.25f) {

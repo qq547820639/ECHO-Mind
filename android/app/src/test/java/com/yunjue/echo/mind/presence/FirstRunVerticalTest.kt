@@ -67,7 +67,7 @@ class FirstRunVerticalTest {
         assertEquals(AmbientState.UNKNOWN, ambient.state)
         val state = wakeUpPresence(seed = 424_242L)
         assertEquals(EchoMaturity.SEED, state.maturity)
-        val params = computeVisualParameters(state, 13f, SurfaceMode.APP)
+        val params = computeVisualParameters(state, 13f)
         val frame = organismFrameFor(params, state.identityGenome.seed, 12f, 320f, 320f, state.maturity.name)
         // ECHO 苏醒而非空白：有粒子、有空心核、有强调色（前膜色）
         assertTrue("首帧必须有粒子（ECHO 可见）", frame.particles.isNotEmpty())

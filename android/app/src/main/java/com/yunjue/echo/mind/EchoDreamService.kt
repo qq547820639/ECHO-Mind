@@ -3,8 +3,6 @@ package com.yunjue.echo.mind
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
-import com.yunjue.echo.mind.presence.SurfaceMode
-import com.yunjue.echo.mind.presence.resolveSurfaceConfig
 import com.yunjue.echo.mind.presence.shouldRefreshSnapshot
 
 import android.content.Context
@@ -82,25 +80,46 @@ internal class EchoDreamView(context: Context) : View(context) {
         val presence = snapshot
         val hourOfDay = LocalTime.now().let { it.hour + it.minute / 60f }
         // ERA 74 §64：用户视觉偏好进入渲染（键与 AppPreferences 同源）
-        val config = resolveSurfaceConfig(
-            baseSurface = SurfaceMode.DREAM,
+        val policy = com.yunjue.echo.mind.presence.resolveRenderPolicy(
+            baseSurface = com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT,
             reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
             motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
             nightMode = prefs.getBoolean("presence_night_mode", false),
         )
         if (startNanos == 0L) startNanos = System.nanoTime()
         val timeSeconds = (System.nanoTime() - startNanos) / 1_000_000_000f
-        // visual-runtime R2：Dream 复用 core/visual 分层 organism（SAME ECHO；暖金高光仅 DREAM_AMBIENT）
+        // visual-runtime V3 §H：Dream 复用 core/visual 分层 organism（SAME ECHO；暖金高光仅 DREAM_AMBIENT）；
+        // genome 经唯一语义链（EchoVisualMapper → VisualGenomeCompiler）计算。
+        val presenceState = presence ?: fallbackPresence
+        val genome = com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+            com.yunjue.echo.mind.presence.EchoVisualMapper.map(
+                presenceState, hourOfDay,
+                policy.motionLevel, policy.nightMode, policy.reduceMotion,
+            ),
+            presenceState.identityGenome,
+        )
         val frame = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
             spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
-                genome = com.yunjue.echo.mind.visual.model.GenomeDeriver.derive(
-                    presence ?: fallbackPresence, hourOfDay,
-                ),
+                genome = genome,
                 surface = com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT,
                 clockSeconds = timeSeconds,
             ),
             width = w,
             height = h,
+            // V3 §M：质量 = Surface 默认预算与环境实际质量取更差者；tier 由设备能力解析；
+            // 动效由 MotionPolicy 正交承载（reducedMotion/motionScale）。
+            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                maturityName = presenceState.maturity.name,
+                tier = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment.resolveTier(),
+                quality = com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment.worseOf(
+                    com.yunjue.echo.mind.visual.surface.defaultQualityFor(
+                        com.yunjue.echo.mind.visual.surface.EchoSurface.DREAM_AMBIENT,
+                    ),
+                    com.yunjue.echo.mind.presencevisual.EchoRenderEnvironment.currentQuality(context),
+                ),
+                reducedMotion = com.yunjue.echo.mind.visual.surface.reducedMotionFor(policy.motion),
+                motionScale = com.yunjue.echo.mind.visual.surface.motionScaleFor(policy.motion),
+            ),
         )
         // §71：Dream center x=.5 y≈.46
         canvas.save()
@@ -113,7 +132,7 @@ internal class EchoDreamView(context: Context) : View(context) {
         // View 脱离窗口后 invalidate 不再触发 onDraw，回调链自动停止（0 残留渲染语义保持）。
         val interval = com.yunjue.echo.mind.presence.WallpaperScheduler.dreamFrameDelayMs(
             elapsedSinceStartMs = System.nanoTime().let { (it - startNanos) / 1_000_000L },
-            reducedMotion = config.surface == SurfaceMode.REDUCED_MOTION,
+            reducedMotion = policy.reduceMotion,
         )
         postDelayed({ invalidate() }, interval)
     }

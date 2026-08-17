@@ -6,7 +6,6 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.EchoVisualParameters
-import com.yunjue.echo.mind.presence.SurfaceMode
 
 /**
  * ERA 16 §83/§84 — Canonical Daily State 与历史重建。
@@ -58,7 +57,6 @@ fun buildCanonicalDay(
     visualParams = EchoVisualMapper.map(
         state = state,
         hourOfDay = JOURNEY_CANONICAL_HOUR,
-        surface = SurfaceMode.APP,
     ),
     identityReference = state.identityGenome,
     maturity = state.maturity,
@@ -111,13 +109,17 @@ fun reconstructJourneyFrame(
 }
 
 /**
- * Canonical Daily State 持久化编解码（格式 v1，'|' 分隔，无敏感字段）。
+ * Canonical Daily State 持久化编解码。
  *
- * `v1|date|seed|maturity|params(12)|identity(8)|evidenceIdsCsv|createdAtEpochMs`
+ * v2（V3 §H）：`v2|date|seed|maturity|params(18)|identity(8)|evidenceIdsCsv|createdAtEpochMs`
+ * ——params 扩展为 canonical 18 字段（dataClarity/haloIntensity/momentIntensity/
+ * filamentDensity/seasonPhase/dayComposition 进入持久化，roundtrip 无损）。
+ * v1（历史快照）：params(12)，新字段解析为默认 0f（fail-closed 向后兼容）。
  */
 object JourneyCanonicalCodec {
 
-    const val VERSION = "v1"
+    const val VERSION = "v2"
+    private const val VERSION_V1 = "v1"
 
     fun encode(day: JourneyCanonicalDay): String = buildString {
         append(VERSION).append('|')
@@ -136,6 +138,12 @@ object JourneyCanonicalCodec {
         append(day.visualParams.contrast).append('|')
         append(day.visualParams.accentIntensity).append('|')
         append(day.visualParams.structureComplexity).append('|')
+        append(day.visualParams.dataClarity).append('|')
+        append(day.visualParams.haloIntensity).append('|')
+        append(day.visualParams.momentIntensity).append('|')
+        append(day.visualParams.filamentDensity).append('|')
+        append(day.visualParams.seasonPhase).append('|')
+        append(day.visualParams.dayComposition).append('|')
         append(day.identityReference.seed).append('|')
         append(day.identityReference.accentHue).append('|')
         append(day.identityReference.colorFamily).append('|')
@@ -153,12 +161,15 @@ object JourneyCanonicalCodec {
         if (raw.isNullOrBlank()) return null
         return runCatching {
             val parts = raw.split("|")
-            if (parts.size != 26 || parts[0] != VERSION) return null
+            // v2 = 32 段（params 18）；v1 = 26 段（params 12，新字段默认 0）
+            val v2 = parts.size == 32 && parts[0] == VERSION
+            val v1 = parts.size == 26 && parts[0] == VERSION_V1
+            if (!v1 && !v2) return null
             val date = parts[1]
             if (!CANONICAL_DATE_REGEX.matches(date)) return null
             val maturity = EchoMaturity.entries.firstOrNull { it.name == parts[3] } ?: return null
             val p = { i: Int -> parts[i].toFloat() }
-            val evidence = parts[24].ifEmpty { "" }
+            val evidence = parts[30].ifEmpty { "" }
                 .split(",")
                 .filter { it.isNotBlank() }
             JourneyCanonicalDay(
@@ -177,20 +188,26 @@ object JourneyCanonicalCodec {
                     contrast = p(13),
                     accentIntensity = p(14),
                     structureComplexity = p(15),
+                    dataClarity = if (v2) p(16) else 0f,
+                    haloIntensity = if (v2) p(17) else 0f,
+                    momentIntensity = if (v2) p(18) else 0f,
+                    filamentDensity = if (v2) p(19) else 0f,
+                    seasonPhase = if (v2) p(20) else 0f,
+                    dayComposition = if (v2) p(21) else 0f,
                 ),
                 identityReference = EchoIdentityGenome(
-                    seed = parts[16].toLong(),
-                    accentHue = p(17),
-                    colorFamily = parts[18].toInt(),
-                    textureFamily = parts[19].toInt(),
-                    coreTopology = p(20),
-                    symmetryTendency = p(21),
-                    orbitGeometry = p(22),
-                    motionPersonality = p(23),
+                    seed = parts[22].toLong(),
+                    accentHue = p(23),
+                    colorFamily = parts[24].toInt(),
+                    textureFamily = parts[25].toInt(),
+                    coreTopology = p(26),
+                    symmetryTendency = p(27),
+                    orbitGeometry = p(28),
+                    motionPersonality = p(29),
                 ),
                 maturity = maturity,
                 keyEvidenceIds = evidence,
-                createdAtEpochMs = parts[25].toLong(),
+                createdAtEpochMs = parts[31].toLong(),
             )
         }.getOrNull()
     }

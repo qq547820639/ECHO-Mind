@@ -4,7 +4,9 @@ package com.yunjue.echo.mind.visual.model
  * ECHO Visual Genome — 视觉基因（纯数据、可序列化、可测试）。
  *
  * 渲染管线的确定性数据心脏：
- *   EchoPresenceState → EchoVisualMapper → **EchoVisualGenome** → SurfacePolicy → EchoVisualSpec → Renderer
+ *   EchoPresenceState → EchoVisualMapper（presence 语义层）→ EchoVisualParameters
+ *     → VisualGenomeCompiler（机械编译）→ **EchoVisualGenome** → SurfacePolicy
+ *     → EchoVisualSpec → Renderer
  *
  * 设计约束（ECHO_VISUAL_SEMANTICS.md / ECHO_VISUAL_CONSTITUTION.md）：
  * - **确定性**：同一 fixture（seed + presence + clock + surface + viewport）重复生成完全相同结果。

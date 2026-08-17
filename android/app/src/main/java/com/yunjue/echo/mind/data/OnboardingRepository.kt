@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.data.AppPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
