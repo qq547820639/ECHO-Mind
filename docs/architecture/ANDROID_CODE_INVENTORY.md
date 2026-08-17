@@ -51,16 +51,23 @@
 - `ui/TodayScreen.kt` → 已重构为 `EchoSceneScreen.kt`（无残留）
 - `SkillListScreen`（旧「能力」Tab 全页）→ 已删除（v2-1）
 
-## 4.5 物理模块（ERA 13.5 §49，逐次拆分）
+## 4.5 物理模块（ERA 13.5 §49 起，逐次拆分；以 settings.gradle.kts 为唯一事实源）
 
 | 模块 | 内容 | 依赖 | 状态 |
 |---|---|---|---|
-| `:app` | 应用壳 + 全部业务源码 | :feature:actions / :core:security | 主模块 |
+| `:app` | 应用壳 + 全部业务源码 | 全部 feature/core 模块 | 主模块 |
 | `:feature:actions` | actions/*（EchoActionRuntime/InterventionPolicy） | kotlinx-coroutines（零项目依赖） | ✅ 第一批 |
 | `:core:security` | security/*（AndroidKeystoreFieldCipher/FieldCipher） | Android 框架（零项目依赖） | ✅ 第一批 |
 | `:core:model` | model/*（Models/PortraitCore/PortraitAvailability/SensingCapability） | 零项目依赖（java.time/UUID） | ✅ 第二批 |
 | `:feature:memory` | memory/EchoMemory.kt（领域模型） | 零项目依赖 | ✅ 第三批（EchoCorrectionService 留 :app 为应用层服务） |
 | `:feature:observation` | sensing 纯逻辑（11）+ localportrait 引擎（5） | :core:model + coroutines + androidx.core | ✅ 第四批（PassiveSensingService/MicCollector 留 :app 平台组件） |
+| `:feature:presence` | presence 业务状态 + 视觉语义映射（EchoVisualParameters 唯一解释层） | :core:model / :core:ports / :core:visual | ✅ |
+| `:feature:presencevisual` | Android 渲染 adapter/backend（AGSL/Canvas/RendererFacade） | :core:visual | ✅（V3） |
+| `:core:visual` | 纯确定性视觉数学/编译（Genome/Scene/Frame，无 Android 渲染） | :core:model | ✅（V3） |
+| `:feature:intelligence` | intelligence/*（Provider/上下文编译/推理） | :core:model 等 | ✅ |
+| `:feature:journey` | journey 领域（canonical/river/year view） | :core:model / :core:visual | ✅ |
+| `:feature:wearable` | 手环领域（协议/策略/投影，vendor 适配在 :app） | :core:model + :core:ports | ✅ ERA 33 |
+| `:feature:qa` | QA fixture/校验（不进生产依赖图） | — | ✅ |
 
 ## 5. 所有权 Scope（v3 §41）
 

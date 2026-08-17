@@ -138,12 +138,14 @@
 
 ## 7. Governance（冻结纪律）
 
-- **架构冻结**：11 个 Gradle module 体系冻结（`:app` / `:core:model|ports|security` /
-  `:feature:observation|presence|intelligence|memory|journey|actions|qa`）。不新增 module、大框架、抽象层、
-  Contract 类型；只有真实 Dependency Violation 或直接阻碍用户体验/reasoning/性能/电池/安全/发布/可维护性时才调整。
-  **ERA 33 例外（一次性，已执行完毕）**：新增唯一产品边界 module `:feature:wearable`
-  （只依赖 `:core:model` + `:core:ports`），随后重新冻结（12 module）；不因 wearable 再拆子 module；
-  vendor adapter 属 `:app` adapter 层。
+- **架构冻结**：14 个 Gradle module 体系冻结，以 `android/settings.gradle.kts` 为唯一事实源
+  （`:app` / `:core:model|ports|security|visual` / `:feature:observation|presence|presencevisual|intelligence|memory|journey|actions|wearable|qa`）。
+  不新增 module、大框架、抽象层、Contract 类型；只有真实 Dependency Violation 或直接阻碍
+  用户体验/reasoning/性能/电池/安全/发布/可维护性时才调整。
+  module 职责边界（V3 Simplification 轮确认）：`core:visual` = 纯确定性视觉数学/编译（无 Android 渲染）；
+  `feature:presencevisual` = Android 渲染 adapter/backend（AGSL/Canvas/facade）。
+  **ERA 33 例外（一次性，已执行完毕）**：新增产品边界 module `:feature:wearable`
+  （只依赖 `:core:model` + `:core:ports`）；不因 wearable 再拆子 module；vendor adapter 属 `:app` adapter 层。
 - **QA 冻结**：synthetic QA 不再扩张。顺序固定为：真实产品问题 → 复现 → 修复 → 有普遍意义的 fixture 化 → regression。
   QA 必须测试 Production，不得重写 Production（mirror 审计见 `qa/reports/QA_MIRROR_AUDIT.md`）。
 - **ADR 纪律**：只有真正 Architecture Decision 才新增 ADR；每轮重构/体验修改/threshold 不再产生 ADR。

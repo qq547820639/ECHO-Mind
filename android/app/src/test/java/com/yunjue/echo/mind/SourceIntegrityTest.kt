@@ -156,7 +156,10 @@ class SourceIntegrityTest {
 
     @Test
     fun requiredDomainPackagesExist() {
-        for (domain in listOf("sensing", "localportrait", "presence", "intelligence", "memory", "actions", "journey", "runtime")) {
+        for (domain in listOf(
+            "sensing", "localportrait", "presence", "intelligence", "memory",
+            "actions", "journey", "runtime", "visual", "presencevisual", "wearable",
+        )) {
             val dirs = moduleRoots.map { File(it, domain) }.filter { it.isDirectory }
             assertTrue("领域包缺失：$domain", dirs.isNotEmpty())
             assertTrue("领域包为空：$domain", dirs.any { dir -> dir.walkTopDown().any { it.isFile && it.extension == "kt" } })
