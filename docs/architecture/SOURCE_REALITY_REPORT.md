@@ -32,6 +32,7 @@
 - `com.yunjue.echo.mind.ui.echo.why`
 - `com.yunjue.echo.mind.ui.journey`
 - `com.yunjue.echo.mind.ui.me`
+- `com.yunjue.echo.mind.ui.theme`
 - `com.yunjue.echo.mind.visual.math`
 - `com.yunjue.echo.mind.visual.model`
 - `com.yunjue.echo.mind.visual.motion`
@@ -48,8 +49,8 @@
 - `services`
 
 ## 数量事实
-- Production Kotlin：223
-- Test Kotlin：155
+- Production Kotlin：232
+- Test Kotlin：160
 - QA Kotlin（:feature:qa，不属于 Production Runtime）：36
 - Python 文件：69
 - Manifest Components：5（缺失源类：0）
@@ -65,10 +66,10 @@
 - ANS 集成 schema/golden（integrations/answatch/*.json）：4 —— ANSWatch 为 READ-ONLY 参考仓，其源码不计入本仓 Production 计数
 ## Manifest Components（跨全部 production module 解析）
 - `:app` `.main.MainActivity` ✅
-- `:app` `.main.sensing.PassiveSensingService` ✅
+- `:app` `.main.PassiveSensingService` ✅
 - `:app` `.main.sensing.NotificationCollector` ✅
-- `:app` `.main.presence.EchoWallpaperService` ✅
-- `:app` `.main.presence.EchoDreamService` ✅
+- `:app` `.main.EchoWallpaperService` ✅
+- `:app` `.main.EchoDreamService` ✅
 
 ## Worker
 - `EveningReminderWorker`

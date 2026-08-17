@@ -62,7 +62,7 @@ wearable ──► model, ports
 | root | 14 |
 | runtime | 1 |
 | security | 9 |
-| ui | 44 |
+| ui | 49 |
 | visual | 20 |
 | wearable | 25 |
 

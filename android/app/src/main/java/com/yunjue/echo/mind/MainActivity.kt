@@ -30,7 +30,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.ui.theme.EchoMindTheme
 import java.io.File
 
 /** §BJ：release 导出的已清洗崩溃诊断文件名（filesDir 内，仅本地）。 */
@@ -55,7 +54,7 @@ class MainActivity : ComponentActivity() {
         }.getOrNull()
         if (crashText != null) {
             setContent {
-                EchoMindTheme {
+                com.yunjue.echo.mind.ui.theme.EchoMindTheme {
                     Surface {
                         CrashReportScreen(
                             text = crashText,
@@ -76,7 +75,7 @@ class MainActivity : ComponentActivity() {
         // API + 版本（message 不离开进程）；debug 保留原文便于本地定位。
         val result = runCatching { (application as EchoMindApplication).container }
         setContent {
-            EchoMindTheme {
+            com.yunjue.echo.mind.ui.theme.EchoMindTheme {
                 Surface {
                     result.fold(
                         onSuccess = { com.yunjue.echo.mind.ui.EchoMindApp(it) },
