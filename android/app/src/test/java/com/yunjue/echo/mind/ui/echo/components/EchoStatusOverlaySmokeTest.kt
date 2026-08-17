@@ -17,8 +17,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * ERA 35 — EchoStatusOverlay smoke test：感知六态可信呈现（非 ACTIVE 才可见）
- * + 初次 AI 非阻塞提示（未配置 + 未 dismiss）。
+ * ERA 35/§AC — EchoStatusOverlay smoke test：感知六态可信呈现（非 ACTIVE 才可见）。
+ * AI provider 提示用例已删除（§AC：home 无 AI 营销）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -29,19 +29,13 @@ class EchoStatusOverlaySmokeTest {
 
     private fun setContent(
         sensing: SensingRuntimeStatus,
-        intelligenceAvailable: Boolean = true,
-        aiPromptDismissed: Boolean = true,
         onGoToMe: () -> Unit = {},
-        onDismissAiPrompt: () -> Unit = {},
     ) {
         compose.setContent {
             MaterialTheme {
                 EchoStatusOverlay(
                     sensing = sensing,
-                    intelligenceAvailable = intelligenceAvailable,
-                    aiPromptDismissed = aiPromptDismissed,
                     onGoToMe = onGoToMe,
-                    onDismissAiPrompt = onDismissAiPrompt,
                 )
             }
         }
@@ -67,43 +61,5 @@ class EchoStatusOverlaySmokeTest {
         setContent(SensingRuntimeStatus.ACTIVE)
         compose.onNodeWithText("ECHO 正在了解今天").assertDoesNotExist()
         compose.onNodeWithText("查看原因").assertDoesNotExist()
-    }
-
-    @Test
-    fun aiPromptCardShowsWhenUnconfiguredAndNotDismissed() {
-        var wentToMe = false
-        var dismissed = false
-        setContent(
-            SensingRuntimeStatus.ACTIVE,
-            intelligenceAvailable = false,
-            aiPromptDismissed = false,
-            onGoToMe = { wentToMe = true },
-            onDismissAiPrompt = { dismissed = true },
-        )
-        compose.onNodeWithText("连接一个 AI，让 ECHO 更深入地理解你的变化。").assertExists()
-        compose.onNode(hasClickAction() and hasText("连接 AI")).performClick()
-        assertTrue(wentToMe)
-        compose.onNode(hasClickAction() and hasText("以后再说")).performClick()
-        assertTrue(dismissed)
-    }
-
-    @Test
-    fun aiPromptCardHiddenWhenDismissed() {
-        setContent(
-            SensingRuntimeStatus.ACTIVE,
-            intelligenceAvailable = false,
-            aiPromptDismissed = true,
-        )
-        compose.onNodeWithText("连接一个 AI，让 ECHO 更深入地理解你的变化。").assertDoesNotExist()
-    }
-
-    @Test
-    fun aiPromptCardHiddenWhenAiConfigured() {
-        setContent(
-            SensingRuntimeStatus.ACTIVE,
-            intelligenceAvailable = true,
-            aiPromptDismissed = false,
-        )
-        compose.onNodeWithText("连接一个 AI，让 ECHO 更深入地理解你的变化。").assertDoesNotExist()
     }
 }
