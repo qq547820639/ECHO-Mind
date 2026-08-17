@@ -1,57 +1,79 @@
-# Android Dependency Graph —— 真实依赖图（ERA 13.2 §48，脚本生成）
+# Android Dependency Graph —— 真实依赖图（ERA 13.2 §48；V3 §E 双图，脚本生成）
 
 > 状态：CURRENT · 本文件由 `scripts/generate_dependency_graph.py` 生成，禁止手写。
 
 > 每轮结构变更后重新生成；CI source-integrity drift gate 强制同步。
 
-## 1. 领域包图（com.yunjue.echo.mind.*，顶层领域聚合）
+## 1. Gradle Module Dependency Graph（settings.gradle.kts + build.gradle.kts 自动解析）
 
 ```text
-data ──► intelligence, memory, observation, ports, presence, root, security
-di ──► actions, data, intelligence, journey, ports, presence, root, security, wearable
-intelligence ──► memory, observation, ports, security
-journey ──► data, intelligence, memory, observation, presence, root, visual
-me ──► data, memory, observation
-memory ──► observation, ports
-observation ──► root
-ports ──► observation
-presence ──► observation, root
-root ──► observation, ports, visual
-runtime ──► data, intelligence, observation, root
-security ──► root
-ui ──► actions, data, intelligence, journey, me, memory, observation, presence, presencevisual, root, visual, wearable
-visual ──► observation
+app ──► core:model, core:ports, core:security, core:visual, feature:actions, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:presencevisual, feature:wearable
+core:model ──► （无项目依赖）
+core:ports ──► core:model
+core:security ──► （无项目依赖）
+core:visual ──► core:model
+feature:actions ──► （无项目依赖）
+feature:intelligence ──► core:model, core:ports, core:security, feature:memory
+feature:journey ──► core:model, core:visual, feature:intelligence, feature:memory, feature:presence, feature:presencevisual
+feature:memory ──► core:model
+feature:observation ──► core:model
+feature:presence ──► core:model, core:visual, feature:observation
+feature:presencevisual ──► core:model, core:visual
+feature:qa（QA，不入生产图） ──► core:model, core:ports, core:visual, feature:intelligence, feature:journey, feature:memory, feature:observation, feature:presence, feature:presencevisual
+feature:wearable ──► core:model, core:ports
 ```
 
-## 2. 领域文件数（实测）
+模块图循环：无（必须无环）
+
+## 2. Package Domain Dependency Graph（com.yunjue.echo.mind.*，显式领域聚合）
+
+```text
+data ──► intelligence, memory, model, observation, ports, presence, security
+di ──► actions, data, intelligence, journey, ports, presence, root, security, wearable
+intelligence ──► memory, model, ports, security
+journey ──► data, intelligence, memory, model, observation, presence, visual
+memory ──► model, ports
+observation ──► model
+ports ──► model
+presence ──► model, observation
+presencevisual ──► model, visual
+root ──► data, model, observation, presence, security
+runtime ──► data, intelligence, model, observation
+ui ──► actions, data, intelligence, journey, memory, model, observation, presence, presencevisual, root, visual, wearable
+visual ──► model
+wearable ──► model, ports
+```
+
+## 3. 领域文件数（实测）
 
 | 领域 | Kotlin 文件数 |
 |---|---|
 | actions | 2 |
-| data | 28 |
+| data | 24 |
 | di | 2 |
 | intelligence | 18 |
 | journey | 17 |
-| me | 3 |
 | memory | 7 |
-| observation | 26 |
+| model | 7 |
+| observation | 17 |
 | ports | 3 |
-| presence | 12 |
-| root | 27 |
+| presence | 10 |
+| presencevisual | 5 |
+| root | 14 |
 | runtime | 1 |
 | security | 9 |
-| ui | 41 |
+| ui | 44 |
 | visual | 18 |
-| wearable | 3 |
+| wearable | 25 |
 
-## 3. 跨领域边清单
+## 4. 跨领域边清单
 
 - data → intelligence
 - data → memory
+- data → model
 - data → observation
 - data → ports
 - data → presence
-- data → root
 - data → security
 - di → actions
 - di → data
@@ -63,56 +85,67 @@ visual ──► observation
 - di → security
 - di → wearable
 - intelligence → memory
-- intelligence → observation
+- intelligence → model
 - intelligence → ports
 - intelligence → security
 - journey → data
 - journey → intelligence
 - journey → memory
+- journey → model
 - journey → observation
 - journey → presence
-- journey → root
 - journey → visual
-- me → data
-- me → memory
-- me → observation
-- memory → observation
+- memory → model
 - memory → ports
-- observation → root
-- ports → observation
+- observation → model
+- ports → model
+- presence → model
 - presence → observation
-- presence → root
+- presencevisual → model
+- presencevisual → visual
+- root → data
+- root → model
 - root → observation
-- root → ports
-- root → visual
+- root → presence
+- root → security
 - runtime → data
 - runtime → intelligence
+- runtime → model
 - runtime → observation
-- runtime → root
-- security → root
 - ui → actions
 - ui → data
 - ui → intelligence
 - ui → journey
-- ui → me
 - ui → memory
+- ui → model
 - ui → observation
 - ui → presence
 - ui → presencevisual
 - ui → root
 - ui → visual
 - ui → wearable
-- visual → observation
+- visual → model
+- wearable → model
+- wearable → ports
 
-## 4. 循环
+## 5. 循环
 
-- ⚠️ 检测到循环：observation → root → observation
+- 模块图：无。
+- 领域图：无。
 
-## 5. 边界规则（ArchitectureBoundaryTest + CI 强制）
+## 6. 边界规则（ArchitectureBoundaryTest + 本脚本双重强制）
 
-- observation → intelligence 禁止（Ground Truth 独立）
-- presence 渲染层 → Room 禁止
-- memory → concrete Provider 禁止
-- intelligence → app UI / data 实现禁止（ERA 13.2 §37：只依赖 ports）
-- journey/me 应用层 → ui 禁止
+- Gradle 模块图必须无环。
+- 领域图必须无环，并满足：
+  - observation 不得依赖 ['data', 'di', 'intelligence', 'root', 'runtime', 'ui']
+  - presence 不得依赖 ['data', 'di', 'root', 'ui']
+  - memory 不得依赖 ['data', 'di', 'intelligence', 'root', 'ui']
+  - intelligence 不得依赖 ['data', 'di', 'root', 'ui']
+  - journey 不得依赖 ['ui']
+  - actions 不得依赖 ['data', 'di', 'intelligence', 'journey', 'memory', 'observation', 'presence', 'presencevisual', 'root', 'ui', 'visual']
+  - visual 不得依赖 ['data', 'di', 'intelligence', 'journey', 'memory', 'observation', 'presence', 'presencevisual', 'root', 'runtime', 'ui']
+  - presencevisual 不得依赖 ['data', 'di', 'intelligence', 'journey', 'memory', 'observation', 'root', 'ui']
+  - wearable 不得依赖 ['actions', 'data', 'di', 'intelligence', 'journey', 'memory', 'presence', 'presencevisual', 'root', 'ui']
+
+边界违规：无。
 
