@@ -1,8 +1,8 @@
 package com.yunjue.echo.mind.di
 
 import android.content.Context
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.PassiveSensingPrefs
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.ApiClient
 import com.yunjue.echo.mind.data.AuthTokenRefresher
 import com.yunjue.echo.mind.data.ConsentRepository

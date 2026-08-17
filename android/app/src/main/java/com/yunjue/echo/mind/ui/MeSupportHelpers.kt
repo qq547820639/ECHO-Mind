@@ -3,9 +3,9 @@ package com.yunjue.echo.mind.ui
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.ConsentRepository
-import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.ServiceRevocationCoordinator
 
 /**
  * Me 子领域共享的领域辅助函数（v3 §32：SupportScreen 拆分后保留在 ui 包，

@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind.sensing
+package com.yunjue.echo.mind
 
 import android.Manifest
 import android.content.Context
@@ -7,7 +7,9 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.content.ContextCompat
-import com.yunjue.echo.mind.PassiveSensingPrefs
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
+import com.yunjue.echo.mind.sensing.MicDerivedFeatureSource
+import com.yunjue.echo.mind.sensing.MicFeatureExtractor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

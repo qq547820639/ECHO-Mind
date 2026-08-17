@@ -1,8 +1,9 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.content.Context
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.sensing.PassiveSensingService
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.data.ConsentRepository
+import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import kotlinx.coroutines.flow.first
 

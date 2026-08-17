@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.BaselineStatusDto
 import com.yunjue.echo.mind.model.PortraitStateInputs

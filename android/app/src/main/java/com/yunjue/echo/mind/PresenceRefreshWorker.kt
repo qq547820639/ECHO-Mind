@@ -1,9 +1,8 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yunjue.echo.mind.EchoMindApplication
 
 /**
  * ERA 3 收尾（WORK-ERA3-1）— Presence 后台刷新（15 分钟周期）：

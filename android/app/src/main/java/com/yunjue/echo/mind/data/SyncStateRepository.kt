@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import kotlinx.coroutines.flow.Flow
 
 /**

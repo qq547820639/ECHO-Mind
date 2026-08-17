@@ -62,7 +62,7 @@
         <!-- 被动采集前台服务（specialUse：端侧数据采集；microphone：可选麦克风模块，
              仅当用户授权 RECORD_AUDIO 且开启麦克风开关时才在运行时声明该类型） -->
         <service
-            android:name=".sensing.PassiveSensingService"
+            android:name=".PassiveSensingService"
             android:foregroundServiceType="specialUse|microphone"
             android:exported="false">
             <property
@@ -82,7 +82,7 @@
 
         <!-- ERA 3：ECHO 动态壁纸（只消费 EchoPresenceState 快照；不可见即停渲染） -->
         <service
-            android:name=".presence.EchoWallpaperService"
+            android:name=".EchoWallpaperService"
             android:exported="true"
             android:permission="android.permission.BIND_WALLPAPER"
             android:label="@string/echo_wallpaper_name"
@@ -97,7 +97,7 @@
 
         <!-- ERA 3：ECHO 充电屏保（DreamService：独立 Ambient Surface，非锁屏替代） -->
         <service
-            android:name=".presence.EchoDreamService"
+            android:name=".EchoDreamService"
             android:exported="true"
             android:permission="android.permission.BIND_DREAM_SERVICE"
             android:label="@string/echo_dream_name">

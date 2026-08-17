@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind
+package com.yunjue.echo.mind.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore

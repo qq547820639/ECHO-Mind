@@ -24,7 +24,7 @@ import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.ActiveSkillSessionEntity
 import com.yunjue.echo.mind.data.SkillFetchResult
 import com.yunjue.echo.mind.data.SkillRepository
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.model.SkillDisplay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

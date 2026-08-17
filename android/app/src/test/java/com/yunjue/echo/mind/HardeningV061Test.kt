@@ -4,6 +4,7 @@ import android.content.Context
 import com.yunjue.echo.mind.data.database.*
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.ApiClient
 import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
@@ -12,9 +13,9 @@ import com.yunjue.echo.mind.data.EscalationRepository
 import com.yunjue.echo.mind.data.EscalationStatus
 import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.OnboardingRepository
-import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.ServiceRevocationCoordinator
 import com.yunjue.echo.mind.data.SkillRepository
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.data.outbox.Outbox
 import com.yunjue.echo.mind.model.PortraitAvailability
 import com.yunjue.echo.mind.model.SensingDiagnostics

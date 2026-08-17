@@ -11,11 +11,13 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.ConsentDao
 import com.yunjue.echo.mind.data.ConsentEntity
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import com.yunjue.echo.mind.sensing.AppActivityCollector
-import com.yunjue.echo.mind.sensing.PassiveSensingService
+import com.yunjue.echo.mind.PassiveSensingService
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensorCollector

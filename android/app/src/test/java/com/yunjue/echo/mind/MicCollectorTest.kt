@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.yunjue.echo.mind.sensing.MicCollector
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
+import com.yunjue.echo.mind.MicCollector
 import com.yunjue.echo.mind.sensing.MicFeatureExtractor
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking

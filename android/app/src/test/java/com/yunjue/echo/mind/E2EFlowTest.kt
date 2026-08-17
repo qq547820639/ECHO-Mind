@@ -268,9 +268,9 @@ class E2EFlowTest {
     @Test
     fun skillCompletionMapsToCompletionsEndpoint() {
         // SyncWorker 映射：skill_completion → POST /v1/skills/completions
-        assertEquals("/v1/skills/completions", com.yunjue.echo.mind.data.SyncWorker.resolvePath("skill_completion"))
+        assertEquals("/v1/skills/completions", com.yunjue.echo.mind.SyncWorker.resolvePath("skill_completion"))
         // deprecated 类型（practice）仍是旧端点，与 skill_completion 语义区分
-        assertEquals("/v1/practices/completions", com.yunjue.echo.mind.data.SyncWorker.resolvePath("practice"))
+        assertEquals("/v1/practices/completions", com.yunjue.echo.mind.SyncWorker.resolvePath("practice"))
     }
 
     @Test

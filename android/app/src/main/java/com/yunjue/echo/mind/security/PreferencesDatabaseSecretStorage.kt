@@ -2,7 +2,6 @@ package com.yunjue.echo.mind.security
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
-import com.yunjue.echo.mind.AppPreferences
 
 /**
  * ERA 17 §91 — [DatabaseSecretStorage] 的 SharedPreferences 实现（:app 数据层 Adapter）。
@@ -40,6 +39,6 @@ class PreferencesDatabaseSecretStorage(
         const val KEY_DB_SECRET_MIGRATED = "echo_mind_db_secret_migrated"
 
         /** AppPreferences 共享 prefs 文件（与其它应用状态同文件，保持单一来源）。 */
-        const val PREFS_FILE = AppPreferences.PREFS_FILE
+        const val PREFS_FILE = "echo_mind_app_state"
     }
 }

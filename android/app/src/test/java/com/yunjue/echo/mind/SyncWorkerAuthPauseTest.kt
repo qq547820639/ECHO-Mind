@@ -2,6 +2,7 @@ package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.mapSyncState
 import com.yunjue.echo.mind.model.SyncState
 import com.yunjue.echo.mind.security.JvmTestFieldCipher

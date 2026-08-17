@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
-import com.yunjue.echo.mind.data.EveningReminderWorker
-import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.EveningReminderWorker
+import com.yunjue.echo.mind.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.me.DataAndSensingEvent
 import com.yunjue.echo.mind.me.DataAndSensingUiState
@@ -206,7 +206,7 @@ class DataAndSensingViewModel(
         viewModelScope.launch {
             container.preferences.setMicEnabled(false)
             // ERA 32 R21：开关关闭须即时停掉运行中的采集循环（不再等权限周期检查兜底）。
-            runCatching { com.yunjue.echo.mind.sensing.PassiveSensingService.stopMic(getApplication()) }
+            runCatching { com.yunjue.echo.mind.PassiveSensingService.stopMic(getApplication()) }
             runCatching { container.consentRepository.saveVoiceFeaturesConsent(false) }
             SyncWorker.enqueue(getApplication())
             _message.value = "麦克风已关闭。"
@@ -218,7 +218,7 @@ class DataAndSensingViewModel(
             if (granted) {
                 container.preferences.setMicEnabled(true)
                 // ERA 32 R21：开关开启须即时启动采集（此前要等下次进程重启，后台持续录音实际不可用）。
-                runCatching { com.yunjue.echo.mind.sensing.PassiveSensingService.startMic(getApplication()) }
+                runCatching { com.yunjue.echo.mind.PassiveSensingService.startMic(getApplication()) }
                 runCatching { container.consentRepository.saveVoiceFeaturesConsent(true) }
                 SyncWorker.enqueue(getApplication())
                 _message.value = "麦克风已开启（仅端侧处理，不会上传录音）。"

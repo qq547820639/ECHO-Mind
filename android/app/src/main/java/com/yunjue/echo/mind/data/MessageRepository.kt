@@ -6,7 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.localportrait.LocalPortraitDigest
 import com.yunjue.echo.mind.model.MessageDisplay
 import kotlinx.coroutines.Dispatchers

@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
@@ -11,7 +11,6 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.yunjue.echo.mind.EchoMindApplication
 import kotlinx.coroutines.flow.first
 import java.time.Duration
 import java.time.LocalDateTime

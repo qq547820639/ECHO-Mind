@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.database.*
 import com.yunjue.echo.mind.sensing.AppActivityCollector
-import com.yunjue.echo.mind.sensing.MicCollector
 import com.yunjue.echo.mind.sensing.ScreenCollector
 import com.yunjue.echo.mind.sensing.SensingEventHub
 import com.yunjue.echo.mind.sensing.SensingWindowScheduler

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.BuildConfig
+import com.yunjue.echo.mind.data.AppPreferences
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -29,7 +28,7 @@ class AuthTokenRefresher(
             put("refresh_token", refresh)
         }.toString()
         return runCatching {
-            val connection = URL(BuildConfig.API_BASE_URL + "/v1/auth/refresh")
+            val connection = URL(com.yunjue.echo.mind.BuildConfig.API_BASE_URL + "/v1/auth/refresh")
                 .openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = "POST"

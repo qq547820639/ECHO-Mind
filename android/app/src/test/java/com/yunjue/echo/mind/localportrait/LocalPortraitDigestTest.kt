@@ -119,12 +119,12 @@ class UxHelpersTest {
     fun delayToNextEveningMs() {
         val now = java.time.LocalDateTime.of(2026, 8, 14, 18, 0)
         // 18:00 → 当晚 21:00 = 3 小时
-        assertEquals(3 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(now))
+        assertEquals(3 * 60 * 60 * 1000L, com.yunjue.echo.mind.EveningReminderWorker.delayToNextEveningMs(now))
         // 21:00 整 → 次日 21:00 = 24 小时
         val atEvening = java.time.LocalDateTime.of(2026, 8, 14, 21, 0)
-        assertEquals(24 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(atEvening))
+        assertEquals(24 * 60 * 60 * 1000L, com.yunjue.echo.mind.EveningReminderWorker.delayToNextEveningMs(atEvening))
         // 22:00 → 次日 21:00 = 23 小时
         val after = java.time.LocalDateTime.of(2026, 8, 14, 22, 0)
-        assertEquals(23 * 60 * 60 * 1000L, com.yunjue.echo.mind.data.EveningReminderWorker.delayToNextEveningMs(after))
+        assertEquals(23 * 60 * 60 * 1000L, com.yunjue.echo.mind.EveningReminderWorker.delayToNextEveningMs(after))
     }
 }

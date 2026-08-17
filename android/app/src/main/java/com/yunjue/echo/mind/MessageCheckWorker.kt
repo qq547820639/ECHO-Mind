@@ -1,9 +1,8 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yunjue.echo.mind.EchoMindApplication
 
 /**
  * 分析消息周期检查（v0.7 拉取式推送过渡的定时化）：

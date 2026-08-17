@@ -1,10 +1,8 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yunjue.echo.mind.EchoMindApplication
-import com.yunjue.echo.mind.sensing.PassiveSensingService
 import com.yunjue.echo.mind.sensing.SensingWatchdog
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import kotlinx.coroutines.flow.first

@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind.data
+package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.work.BackoffPolicy
@@ -9,8 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.EchoMindApplication
+import com.yunjue.echo.mind.data.AppPreferences
 import java.util.concurrent.TimeUnit
 
 /** 单事件同步结果动作（纯状态机，供 [classifySyncOutcome] 返回）。 */

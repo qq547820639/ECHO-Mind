@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind.data
 
+import com.yunjue.echo.mind.PresenceMaintenanceScript
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

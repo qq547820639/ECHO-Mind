@@ -50,7 +50,7 @@ fun PresenceSettingsSection(container: AppContainer) {
                         android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
                         android.content.ComponentName(
                             context,
-                            com.yunjue.echo.mind.presence.EchoWallpaperService::class.java
+                            com.yunjue.echo.mind.EchoWallpaperService::class.java
                         )
                     )
                 )

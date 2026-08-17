@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.data
 
-import com.yunjue.echo.mind.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -43,7 +42,7 @@ class ApiClient(
     }
 
     private fun postOnce(path: String, jsonBody: String): Triple<Int, String?, Int?> {
-        val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
+        val connection = URL(com.yunjue.echo.mind.BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "POST"
             connection.connectTimeout = connectTimeoutMs
@@ -76,7 +75,7 @@ class ApiClient(
     }
 
     private fun getOnce(path: String): Pair<Int, String?> {
-        val connection = URL(BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
+        val connection = URL(com.yunjue.echo.mind.BuildConfig.API_BASE_URL + path).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
             connection.connectTimeout = connectTimeoutMs

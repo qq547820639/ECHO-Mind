@@ -1,4 +1,4 @@
-package com.yunjue.echo.mind
+package com.yunjue.echo.mind.data
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -514,8 +514,9 @@ class AppPreferences(
         set(value) = prefs.edit().putBoolean("wallpaper_prompt_dismissed", value).apply()
 
     companion object {
-        /** 应用状态 SharedPreferences 文件名（Wallpaper/Dream 进程直读快照用）。 */
-        const val PREFS_FILE = "echo_mind_app_state"
+        /** 应用状态 SharedPreferences 文件名（Wallpaper/Dream 进程直读快照用）。
+         *  归属 security 模块常量（DB 秘密同文件；security 不得反向依赖 app root）。 */
+        const val PREFS_FILE = com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.PREFS_FILE
 
         private const val KEY_FEATURE_FLAGS = "feature_flags_json"
         private const val KEY_INTERNAL_FEEDBACK = "internal_quality_feedback_json"

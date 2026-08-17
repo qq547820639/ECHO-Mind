@@ -3,6 +3,7 @@ package com.yunjue.echo.mind
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.ConsentRepository
 import com.yunjue.echo.mind.data.EchoDatabase
 import com.yunjue.echo.mind.data.SensingRepository

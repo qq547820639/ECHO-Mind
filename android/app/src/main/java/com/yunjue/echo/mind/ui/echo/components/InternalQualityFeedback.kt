@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.BuildConfig
 import java.time.LocalDate
 

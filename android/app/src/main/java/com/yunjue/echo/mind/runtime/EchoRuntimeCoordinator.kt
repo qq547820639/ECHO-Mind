@@ -1,8 +1,8 @@
 package com.yunjue.echo.mind.runtime
 
 import android.content.Context
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.PassiveSensingPrefs
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import com.yunjue.echo.mind.data.PresenceRepository
 import com.yunjue.echo.mind.intelligence.AiProviderManager
 import com.yunjue.echo.mind.intelligence.ProviderStatus

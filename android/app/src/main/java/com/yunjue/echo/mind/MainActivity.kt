@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.yunjue.echo.mind.ui.EchoMindApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,7 +56,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     result.fold(
-                        onSuccess = { EchoMindApp(it) },
+                        onSuccess = { com.yunjue.echo.mind.ui.EchoMindApp(it) },
                         onFailure = { e ->
                             ContainerInitFailedScreen(
                                 errorClass = e.javaClass.simpleName.ifBlank { "初始化失败" },

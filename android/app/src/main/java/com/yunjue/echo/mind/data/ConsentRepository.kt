@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.data
 
 import androidx.room.withTransaction
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.outbox.Outbox
 import org.json.JSONObject
 import java.security.MessageDigest

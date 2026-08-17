@@ -4,8 +4,8 @@ import com.yunjue.echo.mind.model.RhythmState
 import com.yunjue.echo.mind.model.BehaviorState
 
 import android.content.Context
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.PassiveSensingPrefs
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import com.yunjue.echo.mind.presence.AmbientEngine
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
 import com.yunjue.echo.mind.presence.buildDailyComposition

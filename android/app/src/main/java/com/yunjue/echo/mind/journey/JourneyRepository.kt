@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.journey
 
 import android.content.Context
-import com.yunjue.echo.mind.AppPreferences
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.FeatureFlagRepository
 import com.yunjue.echo.mind.data.PortraitRepository
 import com.yunjue.echo.mind.data.SyncStateRepository

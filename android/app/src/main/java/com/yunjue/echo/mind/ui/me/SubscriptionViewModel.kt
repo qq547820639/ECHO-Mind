@@ -8,7 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.data.OnboardingVerifyException
 import com.yunjue.echo.mind.data.OnboardingVerifyResult
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.me.SubscriptionEvent
 import com.yunjue.echo.mind.me.SubscriptionUiState
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -7,11 +7,12 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.yunjue.echo.mind.data.EveningReminderWorker
-import com.yunjue.echo.mind.data.MessageCheckWorker
-import com.yunjue.echo.mind.data.PresenceRefreshWorker
-import com.yunjue.echo.mind.data.SensingWatchdogWorker
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.EveningReminderWorker
+import com.yunjue.echo.mind.MessageCheckWorker
+import com.yunjue.echo.mind.PresenceRefreshWorker
+import com.yunjue.echo.mind.SensingWatchdogWorker
+import com.yunjue.echo.mind.SyncWorker
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
 import java.util.concurrent.TimeUnit
 
 class EchoMindApplication : Application(), Configuration.Provider {

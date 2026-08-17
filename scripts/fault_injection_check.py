@@ -53,7 +53,7 @@ def _check(name: str, cond: bool, detail: str) -> bool:
 def main() -> int:
     results: list[bool] = []
 
-    sync_worker = _read("android/app/src/main/java/com/yunjue/echo/mind/data/SyncWorker.kt")
+    sync_worker = _read("android/app/src/main/java/com/yunjue/echo/mind/SyncWorker.kt")
     state_machine_test = _read("android/app/src/test/java/com/yunjue/echo/mind/SyncWorkerStateMachineTest.kt")
     routes = _read("backend/app/api/routes.py")
     onboarding_api = _read("backend/app/api/onboarding.py")
@@ -179,7 +179,7 @@ def main() -> int:
     ))
     results.append(_check(
         "onboarding 七态",
-        "ONBOARDING_READY_OFFLINE" in _read("android/app/src/main/java/com/yunjue/echo/mind/AppPreferences.kt")
+        "ONBOARDING_READY_OFFLINE" in _read("android/app/src/main/java/com/yunjue/echo/mind/data/AppPreferences.kt")
         and "sevenStatesPersistAndCompletionOnlyAtReadyStates" in onboarding_test,
         "AppPreferences 七态 + 测试覆盖",
     ))

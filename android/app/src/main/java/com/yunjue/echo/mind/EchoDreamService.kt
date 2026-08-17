@@ -1,5 +1,11 @@
-package com.yunjue.echo.mind.presence
+package com.yunjue.echo.mind
+
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.presence.EchoPresenceCodec
+import com.yunjue.echo.mind.presence.SurfaceMode
+import com.yunjue.echo.mind.presence.resolveSurfaceConfig
+import com.yunjue.echo.mind.presence.shouldRefreshSnapshot
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -8,7 +14,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.service.dreams.DreamService
 import android.view.View
-import com.yunjue.echo.mind.AppPreferences
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter

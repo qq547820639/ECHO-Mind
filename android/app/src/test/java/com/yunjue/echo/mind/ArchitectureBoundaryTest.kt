@@ -74,6 +74,61 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    /** V3 §F/§BO：observation 不得依赖 app composition root（正确方向 app → observation）。 */
+    @Test
+    fun observationDoesNotDependOnAppCompositionRoot() {
+        val rootSymbols = listOf(
+            "com.yunjue.echo.mind.EchoMindApplication",
+            "com.yunjue.echo.mind.AppContainer",
+            "com.yunjue.echo.mind.data.AppPreferences",
+            "com.yunjue.echo.mind.data.PassiveSensingPrefs",
+            "com.yunjue.echo.mind.enqueueSync",
+        )
+        for (f in filesUnder("sensing") + filesUnder("localportrait")) {
+            val t = textOf(f)
+            assertTrue(
+                "observation/${f.name} 不得依赖 app composition root：\n" + offendingLines(t, rootSymbols),
+                rootSymbols.none { it in t }
+            )
+        }
+    }
+
+    /** V3 §J/§BO：core:visual 是纯确定性视觉数学，不得 import app/领域实现。 */
+    @Test
+    fun visualDoesNotReinterpretDomainImplementations() {
+        val forbidden = listOf(
+            "com.yunjue.echo.mind.ui", "com.yunjue.echo.mind.data", "com.yunjue.echo.mind.runtime",
+            "com.yunjue.echo.mind.EchoMindApplication", "com.yunjue.echo.mind.AppContainer",
+            "com.yunjue.echo.mind.presence", "com.yunjue.echo.mind.intelligence",
+            "com.yunjue.echo.mind.memory", "com.yunjue.echo.mind.journey",
+            "com.yunjue.echo.mind.presencevisual",
+        )
+        for (f in filesUnder("visual")) {
+            val t = textOf(f)
+            assertTrue(
+                "visual/${f.name} 不得 import app/领域实现：\n" + offendingLines(t, forbidden),
+                forbidden.none { it in t }
+            )
+        }
+    }
+
+    /** V3 §BO：presencevisual 是 Android 渲染 adapter，不得 import DB/provider/app 实现。 */
+    @Test
+    fun presencevisualDoesNotDependOnDbOrProvider() {
+        val forbidden = listOf(
+            "androidx.room", "EchoDatabase", "com.yunjue.echo.mind.data",
+            "com.yunjue.echo.mind.intelligence", "com.yunjue.echo.mind.EchoMindApplication",
+            "com.yunjue.echo.mind.AppContainer",
+        )
+        for (f in filesUnder("presencevisual")) {
+            val t = textOf(f)
+            assertTrue(
+                "presencevisual/${f.name} 不得依赖 DB/provider/app 实现：\n" + offendingLines(t, forbidden),
+                forbidden.none { it in t }
+            )
+        }
+    }
+
     @Test
     fun memoryDoesNotDependOnProviderOrIntelligence() {
         for (f in filesUnder("memory")) {

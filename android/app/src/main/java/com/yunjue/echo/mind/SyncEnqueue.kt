@@ -9,5 +9,5 @@ import android.content.Context
  * 服务组件触发同步经此根级函数（root = composition root，允许接 data 实现）。
  */
 fun enqueueSync(context: Context) {
-    com.yunjue.echo.mind.data.SyncWorker.enqueue(context)
+    SyncWorker.enqueue(context)
 }

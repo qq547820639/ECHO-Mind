@@ -2,7 +2,7 @@ package com.yunjue.echo.mind
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.SyncWorker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

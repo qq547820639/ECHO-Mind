@@ -7,7 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.actions.EchoActionKind
-import com.yunjue.echo.mind.data.ServiceRevocationCoordinator
+import com.yunjue.echo.mind.ServiceRevocationCoordinator
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.intelligence.AiNarrativeService
 import com.yunjue.echo.mind.intelligence.EchoConversationController

@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind
 
 import androidx.test.core.app.ApplicationProvider
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.OnboardingVerifyException
 import com.yunjue.echo.mind.security.JvmTestFieldCipher
 import org.junit.Assert.assertEquals

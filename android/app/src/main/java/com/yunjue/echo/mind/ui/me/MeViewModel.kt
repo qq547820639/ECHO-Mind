@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
-import com.yunjue.echo.mind.data.SyncWorker
+import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.data.isNetworkAvailable
 import com.yunjue.echo.mind.me.MeEvent
 import com.yunjue.echo.mind.me.MeIntelligenceSummary

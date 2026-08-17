@@ -1,5 +1,6 @@
-package com.yunjue.echo.mind.sensing
+package com.yunjue.echo.mind
 
+import android.Manifest
 import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -17,10 +18,13 @@ import android.os.Process
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import android.Manifest
-import com.yunjue.echo.mind.EchoMindApplication
-import com.yunjue.echo.mind.PassiveSensingPrefs
-import com.yunjue.echo.mind.enqueueSync
+import com.yunjue.echo.mind.data.PassiveSensingPrefs
+import com.yunjue.echo.mind.sensing.AppActivityCollector
+import com.yunjue.echo.mind.sensing.ScreenCollector
+import com.yunjue.echo.mind.sensing.SensingConsentGate
+import com.yunjue.echo.mind.sensing.SensingEventHub
+import com.yunjue.echo.mind.sensing.SensingWindowScheduler
+import com.yunjue.echo.mind.sensing.SensorCollector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

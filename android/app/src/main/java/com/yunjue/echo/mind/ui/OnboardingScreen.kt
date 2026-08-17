@@ -23,9 +23,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
-import com.yunjue.echo.mind.AppPreferences
-import com.yunjue.echo.mind.data.SyncWorker
-import com.yunjue.echo.mind.sensing.PassiveSensingService
+import com.yunjue.echo.mind.data.AppPreferences
+import com.yunjue.echo.mind.SyncWorker
+import com.yunjue.echo.mind.PassiveSensingService
 import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
 import kotlinx.coroutines.launch
 import java.util.UUID

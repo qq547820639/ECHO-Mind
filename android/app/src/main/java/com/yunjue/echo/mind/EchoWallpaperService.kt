@@ -1,12 +1,19 @@
-package com.yunjue.echo.mind.presence
+package com.yunjue.echo.mind
+
+import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.presence.EchoPresenceCodec
+import com.yunjue.echo.mind.presence.SurfaceMode
+import com.yunjue.echo.mind.presence.WallpaperRenderController
+import com.yunjue.echo.mind.presence.WallpaperScheduler
+import com.yunjue.echo.mind.presence.resolveSurfaceConfig
+import com.yunjue.echo.mind.presence.shouldRefreshSnapshot
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
-import com.yunjue.echo.mind.AppPreferences
 import java.time.LocalTime
 
 /**
