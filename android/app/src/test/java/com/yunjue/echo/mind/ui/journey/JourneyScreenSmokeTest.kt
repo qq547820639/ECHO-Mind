@@ -34,20 +34,24 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 /**
  * ERA 32 — JourneyScreen 纯状态渲染 smoke test（Robolectric + Compose）：
  * 免责声明 / 六态分支（LOADING·PERMISSION_DISABLED·ERROR·NO_DATA·OFFLINE_CACHED·FRESH）/
- * 尺度选择事件 / 单日历史重建事件 / Evidence 折叠事件。
+ * 尺度选择事件 / 时间线行点击（§AL）/ Evidence 折叠事件。
  *
- * 不构造 ViewModel / Repository / DB——状态直接注入 JourneyScreenContent（state-in / event-out）。
+ * 不构造 ViewModel / Repository / DB——状态直接注入 JourneyScreenContent（state-in / event-out）；
+ * today 参数显式注入（§AI：组合内不做 LocalDate.now()）。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [35], qualifiers = "w360dp-h800dp")
 class JourneyScreenSmokeTest {
 
     @get:Rule
     val compose = createComposeRule()
+
+    private val today: LocalDate = LocalDate.of(2026, 8, 14)
 
     private fun portrait(date: String) = DailyPortraitDto(
         date = date,
@@ -96,6 +100,7 @@ class JourneyScreenSmokeTest {
                     onEvent = { events += it },
                     feedback = { null },
                     onGoToSupport = onGoToSupport,
+                    today = today,
                 )
             }
         }
@@ -168,15 +173,15 @@ class JourneyScreenSmokeTest {
             )
         )
         compose.onNodeWithText("当前离线，以下为缓存的旅程。").assertExists()
-        compose.onNodeWithText("查看依据").assertExists()
+        compose.onNodeWithText("查看依据").performScrollTo().assertExists()
     }
 
     @Test
     fun freshBranchRendersNarrativeAndEvidenceSources() {
         setJourneyContent(freshState())
-        compose.onNodeWithText("这段时期你的作息更早、更规律。").assertExists()
+        compose.onNodeWithText("这段时期你的作息更早、更规律。").performScrollTo().assertExists()
         compose.onNodeWithText("依据：历史画像").assertExists()
-        compose.onNodeWithText("查看依据").assertExists()
+        compose.onNodeWithText("查看依据").performScrollTo().assertExists()
     }
 
     @Test
@@ -189,13 +194,14 @@ class JourneyScreenSmokeTest {
                     state = freshState(showEvidence = showEvidence),
                     onEvent = { events += it },
                     feedback = { null },
+                    today = today,
                 )
             }
         }
         compose.onNodeWithText("查看依据").performScrollTo().performClick()
         compose.runOnIdle { showEvidence = true }
         compose.onNodeWithText("收起依据").assertExists()
-        compose.onNodeWithText("数据覆盖度：", substring = true).assertExists()
+        compose.onNodeWithText("数据覆盖度：", substring = true).performScrollTo().assertExists()
         assertTrue(events.contains(JourneyEvent.ToggleEvidence))
     }
 
@@ -209,13 +215,13 @@ class JourneyScreenSmokeTest {
     }
 
     @Test
-    fun dayCellClickEmitsSelectDayForLatestRecordedDay() {
-        // ERA 31 R19：DAY 河流锚定旅程实际最新一天（感知滞后时不渲染空占位的「今天」）
+    fun dayTimelineRowClickEmitsSelectDayForLatestRecordedDay() {
+        // ERA 31 R19 + V3 §AL：时间线行 = 「8月14日 · 周五」+ mini 肖像 + 一行事实摘要
+        // （点击行 = 那一天的回声；不再渲染 168dp 河流行）
         val events = mutableListOf<JourneyEvent>()
         setJourneyContent(freshState(), events = events)
-        // V3 §56：Memory River item 以完整日期 + 短叙事呈现（点击行 = 那一天的回声）
         compose.onNode(
-            hasClickAction() and hasAnyDescendant(hasText("2026-08-14")),
+            hasClickAction() and hasAnyDescendant(hasText("8月14日 · 周五")),
             useUnmergedTree = true,
         ).performScrollTo().performClick()
         assertTrue(events.contains(JourneyEvent.SelectDay("2026-08-14")))

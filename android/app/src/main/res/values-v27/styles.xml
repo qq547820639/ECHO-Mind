@@ -1,8 +1,9 @@
 <resources>
-    <!-- V3 §Z/§AA/§BH：暗色主题（近黑 #0E0F12 系统栏，浅色图标；移除 #F7F5F1 浅色底）。 -->
+    <!-- §BH：API 27+ 追加关闭导航栏浅色图标（minSdk 26，低版本由 enableEdgeToEdge 运行时接管）。 -->
     <style name="Theme.EchoMind" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:statusBarColor">#0E0F12</item>
         <item name="android:navigationBarColor">#0E0F12</item>
     </style>

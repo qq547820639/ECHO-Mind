@@ -85,7 +85,7 @@ fun PresenceSettingsContent(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("动态壁纸")
-                    Text("ECHO 持续存在于主屏与锁屏。不可见时停止渲染，不额外耗电。", style = MaterialTheme.typography.bodySmall)
+                    Text("ECHO 持续存在于主屏与锁屏。不可见时停止持续绘制，以降低额外耗电。", style = MaterialTheme.typography.bodySmall)
                 }
                 Button(onClick = onSelectWallpaper) { Text("选择 ECHO 壁纸") }
             }
@@ -133,7 +133,7 @@ fun PresenceSettingsContent(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("减少动画")
-                    Text("无障碍支持：视觉保持静止。", style = MaterialTheme.typography.bodySmall)
+                    Text("减少动态效果：保留轻微呼吸，降低旋转与粒子运动。", style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
                     checked = state.reduceMotion,
