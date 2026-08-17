@@ -24,6 +24,9 @@ import java.time.LocalDate
  * - 7 日视图：各维度（节律/移动/屏幕）相对趋势符号矩阵（↑↓→~，不做精确数字强调）
  * - 28 日视图：各维度概览 + 确定性综述（最稳定 / 变化较明显）
  * - 不做心理状态解释（TREND_DISCLAIMER 语义保持）
+ *
+ * §AI/§AQ：[anchor] 由调用方从 state 派生（选中日/最新数据日）后传入，
+ * 组合内部不做 LocalDate.now() 窗口计算。
  */
 @Composable
 internal fun JourneyEvidenceView(
@@ -31,6 +34,7 @@ internal fun JourneyEvidenceView(
     lastCollectionTs: Long,
     lastSyncTs: Long,
     feedback: (String) -> Boolean?,
+    anchor: LocalDate,
 ) {
     val portraits = timeline.portraits
 
@@ -38,7 +42,7 @@ internal fun JourneyEvidenceView(
     Text("数据覆盖度：${coveragePercent(portraits, timeline.days)}%（近 ${timeline.days} 天）", style = MaterialTheme.typography.titleMedium)
     // 日期覆盖条（仅最近 7 天窗口展示单日格子；28 天不逐日铺开）
     if (timeline.days <= 7) {
-        val days = (0 until 7).map { LocalDate.now().minusDays((7 - 1 - it).toLong()) }
+        val days = (0 until 7).map { anchor.minusDays((7 - 1 - it).toLong()) }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             days.forEach { day ->
                 val hasData = portraits.any { it.date == day.toString() }
@@ -72,7 +76,7 @@ internal fun JourneyEvidenceView(
 
     HorizontalDivider()
     if (timeline.days <= 7) {
-        SevenDayTrendMatrix(portraits, timeline.days)
+        SevenDayTrendMatrix(portraits, timeline.days, anchor)
     } else {
         TwentyEightDayOverview(portraits)
     }
@@ -85,10 +89,11 @@ internal fun JourneyEvidenceView(
 /**
  * 7 日视图：维度（节律/移动/屏幕互动）× 最近 [days] 天相对趋势符号矩阵。
  * 符号来自 [dimensionTrendSymbol]（↑ 偏早/增多、↓ 偏晚/减少、→ 接近、~ 不规律/波动、– 缺失）。
+ * [anchor] 为窗口锚点日（§AI/§AQ：由调用方从 state 派生传入）。
  */
 @Composable
-private fun SevenDayTrendMatrix(portraits: List<DailyPortraitDto>, days: Int) {
-    val dates = (0 until days).map { LocalDate.now().minusDays((days - 1 - it).toLong()) }
+private fun SevenDayTrendMatrix(portraits: List<DailyPortraitDto>, days: Int, anchor: LocalDate) {
+    val dates = (0 until days).map { anchor.minusDays((days - 1 - it).toLong()) }
     val byDate = portraits.associateBy { it.date }
     Text("相对趋势（↑ 偏早/增多 · ↓ 偏晚/减少 · → 接近，仅观察不解释）", style = MaterialTheme.typography.bodySmall)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
