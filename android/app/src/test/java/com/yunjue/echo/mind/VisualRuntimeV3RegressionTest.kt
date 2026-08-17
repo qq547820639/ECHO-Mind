@@ -44,10 +44,18 @@ class VisualRuntimeV3RegressionTest {
     }
 
     @Test
-    fun meHasIntelligenceMapAndSunkControls() {
+    fun meIsGroupedControlCenterWithoutIntelligenceMap() {
+        // V3 §AR/§AS/§BQ：Me 是熟悉的分组控制中心（ListItem/chevron，全部 ≤1 tap）；
+        // 概念地图（MeIntelligenceMap）不得作为主功能导航回归。
         val s = read(me)
-        assertTrue("me_intelligence_map", s.contains("me_intelligence_map") || s.contains("MeIntelligenceMap"))
-        assertTrue("更多控制下沉", s.contains("更多控制"))
+        assertFalse("Me 不得回归概念地图导航", s.contains("me_intelligence_map") || s.contains("MeIntelligenceMap"))
+        assertFalse(
+            "MeIntelligenceMap 源文件不得复活",
+            File(me).parentFile.resolve("MeIntelligenceMap.kt").exists(),
+        )
+        for (entry in listOf("me_entry_data", "me_entry_memory", "me_entry_ai", "me_entry_wallpaper", "me_entry_wrist")) {
+            assertTrue("Me 分组入口缺失：$entry", s.contains(entry))
+        }
     }
 
     @Test

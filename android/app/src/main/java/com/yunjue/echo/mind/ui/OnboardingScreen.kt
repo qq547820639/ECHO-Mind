@@ -120,7 +120,7 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
 
     if (showSafety) {
         SafetyScreen(
-            deliveryState = "尚未确认送达，请优先使用电话入口。",
+            deliveryState = SAFETY_DELIVERY_UNCONFIRMED,
             onBack = { showSafety = false }
         )
         return
@@ -219,6 +219,25 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
 
 /** ERA 1 Onboarding 三步（DONE / BASELINE_WARMING_UP 已删除）。 */
 enum class OnboardingStep { WELCOME, PRIVACY_PLEDGE, CORE_SENSING }
+
+/**
+ * V3 §AV/§BK — 核心能力行类型化状态（结构化真值，取代字符串嗅探）。
+ * 「是否就绪」由枚举结构判定；"此设备不可用"（UNAVAILABLE）永远不可能被解析为 ready。
+ */
+enum class SensingCapabilityStatus { READY, NOT_GRANTED, UNAVAILABLE }
+
+/** 能力行是否就绪（结构判定：仅 READY；状态文案永远无法反向推断 ready）。 */
+val SensingCapabilityStatus.isReady: Boolean get() = this == SensingCapabilityStatus.READY
+
+/** 能力行状态文案（唯一映射；readyLabel 默认为无需权限文案，通知行传「已开启」）。 */
+fun sensingCapabilityLabelText(
+    status: SensingCapabilityStatus,
+    readyLabel: String = "可用（无需权限）",
+): String = when (status) {
+    SensingCapabilityStatus.READY -> readyLabel
+    SensingCapabilityStatus.NOT_GRANTED -> "未开启（可跳过）"
+    SensingCapabilityStatus.UNAVAILABLE -> "此设备不可用"
+}
 
 /** ERA 38 — Onboarding 步骤纯状态（渲染输入；编排留在 OnboardingScreen）。 */
 data class OnboardingStepState(
@@ -365,21 +384,31 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     style = MaterialTheme.typography.bodyMedium
                 )
                 HorizontalDivider()
-                // ERA 1：核心能力行以系统真实状态为唯一事实来源（硬件可用性，无乐观置位）。
+                // ERA 1 + V3 §AV/§BK：核心能力行以系统真实状态为唯一事实来源，
+                // 状态经类型化枚举传入（sensor 硬件真值 / screen 恒可用 / notification 授权真值）。
                 SensingCapabilityRow(
                     name = "运动传感器（加速度 / 陀螺仪）",
                     description = "用于了解移动与作息节奏。这是 ECHO 的核心，无需系统权限。",
-                    statusText = if (state.sensorHardwareAvailable) "可用（无需权限）" else "此设备不可用"
+                    status = if (state.sensorHardwareAvailable) {
+                        SensingCapabilityStatus.READY
+                    } else {
+                        SensingCapabilityStatus.UNAVAILABLE
+                    },
                 )
                 SensingCapabilityRow(
                     name = "屏幕状态",
                     description = "用于了解一天中的屏幕使用分布。无需额外权限。",
-                    statusText = "可用（无需权限）"
+                    status = SensingCapabilityStatus.READY,
                 )
                 SensingCapabilityRow(
                     name = "持续运行通知",
                     description = "后台了解期间显示常驻通知，让你随时看到 ECHO 正在工作（Android 13+ 需授权）。拒绝后了解仍会继续，但通知不可见。",
-                    statusText = if (state.notifPermAuthorized) "已开启" else "未开启（可跳过）",
+                    status = if (state.notifPermAuthorized) {
+                        SensingCapabilityStatus.READY
+                    } else {
+                        SensingCapabilityStatus.NOT_GRANTED
+                    },
+                    readyLabel = "已开启",
                     onAuthorize = actions.onRequestNotifPermission,
                     onSkip = actions.onSkipNotifPermission
                 )
@@ -419,7 +448,9 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
     // 时间线语义 = 进入苏醒后经过的毫秒（2200ms 固定脚本），非 organism 视觉相位。
     val awakeningStartNanos = remember { com.yunjue.echo.mind.presencevisual.EchoVisualClock.nowNanos() }
     LaunchedEffect(Unit) {
-        while (true) {
+        // §AX：有界帧循环——elapsed 到达 2200ms 即退出（不再无限自旋占帧）；
+        // 条件为 elapsed < TOTAL：最后一帧仍经 withFrameNanos 更新交付，timeline.finished 随后触发。
+        while (elapsedMs < AWAKENING_DURATION_MS) {
             withFrameNanos {
                 elapsedMs = (com.yunjue.echo.mind.presencevisual.EchoVisualClock.nowNanos() - awakeningStartNanos) /
                     1_000_000L
@@ -494,17 +525,19 @@ private fun ColumnScope.OnboardingEmergencyEntry(
     }
 }
 
-/** 能力行：能力名 + 说明 + 真实状态 + 可选授权/跳过。 */
+/** 能力行：能力名 + 说明 + 类型化真实状态（§AV/§BK）+ 可选授权/跳过。 */
 @Composable
 private fun SensingCapabilityRow(
     name: String,
     description: String,
-    statusText: String,
+    status: SensingCapabilityStatus,
+    readyLabel: String = "可用（无需权限）",
     onAuthorize: (() -> Unit)? = null,
     onSkip: (() -> Unit)? = null
 ) {
     // §53：quiet row（small status point；optional 未授权 = neutral，无红色失败语义）
-    val ready = statusText.contains("可用") || statusText.contains("已开启")
+    // §AV/§BK：ready 由枚举结构判定（isReady），禁止字符串嗅探。
+    val statusText = sensingCapabilityLabelText(status, readyLabel)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             Modifier.fillMaxWidth(),
@@ -517,7 +550,7 @@ private fun SensingCapabilityRow(
                         .size(8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (ready) MaterialTheme.colorScheme.primary
+                            if (status.isReady) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f),
                         ),
                 )

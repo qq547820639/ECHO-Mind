@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind.ui.me
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,19 @@ import com.yunjue.echo.mind.me.PresenceSettingsUiState
  *
  * ERA 33 状态提升：Section 只做 VM 收集 + 系统 intent；纯渲染在 PresenceSettingsContent。
  */
+/** §AS：选择 ECHO 动态壁纸的系统 intent（Me 根入口与 Presence 分节共用同一动作）。 */
+internal fun echoWallpaperSelectionIntent(context: Context): Intent =
+    Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+        android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+        android.content.ComponentName(
+            context,
+            com.yunjue.echo.mind.EchoWallpaperService::class.java
+        )
+    )
+
+/** §AS：系统屏保（Dream）设置 intent。 */
+internal fun dreamSettingsIntent(): Intent = Intent(Settings.ACTION_DREAM_SETTINGS)
+
 @Composable
 fun PresenceSettingsSection(container: AppContainer) {
     val context = LocalContext.current
@@ -44,20 +58,10 @@ fun PresenceSettingsSection(container: AppContainer) {
         state = state,
         onEvent = vm::onEvent,
         onSelectWallpaper = {
-            runCatching {
-                context.startActivity(
-                    Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
-                        android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                        android.content.ComponentName(
-                            context,
-                            com.yunjue.echo.mind.EchoWallpaperService::class.java
-                        )
-                    )
-                )
-            }
+            runCatching { context.startActivity(echoWallpaperSelectionIntent(context)) }
         },
         onDreamSettings = {
-            runCatching { context.startActivity(Intent(Settings.ACTION_DREAM_SETTINGS)) }
+            runCatching { context.startActivity(dreamSettingsIntent()) }
         },
     )
 }

@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -145,7 +146,7 @@ class OnboardingStepContentSmokeTest {
     fun coreSensingRowsRenderTruthAndCallbacks() {
         val recorder = Recorder()
         setContent(state(step = OnboardingStep.CORE_SENSING, sensorHardwareAvailable = true), recorder)
-        // 运动传感器 + 屏幕状态两行均为「可用（无需权限）」
+        // 运动传感器 + 屏幕状态两行均为「可用（无需权限）」（类型化 READY）
         compose.onAllNodesWithText("可用（无需权限）").assertCountEquals(2)
         compose.onNodeWithText("未开启（可跳过）").assertExists()
         compose.onNode(hasClickAction() and hasText("授权")).performScrollTo().performClick()
@@ -155,9 +156,34 @@ class OnboardingStepContentSmokeTest {
     }
 
     @Test
+    fun notificationAuthorizedRowShowsReadyLabel() {
+        // §AV/§BK：通知行授权后为 READY（文案「已开启」，非通用 ready 文案）
+        setContent(state(step = OnboardingStep.CORE_SENSING, notifPermAuthorized = true), Recorder())
+        compose.onNodeWithText("已开启").performScrollTo().assertExists()
+        compose.onNodeWithText("未开启（可跳过）").assertDoesNotExist()
+    }
+
+    @Test
+    fun unavailableNeverReady() {
+        // §AV/§BK 结构回归：「此设备不可用」永远不可能被判定为 ready——
+        // ready 由 SensingCapabilityStatus 枚举结构判定（isReady），状态文案是唯一映射的输出。
+        assertTrue(SensingCapabilityStatus.READY.isReady)
+        assertFalse(SensingCapabilityStatus.NOT_GRANTED.isReady)
+        assertFalse(SensingCapabilityStatus.UNAVAILABLE.isReady)
+        assertEquals("可用（无需权限）", sensingCapabilityLabelText(SensingCapabilityStatus.READY))
+        assertEquals("已开启", sensingCapabilityLabelText(SensingCapabilityStatus.READY, "已开启"))
+        assertEquals("未开启（可跳过）", sensingCapabilityLabelText(SensingCapabilityStatus.NOT_GRANTED))
+        assertEquals("此设备不可用", sensingCapabilityLabelText(SensingCapabilityStatus.UNAVAILABLE))
+        // 任意 readyLabel 都无法改变 UNAVAILABLE 的输出（映射与输入标签无关）
+        assertEquals("此设备不可用", sensingCapabilityLabelText(SensingCapabilityStatus.UNAVAILABLE, "已开启"))
+    }
+
+    @Test
     fun sensorUnavailableShowsTruth() {
         setContent(state(step = OnboardingStep.CORE_SENSING, sensorHardwareAvailable = false), Recorder())
-        compose.onNodeWithText("此设备不可用").assertExists()
+        compose.onNodeWithText("此设备不可用").performScrollTo().assertExists()
+        // 传感器不可用时仅屏幕行保持 ready 文案（结构上 UNAVAILABLE ≠ ready）
+        compose.onAllNodesWithText("可用（无需权限）").assertCountEquals(1)
     }
 
     @Test

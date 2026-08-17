@@ -2,7 +2,6 @@ package com.yunjue.echo.mind.ui.me
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -58,16 +57,7 @@ fun DataAndSensingSection(container: AppContainer, context: Context) {
         contract = ActivityResultContracts.RequestPermission()
     ) { granted -> vm.onEvent(DataAndSensingEvent.MicPermissionResult(granted)) }
 
-    // 本地模式导出：VM 生成 JSON 后经 SharedFlow 一次性事件 → UI 分享（平台职责）
-    androidx.compose.runtime.LaunchedEffect(vm) {
-        vm.exportJson.collect { json ->
-            val share = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, json)
-            }
-            runCatching { context.startActivity(Intent.createChooser(share, "导出本地数据")) }
-        }
-    }
+    // 本地导出的分享收集在 Me 根层（MeScreen）：根层「导出数据」入口触发时分节可能未组合
 
     DataAndSensingContent(
         state = state,

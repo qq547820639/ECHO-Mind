@@ -152,22 +152,14 @@ class EchoSceneViewModel(app: android.app.Application, private val container: Ap
         }
     }
 
-    fun dismissAiPrompt() {
-        container.preferences.aiPromptDismissed = true
-        // ERA 32 R26：prefs 写回不触发重组，必须联动内存状态（否则「以后再说」点了不消失）
-        _aiPromptDismissed.value = true
-    }
-
-    /** ERA 31 R34：一次性壁纸引导关闭（打开过/以后再说）。 */
+    /** ERA 31 R34：一次性壁纸引导关闭（打开过/以后再说）。§AC：AI 提示管线已移除。 */
     fun dismissWallpaperPrompt() {
         container.preferences.wallpaperPromptDismissed = true
-        // ERA 32 R26：同上，联动内存状态保证即时消失
+        // ERA 32 R26：prefs 写回不触发重组，必须联动内存状态保证即时消失
         _wallpaperPromptDismissed.value = true
     }
 
     /** ERA 32 R26：提示条关闭状态（prefs 为持久化事实，本流为 UI 即时事实）。 */
-    private val _aiPromptDismissed = MutableStateFlow(container.preferences.aiPromptDismissed)
-    val aiPromptDismissed: StateFlow<Boolean> = _aiPromptDismissed
     private val _wallpaperPromptDismissed = MutableStateFlow(container.preferences.wallpaperPromptDismissed)
     val wallpaperPromptDismissed: StateFlow<Boolean> = _wallpaperPromptDismissed
 

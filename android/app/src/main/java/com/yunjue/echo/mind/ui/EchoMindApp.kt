@@ -76,12 +76,23 @@ fun EchoMindApp(container: AppContainer) {
     }
     var tabName by rememberSaveable { mutableStateOf(Tab.ECHO.name) }
     val tab = runCatching { Tab.valueOf(tabName) }.getOrDefault(Tab.ECHO)
+
+    // §AT：危机一键直达——紧急 FAB / onEmergency 直接打开全屏 SafetyScreen（不再跳 Me 二步走）
+    var showSafety by rememberSaveable { mutableStateOf(false) }
+    if (showSafety) {
+        SafetyScreen(
+            deliveryState = SAFETY_DELIVERY_UNCONFIRMED,
+            onBack = { showSafety = false },
+        )
+        return
+    }
+
     Scaffold(
         floatingActionButton = {
-            // 紧急支持入口常驻：红色 FAB，任何非 Me tab 下可见，点击直达 Me（支持区块）
+            // 紧急支持入口常驻：红色 FAB，任何非 Me tab 下可见，一键直达全屏安全屏
             if (shouldShowEmergencyFab(tab == Tab.ME)) {
                 FloatingActionButton(
-                    onClick = { tabName = Tab.ME.name },
+                    onClick = { showSafety = true },
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ) {
@@ -105,7 +116,7 @@ fun EchoMindApp(container: AppContainer) {
                     container = container,
                     onGoToJourney = { tabName = Tab.JOURNEY.name },
                     onGoToMe = { tabName = Tab.ME.name },
-                    onEmergency = { tabName = Tab.ME.name },
+                    onEmergency = { showSafety = true },
                 )
                 Tab.JOURNEY -> {
                     val journeyViewModel: com.yunjue.echo.mind.ui.journey.JourneyViewModel =
@@ -115,7 +126,10 @@ fun EchoMindApp(container: AppContainer) {
                         onGoToSupport = { tabName = Tab.ME.name }
                     )
                 }
-                Tab.ME -> com.yunjue.echo.mind.ui.me.MeScreen(container)
+                Tab.ME -> com.yunjue.echo.mind.ui.me.MeScreen(
+                    container = container,
+                    onEmergency = { showSafety = true },
+                )
             }
         }
     }

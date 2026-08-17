@@ -19,7 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.BuildConfig
-import java.time.LocalDate
+import com.yunjue.echo.mind.ui.rememberToday
+import java.time.format.DateTimeFormatter
 
 /**
  * ERA 29 §64 — 内部质量反馈（仅 DEBUG 构建可见，绝不污染正式用户 UI）：
@@ -32,7 +33,7 @@ fun InternalQualityFeedback(
     headline: String,
 ) {
     if (!BuildConfig.DEBUG) return
-    val today = remember { LocalDate.now().toString() }
+    val today = rememberToday(DateTimeFormatter.ISO_LOCAL_DATE)
     var recorded by remember(today) { mutableStateOf(preferences.internalFeedbackFor(today)) }
 
     fun toggle(field: String) {
