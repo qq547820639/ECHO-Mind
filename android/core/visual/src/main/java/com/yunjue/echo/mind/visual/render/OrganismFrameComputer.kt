@@ -1,8 +1,10 @@
 package com.yunjue.echo.mind.visual.render
 
+import com.yunjue.echo.mind.visual.math.DeterministicRandom
 import com.yunjue.echo.mind.visual.model.EchoIdentitySpec
 import com.yunjue.echo.mind.visual.motion.EchoMotionState
 import com.yunjue.echo.mind.visual.motion.MotionEvaluator
+import com.yunjue.echo.mind.visual.surface.EchoSurface
 import com.yunjue.echo.mind.visual.surface.EchoVisualSpec
 import kotlin.math.PI
 import kotlin.math.cos
@@ -66,6 +68,8 @@ object OrganismFrameComputer {
         val warm: Argb,
         /** GLINT 专用近白蓝（§10：极少数真正亮）。 */
         val glint: Argb,
+        /** cyan 生命高光族（Organism Visual Breakthrough §18：electric cyan）。 */
+        val cyan: Argb,
         val touch: EchoInteractionSpec,
         val detailScale: Float,
     )
@@ -149,6 +153,10 @@ object OrganismFrameComputer {
         val warm = ColorSpace.lch(identity.palette.warm.l, identity.palette.warm.c, identity.palette.warm.h)
         // §10/§12 GLINT 专用近白蓝（真正亮的位置非常少；glint 分类才有资格）
         val glint = ColorSpace.argb(1f, 0.94f, 0.97f, 1.0f)
+        // Organism Visual Breakthrough §18：cyan 生命高光族（electric cyan，LCh ≈198–222；
+        // identity 微差 ±10°，总体视觉族稳定 blue → cyan → violet）
+        val cyanHue = 198f + 24f * EchoIdentitySpec.identityUnit(identity.identitySeed, 41)
+        val cyan = ColorSpace.lch(0.62f, 58f, cyanHue)
 
         // 视觉半径 R（minDim 归一化；呼吸只缩放表现，不改 identity）
         val breathScale = options.breathScaleOverride ?: motion.breathScale
@@ -161,16 +169,17 @@ object OrganismFrameComputer {
         val farHaloClarity = lerp(0.65f, 1f, clarity)
 
         // ---- 1. Ambient field（近黑；视觉质量来自大量 black + 少量真亮，§24）----
+        // Organism Visual Breakthrough §43：deep navy 场比旧中性近黑略 lifted——
+        // 大量黑暗保留，但中心区域不再是死黑（mid stop 后移到 0.58）。
         val exposure = field.exposure.coerceIn(0f, 1f)
         val ambient = AmbientField(
             centerColor = ColorSpace.lch(
-                0.058f + exposure * 0.052f,
-                7f, identity.palette.primary.h,
+                0.075f + exposure * 0.075f,
+                9f, identity.palette.primary.h,
             ),
-            // §24：42% 半径处已落到近黑——画面质量来自大量 black + 少量真亮
             midColor = ColorSpace.lch(
-                0.016f + exposure * 0.014f,
-                5f, identity.palette.primary.h,
+                0.030f + exposure * 0.024f,
+                6f, identity.palette.primary.h,
             ),
             edgeColor = ColorSpace.lch(
                 0.008f + exposure * 0.010f,
@@ -184,12 +193,12 @@ object OrganismFrameComputer {
         // ---- 1b. Atmosphere（§13：volume haze + rim scattering；克制，禁整屏 bloom）----
         val atmosphere = Atmosphere(
             hazeRadiusFraction = baseR * 1.55f,
-            hazeAlpha = (0.050f + exposure * 0.030f) * filamentClarity,
+            hazeAlpha = (0.065f + exposure * 0.045f) * filamentClarity,
             hazeColor = ColorSpace.lch(
                 0.30f, 10f, identity.palette.secondary.h,
             ),
             rimRadiusFraction = baseR * 0.97f,
-            rimAlpha = (0.030f + field.coherence * 0.018f) * filamentClarity,
+            rimAlpha = (0.040f + field.coherence * 0.024f) * filamentClarity,
             rimWidthFraction = 0.018f,
             rimColor = ColorSpace.lch(
                 0.40f, 14f, identity.palette.primary.h,
@@ -206,7 +215,7 @@ object OrganismFrameComputer {
             sinA = sin(motion.globalRotation * identity.chirality),
             baseR = baseR, sx = isoX(aspect), sy = isoY(aspect),
             coreInner = cavityRUnits * 0.92f, coreOuter = cavityRUnits * 1.35f,
-            primary = primary, secondary = secondary, warm = warm, glint = glint,
+            primary = primary, secondary = secondary, warm = warm, glint = glint, cyan = cyan,
             touch = packet.interaction,
             detailScale = options.detailScale.coerceIn(0f, 1f),
         )
@@ -214,6 +223,8 @@ object OrganismFrameComputer {
         var touchBudget = if (ctx.touch.active) 5 else 0 // §29：最多 5 条 front filament
 
         // ---- 2. Structural Rings（identity skeleton；§6 质量 15–20%，非闭合弧）----
+        // Organism Visual Breakthrough §15/§17：轨道环降权——环是空间提示，不是 Logo；
+        // 线条不再抢主体（视觉层级让给 volume/membrane）。
         val rings = topo.rings.mapIndexed { i, ring ->
             sampleStroke(
                 arc = ArcSpec(
@@ -224,17 +235,20 @@ object OrganismFrameComputer {
                     lobeCount = identity.lobeCount, lobeAmp = ring.lobeHarmonicAmp,
                 ),
                 samples = samples, ctx = ctx,
-                // §6 skeleton 清晰可辨但质量占比降到 15–20%（碎片/长丝承担主体）
-                baseAlpha = (0.36f + field.coherence * 0.28f) * filamentClarity * (1f - i * 0.09f) *
+                baseAlpha = (0.20f + field.coherence * 0.16f) * filamentClarity * (1f - i * 0.06f) *
                     options.ringAlphaScale.coerceIn(0f, 1f),
-                color = primary, widthFraction = 0.0030f,
+                color = primary, widthFraction = 0.0024f,
             )
         }
 
         // ---- 3. Long Filaments（跨半球弧；§16 遮挡在采样内烘焙）----
+        // Organism Visual Breakthrough §16：丝的视觉分级（major/normal/hairline 三档宽）+
+        // major 丝引入 cyan 高光族（electric life）。
         val longs = topo.longFilaments.mapIndexed { i, f ->
             val useTouch = ctx.touch.active && touchBudget > 0
             if (useTouch) touchBudget--
+            val isMajor = i % 6 == 0
+            val isHairline = i % 6 == 3 || i % 6 == 4
             sampleStroke(
                 arc = ArcSpec(
                     plane = f.plane, arcStart = f.arcStart, arcLength = f.arcLength,
@@ -244,9 +258,19 @@ object OrganismFrameComputer {
                     depthWarpAmp = f.depthWarpAmp * (0.4f + field.dispersion),
                 ),
                 samples = samples, ctx = ctx,
-                baseAlpha = (0.38f + field.coherence * 0.46f) * filamentClarity,
-                color = if (i % 3 == 2) secondary else primary,
-                widthFraction = 0.0026f, glow = 0.38f, consumeTouch = useTouch,
+                baseAlpha = (0.34f + field.coherence * 0.42f) * filamentClarity,
+                color = when {
+                    isMajor && i % 12 == 0 -> ctx.cyan
+                    i % 3 == 2 -> secondary
+                    else -> primary
+                },
+                widthFraction = when {
+                    isMajor -> 0.0034f
+                    isHairline -> 0.0018f
+                    else -> 0.0026f
+                },
+                glow = if (isMajor) 0.46f else 0.34f,
+                consumeTouch = useTouch,
             )
         }
 
@@ -261,7 +285,9 @@ object OrganismFrameComputer {
         }
 
         // ---- 5. 核心（hollow core，§8：dark cavity + atmosphere + strands + knots + membrane）----
-        // cavity 0.30–0.37R + identity 恒定的 2/3 阶有机形变（非机械完美圆；公式单源 cavityRadiusFor）
+        // Organism Visual Breakthrough §14：暗腔重新平衡——有效直径收敛到 organism 直径的
+        // 22%–31%（旧 60%–72% 的「大黑洞」是原子模型读感的根因之一）；
+        // 暗腔仍存在（深度锚点），但嵌入 cloud/filament/core volume 组织中。
         val cavityRadius = cavityRadiusFor(field.coreOpenness, breathScale)
         val deform2 = 0.030f + 0.022f * EchoIdentitySpec.identityUnit(identity.identitySeed, 30)
         val deform3 = 0.018f + 0.016f * EchoIdentitySpec.identityUnit(identity.identitySeed, 31)
@@ -269,8 +295,8 @@ object OrganismFrameComputer {
             radiusFraction = cavityRadius * baseR,
             darkColor = ColorSpace.lch(0.016f, 5f, identity.palette.primary.h),
             atmosphereColor = ColorSpace.lch(
-                0.22f + field.coreOpenness * 0.14f + exposure * 0.05f,
-                16f, identity.palette.primary.h,
+                0.26f + field.coreOpenness * 0.16f + exposure * 0.06f,
+                18f, identity.palette.primary.h,
             ),
             harmonics = listOf(
                 CavityHarmonic(2, deform2, EchoIdentitySpec.identityUnit(identity.identitySeed, 32) * TWO_PI),
@@ -282,11 +308,12 @@ object OrganismFrameComputer {
             CoreKnotV(
                 x = 0.5f + p.x * baseR * ctx.sx,
                 y = 0.5f + p.y * baseR * ctx.sy,
-                radiusFraction = k.radiusRatio,
+                radiusFraction = k.radiusRatio * 1.5f,
                 // §8 暖结 = 核心解剖（identity 恒定；小而稳定，不受 surface 能力门裁剪——
-                // 大面积 warmAccent 光晕层才受 allowWarmAccent 门）
+                // 大面积 warmAccent 光晕层才受 allowWarmAccent 门）。
+                // Breakthrough §14/§28：结加大提亮——它们是云组织中的 bright nodes。
                 color = if (k.warm) warm else secondary,
-                alpha = (if (k.warm) 0.74f else 0.50f) + 0.26f * field.coreOpenness,
+                alpha = (if (k.warm) 0.80f else 0.62f) + 0.22f * field.coreOpenness,
             )
         }
         val strands = buildCoreStrands(topo, cavityRadius, motion.breathScale, ctx)
@@ -319,9 +346,49 @@ object OrganismFrameComputer {
 
         // ---- 8. 前膜（§18 front membrane：前半球壳层微光）----
         val frontMembrane = FrontMembrane(
-            radiusFraction = baseR * 0.90f,
+            radiusFraction = baseR * 0.92f,
             color = primary,
             alpha = 0.024f + field.coherence * 0.032f,
+        )
+
+        // ---- 8b. 有机生命膜（Breakthrough §12/§13：不规则半透明膜边界）----
+        // deformScale：SEED 野生（±8–14%）→ KNOWN（±3–5.5%）→ MATURE 更稳；
+        // localWave 来自 clock 的呼吸期非对称漂移（确定性）。
+        val membrane = MembraneSpec(
+            radiusFraction = baseR * 0.92f,
+            harmonics = topo.membraneHarmonics.map {
+                CavityHarmonic(it.order, it.amplitude, it.phase)
+            },
+            deformScale = membraneDeformScale(options.maturityName),
+            localWaveAmplitude = 0.012f + field.turbulence * 0.010f,
+            localWavePhase = motion.filamentPhase * 0.6f + dailyPhase,
+            fillColor = ColorSpace.lch(0.20f, 26f, identity.palette.primary.h),
+            fillAlpha = (0.10f + field.coherence * 0.08f) * filamentClarity,
+            edgeColor = ColorSpace.lch(0.46f, 40f, identity.palette.primary.h),
+            edgeAlpha = (0.10f + field.coherence * 0.10f) * filamentClarity,
+            edgeWidthFraction = 0.045f,
+            rimColor = ctx.cyan,
+            rimAlpha = (0.12f + field.coherence * 0.10f) * filamentClarity,
+            rimWidthFraction = 0.0035f,
+        )
+
+        // ---- 8c. 体积叶（Breakthrough §10/§11：nebula lobes——多层低 alpha 叠加成云）----
+        val volumeLobes = evalVolumeLobes(
+            topo = topo, motion = motion, clarity = filamentClarity,
+            exposure = exposure, ctx = ctx,
+        )
+
+        // ---- 8d. 核心辉光（Breakthrough §14：心脏光把暗腔嵌入组织）----
+        val coreGlow = CoreGlow(
+            radiusFraction = cavityRadius * baseR * 2.4f,
+            color = ColorSpace.lch(0.44f, 34f, identity.palette.primary.h),
+            alpha = (0.14f + field.coreOpenness * 0.10f + exposure * 0.06f) * filamentClarity,
+        )
+
+        // ---- 8e. 下方空间能量环（Breakthrough §26：ECHO「存在于空间」）----
+        val groundRings = evalGroundRings(
+            surface = packet.surface.surface,
+            baseR = baseR, clarity = filamentClarity, ctx = ctx,
         )
 
         // ---- 9. 涟漪（§29 触摸 1 个 ripple；moment 瞬时响应保留既有语义）----
@@ -365,6 +432,10 @@ object OrganismFrameComputer {
             frontMembrane = frontMembrane,
             ripples = ripples,
             warmAccents = warmAccents,
+            volumeLobes = volumeLobes,
+            membrane = membrane,
+            groundRings = groundRings,
+            coreGlow = coreGlow,
         )
     }
 
@@ -389,15 +460,132 @@ object OrganismFrameComputer {
 
     /**
      * 空心核暗腔半径（单位 R；公式单一事实源——帧内遮挡带/暗腔半径与后端消费点同源）：
-     * cavity = (0.30 + 0.06 × coreOpenness) × breathScale（0.30–0.36R 随开放度展开）。
+     * Organism Visual Breakthrough §14 重平衡——有效直径收敛到 organism 直径的 22%–31%
+     * （旧公式 60%–72% 直径的「大黑洞」导致原子模型读感）；边界柔化由渲染层执行。
+     * cavity = (0.11 + 0.05 × coreOpenness) × breathScale。
      */
     fun cavityRadiusFor(coreOpenness: Float, breathScale: Float = 1f): Float =
-        (0.30f + 0.06f * coreOpenness) * breathScale
+        (0.11f + 0.05f * coreOpenness) * breathScale
+
+    /** Breakthrough §12：膜形变缩放（SEED 野生 ±8–14% → MATURE 稳定 ±3–5%）。 */
+    fun membraneDeformScale(maturityName: String): Float = when (maturityName) {
+        "SEED" -> 1.60f
+        "DISCOVERING" -> 1.30f
+        "EMERGING" -> 1.12f
+        "KNOWN" -> 1.00f
+        "MATURE" -> 0.88f
+        else -> 1.00f
+    }
 
     private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
     private fun rotY(p: Vec3, cosA: Float, sinA: Float): Vec3 =
         Vec3(p.x * cosA + p.z * sinA, p.y, -p.x * sinA + p.z * cosA)
+
+    /**
+     * Breakthrough §10/§11：体积叶帧求值（确定性——lobe 拓扑 identity 恒定，
+     * 此处只做慢漂移/呼吸/深度分层/清晰度调制）。
+     */
+    private fun evalVolumeLobes(
+        topo: OrganismTopology,
+        motion: EchoMotionState,
+        clarity: Float,
+        exposure: Float,
+        ctx: FrameCtx,
+    ): List<VolumeLobeV> {
+        val lobes = topo.volumeLobes
+        if (lobes.isEmpty()) return emptyList()
+        val out = ArrayList<VolumeLobeV>(lobes.size)
+        val huePrimary = ctx.identity.palette.primary.h
+        val hueSecondary = ctx.identity.palette.secondary.h
+        for (i in lobes.indices) {
+            // §42 Sensing Disabled：detail ×.55——低 detail 下隔一个丢一层（确定性）
+            if (ctx.detailScale < 0.6f && i % 2 == 1) continue
+            val lb = lobes[i]
+            var p = lb.dir * lb.shellRadius
+            p = rotY(p, ctx.cosA, ctx.sinA)
+            val perspective = 1f + 0.10f * p.z
+            val px = 0.5f + p.x * ctx.baseR * ctx.sx * perspective
+            val py = 0.5f + p.y * ctx.baseR * ctx.sy * perspective
+            val depth = depth01(p.z)
+            // 慢呼吸脉动（每 lobe 独立相位；确定性——相位来自 identity 拓扑 + 慢 clock 相位）
+            val pulse = 0.84f + 0.16f * sin(lb.phase + motion.filamentPhase * 0.30f)
+            // 内层 lobe 更亮更实（中心组织感）；外层更弥散
+            val innerBoost = 1f + 0.35f * (1f - lb.shellRadius.coerceIn(0f, 1f))
+            val depthBoost = 0.72f + 0.28f * depth
+            val alpha = (
+                0.10f + 0.085f * lb.softness
+                ) * pulse * depthBoost * innerBoost * clarity * (0.72f + 0.28f * exposure)
+            val color = when (lb.family) {
+                2 -> ColorSpace.lch(0.56f + 0.05f * lb.softness, 52f, 198f + 24f *
+                    EchoIdentitySpec.identityUnit(ctx.identity.identitySeed, 41))
+                1 -> ColorSpace.lch(0.36f, 38f, hueSecondary)
+                else -> ColorSpace.lch(0.42f + 0.05f * lb.softness, 44f, huePrimary)
+            }
+            out += VolumeLobeV(
+                x = px,
+                y = py,
+                radiusX = lb.radiusX * ctx.baseR * perspective * pulse,
+                radiusY = lb.radiusY * ctx.baseR * perspective * pulse,
+                rotation = lb.tilt,
+                color = color,
+                alpha = alpha.coerceIn(0f, 0.5f),
+                softness = lb.softness,
+                depth = depth,
+            )
+        }
+        return out
+    }
+
+    /**
+     * Breakthrough §26：下方空间能量环（2–4 个极淡椭圆；Home 最明显、Wrist 移除）。
+     * 几何族 identity 恒定（seed 盐 6700–6799），surface 只调强度/数量。
+     */
+    private fun evalGroundRings(
+        surface: EchoSurface,
+        baseR: Float,
+        clarity: Float,
+        ctx: FrameCtx,
+    ): List<GroundRing> {
+        val gain = when (surface) {
+            EchoSurface.APP_PRIVATE -> 1f
+            EchoSurface.APP_EVIDENCE -> 0.8f
+            EchoSurface.JOURNEY_PRIVATE -> 0.5f
+            EchoSurface.WALLPAPER_VISUAL_ONLY -> 0.7f
+            EchoSurface.LOCK_PUBLIC_SAFE -> 0.4f
+            EchoSurface.DREAM_AMBIENT -> 0.6f
+            EchoSurface.WRIST_PUBLIC_SAFE -> 0f
+        }
+        if (gain <= 0f) return emptyList()
+        val seed = ctx.identity.identitySeed
+        val count = when (surface) {
+            EchoSurface.APP_PRIVATE -> 3
+            EchoSurface.APP_EVIDENCE -> 2
+            EchoSurface.JOURNEY_PRIVATE -> 2
+            EchoSurface.WALLPAPER_VISUAL_ONLY -> 2
+            else -> 2
+        }
+        val out = ArrayList<GroundRing>(count)
+        for (i in 0 until count) {
+            val yc = 0.5f + baseR * (1.04f + 0.17f * i + 0.05f *
+                DeterministicRandomAt(seed, 6710 + i))
+            val rx = baseR * (1.08f - 0.12f * i + 0.10f * DeterministicRandomAt(seed, 6720 + i))
+            val ry = rx * (0.15f + 0.10f * DeterministicRandomAt(seed, 6730 + i))
+            out += GroundRing(
+                yCenter = yc,
+                radiusXFraction = rx,
+                radiusYFraction = ry,
+                alpha = gain * (0.055f - 0.012f * i + 0.015f *
+                    DeterministicRandomAt(seed, 6740 + i)) * clarity,
+                color = ctx.cyan,
+                widthFraction = 0.0020f + 0.0014f * DeterministicRandomAt(seed, 6750 + i),
+            )
+        }
+        return out
+    }
+
+    private fun DeterministicRandomAt(seed: Long, salt: Int): Float =
+        DeterministicRandom.at(seed, salt)
 
     /**
      * §15/§16 丝/环采样：稳定 plane basis + 确定性谐波场 + 3D 投影 + behind-core 遮挡
