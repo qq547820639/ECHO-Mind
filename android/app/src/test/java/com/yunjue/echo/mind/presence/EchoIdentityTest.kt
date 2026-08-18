@@ -100,6 +100,23 @@ class EchoIdentityTest {
     }
 
     @Test
+    fun seasonKeepsComputedFieldsWhenZMissing() {
+        // P3（computeLifeSeason）：z 全缺时不再提前返回丢弃已算的 rhythmShift/drift
+        val baseDate = java.time.LocalDate.parse("2026-01-01")
+        fun p(i: Int, rhythm: String) = DailyPortraitDto(
+            date = baseDate.plusDays(i.toLong()).toString(),
+            status = "READY", confidence = "HIGH", baselineDays = 30,
+            headline = listOf("接近"), summary = "接近平常。",
+            dimensions = mapOf("RHYTHM" to PortraitDimensionDto(value = rhythm, metric = "r", z = null)),
+        )
+        val portraits = (0 until 30).map { p(it, "EARLIER") } + (30 until 60).map { p(it, "LATER") }
+        val season = computeLifeSeason(portraits)
+        assertEquals("later", season.rhythmShift)
+        assertTrue(season.drift > 0f)
+        assertEquals("z 全缺 → 仅 activityVariability 判 stable，其余字段保留", "stable", season.activityVariability)
+    }
+
+    @Test
     fun seasonPhaseBucketsByBaseline() {
         val early = computeLifeSeason(listOf(portrait("2026-01-01", baselineDays = 3)))
         val mid = computeLifeSeason(listOf(portrait("2026-01-01", baselineDays = 20)))

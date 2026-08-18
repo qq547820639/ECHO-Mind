@@ -1,7 +1,7 @@
 # PROFILE_D_TRAVEL · Day 3（2026-01-08）
 
 - **成熟度**: EMERGING
-- **Headline**: 今天动得比平时少一些。
+- **Headline**: 活动比通常少。
   - Evidence: 活动量 0.68 · 通常 0.95
   - AI layer: —（无增量理解）
 - **Life Season**: phase 0 · drift 0.120 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable

@@ -101,17 +101,8 @@ def list_skills(
         if profile and profile.traits:
             observation_days = int(profile.traits.get("observation_days", 0) or 0)
         cold_start_hint = _cold_start_stage(observation_days)
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="skill.list",
-        object_type="skill",
-        object_id=target_user_id,
-        metadata={"count": len(sanitized), "user_id": target_user_id},
-    )
-    db.commit()
+    # 审计 P2-3 修复：GET 无写副作用（不写审计、不 commit），对齐本仓库
+    # 「GET 绝不写库」约定；治理/执行事件由 transition/completion 写路径审计覆盖。
     return {
         "skills": sanitized,
         "cold_start_hint": cold_start_hint,
@@ -134,17 +125,7 @@ def get_skill(
     if row.action_type not in ACTION_TYPE_WHITELIST:
         raise HTTPException(status_code=404, detail="skill not deliverable")
     sanitized = sanitize_skill(row)
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="skill.detail",
-        object_type="skill",
-        object_id=row.id,
-        metadata={"status": row.status},
-    )
-    db.commit()
+    # 审计 P2-3 修复：GET 无写副作用（不写审计、不 commit）。
     return sanitized
 
 

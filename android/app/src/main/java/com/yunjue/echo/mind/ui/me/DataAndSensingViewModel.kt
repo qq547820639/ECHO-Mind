@@ -76,38 +76,42 @@ class DataAndSensingViewModel(
         _localCounts,
         _knowsFacts,
     ).map { (sensing, mic, pending, reEnabling, message, showMic, showDelete, counts, facts) ->
-        assembleDataAndSensingUiState(
-            DataAndSensingAssemblyInputs(
-                sensing = SensingUiInputs(enabled = sensing, reEnabling = reEnabling),
-                mic = MicUiInputs(enabled = mic, showConfirm = showMic),
-                knowsFacts = facts,
-                showLocalDeleteConfirm = showDelete,
-                eveningReminderEnabled = container.preferences.eveningReminderEnabled,
-                capabilityStates = SensingCapability.entries.associateWith {
-                    capabilityState(getApplication(), it, sensing)
-                },
-                pendingCount = pending,
-                sync = MeSyncInputs(
-                    networkAvailable = isNetworkAvailable(getApplication()),
-                    deadLetterCount = container.preferences.deadLetterCount(),
-                    authBlocked = container.preferences.authRequired,
-                    consentBlocked = container.preferences.lastSyncErrorClass == "consent",
-                    retrying = container.preferences.lastSyncErrorClass == "retryable",
-                    lastCollectionTs = container.preferences.lastCollectionTimestamp,
-                    lastSyncTs = container.preferences.lastSuccessfulSyncAt,
-                    lastPartialSyncTs = container.preferences.lastPartialSyncAt,
-                    lastPersistenceFailureTs = container.preferences.lastPersistenceFailure,
-                    consecutiveFailures = container.preferences.consecutivePersistenceFailures,
-                ),
-                rights = DataRightsInputs(
-                    footprint = counts,
-                    localMode = container.preferences.localMode,
-                    institutionCode = container.preferences.institutionCode,
-                    userId = container.preferences.userId,
-                ),
-                message = message,
+        // T4-P2-8：能力状态（SensorManager/AppOps ×6）与同步快照读取移 IO——
+        // 此前在 Main 派发的 map 内同步执行系统服务查询与 SharedPreferences 反序列化。
+        withContext(Dispatchers.IO) {
+            assembleDataAndSensingUiState(
+                DataAndSensingAssemblyInputs(
+                    sensing = SensingUiInputs(enabled = sensing, reEnabling = reEnabling),
+                    mic = MicUiInputs(enabled = mic, showConfirm = showMic),
+                    knowsFacts = facts,
+                    showLocalDeleteConfirm = showDelete,
+                    eveningReminderEnabled = container.preferences.eveningReminderEnabled,
+                    capabilityStates = SensingCapability.entries.associateWith {
+                        capabilityState(getApplication(), it, sensing)
+                    },
+                    pendingCount = pending,
+                    sync = MeSyncInputs(
+                        networkAvailable = isNetworkAvailable(getApplication()),
+                        deadLetterCount = container.preferences.deadLetterCount(),
+                        authBlocked = container.preferences.authRequired,
+                        consentBlocked = container.preferences.lastSyncErrorClass == "consent",
+                        retrying = container.preferences.lastSyncErrorClass == "retryable",
+                        lastCollectionTs = container.preferences.lastCollectionTimestamp,
+                        lastSyncTs = container.preferences.lastSuccessfulSyncAt,
+                        lastPartialSyncTs = container.preferences.lastPartialSyncAt,
+                        lastPersistenceFailureTs = container.preferences.lastPersistenceFailure,
+                        consecutiveFailures = container.preferences.consecutivePersistenceFailures,
+                    ),
+                    rights = DataRightsInputs(
+                        footprint = counts,
+                        localMode = container.preferences.localMode,
+                        institutionCode = container.preferences.institutionCode,
+                        userId = container.preferences.userId,
+                    ),
+                    message = message,
+                )
             )
-        )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

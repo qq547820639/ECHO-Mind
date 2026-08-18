@@ -23,6 +23,24 @@ import kotlin.math.sqrt
  */
 object VisualLabMetrics {
 
+    /**
+     * V3 §12 契约：暖色视觉面积硬上限（15%）。**QA 门执行点单点常量**——
+     * 渲染链不执行该阈值（由拓扑 4% warm 分类保证下界），EchoMaterialSpec 不再携带副本。
+     */
+    const val WARM_AREA_HARD_CAP = 0.15f
+
+    /** V3 §12 契约：暖色面积目标上限（10%，soft target）。 */
+    const val WARM_AREA_TARGET_CAP = 0.10f
+
+    /**
+     * V3 §24 契约：高亮像素（luma > 0.80）占比上限（4%）。**QA 门执行点单点常量**——
+     * 渲染链 soft-knee 不执行该阈值，EchoMaterialSpec 不再携带副本。
+     */
+    const val HIGHLIGHT_CAP = 0.04f
+
+    /** V3 §10 契约：极亮 glint（luma > 0.92）占比上限（2.5%）。 */
+    const val EXTREME_GLINT_CAP = 0.025f
+
     /** 发光像素包围盒（viewport 归一化 0..1）。 */
     data class BoundingBox(
         val left: Float,
@@ -71,10 +89,10 @@ object VisualLabMetrics {
     fun evaluate(m: Metrics): GateResult = GateResult(
         metrics = m,
         nearBlackPass = m.nearBlackRatio >= 0.58f,
-        highLuminancePass = m.highLuminanceRatio <= 0.04f,
-        extremeGlintPass = m.extremeGlintRatio <= 0.025f,
-        warmPass = m.warmRatio <= 0.15f,
-        warmTargetPass = m.warmRatio <= 0.10f,
+        highLuminancePass = m.highLuminanceRatio <= HIGHLIGHT_CAP,
+        extremeGlintPass = m.extremeGlintRatio <= EXTREME_GLINT_CAP,
+        warmPass = m.warmRatio <= WARM_AREA_HARD_CAP,
+        warmTargetPass = m.warmRatio <= WARM_AREA_TARGET_CAP,
         negativeSpacePass = m.negativeSpaceRatio >= 0.40f,
         visualMassPass = m.visualMassInside >= 0.82f,
         organismWidthPass = m.organismWidthFraction in 0.72f..0.82f,

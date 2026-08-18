@@ -62,7 +62,12 @@ def audit_verify(
 
 @router.get("/config/flags")
 def get_config_flags(db: DB, principal: PRINCIPAL) -> dict[str, Any]:
-    """用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。"""
+    """用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。
+
+    审计 P3-5 评估注记：无角色/状态限制为有意设计——端侧冷启动即需拉取 flags，
+    withdrawal_pending（JWT 未过期窗口内）与 vendor_support 可读租户非敏感开关
+    可接受；若后续 flags 携带敏感值须重估此边界。
+    """
     return get_tenant_flags(db, principal.tenant_id)
 
 
@@ -98,16 +103,7 @@ def tenant_portrait(
 ) -> dict[str, Any]:
     """机构去标识群体画像（小桶 <5 suppression；不返回单个用户 ID/特征）。"""
     portrait = build_tenant_portrait(db, principal.tenant_id)
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="tenant.portrait.view",
-        object_type="tenant",
-        object_id=principal.tenant_id,
-    )
-    db.commit()
+    # 审计 P2-3 修复：GET 无写副作用（不写审计、不 commit），对齐「GET 绝不写库」约定。
     return portrait
 
 

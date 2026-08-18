@@ -19,6 +19,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -37,6 +38,9 @@ import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import com.yunjue.echo.mind.visual.testing.VisualLabFixtures
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
@@ -62,6 +66,7 @@ fun VisualLabScreen(onClose: () -> Unit) {
     if (!BuildConfig.DEBUG) return // §91：Release 不泄露 internal control
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var preset by remember { mutableStateOf(VisualLabFixtures.Preset.KNOWN_DAY28) }
     var surface by remember { mutableStateOf(EchoSurface.APP_PRIVATE) }
     var backend by remember { mutableStateOf(EchoRenderTier.LEGACY) }
@@ -111,10 +116,13 @@ fun VisualLabScreen(onClose: () -> Unit) {
         }
         Text("Surface", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // UX-B6：补 LOCK_PUBLIC_SAFE / WRIST_PUBLIC_SAFE（debug-only 调参面，不涉产品 IA）
             listOf(
                 EchoSurface.APP_PRIVATE to "APP",
                 EchoSurface.WALLPAPER_VISUAL_ONLY to "WALLPAPER",
+                EchoSurface.LOCK_PUBLIC_SAFE to "LOCK",
                 EchoSurface.DREAM_AMBIENT to "DREAM",
+                EchoSurface.WRIST_PUBLIC_SAFE to "WRIST",
             ).forEach { (s, label) ->
                 FilterChip(selected = surface == s, onClick = { surface = s }, label = { Text(label) })
             }
@@ -168,8 +176,13 @@ fun VisualLabScreen(onClose: () -> Unit) {
         LabSlider("warm accent", knobs.warmAccent) { knobs = knobs.copy(warmAccent = it) }
         LabSlider("motion", knobs.motion) { knobs = knobs.copy(motion = it) }
 
+        // T4-P2-9：离屏渲染 + PNG compress(100) + 双文件写盘移 IO 协程——
+        // 此前 onClick 在主线程同步执行（debug-only 但 dogfood 卡顿/ANR 观感差）。
         Button(onClick = {
-            exportReport = exportLab(context.cacheDir, request, preset)
+            scope.launch(Dispatchers.IO) {
+                val report = exportLab(context.cacheDir, request, preset)
+                withContext(Dispatchers.Main) { exportReport = report }
+            }
         }) { Text("导出 PNG + metrics（Reference 门评估）") }
 
         exportReport?.let { Text(it, style = MaterialTheme.typography.bodySmall) }

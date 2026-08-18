@@ -1,14 +1,9 @@
 package com.yunjue.echo.mind
 
+import com.yunjue.echo.mind.journey.JourneyOrganismVisuals
 import com.yunjue.echo.mind.journey.JourneyScale
-import com.yunjue.echo.mind.journey.growthScore
-import com.yunjue.echo.mind.journey.journeyAggregateParams
 import com.yunjue.echo.mind.journey.journeyChunkDays
 import com.yunjue.echo.mind.journey.journeyDayParams
-import com.yunjue.echo.mind.journey.journeyGroups
-import com.yunjue.echo.mind.journey.journeyRepresentativeIndex
-import com.yunjue.echo.mind.journey.JourneyOrganismVisuals
-import com.yunjue.echo.mind.journey.journeyWeekGroups
 import com.yunjue.echo.mind.journey.journeyWindowDays
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
@@ -58,60 +53,19 @@ class JourneyVisualsTest {
     }
 
     @Test
-    fun thumbnailFrameIsStableAcrossCalls() {
-        // V3：production organism 帧（存参数不存图；同一天同一帧）
+    fun thumbnailGenomeIsStableAcrossCalls() {
+        // V3：production organism genome（存参数不存图；同一天同一 genome → 同一帧）
         val p = portrait("2026-08-14", 10)
-        val f1 = JourneyOrganismVisuals.frameFor(p, 42L, 100f, 100f)
-        val f2 = JourneyOrganismVisuals.frameFor(p, 42L, 100f, 100f)
-        assertEquals(f1, f2)
-        assertNotNull(f1)
+        val g1 = JourneyOrganismVisuals.genomeFor(p, 42L)
+        val g2 = JourneyOrganismVisuals.genomeFor(p, 42L)
+        assertEquals(g1, g2)
+        assertNotNull(g1)
     }
 
     @Test
-    fun missingDayHasNoFrame() {
-        assertNull(JourneyOrganismVisuals.frameFor(null, 42L, 100f, 100f))
+    fun missingDayHasNoGenome() {
+        assertNull(JourneyOrganismVisuals.genomeFor(null, 42L))
         assertNull(journeyDayParams(null))
-    }
-
-    @Test
-    fun representativeDayIsMostSimilar() {
-        val portraits = listOf(
-            portrait("2026-08-11", 10, movement = "MORE"),
-            portrait("2026-08-12", 10), // 全 SIMILAR
-            portrait("2026-08-13", 10, movement = "LESS", screen = "MORE"),
-        )
-        assertEquals(1, journeyRepresentativeIndex(portraits))
-        assertEquals(-1, journeyRepresentativeIndex(emptyList()))
-    }
-
-    @Test
-    fun aggregateAveragesDayParams() {
-        val portraits = (1..4).map { i -> portrait("2026-08-1$i", 10, movement = if (i % 2 == 0) "MORE" else "LESS") }
-        val agg = journeyAggregateParams(portraits)
-        assertNotNull(agg)
-        val dayAvg = portraits.mapNotNull { journeyDayParams(it) }.map { it.flowSpeed }.average().toFloat()
-        assertEquals(dayAvg, agg!!.flowSpeed, 1e-4f)
-        assertNull(journeyAggregateParams(emptyList()))
-    }
-
-    @Test
-    fun weekGroupsChunkBySeven() {
-        val portraits = (1..15).map { i -> portrait("2026-08-${i.toString().padStart(2, '0')}", 10) }
-        val groups = journeyWeekGroups(portraits)
-        assertEquals(3, groups.size)
-        assertEquals(7, groups[0].size)
-        assertEquals(7, groups[1].size)
-        assertEquals(1, groups[2].size)
-        assertTrue(journeyWeekGroups(emptyList()).isEmpty())
-    }
-
-    @Test
-    fun growthScoreReflectsMaturityIncrease() {
-        val young = listOf(portrait("2026-08-10", 1), portrait("2026-08-14", 2))
-        val old = listOf(portrait("2026-08-10", 20), portrait("2026-08-14", 21))
-        // 基线天数越多，结构复杂度越高 → 成长度更高（同一窗口内差分也非负）
-        assertTrue(growthScore(old) >= 0f)
-        assertEquals(0f, growthScore(emptyList()))
     }
 
     @Test
@@ -127,10 +81,5 @@ class JourneyVisualsTest {
     fun seasonAndYearGroupByThirtyDays() {
         assertEquals(30, journeyChunkDays(JourneyScale.SEASON))
         assertEquals(30, journeyChunkDays(JourneyScale.YEAR))
-        val portraits = (1..65).map { i -> portrait("2026-07-${(i % 28 + 1).toString().padStart(2, '0')}", 10) }
-        val groups = journeyGroups(portraits, 30)
-        assertEquals(3, groups.size)
-        assertTrue(journeyGroups(emptyList(), 30).isEmpty())
-        assertTrue(journeyGroups(portraits, 0).isEmpty())
     }
 }

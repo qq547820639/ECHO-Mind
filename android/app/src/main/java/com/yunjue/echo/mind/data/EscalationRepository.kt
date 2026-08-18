@@ -74,10 +74,14 @@ class EscalationRepository(
     /** 服务端 user-status 查询结果回写（human_acknowledged 仅由服务端显式 ack/takeover 决定）。 */
     suspend fun updateEscalationServerStatus(eventId: String, serverStatusJson: String) {
         val row = db.escalationDao().byEventId(eventId) ?: return
-        val status = parseServerStatus(serverStatusJson)
+        applyServerStatus(row, serverStatusJson)
+    }
+
+    /** user-status → 本地最小状态唯一回写路径（updateEscalationServerStatus 与 refreshEscalationStatus 共用）。 */
+    private suspend fun applyServerStatus(row: EscalationEntity, serverStatusJson: String) {
         db.escalationDao().upsert(
             row.copy(
-                status = status,
+                status = parseServerStatus(serverStatusJson),
                 serverStatusJson = serverStatusJson,
                 updatedAtEpochMs = System.currentTimeMillis()
             )
@@ -113,14 +117,7 @@ class EscalationRepository(
                 val (code, body) = apiClient.get("/v1/escalations/$escalationId/user-status")
                 if (code in 200..299 && !body.isNullOrBlank()) {
                     val row = db.escalationDao().byServerEscalationId(escalationId) ?: return@runCatching
-                    val status = parseServerStatus(body)
-                    db.escalationDao().upsert(
-                        row.copy(
-                            status = status,
-                            serverStatusJson = body,
-                            updatedAtEpochMs = System.currentTimeMillis()
-                        )
-                    )
+                    applyServerStatus(row, body)
                 }
             }
         }

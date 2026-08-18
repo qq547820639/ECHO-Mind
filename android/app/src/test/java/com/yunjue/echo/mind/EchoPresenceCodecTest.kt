@@ -12,6 +12,7 @@ import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,6 +92,7 @@ class EchoPresenceCodecTest {
         assertEquals("v1 无四层字段 → 结构默认", EchoIdentityGenome(seed = 987654321L, accentHue = 0.6f), decoded.identityGenome)
         assertEquals(0f, decoded.lifeSeason.drift)
         assertEquals(0f, decoded.dailyComposition.flowSpeed)
+        assertFalse("v1 无日图构图 → 显式填充标志为 false（回退旧推导）", decoded.dailyCompositionFilled)
     }
 
     @Test

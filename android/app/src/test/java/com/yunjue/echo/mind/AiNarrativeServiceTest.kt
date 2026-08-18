@@ -185,6 +185,54 @@ class AiNarrativeServiceTest {
         assertTrue(result.text.contains("晚起 60 分钟"))
     }
 
+    // ===== T8-P2-4 补缺：longitudinalNarrative（Journey 半年故事；生产 JourneyRepository 调用，此前零测试） =====
+
+    @Test
+    fun longitudinalWithoutProviderFallsBackToDeterministic() = runBlocking {
+        val result = service(hasProvider = false, status = ProviderStatus.NOT_CONFIGURED)
+            .longitudinalNarrative(evidence, "最接近：作息；变化较明显：屏幕总量")
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("最接近：作息；变化较明显：屏幕总量", result.text)
+    }
+
+    @Test
+    fun longitudinalProviderFailureFallsBackToDeterministic() = runBlocking {
+        val result = service(hasProvider = true, status = ProviderStatus.RATE_LIMITED)
+            .longitudinalNarrative(evidence, "确定性综述")
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("确定性综述", result.text)
+    }
+
+    @Test
+    fun longitudinalValidAiNarrativePassesThroughWithSources() = runBlocking {
+        // 最小 happy-path：READY + 词表门禁通过 → AI 层 + 依据来源标注（与 nowNarrative 同规）
+        val result = service(hasProvider = true, status = ProviderStatus.READY, text = "从最近 28 天看，你的开始时间有轻微后移。")
+            .longitudinalNarrative(evidence, "确定性综述")
+        assertEquals(NarrativeFallbackLevel.AI_NARRATIVE, result.level)
+        assertEquals("从最近 28 天看，你的开始时间有轻微后移。", result.text)
+        // FIND_LONGITUDINAL_PATTERN 的 Context Policy 只允许 PORTRAIT_HISTORY/BASELINE/
+        // CONTEXT_EXCEPTIONS/USER_CORRECTIONS——当日聚合（TODAY_AGGREGATE）被排除在依据外
+        assertTrue(DataSourceCategory.BASELINE in result.usedSources)
+        assertTrue(DataSourceCategory.TODAY_AGGREGATE !in result.usedSources)
+    }
+
+    @Test
+    fun longitudinalUnsafeAiNarrativeIsRejectedToDeterministic() = runBlocking {
+        // 心理推断词 → 词表门禁否决 → 诚实降级（不把越界话给用户，也不重试到天荒地老）
+        val result = service(hasProvider = true, status = ProviderStatus.READY, text = "你最近可能有些焦虑。")
+            .longitudinalNarrative(evidence, "确定性综述")
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("确定性综述", result.text)
+    }
+
+    @Test
+    fun longitudinalBlankAiNarrativeFallsBackToDeterministic() = runBlocking {
+        val result = service(hasProvider = true, status = ProviderStatus.READY, text = "   ")
+            .longitudinalNarrative(evidence, "确定性综述")
+        assertEquals(NarrativeFallbackLevel.DETERMINISTIC_NARRATIVE, result.level)
+        assertEquals("确定性综述", result.text)
+    }
+
     @Test
     fun unknownQuestionGivesEchoVoicedGuidanceWithoutAiNag() = runBlocking {
         val service = AiNarrativeService(

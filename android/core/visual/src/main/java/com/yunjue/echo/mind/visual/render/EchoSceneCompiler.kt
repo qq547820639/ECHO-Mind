@@ -54,7 +54,6 @@ object EchoSceneCompiler {
      * @param reducedMotion 系统/用户 Reduced Motion（§30 精确系数在此展开）
      * @param hdrEligible HDR 硬门（§23：API≥34 且显示链路支持且非省电且热态<MODERATE 且非 Wallpaper）
      * @param interaction 当前 transient 交互（默认 idle；Touch 不改状态层）
-     * @param canonicalTimeNanos 绝对单调时间（全 Surface 共享时间基准）
      */
     fun compile(
         spec: EchoVisualSpec,
@@ -67,7 +66,6 @@ object EchoSceneCompiler {
         motionScale: Float = 1f,
         hdrEligible: Boolean = false,
         interaction: EchoInteractionSpec = EchoInteractionSpec(),
-        canonicalTimeNanos: Long = (spec.clockSeconds * 1_000_000_000f).toLong(),
     ): EchoRenderPacket {
         val g = spec.genome
         val maturity = maturityMultiplier(maturityName)
@@ -155,7 +153,6 @@ object EchoSceneCompiler {
             motion = motion,
             surface = surface,
             interaction = interaction,
-            canonicalTimeNanos = canonicalTimeNanos,
         )
     }
 

@@ -14,9 +14,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * ERA 35 — EchoPortraitStates 子组件 smoke test：
- * PortraitSummaryOnly / BaselineProgress / CoverageRow / UnlockBanner（一次性仪式语义）。
- * 纯状态渲染（PortraitUiState 注入；SeedPortraitBlock 依赖 AppPreferences 不在本层覆盖）。
+ * ERA 35 — EchoPortraitStates 子组件 smoke test：UnlockBanner（一次性仪式语义）。
+ * 纯状态渲染（PortraitUiState 注入）。PortraitSummaryOnly / SeedPortraitBlock
+ * 已随生产死代码删除（Scene 九态收敛后无调用），对应用例同步移除。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -43,24 +43,6 @@ class EchoPortraitStatesSmokeTest {
             coverage = coverage,
         ),
     )
-
-    @Test
-    fun summaryOnlyRendersPortraitSummary() {
-        compose.setContent {
-            MaterialTheme { PortraitSummaryOnly(portraitState(summary = "最近的作息更稳定。")) }
-        }
-        compose.onNodeWithText("最近的作息更稳定。").assertExists()
-    }
-
-    @Test
-    fun summaryOnlyRendersNothingWhenNoPortrait() {
-        compose.setContent {
-            MaterialTheme {
-                PortraitSummaryOnly(PortraitUiState(status = PortraitStatus.LOADING, portrait = null))
-            }
-        }
-        compose.onNodeWithText("今天和平时很接近。").assertDoesNotExist()
-    }
 
     // ERA 31 R28：BaselineProgress / CoverageRow 已从 Scene 移除（§9/§13 禁进度条与
     // 覆盖率仪表盘），对应 smoke 用例随组件删除——「它在记录」由当天事实句承担。

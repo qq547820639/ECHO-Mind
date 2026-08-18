@@ -107,6 +107,9 @@
 const bridge = require('../common/transport/interconnect_bridge.js')
 const cache = require('../common/presence/presence_cache.js')
 const visual = require('../common/visual/wear_visual.js')
+const throttle = require('../common/haptic/haptic_throttle.js')
+// §7 触觉宪法：short/long 共用同一节流门（两次振动间隔 ≥1.5s；模块级单例）
+const hapticGate = throttle.create(() => Date.now())
 
 let breathTimer = null
 let tick = 0
@@ -189,9 +192,11 @@ export default {
   },
 
   /** 只使用官方确认存在的 Band10 振动能力：short / long。
-   *  硬门：surface.hapticsEnabled !== true → 一律 no-op（Breathing / Stop / Action complete 全静默）。 */
+   *  硬门：surface.hapticsEnabled !== true → 一律 no-op（Breathing / Stop / Action complete 全静默）。
+   *  节流：两次振动间隔 ≥1.5s（haptic_throttle，契约 §7 速率限制）。 */
   vibrateShort() {
     if (this.hapticsEnabled !== true) return
+    if (!hapticGate.allow()) return // 契约 §7：速率限制 ≥1.5s（快速连点/呼吸→结束的第二次 no-op）
     try {
       const vibrator = require('@system.vibrator')
       vibrator.vibrate({ mode: 'short' })
@@ -202,6 +207,7 @@ export default {
 
   vibrateLong() {
     if (this.hapticsEnabled !== true) return
+    if (!hapticGate.allow()) return // 契约 §7：完成确认同样受 ≥1.5s 节流
     try {
       const vibrator = require('@system.vibrator')
       vibrator.vibrate({ mode: 'long' })

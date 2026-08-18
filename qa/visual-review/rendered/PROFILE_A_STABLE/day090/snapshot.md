@@ -1,7 +1,7 @@
 # PROFILE_A_STABLE · Day 90（2026-04-05）
 
 - **成熟度**: MATURE
-- **Headline**: 今天动得比平时多一些。
+- **Headline**: 活动比通常多。
   - Evidence: 活动量 1.04 · 通常 0.85
   - AI layer: 这种变化最近几个工作日也出现过。
 - **Life Season**: phase 2 · drift 0.258 · rhythm stable · screen stable · activity more_regular · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（8 个有效日）。画面由「通常的你」参照驱动：今天动得比平时多一些。
+基线已形成（8 个有效日）。画面由「通常的你」参照驱动：活动比通常多。
 
 人生季节漂移较明显（drift 0.258，方向 stable）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

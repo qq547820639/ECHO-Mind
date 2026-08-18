@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
+import com.yunjue.echo.mind.visual.render.EchoMaterialSpec
 import com.yunjue.echo.mind.visual.render.FilamentStroke
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import kotlin.math.min
@@ -35,14 +36,15 @@ uniform float iCavity;
 uniform float iHalo;
 uniform float iGlowRadius;
 uniform float iDepthFog;
+uniform float iKnee;
+uniform float iComp;
 layout(color) uniform half4 iPrimary;
 layout(color) uniform half4 iSecondary;
 layout(color) uniform half4 iWarm;
 uniform shader iVectorMask;
 
-half softKnee(half x) {
-    const half knee = 0.58;
-    const half comp = 2.4;
+// soft-knee 参数经 uniform iKnee/iComp 注入（唯一事实源 = EchoMaterialSpec；shader 无硬编码副本）
+half softKnee(half x, half knee, half comp) {
     if (x <= knee) return x;
     return knee + (1.0 - knee) * (1.0 - exp(-(x - knee) * comp));
 }
@@ -95,10 +97,12 @@ half4 main(float2 fragCoord) {
     col += mix(iPrimary.rgb, iSecondary.rgb, 0.5) * haze;
     col *= (1.0 - cavity * 0.82);
 
-    // tone：soft knee，禁止 hard clip（§24）
-    col.r = softKnee(col.r);
-    col.g = softKnee(col.g);
-    col.b = softKnee(col.b);
+    // tone：soft knee，禁止 hard clip（§24；knee/comp 来自 packet.material uniform）
+    half knee = half(iKnee);
+    half comp = half(iComp);
+    col.r = softKnee(col.r, knee, comp);
+    col.g = softKnee(col.g, knee, comp);
+    col.b = softKnee(col.b, knee, comp);
 
     half alpha = clamp(geom * 0.95 + glow * 0.5 + warm + ambient + rim * 0.12 + haze, 0.0, 1.0);
     alpha *= (1.0 - cavity * 0.90);
@@ -226,6 +230,7 @@ half4 main(half4 c) {
             primaryColor: Int,
             secondaryColor: Int,
             warmColor: Int,
+            material: EchoMaterialSpec = EchoMaterialSpec(),
         ) {
             rasterizeMask(frame, widthPx, heightPx, warmColor)
             shader.setFloatUniform("iResolution", widthPx, heightPx)
@@ -242,6 +247,9 @@ half4 main(half4 c) {
             shader.setColorUniform("iPrimary", primaryColor)
             shader.setColorUniform("iSecondary", secondaryColor)
             shader.setColorUniform("iWarm", warmColor)
+            // T2-P2-3：tone soft-knee 参数由 packet.material 注入（shader 端无硬编码副本；默认值=编译产物同值）
+            shader.setFloatUniform("iKnee", material.toneKnee)
+            shader.setFloatUniform("iComp", material.toneCompression)
             val grading = gradingPaint
             if (grading != null) {
                 // §21：final grading 只作用于 organism 自身 layer
@@ -253,10 +261,19 @@ half4 main(half4 c) {
             }
         }
 
-        /** vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖，B=归一化深度，A=coverage）。 */
+        /**
+         * vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖，B=归一化深度，A=coverage）。
+         *
+         * 层对齐（UX-B1）：ripples（§29 触摸涟漪描边）、halos（远层光环）、frontMembrane
+         * （前膜细环）均进 R 通道——AGSL 后端不再静默丢弃这三层（与 Canvas 行为对齐）。
+         * 已知限制：coreCavity 的 §8 有机谐波边缘形变在 shader cavity（正圆 smoothstep）上
+         * 不呈现——属设备 HW 门验证项（AGSL raster 需硬件 canvas）。
+         */
         internal fun rasterizeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float, warmColor: Int) {
             maskCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             val minDim = min(widthPx, heightPx)
+            val cx = widthPx / 2f
+            val cy = heightPx / 2f
 
             fun maskStroke(stroke: FilamentStroke, widthScale: Float) {
                 val pts = stroke.points
@@ -276,6 +293,15 @@ half4 main(half4 c) {
                     )
                 }
             }
+            // 远层光环进 R（低 alpha 圆环；B=255 前层——不被 depth fog 雾化，与 Canvas 行为对齐）
+            strokePaint.style = android.graphics.Paint.Style.STROKE
+            frame.halos.forEach { h ->
+                strokePaint.strokeWidth = h.widthFraction * minDim
+                strokePaint.color = Color.argb(
+                    (h.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 255,
+                )
+                maskCanvas.drawCircle(cx, cy, h.radiusFraction * minDim, strokePaint)
+            }
             frame.structuralRings.forEach { maskStroke(it, 1.6f) }
             frame.longFilaments.forEach { maskStroke(it, 1.35f) }
             frame.localFragments.forEach { maskStroke(it, 1.2f) }
@@ -283,8 +309,10 @@ half4 main(half4 c) {
 
             frame.particles.forEach { p ->
                 if (p.color == warmColor) return@forEach
+                // B=粒子 frontness（SceneParticleV3.depth；不再硬编码 200——depth fog 按真实前后分层）
                 dotPaint.color = Color.argb(
-                    (p.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 200,
+                    (p.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0,
+                    (p.depth.coerceIn(0f, 1f) * 255).toInt(),
                 )
                 maskCanvas.drawCircle(p.x * widthPx, p.y * heightPx, p.radiusFraction * minDim, dotPaint)
             }
@@ -304,6 +332,22 @@ half4 main(half4 c) {
                     warmPaint.color = Color.argb((p.alpha.coerceIn(0f, 1f) * 160).toInt(), 0, 255, 0)
                     maskCanvas.drawCircle(p.x * widthPx, p.y * heightPx, p.radiusFraction * minDim, warmPaint)
                 }
+            }
+
+            // 前膜细环进 R（§18 front membrane；宽度与 Canvas 渲染器同源 minDim*0.0016）
+            strokePaint.strokeWidth = minDim * 0.0016f
+            strokePaint.color = Color.argb(
+                (frame.frontMembrane.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 255,
+            )
+            maskCanvas.drawCircle(
+                cx, cy, frame.frontMembrane.radiusFraction * minDim, strokePaint,
+            )
+
+            // 触摸涟漪描边进 R（§29；宽度≈stroke，与 Canvas 渲染器同源 minDim*0.002）
+            frame.ripples.forEach { r ->
+                strokePaint.strokeWidth = minDim * 0.002f
+                strokePaint.color = Color.argb((r.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 255)
+                maskCanvas.drawCircle(r.x * widthPx, r.y * heightPx, r.radiusFraction * minDim, strokePaint)
             }
         }
 

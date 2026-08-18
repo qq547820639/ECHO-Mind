@@ -59,6 +59,10 @@ fun contextExceptionKindLabel(kind: String): String = when (kind) {
 
 private val CONTEXT_DATE_REGEX = Regex("""\d{4}-\d{2}-\d{2}""")
 
+// T5-P2-3：note 为自由文本，可含（ ）@（如「见客户（重要）@公司」）——
+// 解析按结构而非字符排除：kind 到首个（为止；note 贪婪匹配到最后一个）；
+// 日期仅认结尾的 @yyyy-MM-dd。贪婪回溯取「最长 note + 合法尾缀」切分，
+// 与编码侧组装结构（note 原样夹在（ ）内、@date 可选后缀）roundtrip 闭合。
 private val CONTEXT_EXCEPTION_REGEX = Regex(
-    """特殊时期：([^（@]+?)(?:（([^）]*)）)?(?:@(\d{4}-\d{2}-\d{2}))?"""
+    """特殊时期：([^（]+?)(?:（(.*)）)?(?:@(\d{4}-\d{2}-\d{2}))?"""
 )

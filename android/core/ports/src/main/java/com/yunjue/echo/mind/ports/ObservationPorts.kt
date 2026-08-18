@@ -31,7 +31,12 @@ interface CurrentPortraitSource {
 
 /** 画像历史源（时间线；Journey 消费）。 */
 interface PortraitHistorySource {
-    fun observePortraits(days: Int): kotlinx.coroutines.flow.StateFlow<com.yunjue.echo.mind.model.PortraitTimelineUiState>
+    /**
+     * 观察画像时间线（单一共享流；窗口天数由 [refreshPortraits] 刷新时决定，
+     * 状态自身携带 days）。T4-P2-7：原 observePortraits(days) 的 days 参数被实现
+     * 无视（恒返回同一 StateFlow）——签名去参，消除「per-days 流」的假象。
+     */
+    fun observePortraits(): kotlinx.coroutines.flow.StateFlow<com.yunjue.echo.mind.model.PortraitTimelineUiState>
     suspend fun refreshPortraits(days: Int)
 }
 

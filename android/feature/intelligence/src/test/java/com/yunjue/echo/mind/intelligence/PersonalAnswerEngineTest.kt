@@ -218,6 +218,45 @@ class PersonalAnswerEngineTest {
         assertTrue("证据不含工程口径：${answer.evidence}", !answer.evidence.contains("~"))
     }
 
+    /**
+     * T5-P2-1：PersonalAnswerInputs 是公开 data class——contextWindows 脏下标
+     * （负 fromDay/toDay、越界）不得抛异常，且诚实降级（不编造窗口外结论）。
+     */
+    @Test
+    fun travelContextWithDirtyNegativeIndicesDoesNotThrow() {
+        val days = series(40, start = { i -> if (i < 36) 540 else 420 })
+        val dirty = inputs(days).copy(
+            contextWindows = listOf(PersonalContextWindow(fromDay = -7, toDay = -2, label = "出差")),
+        )
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", dirty)!!
+        // 负窗口 clamp 到 0 后走「已结束/数据不足」诚实路径（不崩溃、不编造进行中）
+        assertTrue("负窗口 clamp 后仍给中性回答：${answer.text}", answer.text.isNotBlank())
+    }
+
+    @Test
+    fun travelContextWithNegativeToDayDoesNotThrow() {
+        val days = series(40, start = { i -> if (i < 36) 540 else 420 })
+        val dirty = inputs(days).copy(
+            contextWindows = listOf(PersonalContextWindow(fromDay = 30, toDay = -5, label = "出差")),
+        )
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", dirty)!!
+        assertTrue("负 toDay clamp 后仍给中性回答：${answer.text}", answer.text.isNotBlank())
+    }
+
+    @Test
+    fun travelContextDayZeroWithWindowDoesNotThrow() {
+        // dayIndex=0（刚认识）+ 声称窗口：窗口前无基线 → 诚实说数据不够
+        val days = series(1, start = { 540 })
+        val dirty = PersonalAnswerInputs(
+            dayIndex = 0,
+            days = days,
+            contextWindows = listOf(PersonalContextWindow(fromDay = 0, toDay = 0, label = "出差")),
+            seasonDrift = 0f,
+        )
+        val answer = PersonalAnswerEngine.answer("我说过最近在出差，这有没有影响？", dirty)!!
+        assertTrue("day0 窗口回答诚实不崩：${answer.text}", answer.text.isNotBlank())
+    }
+
     @Test
     fun travelContextHonestWhenNoWindow() {
         val days = series(40, start = { 540 })

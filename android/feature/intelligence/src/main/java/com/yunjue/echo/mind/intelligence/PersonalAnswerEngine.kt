@@ -538,10 +538,14 @@ object PersonalAnswerEngine {
         )
         // ERA 32 R03：上下文没有结束日期时不得永远「进行中」——超过 14 天未更新按已结束处理
         // （生产 CONTEXT 记忆只带开始日期；此前 toDay 恒为今天，三个月前的出差仍被当成「这几天」）。
-        val active = dayIndex - recent.fromDay <= CONTEXT_ACTIVE_DAYS && dayIndex in recent.fromDay..recent.toDay
-        val woke = medianOf(wakeSeries(days, recent.fromDay..minOf(recent.toDay, dayIndex)))
+        // T5-P2-1：PersonalAnswerInputs 是公开 data class，窗口下标属不可信输入——
+        // fromDay/toDay 一律 clamp 到 days 边界（负值/越界不抛异常，诚实降级不编造）。
+        val fromIdx = recent.fromDay.coerceIn(0, days.size - 1)
+        val toIdx = recent.toDay.coerceIn(0, days.size - 1)
+        val active = dayIndex - fromIdx <= CONTEXT_ACTIVE_DAYS && dayIndex in fromIdx..toIdx
+        val woke = medianOf(wakeSeries(days, fromIdx..minOf(toIdx, dayIndex)))
         val base = inputs.baselineWakeMinute
-            ?: medianOf(wakeSeries(days, 0..(recent.fromDay - 1).coerceAtLeast(0)))
+            ?: medianOf(wakeSeries(days, 0..(fromIdx - 1).coerceAtLeast(0)))
             ?: return PersonalAnswer(
                 "出差窗口前后的节奏数据还不够，先不下结论。",
                 "窗口内有效起点 ${woke != null}",
@@ -551,10 +555,10 @@ object PersonalAnswerEngine {
         val label = recent.label.ifBlank { "出差" }
         val contextSources = listOf(DataSourceCategory.CONTEXT_EXCEPTIONS, DataSourceCategory.PORTRAIT_HISTORY)
         // 证据只陈述已知事实：窗口有明确结束 → 显示区间；没有 → 只显示开始日 + 已过去天数（不编造结束日）
-        val fromText = days[recent.fromDay].date.toString().takeLast(5)
-        val toText = days[recent.toDay.coerceAtMost(days.size - 1)].date.toString().takeLast(5)
+        val fromText = days[fromIdx].date.toString().takeLast(5)
+        val toText = days[toIdx].date.toString().takeLast(5)
         val boundedRange = "$fromText~$toText"
-        val openEnded = "从 $fromText 开始（已过去 ${dayIndex - recent.fromDay} 天）"
+        val openEnded = "从 $fromText 开始（已过去 ${dayIndex - fromIdx} 天）"
         return when {
             active && abs(delta) >= 45 -> PersonalAnswer(
                 "有影响。${label}的这几天，你明显开始了不同的节奏。",
@@ -563,12 +567,12 @@ object PersonalAnswerEngine {
             )
             active -> PersonalAnswer(
                 "这几天在${label}的窗口里，但我先把它当成你的当前状态，不急着下结论。",
-                "${label}${if (recent.toDay > dayIndex) "窗口 $boundedRange" else openEnded}",
+                "${label}${if (toIdx > dayIndex) "窗口 $boundedRange" else openEnded}",
                 usedSources = contextSources,
             )
             else -> PersonalAnswer(
                 "最近一次的${label}已经结束了，你的节奏看起来正在回到平时。",
-                "上次$label ${if (recent.toDay < dayIndex) boundedRange else openEnded}",
+                "上次$label ${if (toIdx < dayIndex) boundedRange else openEnded}",
                 usedSources = contextSources,
             )
         }

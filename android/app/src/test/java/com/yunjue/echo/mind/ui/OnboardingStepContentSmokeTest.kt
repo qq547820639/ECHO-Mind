@@ -33,6 +33,22 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class OnboardingStepContentSmokeTest {
 
+    /** UX-B2：reduceMotion 开启时 seed 视觉 flowSpeed 必须为 0（mapper 语义级硬契约）。 */
+    @Test
+    fun seedGenomeRespectsReduceMotionPreference() {
+        val seed = com.yunjue.echo.mind.presence.dayZeroSeedPresence(identitySeed = 42L)
+            .copy(rhythmState = com.yunjue.echo.mind.model.RhythmState(activityLevel = 0.7f))
+        assertEquals(
+            "reduceMotion 开启时 mapper 参数 flowSpeed 必须归零（语义级硬契约；genome 无 flowSpeed 字段）",
+            0f,
+            com.yunjue.echo.mind.presence.EchoVisualMapper.map(seed, 12f, reduceMotion = true).flowSpeed,
+        )
+        assertTrue(
+            "对照：偏好关闭且 presence 有活动度时 flowSpeed > 0（断言有区分度）",
+            com.yunjue.echo.mind.presence.EchoVisualMapper.map(seed, 12f, reduceMotion = false).flowSpeed > 0f,
+        )
+    }
+
     @Test
     fun awakeningDurationWithinTimeToEchoBudget() {
         // §50：苏醒过渡 ≤3s（机器段预算）；回归 = 时间被悄悄拉长

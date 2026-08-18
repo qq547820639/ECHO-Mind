@@ -304,21 +304,6 @@ fun buildLandmarks(
     return landmarks.sortedBy { it.date }
 }
 
-/** §42 — 年故事：一年中的几个主要阶段（不是 12 个月报告）。 */
-fun journeyYearStory(view: JourneyYearView): String {
-    if (view.seasons.isEmpty()) return "还没有足够的时间可以回看。"
-    val phases = mutableListOf<String>()
-    view.seasons.forEach { season ->
-        val seasonShifts = season.majorShifts.size
-        val contextPeriods = season.contextPeriods.map { contextExceptionKindLabel(it.kind) }.distinct()
-        when {
-            contextPeriods.isNotEmpty() -> phases += "${seasonLabel(season.season)}：${contextPeriods.joinToString("、")}。"
-            seasonShifts > 0 -> phases += "${seasonLabel(season.season)}：节奏发生过 ${seasonShifts} 次明显变化。"
-            else -> phases += "${seasonLabel(season.season)}：平稳。"
-        }
-    }
-    return phases.joinToString(" ")
-}
 
 /**
  * §43 — 情感克制守卫：故事文案不得自动输出情绪判断词。

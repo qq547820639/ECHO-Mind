@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.R
 import com.yunjue.echo.mind.data.EscalationEntity
+import com.yunjue.echo.mind.data.EscalationStatus
 
 /**
  * ERA 13.1 §31 — Me → Support：真正的人工支持内容（订阅功能）。
@@ -47,13 +48,14 @@ fun SupportSection(
 /** 人工支持请求状态行（用户侧最小状态）。 */
 @Composable
 private fun EscalationStatusRow(esc: EscalationEntity) {
+    // 状态字面量唯一事实源 = EscalationStatus 枚举（库内行以 *.name 落盘）。
     val statusText = when (esc.status) {
-        "QUEUED" -> stringResource(R.string.esc_status_queued)
-        "DELIVERED" -> stringResource(R.string.esc_status_delivered)
-        "ACKNOWLEDGED" -> stringResource(R.string.esc_status_acknowledged)
-        "TAKEN_OVER" -> stringResource(R.string.esc_status_taken_over)
-        "CLOSED" -> stringResource(R.string.esc_status_closed)
-        "FAILED" -> stringResource(R.string.esc_status_failed)
+        EscalationStatus.QUEUED.name -> stringResource(R.string.esc_status_queued)
+        EscalationStatus.DELIVERED.name -> stringResource(R.string.esc_status_delivered)
+        EscalationStatus.ACKNOWLEDGED.name -> stringResource(R.string.esc_status_acknowledged)
+        EscalationStatus.TAKEN_OVER.name -> stringResource(R.string.esc_status_taken_over)
+        EscalationStatus.CLOSED.name -> stringResource(R.string.esc_status_closed)
+        EscalationStatus.FAILED.name -> stringResource(R.string.esc_status_failed)
         else -> stringResource(R.string.esc_status_unknown)
     }
     Text("• $statusText", style = MaterialTheme.typography.bodyMedium)

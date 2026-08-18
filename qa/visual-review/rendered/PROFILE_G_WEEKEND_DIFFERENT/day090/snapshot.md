@@ -1,7 +1,7 @@
 # PROFILE_G_WEEKEND_DIFFERENT · Day 90（2026-04-05）
 
 - **成熟度**: MATURE
-- **Headline**: 今天和你的节奏很接近。
+- **Headline**: 今天和通常差不多。
   - Evidence: 与通常的差异很小（VERY_SIMILAR）
   - AI layer: —（无增量理解）
 - **Life Season**: phase 2 · drift 0.302 · rhythm stable · screen stable · activity more_regular · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（8 个有效日）。画面由「通常的你」参照驱动：今天和你的节奏很接近。
+基线已形成（8 个有效日）。画面由「通常的你」参照驱动：今天和通常差不多。
 
 人生季节漂移较明显（drift 0.302，方向 stable）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

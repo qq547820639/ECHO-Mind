@@ -237,11 +237,10 @@ class WearableRuntime(
             motionSummaryEnabled = motionSummaryEnabledProvider(),
             hapticsEnabled = hapticsEnabledProvider(),
         )
-        val headline = if (headlineRequested) {
-            WearablePrivacyProjector.headlineFor(presence, ambientStateProvider())
-        } else {
-            null
-        }
+        // WHY 门控在 headlineFor 契约内（默认 VISUAL_FIRST → null；T5-P2-7）
+        val headline = WearablePrivacyProjector.headlineFor(
+            presence, ambientStateProvider(), whyRequested = headlineRequested,
+        )
 
         val changed = WearablePolicy.hasSemanticChange(lastProjection, projection)
         val revision = revisionCounter.advanceIfChanged(changed)

@@ -88,8 +88,10 @@ fun computeVisualParameters(
         PresenceMotionLevel.LIVELY -> 1.3f
     }
 
-    // Daily Composition 未填充（旧快照/Journey 状态）→ 回退旧推导（向后兼容）。
-    val hasDaily = daily.flowSpeed > 0f || daily.coherence > 0f
+    // Daily Composition 未填充（v1 旧快照/未接日构图的状态）→ 回退旧推导（向后兼容）。
+    // T3-P2-3：判定改显式标志，不再以 flowSpeed/coherence 哨兵值推断
+    //（真实日构图两值恰为 0 时不再误判回退旧路径）。
+    val hasDaily = state.dailyCompositionFilled
 
     val baseFlow = if (hasDaily) daily.flowSpeed else v.activityLevel * 0.6f + b.density * 0.4f
     val flow = if (reduceMotion) 0f else baseFlow * motionFactor * nightFactor *

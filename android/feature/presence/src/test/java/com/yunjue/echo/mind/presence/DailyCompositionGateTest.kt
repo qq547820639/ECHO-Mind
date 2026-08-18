@@ -2,7 +2,9 @@ package com.yunjue.echo.mind.presence
 import com.yunjue.echo.mind.model.EchoDailyComposition
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -43,5 +45,15 @@ class DailyCompositionGateTest {
         // 单日缓存语义：日期变化（含回拨）即重算；生产侧 refresh 恒传「今天」
         val rolledBack = gate.compositionFor(d1) { EchoDailyComposition(flowSpeed = 0.1f) }
         assertEquals(0.1f, rolledBack.flowSpeed)
+    }
+
+    @Test
+    fun yesterdayCacheDoesNotReportAsToday() {
+        // T3-P2-2：跨日（进程未重启、日期翻页）后，昨日缓存不得经本门误报「今日已固化」
+        val gate = DailyCompositionGate()
+        gate.compositionFor(d1) { EchoDailyComposition(flowSpeed = 0.3f) }
+        assertTrue("同日应报已固化", gate.hasCompositionFor(d1))
+        assertFalse("昨日记录不算今日已固化", gate.hasCompositionFor(d2))
+        assertFalse("无任何记录时未固化", DailyCompositionGate().hasCompositionFor(d1))
     }
 }

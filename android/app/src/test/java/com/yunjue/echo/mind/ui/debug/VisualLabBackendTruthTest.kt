@@ -39,6 +39,16 @@ class VisualLabBackendTruthTest {
         )
     }
 
+    /** UX-B6：surface chip 集合必须覆盖 PUBLIC_SAFE 面（LOCK/WRIST），不得只留 APP/WALLPAPER/DREAM。 */
+    @Test
+    fun surfaceChipsCoverPublicSafeSurfaces() {
+        for (s in listOf(
+            "APP_PRIVATE", "WALLPAPER_VISUAL_ONLY", "LOCK_PUBLIC_SAFE", "DREAM_AMBIENT", "WRIST_PUBLIC_SAFE",
+        )) {
+            assertTrue("Lab surface chip 缺少 $s", labSource.contains("EchoSurface.$s to "))
+        }
+    }
+
     /** tier → 预期后端标签必须与 facade 常量一致（FilterChip 可用性/标签不撒谎）。 */
     @Test
     fun tierBackendLabelsMatchFacadeConstants() {

@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.intelligence.ContextRanker
-import com.yunjue.echo.mind.journey.buildJourneyDays
+import com.yunjue.echo.mind.journey.buildJourneyDaysWithOrganism
 import com.yunjue.echo.mind.journey.buildYearView
 import com.yunjue.echo.mind.memory.rankMemories
 import com.yunjue.echo.mind.presence.EchoPresenceCodec
@@ -53,7 +53,7 @@ class QaPerformanceBudgetTest {
     @Test
     fun yearViewOn365DaysIsBudgetedAndDeterministic() {
         val timeline = QaTimeline(QaProfiles.B_NIGHT_OWL)
-        val days = buildJourneyDays(timeline.allPortraitsUpTo(365))
+        val days = buildJourneyDaysWithOrganism(timeline.allPortraitsUpTo(365), identitySeed = 0L)
         assertTrue("365 天画像天数有界（窗口化，实际 ${days.size}）", days.size in 200..366)
         val view1 = buildYearView(days, emptyList(), emptyMap())
         val elapsed = timed { buildYearView(days, emptyList(), emptyMap()) }

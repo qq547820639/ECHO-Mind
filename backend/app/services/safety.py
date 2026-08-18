@@ -1,3 +1,9 @@
+"""安全规则包（red/yellow/exit/negation 规则匹配）。
+
+FOLLOW_UP（审计 T6-P2-8）：evaluate_text 生产零调用（/safety/check 已 410，仅
+evaluate_passive 仍被 sandbox.tool_validator 使用），属 v0.8 计划内退役物；删除需
+同步 content-packs 语义与 workbench 历史只读口径裁定，本轮保留。
+"""
 from dataclasses import dataclass
 import re
 from typing import Any

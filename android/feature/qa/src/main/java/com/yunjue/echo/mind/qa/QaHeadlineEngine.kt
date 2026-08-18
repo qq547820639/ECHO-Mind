@@ -30,18 +30,26 @@ object QaHeadlineEngine {
         val diffDims = portrait.dimensions.filter { it.value.value != "SIMILAR" && it.key != "STABILITY" }
         if (diffDims.isEmpty()) {
             return QaHeadline(
-                public = "今天和你的节奏很接近。",
+                public = productionVoice(portrait) ?: "今天和你的节奏很接近。",
                 evidence = "与通常的差异很小（${portrait.dimensionValue("STABILITY")}）",
                 aiLayer = null,
             )
         }
-        // 最强维度（|z| 最大）驱动一句话
+        // 最强维度（|z| 最大）驱动证据行；一句话优先消费生产 Layer1 真值（T5-P2-8）
         val top = diffDims.maxByOrNull { abs(it.value.z ?: 0.0) }!!
-        val public = publicVoice(top.key, top.value.value)
+        val public = productionVoice(portrait) ?: publicVoice(top.key, top.value.value)
         val evidence = evidenceLine(top.key, snap, timeline)
         val aiLayer = aiLayerFor(top.key, top.value.value, snap, timeline)
         return QaHeadline(public = public, evidence = evidence, aiLayer = aiLayer)
     }
+
+    /**
+     * 生产 Scene Layer1 真值（assembleEchoSceneUiState 同一优先级：summary 自然句
+     * 优先，其次 headline 短语拼接）——QA 快照展示的语句即产品会产出的语句。
+     */
+    private fun productionVoice(portrait: com.yunjue.echo.mind.model.DailyPortraitDto): String? =
+        portrait.summary.takeIf { it.isNotBlank() }
+            ?: portrait.headline.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 
     /** 学习期文案：public 用 production 共享函数（ERA 31 R7 QA mirror 收敛——不再有 QA 副本）。 */
     private fun learningPhase(snap: QaDaySnapshot): QaHeadline {
@@ -59,7 +67,12 @@ object QaHeadlineEngine {
         )
     }
 
-    /** 公共一句话：口语、克制、不喊口号。 */
+    /**
+     * QA 兜底词表（**镜像关系注记**，T5-P2-8）：仅当画像缺 summary/headline 时使用——
+     * 生产该路径回退 learningPhaseHeadline（learningPhase 已共享）；此表保留为 QA
+     * 差异日证据语境的兜底，口径与 QaPortraitMirror.headlinesFor（backend narrative
+     * 词表镜像）保持中性一致。口语、克制、不喊口号。
+     */
     private fun publicVoice(dim: String, value: String): String = when (dim to value) {
         "RHYTHM" to "LATER" -> "今天开始得比通常慢一些。"
         "RHYTHM" to "EARLIER" -> "今天开始得比平时早。"

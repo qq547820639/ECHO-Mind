@@ -1,7 +1,7 @@
 # PROFILE_G_WEEKEND_DIFFERENT · Day 180（2026-07-04）
 
 - **成熟度**: MATURE
-- **Headline**: 今天屏幕时间比平时短。
+- **Headline**: 活动比通常少 · 屏幕时间比通常少 · 今天比较零散。
   - Evidence: 301 分钟 · 通常 336 分钟
   - AI layer: 这种变化最近几个工作日也出现过。
 - **Life Season**: phase 3 · drift 0.300 · rhythm stable · screen stable · activity more_regular · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（8 个有效日）。画面由「通常的你」参照驱动：今天屏幕时间比平时短。
+基线已形成（8 个有效日）。画面由「通常的你」参照驱动：活动比通常少 · 屏幕时间比通常少 · 今天比较零散。
 
 人生季节漂移较明显（drift 0.300，方向 stable）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

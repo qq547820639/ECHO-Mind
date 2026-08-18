@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import secrets
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -44,7 +45,10 @@ def create_tenant(
 ) -> dict[str, Any]:
     from app.config import get_settings
 
-    if x_bootstrap_key != get_settings().bootstrap_key:
+    # 审计 P3 修复：高熵 key 比对改常数时间比较（防时序侧信道）。
+    if x_bootstrap_key is None or not secrets.compare_digest(
+        x_bootstrap_key, get_settings().bootstrap_key
+    ):
         raise HTTPException(status_code=403, detail="invalid bootstrap key")
     tenant = Tenant(name=payload.name)
     db.add(tenant)
@@ -65,17 +69,20 @@ def create_user(payload: UserCreate, db: DB, principal: PRINCIPAL) -> dict[str, 
         city=payload.city,
     )
     db.add(user)
-    db.flush()
-    append_audit(
-        db,
-        tenant_id=principal.tenant_id,
-        actor_type=principal.role,
-        actor_id=principal.subject,
-        action="user.create",
-        object_type="user",
-        object_id=user.id,
-    )
+    # T8-P2-8 补测暴露的缺陷修复：flush 同样可能触发唯一约束（SQLite 立即执行 INSERT），
+    # 原先 flush 在 try 外 → 重复 external_ref 返回 500 而非约定的 409。flush/audit/commit
+    # 同置 try 内：失败创建不落审计、统一 409。
     try:
+        db.flush()
+        append_audit(
+            db,
+            tenant_id=principal.tenant_id,
+            actor_type=principal.role,
+            actor_id=principal.subject,
+            action="user.create",
+            object_type="user",
+            object_id=user.id,
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -187,7 +194,14 @@ def verify_onboarding_code(payload: OnboardingVerifyIn, db: DB, request: Request
             db.commit()
             raise HTTPException(status_code=403, detail="该激活码已受限，请联系机构")
         # legacy 回退：external_ref 旧语义（v0.8 退役）
-        user = db.scalar(select(User).where(User.external_ref == code))
+        # 审计 P2-9 修复：加确定性排序（created_at, id 升序取最早命中），
+        # 多租户同 external_ref 时命中唯一确定（不再依赖数据库返回顺序）。
+        user = db.scalar(
+            select(User)
+            .where(User.external_ref == code)
+            .order_by(User.created_at.asc(), User.id.asc())
+            .limit(1)
+        )
         if user is None:
             # P0-2 修复：not_found 的失败 attempt 行同样先持久化（IP/device
             # 维度 rate limit 的数据来源），再统一 404。

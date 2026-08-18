@@ -1,7 +1,7 @@
 # PROFILE_A_STABLE · Day 3（2026-01-08）
 
 - **成熟度**: EMERGING
-- **Headline**: 今天屏幕时间比平时长。
+- **Headline**: 屏幕时间比通常多 · 晚间屏幕比通常更晚。
   - Evidence: 294 分钟 · 通常 261 分钟
   - AI layer: —（无增量理解）
 - **Life Season**: phase 0 · drift 0.120 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable

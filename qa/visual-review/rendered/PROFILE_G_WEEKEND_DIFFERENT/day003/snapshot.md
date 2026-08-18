@@ -1,7 +1,7 @@
 # PROFILE_G_WEEKEND_DIFFERENT · Day 3（2026-01-08）
 
 - **成熟度**: EMERGING
-- **Headline**: 今天动得比平时多一些。
+- **Headline**: 活动比通常多。
   - Evidence: 活动量 0.77 · 通常 0.72
   - AI layer: —（无增量理解）
 - **Life Season**: phase 0 · drift 0.113 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable

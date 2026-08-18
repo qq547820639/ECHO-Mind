@@ -1,7 +1,19 @@
 import re, sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-TARGETS=[ROOT/"android/app/src/main",ROOT/"content-packs"]
+
+def android_main_roots():
+ """T7-P2-3：settings.gradle.kts 自动发现全部 module 的 src/main（java/kotlin）——
+ 违禁宣称扫描不再停留于单 module 时代（只扫 android/app）。"""
+ settings=ROOT/"android"/"settings.gradle.kts"
+ modules=re.findall(r'include\("?([\w:]+)"?\)',settings.read_text(encoding="utf-8"))
+ roots=[]
+ for m in sorted({n.lstrip(":") for n in modules}):
+  base=ROOT/"android"/Path(*m.split(":"))/"src"/"main"
+  roots.extend(d for d in (base/"java",base/"kotlin") if d.is_dir())
+ return roots
+
+TARGETS=android_main_roots()+[ROOT/"content-packs"]
 patterns={
  "diagnosis_claim":re.compile(r"(已|被|为你|可以).{0,5}(确诊|诊断为)"),
  "treatment_claim":re.compile(r"(自动|个性化|为你生成).{0,6}治疗方案"),
@@ -26,4 +38,5 @@ for path in (ROOT/"pilot-pack").rglob("*.md"):
    if phrase in line: fail.append(f"{path.relative_to(ROOT)}:{lineno}:doc_claim:{phrase}")
 if fail:
  print("\n".join(fail),file=sys.stderr);raise SystemExit(2)
-print("claim scan passed")
+scanned=sum(1 for base in TARGETS for path in base.rglob("*") if path.is_file() and path.suffix.lower() in {".kt",".xml",".json"})
+print(f"claim scan passed ({scanned} kt/xml/json files across {len(TARGETS)} roots: all android modules src/main + content-packs)")

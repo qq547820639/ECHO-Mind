@@ -219,7 +219,10 @@ interface ConsentDao {
  * 语义（对用户可见的**最小必要**状态，绝不暴露内部升级策略/值班隐私）：
  * - QUEUED：请求已保存在本机，等待送达（离线可排队）
  * - DELIVERED：服务端已接收（≠ 人工已收到）
- * - ACKNOWLEDGED：人工已确认（服务端 ack）
+ * - ACKNOWLEDGED：人工已确认（服务端 ack）——**当前不可达**：EscalationRepository
+ *   .parseServerStatus 把 human_acknowledged 直接映射为 TAKEN_OVER，本值无生产写入
+ *   路径；是否存在独立 ack 阶段待产品/服务端裁定（FOLLOW_UP，裁定前保留枚举值
+ *   与 esc_status_acknowledged 文案，不改状态机映射）。
  * - TAKEN_OVER：正在接管（服务端 takeover）
  * - CLOSED：已完成（服务端 close）
  * - FAILED：本地已放弃（dead-letter，需重新联系机构）

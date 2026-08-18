@@ -1,7 +1,7 @@
 # PROFILE_C_IRREGULAR · Day 7（2026-01-12）
 
 - **成熟度**: KNOWN
-- **Headline**: 今天开始得比通常慢一些。
+- **Headline**: 活跃开始比通常晚 · 活动比通常多 · 屏幕时间比通常多。
   - Evidence: 15:44 · 通常 07:08
   - AI layer: 这种变化最近也出现过。
 - **Life Season**: phase 0 · drift 0.802 · rhythm earlier · screen stable · activity stable · mobility more_mobile · regularity more_regular
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（4 个有效日）。画面由「通常的你」参照驱动：今天开始得比通常慢一些。
+基线已形成（4 个有效日）。画面由「通常的你」参照驱动：活跃开始比通常晚 · 活动比通常多 · 屏幕时间比通常多。
 
 人生季节漂移较明显（drift 0.802，方向 earlier）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

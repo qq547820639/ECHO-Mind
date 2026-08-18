@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind.intelligence
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,6 +44,33 @@ class ProviderConfigValidatorTest {
         assertTrue(localhost.none { it.contains("https") })
         val lan = validateProviderConfig(draft("http://10.3.2.1"))
         assertTrue(lan.none { it.contains("https") })
+    }
+
+    // ---------------------------------------------------------------- normalizeBaseUrl
+
+    /** T5-P2-6：…/v1/xxx 形态不再被追加成 /v1/xxx/v1（KDoc 与实现对齐）。 */
+    @Test
+    fun normalizeBaseUrlDoesNotDuplicateV1Path() {
+        assertEquals("https://gw.example.com/v1", normalizeBaseUrl("https://gw.example.com/v1"))
+        assertEquals("https://gw.example.com/v1", normalizeBaseUrl("https://gw.example.com/v1/"))
+        assertEquals("https://gw.example.com/v1/chat", normalizeBaseUrl("https://gw.example.com/v1/chat"))
+        assertEquals("https://gw.example.com/v1/chat", normalizeBaseUrl("https://gw.example.com/v1/chat/"))
+    }
+
+    @Test
+    fun normalizeBaseUrlAppendsV1OnlyWhenAbsent() {
+        assertEquals("https://api.example.com/v1", normalizeBaseUrl("api.example.com"))
+        assertEquals("https://api.example.com/v1", normalizeBaseUrl("https://api.example.com"))
+        assertEquals("https://api.example.com/api/v1", normalizeBaseUrl("https://api.example.com/api"))
+        assertEquals("http://localhost:8080/v1", normalizeBaseUrl("http://localhost:8080"))
+        // /v10 不是 /v1 路径段 → 仍补 /v1
+        assertEquals("https://api.example.com/v10/v1", normalizeBaseUrl("https://api.example.com/v10"))
+    }
+
+    @Test
+    fun normalizeBaseUrlRoundTripIsIdempotent() {
+        val once = normalizeBaseUrl("https://gw.example.com/v1/chat")
+        assertEquals("二次规范化幂等（不再追加）", once, normalizeBaseUrl(once))
     }
 
     private fun draft(baseUrl: String) = ProviderConfigDraft(

@@ -25,9 +25,8 @@ fun normalizeBaseUrl(raw: String): String {
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
         url = "https://$url"
     }
-    // 已是 .../v1 或 .../v1/xxx 时不重复追加；否则统一追加 /v1
-    val withoutV1 = if (url.endsWith("/v1")) url else url
-    return if (url.endsWith("/v1")) url else "$withoutV1/v1"
+    // 已含 /v1 路径段（结尾 /v1 或中间 /v1/，如 .../v1/chat）不重复追加；否则统一追加 /v1
+    return if (url.endsWith("/v1") || url.contains("/v1/")) url else "$url/v1"
 }
 
 /**

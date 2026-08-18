@@ -18,9 +18,8 @@ class DailyCompositionGate {
     private var forDate: LocalDate? = null
     private var cached: EchoDailyComposition? = null
 
-    /** 当日是否已固化。 */
-    val hasCompositionForToday: Boolean
-        get() = cached != null
+    /** 该日期是否已固化（日期须显式传入：跨日后缓存中的昨日记录不再误报「今日已固化」）。 */
+    fun hasCompositionFor(date: LocalDate): Boolean = cached != null && forDate == date
 
     /** 该日构图（同日恒返回同一实例；跨日才重算）。 */
     fun compositionFor(date: LocalDate, compute: () -> EchoDailyComposition): EchoDailyComposition {

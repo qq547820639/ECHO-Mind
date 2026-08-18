@@ -19,6 +19,11 @@ from app.api.deps import DB, PRINCIPAL, ensure_user
 
 router = APIRouter(prefix="/v1")
 
+#: 审计 P2-6 修复：批量查询范围上限（天）。from/to 极端跨度（如 1970→9999）
+#: 会在内存中构造约 3M 个 missing_dates 字符串（认证用户 DoS 面），
+#: 超出部分按「保留最近 N 天」clamp。
+NARRATIVE_MAX_RANGE_DAYS = 366
+
 
 def _narrative_to_dict(narrative: DailyNarrative, user_id: str) -> dict[str, Any]:
     # PRD 契约点 2：不输出情绪标签（mood_hint 字段废弃）
@@ -79,6 +84,11 @@ def get_daily_narrative(
         if narrative is None:
             raise HTTPException(status_code=404, detail="no narrative for date")
         return _narrative_to_dict(narrative, user_id)
+
+    # 审计 P2-6 修复：范围 clamp——超出 NARRATIVE_MAX_RANGE_DAYS 时按 end 锚点
+    # 保留最近窗口，防止极端跨度构造百万级 missing_dates（返回的 from 反映实际范围）。
+    clamped_start = max(start, end - timedelta(days=NARRATIVE_MAX_RANGE_DAYS - 1))
+    start = clamped_start
 
     rows = db.scalars(select(DailyNarrative).where(
         DailyNarrative.tenant_id == principal.tenant_id,

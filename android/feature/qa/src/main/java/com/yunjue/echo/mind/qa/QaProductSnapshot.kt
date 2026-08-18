@@ -107,33 +107,37 @@ object QaProductSnapshot {
         return WhySection(facts = facts.take(4), sourceCount = facts.size)
     }
 
+    /** specialWindows → 生产 contextExceptions 输入（date → kind，仅已开始窗口；T5-P2-9）。 */
+    private fun contextExceptionsFor(timeline: QaTimeline, dayIndex: Int): Map<String, String> =
+        buildMap {
+            for (w in timeline.profile.specialWindows) {
+                if (w.fromDay > dayIndex) continue
+                for (d in w.fromDay..minOf(w.toDay, dayIndex)) {
+                    put(timeline.dateOf(d).toString(), w.label)
+                }
+            }
+        }
+
     private fun journey(snap: QaDaySnapshot, timeline: QaTimeline): JourneySection {
         val dayIndex = snap.dayIndex
-        val landmarks = mutableListOf<String>()
-        // 里程碑：成熟度跃迁（日历语义）
-        for (d in listOf(3, 7, 28, 90)) {
-            if (dayIndex >= d) {
-                val name = when {
-                    d == 3 -> "第 4 天：开始看到你的节奏（EMERGING）"
-                    d == 7 -> "第 8 天：开始认识通常的你（KNOWN）"
-                    d == 28 -> "第 29 天：ECHO 成熟（MATURE）"
-                    else -> "第 91 天：长期阶段（phase 3）"
-                }
-                landmarks += name
-            }
-        }
-        // 上下文窗口（出差/冲刺）
-        for (w in timeline.profile.specialWindows) {
-            if (w.toDay <= dayIndex) {
-                landmarks += "${timeline.dateOf(w.fromDay)}~${timeline.dateOf(w.toDay)}：${w.label}"
-            }
-        }
+        val contextExceptions = contextExceptionsFor(timeline, dayIndex)
+        // §41 地标改走 production buildLandmarks（T5-P2-9：真实算法 = 基线成熟首日/
+        // 显著变化/持续特殊上下文/用户确认四类；QA 不再手写「第 N 天」成熟度镜像）
+        val landmarks = com.yunjue.echo.mind.journey.buildLandmarks(
+            days = com.yunjue.echo.mind.journey.buildJourneyDaysWithOrganism(
+                timeline.allPortraitsUpTo(dayIndex),
+                identitySeed = snap.identity.seed,
+            ),
+            contextPeriods = com.yunjue.echo.mind.journey.buildContextPeriods(contextExceptions),
+        ).map { "${it.date}：${it.text}" }
         // ERA 32 R06：期间故事 + 现在 vs 一个月前改吃 production 装配
         // （§41 90 天测试同源）——QA 快照不再用自己的 z 分数镜像近似（QA 必须测 Production）。
+        // T5-P2-9：specialWindows 以 contextExceptions 真实喂入（河流/periodStory/
+        // monthAgo 不再在「无用户上下文例外」的空输入下计算）。
         val memoryState = assembleJourneyMemoryState(
             scale = JourneyScale.DAY,
             timeline = PortraitTimelineUiState(loading = false, portraits = timeline.allPortraitsUpTo(dayIndex)),
-            memory = JourneyMemoryAssemblyInputs(),
+            memory = JourneyMemoryAssemblyInputs(contextExceptions = contextExceptions),
         )
         val season = snap.season
         val seasonLine = when {

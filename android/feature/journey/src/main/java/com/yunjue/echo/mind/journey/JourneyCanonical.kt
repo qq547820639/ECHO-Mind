@@ -69,6 +69,10 @@ fun buildCanonicalDay(
  *
  * 优先用 Canonical Daily State（确定性，跨年稳定）；缺失时回退当日画像派生参数；
  * 两者皆无 → null（渲染弥散占位，不编造）。同输入永远同一帧。
+ *
+ * [earliestDate]（时间线最早画像日期）只在 fallback 画像路径生效：
+ * 成熟度经 [portraitMaturityProxy] 日历代理（§34 语义统一）；null = baselineDays 兜底
+ * （≤20 分桶，长期用户低估——调用方有真实时间线上下文时必须传入）。
  */
 fun reconstructJourneyFrame(
     canonical: JourneyCanonicalDay?,
@@ -76,6 +80,7 @@ fun reconstructJourneyFrame(
     fallbackSeed: Long,
     width: Float,
     height: Float,
+    earliestDate: String? = null,
 ): com.yunjue.echo.mind.visual.render.OrganismFrame? {
     // V3：历史帧经同一 production organism 管线重建（存参数不存图原则不变；
     // maturity 取自 canonical/presence 真值——§13 乘数影响丰富度拓扑）。
@@ -93,7 +98,7 @@ fun reconstructJourneyFrame(
             ),
         )
     }
-    val params = journeyDayParams(fallbackPortrait) ?: return null
+    val params = journeyDayParams(fallbackPortrait, earliestDate) ?: return null
     val genome = JourneyOrganismVisuals.genomeFromParams(params, fallbackSeed)
     return com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(
         spec = com.yunjue.echo.mind.visual.surface.SurfacePolicy.crop(
@@ -103,7 +108,7 @@ fun reconstructJourneyFrame(
         width = width,
         height = height,
         options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
-            maturityName = portraitMaturityProxy(fallbackPortrait!!, earliestDate = null).name,
+            maturityName = portraitMaturityProxy(fallbackPortrait!!, earliestDate).name,
         ),
     )
 }

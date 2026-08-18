@@ -1,7 +1,7 @@
 # PROFILE_E_PROJECT_CRUNCH · Day 3（2026-01-08）
 
 - **成熟度**: EMERGING
-- **Headline**: 今天动得比平时多一些。
+- **Headline**: 活动比通常多 · 屏幕时间比通常多 · 今天比较零散。
   - Evidence: 活动量 1.09 · 通常 0.92
   - AI layer: —（无增量理解）
 - **Life Season**: phase 0 · drift 0.112 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable

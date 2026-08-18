@@ -4,14 +4,8 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.maturityOpenness
-import com.yunjue.echo.mind.visual.model.EchoPortraitSnapshot
 import com.yunjue.echo.mind.visual.model.EchoVisualGenome
-import com.yunjue.echo.mind.visual.model.PORTRAIT_CANONICAL_TIME_SECONDS
 import com.yunjue.echo.mind.visual.model.VisualGenomeCompiler
-import com.yunjue.echo.mind.visual.render.OrganismFrame
-import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
-import com.yunjue.echo.mind.visual.surface.EchoSurface
-import com.yunjue.echo.mind.visual.surface.SurfacePolicy
 import kotlin.math.abs
 
 /**
@@ -96,60 +90,21 @@ object JourneyOrganismVisuals {
         return VisualGenomeCompiler.compile(params, VisualGenomeCompiler.neutralIdentity(identitySeed))
     }
 
-    /** 画像 → 确定性 organism 帧（同一天同一帧）。 */
-    fun frameFor(
-        portrait: DailyPortraitDto?,
-        identitySeed: Long,
-        width: Float,
-        height: Float,
-    ): OrganismFrame? {
-        val genome = genomeFor(portrait, identitySeed) ?: return null
-        val spec = SurfacePolicy.crop(
-            genome = genome,
-            surface = EchoSurface.APP_PRIVATE,
-            clockSeconds = PORTRAIT_CANONICAL_TIME_SECONDS,
-        )
-        return OrganismFrameComputer.compute(spec, width, height)
-    }
-
-    /** 画像 → Journey 视觉记忆 snapshot（存参数不存图）。 */
-    fun snapshotFor(
-        portrait: DailyPortraitDto,
-        identitySeed: Long,
-        evidenceSummaryRef: String? = null,
-    ): EchoPortraitSnapshot? {
-        val genome = genomeFor(portrait, identitySeed) ?: return null
-        return EchoPortraitSnapshot(
-            date = portrait.date,
-            genome = genome,
-            identityRevision = EchoVisualGenome.CURRENT_REVISION,
-            compositionRevision = EchoVisualGenome.CURRENT_REVISION,
-            evidenceSummaryRef = evidenceSummaryRef,
-        )
-    }
-
-    /** snapshot → 确定性重建帧（§11：Journey 每天可重建相同 portrait）。 */
-    fun reconstructFrame(snapshot: EchoPortraitSnapshot, width: Float, height: Float): OrganismFrame {
-        val spec = SurfacePolicy.crop(
-            genome = snapshot.genome,
-            surface = EchoSurface.APP_PRIVATE,
-            clockSeconds = PORTRAIT_CANONICAL_TIME_SECONDS,
-        )
-        return OrganismFrameComputer.compute(spec, width, height)
-    }
-
     /**
      * EchoVisualParameters → EchoVisualGenome 机械映射（V3 删除纪律迁移桥：
      * 历史 Canonical Daily State / QA 链存的是 EchoVisualParameters——
      * 经 canonical 编译器 + 中性恒定身份编译，不新增语义）。
+     *
+     * T5-P2-5：不再以 0.47 常量覆盖 dayComposition——canonical v2 持久化字段
+     * （params.dayComposition）经 [VisualGenomeCompiler.compile] 一一映射真实生效，
+     * 历史帧保留当日构图指纹（同帧 = 字段级同帧）。
      */
     fun genomeFromParams(
         params: EchoVisualParameters,
         seed: Long,
-        dayComposition: Float = 0.47f,
     ): EchoVisualGenome = VisualGenomeCompiler.compile(
         params, VisualGenomeCompiler.neutralIdentity(seed),
-    ).copy(dayComposition = dayComposition)
+    )
 
     /** Long → [0,1)：取模 1e6 的小数部分（保留低位差异，相邻日期可辨）。 */
     private fun frac(v: Long): Float {

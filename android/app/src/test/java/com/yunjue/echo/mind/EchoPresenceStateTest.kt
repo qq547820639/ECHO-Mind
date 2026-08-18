@@ -16,8 +16,9 @@ import org.junit.Test
  */
 class EchoPresenceStateTest {
 
+    // T8-P2-2：测试名由 baseline 时代遗物改为日历钟语义（echoMaturity 输入 = 自苏醒起的日历天数）
     @Test
-    fun maturityFollowsBaselineDays() {
+    fun maturityFollowsCalendarDaysSinceAwakening() {
         assertEquals(EchoMaturity.SEED, echoMaturity(0))
         assertEquals(EchoMaturity.DISCOVERING, echoMaturity(1))
         assertEquals(EchoMaturity.DISCOVERING, echoMaturity(2))

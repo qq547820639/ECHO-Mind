@@ -19,6 +19,7 @@ import com.yunjue.echo.mind.me.MeSyncInputs
 import com.yunjue.echo.mind.me.assembleMeUiState
 import com.yunjue.echo.mind.me.combine7
 import com.yunjue.echo.mind.me.MeUiState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ERA 13.1 §31/§32 — MeViewModel：Me 根页面唯一业务持有者。
@@ -57,36 +59,40 @@ class MeViewModel(
         _message,
         _showSupportConfirm,
     ).map { (sensing, mic, pending, esc, mems, message, showSupportConfirm) ->
-        assembleMeUiState(
-            MeAssemblyInputs(
-                sensingEnabled = sensing,
-                micEnabled = mic,
-                pendingCount = pending,
-                escalations = esc,
-                memories = mems,
-                message = message,
-                showSupportConfirm = showSupportConfirm,
-                sync = MeSyncInputs(
-                    networkAvailable = isNetworkAvailable(getApplication()),
-                    deadLetterCount = container.preferences.deadLetterCount(),
-                    authBlocked = container.preferences.authRequired,
-                    consentBlocked = container.preferences.lastSyncErrorClass == "consent",
-                    retrying = container.preferences.lastSyncErrorClass == "retryable",
-                    lastCollectionTs = container.preferences.lastCollectionTimestamp,
-                    lastSyncTs = container.preferences.lastSuccessfulSyncAt,
-                    lastPartialSyncTs = container.preferences.lastPartialSyncAt,
-                    lastPersistenceFailureTs = container.preferences.lastPersistenceFailure,
-                    consecutiveFailures = container.preferences.consecutivePersistenceFailures,
-                ),
-                presence = MePresenceSummary(
-                    motionLevel = container.preferences.presenceMotionLevel,
-                    nightMode = container.preferences.presenceNightMode,
-                    reduceMotion = container.preferences.presenceReduceMotion,
-                    suggestionsEnabled = container.preferences.presenceSuggestionsEnabled,
-                ),
-                storedProvider = container.aiProviderManager.stored(),
+        // T4-P2-8：装配输入快照读取（network/SharedPreferences/Provider store）移 IO——
+        // 此前在 Main 派发的 map 内同步执行，任一上游发射即重复查询。
+        withContext(Dispatchers.IO) {
+            assembleMeUiState(
+                MeAssemblyInputs(
+                    sensingEnabled = sensing,
+                    micEnabled = mic,
+                    pendingCount = pending,
+                    escalations = esc,
+                    memories = mems,
+                    message = message,
+                    showSupportConfirm = showSupportConfirm,
+                    sync = MeSyncInputs(
+                        networkAvailable = isNetworkAvailable(getApplication()),
+                        deadLetterCount = container.preferences.deadLetterCount(),
+                        authBlocked = container.preferences.authRequired,
+                        consentBlocked = container.preferences.lastSyncErrorClass == "consent",
+                        retrying = container.preferences.lastSyncErrorClass == "retryable",
+                        lastCollectionTs = container.preferences.lastCollectionTimestamp,
+                        lastSyncTs = container.preferences.lastSuccessfulSyncAt,
+                        lastPartialSyncTs = container.preferences.lastPartialSyncAt,
+                        lastPersistenceFailureTs = container.preferences.lastPersistenceFailure,
+                        consecutiveFailures = container.preferences.consecutivePersistenceFailures,
+                    ),
+                    presence = MePresenceSummary(
+                        motionLevel = container.preferences.presenceMotionLevel,
+                        nightMode = container.preferences.presenceNightMode,
+                        reduceMotion = container.preferences.presenceReduceMotion,
+                        suggestionsEnabled = container.preferences.presenceSuggestionsEnabled,
+                    ),
+                    storedProvider = container.aiProviderManager.stored(),
+                )
             )
-        )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

@@ -198,8 +198,8 @@ object OrganismFrameComputer {
 
         // Daily 层相位：同一天恒定、跨天可辨（Journey 时间流逝）；identity 拓扑不变。
         val dailyPhase = spec.genome.dayComposition * TWO_PI
-        // §8/§16：behind-core 遮挡带与实际视觉 cavity 对齐（暗腔即遮挡体）
-        val cavityRUnits = (0.30f + 0.06f * field.coreOpenness) * breathScale
+        // §8/§16：behind-core 遮挡带与实际视觉 cavity 对齐（暗腔即遮挡体；公式单源 cavityRadiusFor）
+        val cavityRUnits = cavityRadiusFor(field.coreOpenness, breathScale)
         val ctx = FrameCtx(
             identity = identity, field = field,
             cosA = cos(motion.globalRotation * identity.chirality),
@@ -261,8 +261,8 @@ object OrganismFrameComputer {
         }
 
         // ---- 5. 核心（hollow core，§8：dark cavity + atmosphere + strands + knots + membrane）----
-        // cavity 0.30–0.37R + identity 恒定的 2/3 阶有机形变（非机械完美圆）
-        val cavityRadius = (0.30f + 0.06f * field.coreOpenness) * breathScale
+        // cavity 0.30–0.37R + identity 恒定的 2/3 阶有机形变（非机械完美圆；公式单源 cavityRadiusFor）
+        val cavityRadius = cavityRadiusFor(field.coreOpenness, breathScale)
         val deform2 = 0.030f + 0.022f * EchoIdentitySpec.identityUnit(identity.identitySeed, 30)
         val deform3 = 0.018f + 0.016f * EchoIdentitySpec.identityUnit(identity.identitySeed, 31)
         val coreCavity = CoreCavity(
@@ -306,12 +306,14 @@ object OrganismFrameComputer {
             // V3 §M：surface 不再携带动效复杂度——halo 强度只由数据清晰度/质量/haloScale 承载
             alpha = (0.008f + haloBase * 0.020f) * options.haloScale.coerceIn(0f, 1f),
             widthFraction = 0.0028f,
+            color = primary,
         )
         if (profile.farHaloEnabled && field.halo > 0.25f) {
             halos += Halo(
                 radiusFraction = baseR * 1.50f,
                 alpha = (0.007f + haloBase * 0.016f) * farHaloClarity * options.haloScale.coerceIn(0f, 1f),
                 widthFraction = 0.0018f,
+                color = primary,
             )
         }
 
@@ -343,7 +345,7 @@ object OrganismFrameComputer {
         // ---- 10. 暖金大高光（仅 allowWarmAccent surface；暖结解剖见 coreKnots）----
         val warmAccents = if (spec.capabilities.allowWarmAccent) {
             knots.filter { it.color == warm }.take(1).map {
-                WarmAccent(it.x, it.y, it.radiusFraction * 1.6f, it.alpha * 0.5f)
+                WarmAccent(it.x, it.y, it.radiusFraction * 1.6f, it.alpha * 0.5f, warm)
             }
         } else {
             emptyList()
@@ -384,6 +386,13 @@ object OrganismFrameComputer {
         membraneBias: Float,
         breathScale: Float = 1f,
     ): Float = (0.355f + radialSpread * 0.10f + coreOpenness * 0.045f) * membraneBias * breathScale
+
+    /**
+     * 空心核暗腔半径（单位 R；公式单一事实源——帧内遮挡带/暗腔半径与后端消费点同源）：
+     * cavity = (0.30 + 0.06 × coreOpenness) × breathScale（0.30–0.36R 随开放度展开）。
+     */
+    fun cavityRadiusFor(coreOpenness: Float, breathScale: Float = 1f): Float =
+        (0.30f + 0.06f * coreOpenness) * breathScale
 
     private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
@@ -619,13 +628,19 @@ object OrganismFrameComputer {
                     pb.kind == ParticleKind.AMBIENT -> ctx.secondary
                     else -> ctx.primary
                 },
+                depth = frontness,
             )
         }
         return out
     }
 
-    /** p.z（≈-0.4..0.4）→ 0..1 归一化深度（AGSL mask B 通道）。 */
-    private fun depth01(z: Float): Float = (z * 2.2f + 1f).coerceIn(0f, 1f) * 0.5f
+    /**
+     * p.z（≈-0.4..0.4，长丝面外摆动下极值可至 ±1.2）→ 0..1 全幅归一化深度
+     * （0 back → 1 front；AGSL mask B 通道 / §11 depth fog 输入）。
+     * 全幅映射使 front 几何 depth≈1（fog→0），深处几何才吃雾——修复旧实现
+     * `×0.5f` 上限减半导致 front 半球也被恒定加雾、B 通道前半段不可分的问题。
+     */
+    private fun depth01(z: Float): Float = (z * 2.2f + 1f).coerceIn(0f, 1f)
 
     /** glint 的远壳层淡出（§10：比普通粒子缓）。 */
     private fun alphaShellFadeGlint(shellRadius: Float): Float =

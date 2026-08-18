@@ -7,6 +7,7 @@ import com.yunjue.echo.mind.visual.render.ColorSpace
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
 import com.yunjue.echo.mind.visual.surface.SurfacePolicy
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -19,6 +20,11 @@ import org.robolectric.annotation.GraphicsMode
  * 测量：CPU 帧求值（几何）/ Canvas raster / AGSL mask raster（Advanced 输入成本）/
  * 热路径分配（粗粒度）。GPU shader 执行/帧率/电池/显存 = 真机项（BLOCKED_EXTERNAL_DEVICE）。
  * 输出 stdout 证据（qa/reports/ECHO_ORGANISM_QUALITY_PERFORMANCE.md 引用）。
+ *
+ * T8-P2-6 修复：原版仅打印无断言（名为 PerfTest 易被误当性能门禁）。现补数量级预算门
+ * （参照 PerformanceBaselineTest 语义：防退化门禁而非基准分数，预算取 JVM 实测基线
+ * —— compute 0.79ms / canvas 72ms / agslMask 22ms / alloc≈0KB（qa/reports 表 1）——
+ * 的 25-60 倍安全边际，只在数量级退化时失败，CI 硬件波动不误报）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -77,6 +83,16 @@ class OrganismQualityPerfTest {
                 " longs=" + frame.longFilaments.size +
                 " fragments=" + frame.localFragments.size,
         )
+
+        // T8-P2-6 性能预算门（数量级防退化；实测基线见类 KDoc）
+        assertTrue("CPU 帧求值 %.2fms/帧 超预算 50ms（基线 0.79ms）".format(computeMs), computeMs < 50.0)
+        assertTrue("Canvas raster %.2fms/帧 超预算 2000ms（JVM 软件光栅基线 72ms）".format(canvasMs), canvasMs < 2000.0)
+        assertTrue("AGSL mask raster %.2fms/帧 超预算 800ms（基线 22.46ms）".format(maskMs), maskMs < 800.0)
+        assertTrue(
+            "100 帧堆增量 %.0fKB 超预算 32000KB（零分配纪律数量级退化）".format(allocKbPer100),
+            allocKbPer100 < 32_000.0,
+        )
+        assertTrue("master 帧必须携带核心结构（rings/longs/particles）", frame.structuralRings.isNotEmpty() && frame.longFilaments.isNotEmpty() && frame.particles.isNotEmpty())
     }
 
     @Suppress("ExplicitGarbageCollectionCall") // 测量用堆基线整理（非生产代码路径）

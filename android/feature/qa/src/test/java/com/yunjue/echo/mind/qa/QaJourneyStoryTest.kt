@@ -2,12 +2,10 @@ package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.journey.JourneyLandmarkKind
 import com.yunjue.echo.mind.journey.buildContextPeriods
-import com.yunjue.echo.mind.journey.buildJourneyDays
+import com.yunjue.echo.mind.journey.buildJourneyDaysWithOrganism
 import com.yunjue.echo.mind.journey.buildLandmarks
 import com.yunjue.echo.mind.journey.buildPeriodStory
-import com.yunjue.echo.mind.journey.buildYearView
 import com.yunjue.echo.mind.journey.detectSignificantChanges
-import com.yunjue.echo.mind.journey.journeyYearStory
 import com.yunjue.echo.mind.journey.storyRestraintCheck
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,11 +19,7 @@ import org.junit.Test
 class QaJourneyStoryTest {
 
     private fun journeyDays(profile: QaProfileSpec, dayIndex: Int) =
-        buildJourneyDays(QaTimeline(profile).portraitsUpTo(dayIndex))
-
-    /** 全历史（年视图需要完整窗口，不能只有 60 天）。 */
-    private fun allJourneyDays(profile: QaProfileSpec, dayIndex: Int) =
-        buildJourneyDays(QaTimeline(profile).allPortraitsUpTo(dayIndex))
+        buildJourneyDaysWithOrganism(QaTimeline(profile).portraitsUpTo(dayIndex), identitySeed = 0L)
 
     /** profile 的上下文时期（fixture 特殊窗口 → date→kind 映射）。 */
     private fun contextMap(profile: QaProfileSpec): Map<String, String> {
@@ -89,19 +83,6 @@ class QaJourneyStoryTest {
             buildContextPeriods(contextMap(QaProfiles.E_PROJECT_CRUNCH)),
         )
         assertTrue("E 有明显变化地标", eLandmarks.any { it.kind == JourneyLandmarkKind.MAJOR_SHIFT })
-    }
-
-    @Test
-    fun yearStoryIsPhasesNotMonthlyReport() {
-        val profile = QaProfiles.E_PROJECT_CRUNCH
-        val days = allJourneyDays(profile, 180)
-        val view = buildYearView(days, emptyList(), contextMap(profile))
-        val story = journeyYearStory(view)
-        println("E year story: $story")
-        // 一年中的几个阶段：出现冲刺上下文时期的季节 + 平稳季节
-        assertTrue("年故事包含冲刺阶段（实际：$story）", story.contains("项目冲刺") || story.contains("工作紧张期"))
-        assertTrue("年故事不超过 4 个季节短语（实际 ${view.seasons.size} 季）", view.seasons.size <= 4)
-        assertTrue("情感克制", storyRestraintCheck(story).isEmpty())
     }
 
     @Test

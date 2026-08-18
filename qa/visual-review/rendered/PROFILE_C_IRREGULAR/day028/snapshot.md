@@ -1,7 +1,7 @@
 # PROFILE_C_IRREGULAR · Day 28（2026-02-02）
 
 - **成熟度**: MATURE
-- **Headline**: 今天比平时零散一些。
+- **Headline**: 今天比较零散。
   - Evidence: 活跃时段占比 78% · 通常 59%
   - AI layer: 这种变化最近也出现过。
 - **Life Season**: phase 1 · drift 0.460 · rhythm later · screen stable · activity more_variable · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（14 个有效日）。画面由「通常的你」参照驱动：今天比平时零散一些。
+基线已形成（14 个有效日）。画面由「通常的你」参照驱动：今天比较零散。
 
 人生季节漂移较明显（drift 0.460，方向 later）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

@@ -32,11 +32,11 @@ data class EchoVisualParameters(
     val depth: Float,
     /** 环境亮度 0..1（昼夜曲线 × 活跃度）。 */
     val brightness: Float,
-    /** 对比 0..1。 */
+    /** 对比 0..1（canonical 语义面；视觉链当前不消费——见 VisualGenomeCompiler KDoc）。 */
     val contrast: Float,
-    /** 强调强度 0..1。 */
+    /** 强调强度 0..1（canonical 语义面；视觉链当前不消费——见 VisualGenomeCompiler KDoc）。 */
     val accentIntensity: Float,
-    /** 结构复杂度 0..1（maturity）。 */
+    /** 结构复杂度 0..1（maturity；canonical 语义面——视觉链当前不消费，见 VisualGenomeCompiler KDoc）。 */
     val structureComplexity: Float,
     /** 数据清晰度 0..1（coverage；低数据更轻更模糊）。 */
     val dataClarity: Float = 0f,

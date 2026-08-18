@@ -196,7 +196,15 @@ class WearableRuntimeTest {
     fun requestWhy_revisionUnchanged_headlinePresent() = runTest {
         val platform = FakePlatform()
         val clock = MutableTestClock()
-        val runtime = runtime(platform, clock = clock)
+        // T5-P2-7：headlineFor 契约收敛后 WHY 需氛围已知（LATE）才有模板 headline
+        // （氛围未知 → null 宁可没有；不再编造 KNOWN 文案）
+        val runtime = WearableRuntime(
+            platform = platform,
+            presenceSource = FakePresenceSource(),
+            clock = clock,
+            ambientStateProvider = { WearablePrivacyProjector.WearAmbientState.LATE },
+            hapticsEnabledProvider = { false },
+        )
         runtime.start(backgroundScope)
         platform.connection.value = WearableConnectionState.CONNECTED
         runCurrent()

@@ -139,6 +139,10 @@ def test_openapi_contains_all_v1_routes():
     assert not extra, f"docs/openapi.json 存在 live 中不存在的端点: {sorted(extra)}"
 
 
-@pytest.mark.skip(reason="PG 集成由 CI postgres job 覆盖（本地无 PG 实例）")
+# FOLLOW_UP（T8-P2-5，台账 deepen-iteration-p2-ux）：PG 迁移 round-trip 的真实落地
+# 依赖 CI postgres service job 基建（service 容器 + DATABASE_URL 注入 + 本用例改为
+# 真实执行 alembic upgrade→downgrade→upgrade 数据对拍）。基建就绪前保留显式 skip 占位，
+# 不制造「已覆盖」假象；本注记即 follow-up 锚点，勿在无 CI 基建时移除 skip。
+@pytest.mark.skip(reason="PG 集成由 CI postgres job 覆盖（本地无 PG 实例）；真实 round-trip 落地=FOLLOW_UP T8-P2-5（需 CI postgres service job 基建）")
 def test_postgres_migration_roundtrip():
     """PostgreSQL round-trip 由 CI job 覆盖；本地跳过需明确说明。"""

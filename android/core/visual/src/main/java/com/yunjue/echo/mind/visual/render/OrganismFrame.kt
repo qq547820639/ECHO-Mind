@@ -52,7 +52,7 @@ data class Atmosphere(
     val rimColor: Argb,
 )
 
-/** 描边采样点（屏幕归一化坐标 + alpha + 归一化深度 -1..1——AGSL mask B 通道）。 */
+/** 描边采样点（屏幕归一化坐标 + alpha + 归一化深度 0..1（0 back → 1 front）——AGSL mask B 通道）。 */
 data class StrokePoint(val x: Float, val y: Float, val alpha: Float, val depth: Float = 0f)
 
 /** 一条丝/环/碎片路径（polyline；widthFraction 相对 minDim）。 */
@@ -64,8 +64,8 @@ data class FilamentStroke(
     val glow: Float = 0f,
 )
 
-/** 环境光晕（同心环）。 */
-data class Halo(val radiusFraction: Float, val alpha: Float, val widthFraction: Float)
+/** 环境光晕（同心环；自身携带颜色——不再借 frontMembrane.color）。 */
+data class Halo(val radiusFraction: Float, val alpha: Float, val widthFraction: Float, val color: Argb)
 
 /** 腔缘有机形变谐波（identity 恒定；§8 subtle asymmetric deformation，非机械完美圆）。 */
 data class CavityHarmonic(val order: Int, val amplitude: Float, val phase: Float)
@@ -93,7 +93,7 @@ data class CoreKnotV(
 /** 前膜（front membrane：前半球壳层微光）。 */
 data class FrontMembrane(val radiusFraction: Float, val color: Argb, val alpha: Float)
 
-/** 粒子（Fibonacci 球投影；kind 决定亮度上限）。 */
+/** 粒子（Fibonacci 球投影；kind 决定亮度上限；depth = frontness 0..1 供 AGSL mask B 通道）。 */
 data class SceneParticleV3(
     val x: Float,
     val y: Float,
@@ -101,13 +101,14 @@ data class SceneParticleV3(
     val alpha: Float,
     val kind: ParticleKind,
     val color: Argb,
+    val depth: Float,
 )
 
 /** 涟漪（触摸/校正响应；振幅随时间衰减，不改底层状态）。 */
 data class Ripple(val x: Float, val y: Float, val radiusFraction: Float, val alpha: Float)
 
-/** 暖金高光（极少量生命性高光；面积受 §12 ≤15% 上限约束）。 */
-data class WarmAccent(val x: Float, val y: Float, val radiusFraction: Float, val alpha: Float)
+/** 暖金高光（极少量生命性高光；面积受 §12 ≤15% 上限约束；颜色=identity palette.warm 单源）。 */
+data class WarmAccent(val x: Float, val y: Float, val radiusFraction: Float, val alpha: Float, val color: Argb)
 
 /** 一帧完整 organism（确定性：同 spec + 视口 + 时间 → 逐值相同）。 */
 data class OrganismFrame(

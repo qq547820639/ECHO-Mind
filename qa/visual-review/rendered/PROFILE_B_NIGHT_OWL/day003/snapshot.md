@@ -1,7 +1,7 @@
 # PROFILE_B_NIGHT_OWL · Day 3（2026-01-08）
 
 - **成熟度**: EMERGING
-- **Headline**: 今晚比平时晚一些才安静下来。
+- **Headline**: 屏幕时间比通常多 · 晚间屏幕比通常更晚。
   - Evidence: 晚间屏幕 307 分钟 · 通常 235 分钟
   - AI layer: —（无增量理解）
 - **Life Season**: phase 0 · drift 0.120 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable

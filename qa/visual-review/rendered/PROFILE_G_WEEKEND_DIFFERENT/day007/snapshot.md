@@ -1,7 +1,7 @@
 # PROFILE_G_WEEKEND_DIFFERENT · Day 7（2026-01-12）
 
 - **成熟度**: KNOWN
-- **Headline**: 今天动得比平时多一些。
+- **Headline**: 活动比通常多 · 屏幕时间比通常少 · 晚间屏幕比通常更早结束。
   - Evidence: 活动量 0.76 · 通常 0.72
   - AI layer: 这种变化最近几个工作日也出现过。
 - **Life Season**: phase 0 · drift 0.300 · rhythm stable · screen stable · activity stable · mobility stable · regularity more_regular
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（5 个有效日）。画面由「通常的你」参照驱动：今天动得比平时多一些。
+基线已形成（5 个有效日）。画面由「通常的你」参照驱动：活动比通常多 · 屏幕时间比通常少 · 晚间屏幕比通常更早结束。
 
 人生季节漂移较明显（drift 0.300，方向 stable）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

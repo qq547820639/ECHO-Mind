@@ -28,13 +28,14 @@ class AppPreferences(
      * 一次性生成并持久化；禁止使用 IMEI / Android ID / 手机号 / 用户名 hash。
      */
     val identitySeed: Long
-        get() {
+        get() = synchronized(prefs) {
+            // check-then-act 加锁：并发首读不再生成双种子相互覆盖（视觉身份漂移）。
             var v = prefs.getLong("identity_seed", 0L)
             if (v == 0L) {
                 v = java.security.SecureRandom().nextLong().let { if (it == 0L) 1L else it }
                 prefs.edit().putLong("identity_seed", v).apply()
             }
-            return v
+            v
         }
 
     var accessToken: String?
@@ -351,19 +352,24 @@ class AppPreferences(
         val secretMigrated = prefs.getBoolean(
             com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET_MIGRATED, false
         )
-        prefs.edit().clear().apply()
+        // T4-P2-1：单次事务式编辑（clear + 恢复同批落盘）+ commit 同步写——
+        // 旧实现 clear 与恢复分两次 apply，进程在两写之间死亡会让 DB 包装秘密丢失
+        // （加密库永久孤儿化）；Editor 的 clear/put 同批 commit 即单事务。
+        val edit = prefs.edit().clear()
         if (wrappedSecret != null) {
-            prefs.edit()
-                .putString(
-                    com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET,
-                    wrappedSecret
-                )
-                .putBoolean(
-                    com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET_MIGRATED,
-                    secretMigrated
-                )
-                .apply()
+            edit.putString(
+                com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET,
+                wrappedSecret
+            ).putBoolean(
+                com.yunjue.echo.mind.security.PreferencesDatabaseSecretStorage.KEY_DB_SECRET_MIGRATED,
+                secretMigrated
+            )
         }
+        // 有意 commit（非 apply）：秘密清除必须先于本方法返回同步落盘（防进程死亡竞态）。
+        @android.annotation.SuppressLint("ApplySharedPref")
+        val committed = edit.commit()
+        check(committed) { "clearServiceState: 同步落盘失败（DB 秘密快照已持有，可重试）" }
+        _localModeFlow.value = computeLocalMode()
         _featureFlagsFlow.value = defaultFlags()
         _sensingActiveFlow.value = false
     }
@@ -404,11 +410,20 @@ class AppPreferences(
     // 数据仅保存在本机、同步队列与 outbox 静默（不产生任何上行）。
     // 订阅后本值自动变为 false（进入云端同步模式，本地引擎转为离线回退）。
 
+    /** 解密真值（仅缓存初始化/凭证翻转时执行；见 [_localModeFlow]）。 */
+    private fun computeLocalMode(): Boolean = accessToken.isNullOrBlank()
+
+    /**
+     * ERA 32 R20 + T4-P2-8：本地模式判定走 [_localModeFlow] 缓存——直接读
+     * accessToken 每次触发 AndroidKeystore AES-GCM 解密，Me/DataAndSensing 装配
+     * 热路径曾多次重复解密。凭证唯一写入口 accessToken setter / clearServiceState
+     * 同步刷新缓存，值语义与逐次解密一致。
+     */
     val localMode: Boolean
-        get() = accessToken.isNullOrBlank()
+        get() = _localModeFlow.value
 
     /** ERA 32 R20：本地模式流（accessToken 写入时联动更新；Journey 权限判定与服务门控同构消费）。 */
-    private val _localModeFlow = MutableStateFlow(localMode)
+    private val _localModeFlow = MutableStateFlow(computeLocalMode())
     val localModeFlow: Flow<Boolean> = _localModeFlow
 
     // ===== 分析消息（v0.7 拉取式推送过渡） =====
@@ -485,18 +500,18 @@ class AppPreferences(
         }
 
     /** 动态程度：QUIET / DEFAULT / LIVELY（Me → Presence 设置）。 */
-    var presenceMotionLevel: String        get() = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT"
-        set(value) = prefs.edit().putString("presence_motion_level", value).apply()
+    var presenceMotionLevel: String        get() = prefs.getString(KEY_PRESENCE_MOTION_LEVEL, "DEFAULT") ?: "DEFAULT"
+        set(value) = prefs.edit().putString(KEY_PRESENCE_MOTION_LEVEL, value).apply()
 
     /** 增强夜间模式（额外降暗减速；昼夜亮度曲线本身已自动调暗）。默认关。 */
     var presenceNightMode: Boolean
-        get() = prefs.getBoolean("presence_night_mode", false)
-        set(value) = prefs.edit().putBoolean("presence_night_mode", value).apply()
+        get() = prefs.getBoolean(KEY_PRESENCE_NIGHT_MODE, false)
+        set(value) = prefs.edit().putBoolean(KEY_PRESENCE_NIGHT_MODE, value).apply()
 
     /** 减少动画（无障碍）：视觉参数 flowSpeed 归零。默认关。 */
     var presenceReduceMotion: Boolean
-        get() = prefs.getBoolean("presence_reduce_motion", false)
-        set(value) = prefs.edit().putBoolean("presence_reduce_motion", value).apply()
+        get() = prefs.getBoolean(KEY_PRESENCE_REDUCE_MOTION, false)
+        set(value) = prefs.edit().putBoolean(KEY_PRESENCE_REDUCE_MOTION, value).apply()
 
     /** 应用内建议（InterventionPolicy L2 opt-in）：打开时基于高置信状态给温和建议。默认开。 */
     var presenceSuggestionsEnabled: Boolean
@@ -523,6 +538,17 @@ class AppPreferences(
 
         /** Presence 快照键（Wallpaper/Dream 进程经原始 SharedPreferences 直读）。 */
         const val KEY_ECHO_PRESENCE_SNAPSHOT = "echo_presence_snapshot"
+
+        // T4-P2-2/UX-B4：视觉偏好三键唯一事实源。Wallpaper/Dream 进程刻意不经
+        // AppPreferences 实例（不初始化业务容器/Keystore），但经本伴生 const val
+        // （编译期内联字符串，不触发类加载）引用同键——任一侧改名即编译期断裂，
+        // 不再是「复制式同源」静默断链。
+        /** 减少动画（无障碍）键。 */
+        const val KEY_PRESENCE_REDUCE_MOTION = "presence_reduce_motion"
+        /** 动态程度键（QUIET/DEFAULT/LIVELY）。 */
+        const val KEY_PRESENCE_MOTION_LEVEL = "presence_motion_level"
+        /** 增强夜间模式键。 */
+        const val KEY_PRESENCE_NIGHT_MODE = "presence_night_mode"
 
         // ===== Onboarding 七态 =====
         const val ONBOARDING_NOT_STARTED = "NOT_STARTED"

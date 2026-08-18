@@ -8,7 +8,7 @@ import com.yunjue.echo.mind.presence.EchoVisualParameters
  * v3.1 §25/§26 — Journey Domain：Journey 不直接消费 Portrait DTO 表现层结构。
  *
  * [JourneyDay] / [JourneyPeriod] 是 Journey 的领域模型；
- * 视觉参数在领域层一次装配（[buildJourneyDays]），UI 只渲染。
+ * 视觉参数在领域层一次装配（[buildJourneyDaysWithOrganism]），UI 只渲染。
  * 视觉聚合 deterministic（同输入同输出）。
  */
 
@@ -33,23 +33,6 @@ data class JourneyPeriod(
     /** visual-runtime：聚合 organism genome（优先于 aggregateParams）。 */
     val aggregateGenome: com.yunjue.echo.mind.visual.model.EchoVisualGenome? = null,
 )
-
-/** Portrait DTO → JourneyDay（纯映射；视觉参数一次装配）。 */
-fun buildJourneyDays(portraits: List<DailyPortraitDto>): List<JourneyDay> {
-    val earliest = portraits.minOfOrNull { it.date }
-    return portraits.sortedBy { it.date }.map { dto ->
-        JourneyDay(
-            date = dto.date,
-            baselineDays = dto.baselineDays,
-            headline = dto.headline.joinToString(" · "),
-            summary = dto.summary,
-            dimensionValues = PORTRAIT_TREND_DIMENSIONS.associateWith { key ->
-                dto.dimensionValue(key) ?: ""
-            }.filterValues { it.isNotBlank() },
-            visualParams = journeyDayParams(dto, earliest),
-        )
-    }
-}
 
 /**
  * visual-runtime：带 identity seed 的 JourneyDay 装配（同时携带 9 层 organism genome）。
@@ -78,9 +61,16 @@ fun buildJourneyDaysWithOrganism(
 /** 代表日：SIMILAR 维度数最多的日子（平手取最近一天）；空列表 → null。 */
 fun journeyRepresentativeDay(days: List<JourneyDay>): JourneyDay? {
     if (days.isEmpty()) return null
-    return days.maxByOrNull { day ->
-        day.dimensionValues.values.count { it in setOf("SIMILAR", "VERY_SIMILAR") }
-    }
+    // (count, index) 联合选择：平手时更大 index（更晚一天）胜出——与 KDoc「取最近」一致
+    return days
+        .withIndex()
+        .maxWithOrNull(
+            compareBy(
+                { (i, day) -> day.dimensionValues.values.count { it in setOf("SIMILAR", "VERY_SIMILAR") } },
+                { (i, _) -> i },
+            ),
+        )
+        ?.value
 }
 
 /** 视觉聚合（deterministic：逐参数平均；空列表 → null）。 */
@@ -104,23 +94,11 @@ fun journeyAggregateOfDays(days: List<JourneyDay>): EchoVisualParameters? {
     )
 }
 
-/** 按 [chunkDays] 分组并组装 JourneyPeriod（从旧到新；不足一组也成组）。 */
-fun buildJourneyPeriods(days: List<JourneyDay>, chunkDays: Int): List<JourneyPeriod> {
-    if (days.isEmpty() || chunkDays <= 0) return emptyList()
-    return days.chunked(chunkDays).map { chunk ->
-        JourneyPeriod(
-            days = chunk,
-            aggregateParams = journeyAggregateOfDays(chunk),
-            representative = journeyRepresentativeDay(chunk),
-        )
-    }
-}
-
 /** 聚合 genome：chunk 内代表日的 genome（视觉聚合 = 代表日，同一 ECHO 的周/月代表帧）。 */
 private fun aggregateGenomeOfDays(days: List<JourneyDay>) =
     journeyRepresentativeDay(days)?.genome
 
-/** visual-runtime：携带 organism genome 的 JourneyPeriod 装配（与 buildJourneyPeriods 同分组逻辑）。 */
+/** visual-runtime：携带 organism genome 的 JourneyPeriod 装配（chunk 分组 + 聚合 genome）。 */
 fun buildJourneyPeriodsWithOrganism(days: List<JourneyDay>, chunkDays: Int): List<JourneyPeriod> {
     if (days.isEmpty() || chunkDays <= 0) return emptyList()
     return days.chunked(chunkDays).map { chunk ->

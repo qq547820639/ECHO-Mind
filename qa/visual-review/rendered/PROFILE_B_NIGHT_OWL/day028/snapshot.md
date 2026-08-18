@@ -1,7 +1,7 @@
 # PROFILE_B_NIGHT_OWL · Day 28（2026-02-02）
 
 - **成熟度**: MATURE
-- **Headline**: 今天动得比平时少一些。
+- **Headline**: 活动比通常少。
   - Evidence: 活动量 0.62 · 通常 0.83
   - AI layer: 这种变化最近也出现过。
 - **Life Season**: phase 1 · drift 0.365 · rhythm later · screen stable · activity more_variable · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（20 个有效日）。画面由「通常的你」参照驱动：今天动得比平时少一些。
+基线已形成（20 个有效日）。画面由「通常的你」参照驱动：活动比通常少。
 
 人生季节漂移较明显（drift 0.365，方向 later）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

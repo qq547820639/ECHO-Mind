@@ -125,11 +125,13 @@ fun deriveIdentityGenome(
 /**
  * ERA 31 R31 — Day-0 SEED presence 单一构建点（AwakeningScreen 用）。
  *
- * 苏醒瞬间与随后进入的 ECHO Scene 必须是**同一个 ECHO**：这里用与运行时 Day-0 相同的
- * 参数源（baselineStability = 0f = AmbientEngine 无数据时的 regularity 初值；
- * motionPreference = 用户偏好，onboarding 完成前恒为 DEFAULT），派生出的 Identity
- * 与 PresenceRepository 第一次刷新完全一致（accent/color/texture/topology/orbit 只依赖
- * seed，motionPersonality 同参同值——零切换感由契约保证，而不是碰巧长得像）。
+ * 苏醒瞬间与随后进入的 ECHO Scene 必须是**同一个 ECHO**。实际保证边界（如实）：
+ * - seed 相关维度（accent/color/texture/topology/orbit）只依赖 seed，严格同参同值；
+ * - motionPersonality 的 baselineStability 分量（15% 权重）允许当日塑形：Day-0 恒传
+ *   0f（与 AmbientEngine 无数据时 regularity = 0f 同源）；当日出现数据后
+ *   （coverage ≥ 0.1 → regularity > 0）运行时以非 0 稳定度重新派生，存在 ≤15% 权重的
+ *   偏移——零切换感由 §60 smoothPresenceState(alpha) 插值兜底（平滑过渡），
+ *   而非参数级恒等。
  */
 fun dayZeroSeedPresence(
     identitySeed: Long,
@@ -260,13 +262,19 @@ fun computeLifeSeason(
         sorted.size < 8 -> "stable"
         else -> {
             val half = sorted.size / 2
-            val first = sorted.take(half).mapNotNull(zValues).averageOrNull() ?: return EchoLifeSeason(phaseIndex, 0f)
-            val second = sorted.drop(half).mapNotNull(zValues).averageOrNull() ?: return EchoLifeSeason(phaseIndex, 0f)
-            val delta = abs(second - first)
-            when {
-                delta > 0.3f -> "more_variable"
-                delta < 0.1f -> "more_regular"
-                else -> "stable"
+            // P3：z 全缺时不再提前返回（避免丢弃已算的 rhythmShift/绝对漂移/移动趋势），
+            // 仅本维度判 stable 后继续
+            val first = sorted.take(half).mapNotNull(zValues).averageOrNull()
+            val second = sorted.drop(half).mapNotNull(zValues).averageOrNull()
+            if (first == null || second == null) {
+                "stable"
+            } else {
+                val delta = abs(second - first)
+                when {
+                    delta > 0.3f -> "more_variable"
+                    delta < 0.1f -> "more_regular"
+                    else -> "stable"
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind
 import com.yunjue.echo.mind.model.RhythmState
+import com.yunjue.echo.mind.model.EchoDailyComposition
 import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.EchoIdentityGenome
 import com.yunjue.echo.mind.model.BehaviorState
@@ -143,6 +144,26 @@ class VisualProfileTest {
             13f,
         )
         assertTrue(pSeed.coreOpenness < pMature.coreOpenness)
+    }
+
+    @Test
+    fun dailyFilledIsExplicitFlagNotSentinelValues() {
+        // T3-P2-3：日构图「已填充」判定是显式标志，不再是 flowSpeed>0||coherence>0 哨兵——
+        // 真实日构图两值恰为 0 时不得误判回退旧推导路径
+        val explicit = state(maturity = EchoMaturity.KNOWN).copy(
+            dailyComposition = EchoDailyComposition(), // 全 0（日构图真实存在、取值全 0）
+            dailyCompositionFilled = true,
+        )
+        val p = computeVisualParameters(explicit, 13f)
+        assertEquals("显式填充 → coreOpenness 走 daily 值（0）", 0f, p.coreOpenness, 1e-6f)
+        assertEquals("显式填充 → coherence 走 daily 值（0）", 0f, p.coherence, 1e-6f)
+
+        // 反向：标志为 false（旧哨兵推断路径）→ 依旧回退旧推导
+        val fallback = computeVisualParameters(explicit.copy(dailyCompositionFilled = false), 13f)
+        assertEquals(
+            "未填充 → 回退 maturityOpenness(KNOWN) = 0.75",
+            maturityOpenness(EchoMaturity.KNOWN), fallback.coreOpenness, 1e-6f,
+        )
     }
 
     @Test

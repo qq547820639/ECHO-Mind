@@ -80,6 +80,9 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL) -
         return {"id": existing.id, "status": existing.status, "idempotent_replay": True}
     # ERA 42 安全复核：支持请求创建频率上限（防支持刷屏/值班疲劳）。
     # 红色信号触发豁免——429 永不阻断危机信号；幂等重放已在上面短路，不计入窗口。
+    # FOLLOW_UP（审计 T6-P2-4，安全设计待评审，本轮不改行为）：trigger 为客户端
+    # 自由字符串，传豁免词（help_requested 等）即可绕过 20/h 上限；豁免判定须改为
+    # 服务端可验证的信号源（如 L0/passive 评估链路标记），删除前须安全评审。
     if payload.trigger not in ESCALATION_CREATE_EXEMPT_TRIGGERS:
         recent = count_recent_escalations(
             db, tenant_id=principal.tenant_id, user_id=payload.user_id

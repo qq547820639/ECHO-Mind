@@ -47,7 +47,8 @@ class PortraitRepository(
 
     private val _timelineState = MutableStateFlow(PortraitTimelineUiState(days = 7))
 
-    override fun observePortraits(days: Int): StateFlow<PortraitTimelineUiState> = _timelineState
+    /** 单一时间线状态流：窗口天数由 refreshPortraits(days) 决定（状态自带 days 字段）。 */
+    override fun observePortraits(): StateFlow<PortraitTimelineUiState> = _timelineState
 
     /** 端侧本地重算 Today 画像（本地模式 / 离线回退共用）。 */
     private suspend fun emitLocalTodayPortrait() {

@@ -23,25 +23,32 @@ class WearablePrivacyProjectorTest {
 
     @Test
     fun headline_defaultVisualFirst_isNull() {
-        // 默认 VISUAL_FIRST：无 WHY 请求 → 不生成 headline（调用方不传 headline 即 null）。
-        // headlineFor 在运行时只在 headlineRequested=true 时被调用；此处验证各 maturity 的克制行为。
-        val seed = WearablePrivacyProjector.headlineFor(state(EchoMaturity.SEED), null)
-        assertEquals(WearablePrivacyProjector.HeadlineAllowlist.SEED, seed)
+        // T5-P2-7：WHY 门控在 headlineFor 函数契约内——whyRequested=false（默认 VISUAL_FIRST）
+        // 对任意 maturity/ambient 一律 null，隐私纪律不再依赖调用方绕过本函数。
+        for (maturity in EchoMaturity.entries) {
+            for (ambient in WearablePrivacyProjector.WearAmbientState.entries) {
+                assertEquals(
+                    "VISUAL_FIRST 默认无 headline（$maturity/$ambient）",
+                    null,
+                    WearablePrivacyProjector.headlineFor(state(maturity), ambient, whyRequested = false),
+                )
+            }
+        }
     }
 
     @Test
     fun headline_earlyMaturity_learningPhaseNeutral() {
         assertEquals(
             WearablePrivacyProjector.HeadlineAllowlist.SEED,
-            WearablePrivacyProjector.headlineFor(state(EchoMaturity.SEED), null),
+            WearablePrivacyProjector.headlineFor(state(EchoMaturity.SEED), null, whyRequested = true),
         )
         assertEquals(
             WearablePrivacyProjector.HeadlineAllowlist.DISCOVERING,
-            WearablePrivacyProjector.headlineFor(state(EchoMaturity.DISCOVERING), null),
+            WearablePrivacyProjector.headlineFor(state(EchoMaturity.DISCOVERING), null, whyRequested = true),
         )
         assertEquals(
             WearablePrivacyProjector.HeadlineAllowlist.DISCOVERING,
-            WearablePrivacyProjector.headlineFor(state(EchoMaturity.EMERGING), null),
+            WearablePrivacyProjector.headlineFor(state(EchoMaturity.EMERGING), null, whyRequested = true),
         )
     }
 
@@ -50,18 +57,21 @@ class WearablePrivacyProjectorTest {
         val late = WearablePrivacyProjector.headlineFor(
             state(EchoMaturity.KNOWN),
             WearablePrivacyProjector.WearAmbientState.LATE,
+            whyRequested = true,
         )
         assertEquals(WearablePrivacyProjector.HeadlineAllowlist.LATE_START, late)
 
         val quiet = WearablePrivacyProjector.headlineFor(
             state(EchoMaturity.MATURE),
             WearablePrivacyProjector.WearAmbientState.QUIET,
+            whyRequested = true,
         )
         assertEquals(WearablePrivacyProjector.HeadlineAllowlist.QUIET_DAY, quiet)
 
         val active = WearablePrivacyProjector.headlineFor(
             state(EchoMaturity.MATURE),
             WearablePrivacyProjector.WearAmbientState.ACTIVE,
+            whyRequested = true,
         )
         assertEquals(WearablePrivacyProjector.HeadlineAllowlist.ACTIVE_DAY, active)
     }
@@ -75,21 +85,36 @@ class WearablePrivacyProjectorTest {
         val headline = WearablePrivacyProjector.headlineFor(
             withPrivate,
             WearablePrivacyProjector.WearAmbientState.QUIET,
+            whyRequested = true,
         )
         assertTrue(WearablePrivacyProjector.HeadlineAllowlist.ALL.contains(headline!!))
     }
 
     @Test
-    fun headline_alwaysInsideAllowlist() {
-        // 穷举所有 maturity × ambient 组合：headline ∈ 允许清单（禁止自由文本进入腕上）。
+    fun headline_alwaysInsideAllowlistOrNull() {
+        // 穷举所有 maturity × ambient（WHY 请求下）：headline ∈ 允许清单 或 null
+        // （氛围未知 → 宁可没有，不编造；禁止自由文本进入腕上）。
         for (maturity in EchoMaturity.entries) {
             for (ambient in WearablePrivacyProjector.WearAmbientState.entries) {
-                val headline = WearablePrivacyProjector.headlineFor(state(maturity), ambient)
+                val headline = WearablePrivacyProjector.headlineFor(state(maturity), ambient, whyRequested = true)
                 assertTrue(
-                    "headline $headline for $maturity/$ambient must be in allowlist",
-                    WearablePrivacyProjector.HeadlineAllowlist.ALL.contains(headline!!),
+                    "headline $headline for $maturity/$ambient must be null or in allowlist",
+                    headline == null || WearablePrivacyProjector.HeadlineAllowlist.ALL.contains(headline),
                 )
             }
+        }
+    }
+
+    @Test
+    fun headline_knownMaturityUnknownAmbient_isNullNotFabricated() {
+        // KDoc 契约落地：null/UNKNOWN/SLOW/DENSE 氛围 → null（宁可没有，不编造 KNOWN 文案）
+        for (ambient in listOf(null, WearablePrivacyProjector.WearAmbientState.UNKNOWN,
+                WearablePrivacyProjector.WearAmbientState.SLOW, WearablePrivacyProjector.WearAmbientState.DENSE)) {
+            assertEquals(
+                "氛围 $ambient → null（不编造）",
+                null,
+                WearablePrivacyProjector.headlineFor(state(EchoMaturity.KNOWN), ambient, whyRequested = true),
+            )
         }
     }
 

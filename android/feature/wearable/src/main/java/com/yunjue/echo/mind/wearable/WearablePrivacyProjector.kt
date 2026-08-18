@@ -38,16 +38,20 @@ object WearablePrivacyProjector {
     }
 
     /**
-     * 生成克制 headline：
-     * - 默认（VISUAL_FIRST）→ null；
-     * - WHY 请求且 maturity < KNOWN → 学习期中性表达；
-     * - WHY 请求且 KNOWN+ → 氛围模板（LATE/QUIET/ACTIVE），其余为 null（宁可没有，不编造）。
+     * 生成克制 headline（WHY 门控在函数契约内落地，T5-P2-7）：
+     * - [whyRequested] = false（默认 VISUAL_FIRST）→ **null**——默认推送不携带任何 headline，
+     *   隐私纪律不再依赖调用方绕过本函数；
+     * - WHY 请求且 maturity < KNOWN → 学习期中性表达（SEED/DISCOVERING）；
+     * - WHY 请求且 KNOWN+ → 氛围模板（LATE/QUIET/ACTIVE）；氛围未知
+     *   （null/UNKNOWN/SLOW/DENSE）→ null（宁可没有，不编造）。
      * 永远不使用 publicNarrative / privateNarrative / affectiveState。
      */
     fun headlineFor(
         state: EchoPresenceState,
         ambient: WearAmbientState?,
+        whyRequested: Boolean = false,
     ): String? {
+        if (!whyRequested) return null
         if (state.maturity == EchoMaturity.SEED || state.maturity == EchoMaturity.DISCOVERING ||
             state.maturity == EchoMaturity.EMERGING
         ) {
@@ -60,7 +64,7 @@ object WearablePrivacyProjector {
             WearAmbientState.LATE -> HeadlineAllowlist.LATE_START
             WearAmbientState.QUIET -> HeadlineAllowlist.QUIET_DAY
             WearAmbientState.ACTIVE -> HeadlineAllowlist.ACTIVE_DAY
-            else -> HeadlineAllowlist.KNOWN
+            else -> null
         }
     }
 
@@ -117,9 +121,10 @@ object WearablePrivacyProjector {
     /**
      * 扫描任意 Band payload JSON：
      * - 键名命中黑名单（含嵌套键）→ 违规；
-     * - 值命中敏感模式 → 违规；
-     * - 结构上不属于 Wear envelope 的键（本 codec 只输出 envelope 键）→ 由 codec 边界保证，
-     *   此处额外标记未知敏感键为 UNKNOWN_SENSITIVE_KEY（白名单外防御）。
+     * - 值命中敏感模式（sk-…/Bearer …/AIza…）→ 违规；
+     * - 结构上不属于 Wear envelope 的键由 codec 边界保证（本 codec 只输出 envelope 键）——
+     *   本函数不维护键白名单（避免与 envelope 演进双事实源），
+     *   UNKNOWN_SENSITIVE_KEY 仅用于不可解析 JSON（fail-closed）。
      */
     fun scanPayload(jsonText: String): PrivacyScanReport {
         val violations = mutableListOf<PrivacyViolation>()

@@ -192,6 +192,9 @@ def append_audit(
 
 
 def verify_audit_chain(db: Session, tenant_id: str) -> dict[str, Any]:
+    # 审计 P3-8 注记：排序已下推 SQL（ORDER BY occurred_at, id），20260818_0001
+    # 的 (tenant_id, occurred_at) 复合索引直接加速本查询与 append 读头；全量载入
+    # 为哈希链逐条验证语义所必需（previous_hash 链式依赖），流式化留待事件量增长。
     rows = db.scalars(
         select(AuditEvent)
         .where(AuditEvent.tenant_id == tenant_id)

@@ -6,8 +6,8 @@ import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.maturityOpenness
+import com.yunjue.echo.mind.visual.model.PORTRAIT_CANONICAL_TIME_SECONDS
 import kotlin.math.abs
-import kotlin.math.max
 
 /**
  * ERA 8 — Journey Visuals（纯 Kotlin，无 Android 依赖）。
@@ -81,40 +81,14 @@ fun journeyDayParams(portrait: DailyPortraitDto?, earliestDate: String? = null):
     )
 }
 
-/** CANONICAL_SNAPSHOT 时间点：固定 12.0s（同一天永远同一帧）。 */
-const val JOURNEY_CANONICAL_TIME_SECONDS = 12f
+/**
+ * CANONICAL_SNAPSHOT 时间点（同一天永远同一帧）。
+ * 单一事实源 = core:visual [PORTRAIT_CANONICAL_TIME_SECONDS]；本常量仅作 journey 侧命名锚点
+ * （既有引用不动；两处 12f 双事实源已收敛）。
+ */
+const val JOURNEY_CANONICAL_TIME_SECONDS = PORTRAIT_CANONICAL_TIME_SECONDS
 
 
-
-/** 代表日：SIMILAR 维度数最多的日子（平手取最近一天）；空列表 → -1。 */
-fun journeyRepresentativeIndex(portraits: List<DailyPortraitDto>): Int {
-    if (portraits.isEmpty()) return -1
-    return portraits.indices.maxByOrNull { i ->
-        val dims = portraits[i].dimensions
-        PORTRAIT_TREND_DIMENSIONS.count { dims[it]?.value in setOf("SIMILAR", "VERY_SIMILAR") }
-    } ?: portraits.size - 1
-}
-
-/** 周/月视觉聚合：逐参数平均（确定性；空列表 → null）。 */
-fun journeyAggregateParams(portraits: List<DailyPortraitDto>): EchoVisualParameters? {
-    val params = portraits.mapNotNull { journeyDayParams(it) }
-    if (params.isEmpty()) return null
-    val avg = { f: (EchoVisualParameters) -> Float -> params.map(f).average().toFloat() }
-    return EchoVisualParameters(
-        flowSpeed = avg { it.flowSpeed },
-        coherence = avg { it.coherence },
-        turbulence = avg { it.turbulence },
-        particleDensity = avg { it.particleDensity },
-        coreOpenness = avg { it.coreOpenness },
-        dispersion = avg { it.dispersion },
-        pulsePeriodSeconds = avg { it.pulsePeriodSeconds },
-        depth = avg { it.depth },
-        brightness = avg { it.brightness },
-        contrast = avg { it.contrast },
-        accentIntensity = avg { it.accentIntensity },
-        structureComplexity = avg { it.structureComplexity },
-    )
-}
 
 /** 时间尺度（Journey 的 Day/Week/Month/Season/Year；PART 69 的 Moment..Year 全尺度）。 */
 enum class JourneyScale { DAY, WEEK, MONTH, SEASON, YEAR }
@@ -137,25 +111,3 @@ fun journeyChunkDays(scale: JourneyScale): Int = when (scale) {
     JourneyScale.YEAR -> 30
 }
 
-/** 按 [chunkDays] 把 [portraits] 从旧到新分组（不足一组也成组）。 */
-fun journeyGroups(portraits: List<DailyPortraitDto>, chunkDays: Int): List<List<DailyPortraitDto>> {
-    if (portraits.isEmpty() || chunkDays <= 0) return emptyList()
-    val sorted = portraits.sortedBy { it.date }
-    return sorted.chunked(chunkDays)
-}
-
-/** 周聚合分组（7 天一组；保留旧函数名兼容既有调用与测试语义）。 */
-fun journeyWeekGroups(portraits: List<DailyPortraitDto>): List<List<DailyPortraitDto>> =
-    journeyGroups(portraits, 7)
-
-/** 视觉成熟度单调性（跨天成长断言用）：SEED→MATURE 阶段索引。 */
-fun maturityStage(maturity: EchoMaturity): Int = maturity.ordinal
-
-/** 跨天视觉成长度：结构复杂度随 baselineDays 单调不减（Journey 视觉成长的断言锚点）。 */
-fun growthScore(portraits: List<DailyPortraitDto>): Float {
-    val sorted = portraits.sortedBy { it.date }
-    if (sorted.isEmpty()) return 0f
-    val first = journeyDayParams(sorted.first())?.structureComplexity ?: 0f
-    val last = journeyDayParams(sorted.last())?.structureComplexity ?: 0f
-    return max(0f, last - first)
-}

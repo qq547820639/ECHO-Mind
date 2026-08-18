@@ -21,7 +21,8 @@ import java.time.LocalDate
  * - missing != irregular：active_start 缺失 → RHYTHM 维度省略；STABILITY diff_count
  *   只统计实际输出维度的非 SIMILAR 个数；
  * - minimum meaningful absolute delta：near-zero baseline 不产生巨大 z；
- * - SCREEN_AMOUNT 与 SCREEN_TIMING 解耦。
+ * - SCREEN_AMOUNT 与 SCREEN_TIMING 按不同指标分别分类（screen_on_minutes /
+ *   late_screen_minutes）；注意 SCREEN_TIMING 存在量-时名实混义（见维度处注释）。
  *
  * 产品契约：维度取值禁止 GOOD/BAD/HEALTHY/NORMAL/ABNORMAL；
  * 所有句子不含被禁止词（焦虑/抑郁/孤独/压力过大/心理异常/风险/精神疾病/社交退缩）。
@@ -317,6 +318,10 @@ object LocalPortraitEngine {
         }
 
         // SCREEN_TIMING：late_screen_minutes
+        // 已知量-时名实混义（LEDGER T3-P2-4，FOLLOW_UP 待产品裁定）：驱动指标是晚间屏幕
+        // 分钟数（量），取值标签却为时间方向词 EARLIER/LATER（晚间屏幕量少 → EARLIER
+        // 「更早结束」句式）。换时间点指标（如 last_screen_end_minute）或改量词标签
+        // （MORE/LESS）须与后端 dimensions.py 同步裁定；端侧逐语义镜像后端，此处不改标签值。
         val lateValue = today.lateScreenMinutes
         val lateStats = baselineMetrics["late_screen_minutes"]
         if (lateStats?.median != null) {

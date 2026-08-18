@@ -140,10 +140,10 @@ internal class EchoDreamView(context: Context) : View(context) {
         val now = LocalDateTime.now()
         val localTime = now.toLocalTime()
         val minuteOfDay = localTime.hour * 60 + localTime.minute
-        // ERA 74 §64：用户视觉偏好进入渲染（键与 AppPreferences 同源）
-        val reduceMotion = prefs.getBoolean("presence_reduce_motion", false)
-        val motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT"
-        val nightMode = prefs.getBoolean("presence_night_mode", false)
+        // ERA 74 §64：用户视觉偏好进入渲染（键经 AppPreferences 伴生常量同源——编译期内联）
+        val reduceMotion = prefs.getBoolean(AppPreferences.KEY_PRESENCE_REDUCE_MOTION, false)
+        val motionLevelName = prefs.getString(AppPreferences.KEY_PRESENCE_MOTION_LEVEL, "DEFAULT") ?: "DEFAULT"
+        val nightMode = prefs.getBoolean(AppPreferences.KEY_PRESENCE_NIGHT_MODE, false)
         // §BB：环境快照（5s 缓存内零系统调用）
         val env = EchoRenderEnvironmentState.current(context)
         // §BE：逐字段比较（不构造键对象，onDraw 零分配）；任一变化 → 重建 genome/request/session

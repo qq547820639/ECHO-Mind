@@ -42,16 +42,28 @@ internal fun l0OnboardingBlocked(
     substanceImpairment: Boolean
 ): Boolean = currentDanger || psychosisOrMania || substanceImpairment
 
-/** V3 §H：Onboarding 的 Seed ECHO genome（唯一语义链：EchoVisualMapper → VisualGenomeCompiler）。 */
+/**
+ * V3 §H：Onboarding 的 Seed ECHO genome（唯一语义链：EchoVisualMapper → VisualGenomeCompiler）。
+ * UX-B2：reduceMotion 与 EchoVisualSurface 同源（AppPreferences.presenceReduceMotion）——
+ * 开启时走 REDUCED 语义（mapper flowSpeed 归零 + options.reducedMotion）。
+ */
+internal fun seedGenomeOf(
+    seed: com.yunjue.echo.mind.model.EchoPresenceState,
+    hourOfDay: Float,
+    reduceMotion: Boolean,
+): com.yunjue.echo.mind.visual.model.EchoVisualGenome =
+    com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+        com.yunjue.echo.mind.presence.EchoVisualMapper.map(seed, hourOfDay, reduceMotion = reduceMotion),
+        seed.identityGenome,
+    )
+
 @Composable
 private fun rememberSeedGenome(
     seed: com.yunjue.echo.mind.model.EchoPresenceState,
-): com.yunjue.echo.mind.visual.model.EchoVisualGenome = remember(seed) {
+    reduceMotion: Boolean,
+): com.yunjue.echo.mind.visual.model.EchoVisualGenome = remember(seed, reduceMotion) {
     val hourOfDay = java.time.LocalTime.now().let { it.hour + it.minute / 60f }
-    com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
-        com.yunjue.echo.mind.presence.EchoVisualMapper.map(seed, hourOfDay),
-        seed.identityGenome,
-    )
+    seedGenomeOf(seed, hourOfDay, reduceMotion)
 }
 
 /**
@@ -186,6 +198,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             sensorHardwareAvailable = hasCoreSensorHardware(context),
             // V3 §51/§53：Seed ECHO 视觉（与 Awakening/Home 同一 identitySeed）
             seedPresence = remember { com.yunjue.echo.mind.presence.dayZeroSeedPresence(preferences.identitySeed) },
+            // UX-B2：Onboarding 视觉尊重「减少动画」（与 EchoVisualSurface 同源偏好）
+            reduceMotion = preferences.presenceReduceMotion,
         ),
         actions = OnboardingStepActions(
             onAgeConfirmed = { ageConfirmed = it },
@@ -249,6 +263,8 @@ data class OnboardingStepState(
     val sensorHardwareAvailable: Boolean,
     /** V3 §51/§53：Seed ECHO（真实 identitySeed 派生；null = 不渲染视觉，测试友好）。 */
     val seedPresence: com.yunjue.echo.mind.model.EchoPresenceState? = null,
+    /** UX-B2：减少动画（与 EchoVisualSurface 同源偏好；开启时 seed genome 走 REDUCED 语义）。 */
+    val reduceMotion: Boolean = false,
 )
 
 /** ERA 38 — Onboarding 步骤回调（state-in / event-out）。 */
@@ -287,9 +303,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         Modifier.fillMaxWidth().height(280.dp).testTag("onboarding_visual"),
                     ) {
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            genome = rememberSeedGenome(seed),
+                            genome = rememberSeedGenome(seed, state.reduceMotion),
                             modifier = Modifier.fillMaxSize(),
                             maturityName = seed.maturity.name,
+                            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                                maturityName = seed.maturity.name,
+                                reducedMotion = state.reduceMotion,
+                            ),
                         )
                     }
                 }
@@ -371,9 +391,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         Modifier.fillMaxWidth().height(224.dp).testTag("onboarding_visual"),
                     ) {
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            genome = rememberSeedGenome(seed),
+                            genome = rememberSeedGenome(seed, state.reduceMotion),
                             modifier = Modifier.fillMaxSize(),
                             maturityName = seed.maturity.name,
+                            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                                maturityName = seed.maturity.name,
+                                reducedMotion = state.reduceMotion,
+                            ),
                         )
                     }
                 }
@@ -467,6 +491,8 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
     val seedPresence = remember {
         com.yunjue.echo.mind.presence.dayZeroSeedPresence(identitySeed = preferences.identitySeed)
     }
+    // UX-B2：苏醒过渡同样尊重「减少动画」（同源偏好，REDUCED 语义）
+    val reduceMotion = preferences.presenceReduceMotion
 
     Box(
         Modifier.fillMaxSize().background(Color(0xFF040814)),
@@ -478,11 +504,12 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
         ) {
             Box(Modifier.size(280.dp).testTag("onboarding_visual")) {
                 com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                    genome = rememberSeedGenome(seedPresence),
+                    genome = rememberSeedGenome(seedPresence, reduceMotion),
                     modifier = Modifier.fillMaxSize(),
                     maturityName = seedPresence.maturity.name,
                     options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
                         maturityName = "SEED",
+                        reducedMotion = reduceMotion,
                         haloScale = timeline.haloScale,
                         detailScale = timeline.detailScale,
                         ringAlphaScale = timeline.ringAlphaScale,

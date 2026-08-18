@@ -130,6 +130,10 @@ def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, 
         user.external_ref = "dsr_" + hashlib.sha256(salt.encode("utf-8")).hexdigest()[:32]
         user.city = None
         user.timezone = "UTC"
+        # 审计 P2-7 修复：吊销轮换式刷新令牌——数据已删除的用户凭证不得
+        # 再经 /v1/auth/refresh 换新 access token（对齐 auth_refresh 吊销语义）。
+        user.refresh_token_hash = None
+        user.refresh_expires_at = None
 
     audit_count = db.query(AuditEvent).filter(
         AuditEvent.tenant_id == tenant_id,
@@ -204,6 +208,10 @@ def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL) 
         user = db.get(User, payload.user_id)
         if user:
             user.status = "withdrawal_pending"
+            # 审计 P2-7 修复：服务撤回即时吊销 refresh token（withdrawal_pending
+            # 仅拦截新 access 签发路径，旧 refresh 凭证必须一并作废）。
+            user.refresh_token_hash = None
+            user.refresh_expires_at = None
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="dsr.create", object_type="data_subject_request", object_id=row.id,
                  metadata={"request_type": payload.request_type})

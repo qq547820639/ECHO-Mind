@@ -83,32 +83,41 @@ def build_tenant_portrait(db: Session, tenant_id: str) -> dict[str, Any]:
     ) or 0
 
     # 3. escalation 计数（近 7 天，按 opened_at 过滤）
-    escalations = db.scalars(
-        select(Escalation).where(
+    # 审计 P3-9 顺手修：计数下推 SQL（GROUP BY status/level），避免机构画像
+    # 全表加载到 Python；口径与原 Python 过滤完全一致。
+    esc_rows = db.execute(
+        select(Escalation.status, Escalation.level, func.count())
+        .where(
             Escalation.tenant_id == tenant_id,
             Escalation.opened_at >= seven_days_ago,
         )
+        .group_by(Escalation.status, Escalation.level)
     ).all()
-    escalation_metrics = {
-        "total": len(escalations),
-        "open": sum(1 for e in escalations if e.status in {"open", "acknowledged", "taken_over"}),
-        "closed": sum(1 for e in escalations if e.status in {"closed", "reviewed"}),
-        "level_l3": sum(1 for e in escalations if e.level == "L3"),
-        "level_l2": sum(1 for e in escalations if e.level == "L2"),
-    }
+    escalation_metrics = {"total": 0, "open": 0, "closed": 0, "level_l3": 0, "level_l2": 0}
+    for status, level, count in esc_rows:
+        escalation_metrics["total"] += count
+        if status in {"open", "acknowledged", "taken_over"}:
+            escalation_metrics["open"] += count
+        if status in {"closed", "reviewed"}:
+            escalation_metrics["closed"] += count
+        if level == "L3":
+            escalation_metrics["level_l3"] += count
+        if level == "L2":
+            escalation_metrics["level_l2"] += count
 
     # 4. Skill 下发数（status in reviewed/signed/retired，draft 不计入）
-    skills = db.scalars(
-        select(Skill).where(
+    # 审计 P3-9 顺手修：同上下推 SQL（GROUP BY status）；三键恒存在（缺省 0）。
+    skill_rows = db.execute(
+        select(Skill.status, func.count())
+        .where(
             Skill.tenant_id == tenant_id,
             Skill.status.in_(("reviewed", "signed", "retired")),
         )
+        .group_by(Skill.status)
     ).all()
-    skill_count = {
-        "reviewed": sum(1 for s in skills if s.status == "reviewed"),
-        "signed": sum(1 for s in skills if s.status == "signed"),
-        "retired": sum(1 for s in skills if s.status == "retired"),
-    }
+    skill_count: dict[str, int] = {"reviewed": 0, "signed": 0, "retired": 0}
+    for status, count in skill_rows:
+        skill_count[status] = count
 
     return {
         "mood_distribution": mood_distribution,

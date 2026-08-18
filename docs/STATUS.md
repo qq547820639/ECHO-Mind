@@ -26,15 +26,15 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `d3c87fa`，2026-08-18 03:57 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `b90b5da`，2026-08-18 12:24 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1339 全绿**（app 977 / core:visual 56 / feature:intelligence 35 / feature:journey 11 / feature:presence 25 / feature:presencevisual 24 / feature:qa 115 / feature:wearable 96） |
-| backend pytest | **1099 passed + 1 skipped**（全绿） |
-| Production Kotlin | 241 |
-| Test Kotlin | 165 |
-| QA Kotlin（:feature:qa，非 Production Runtime） | 39 |
+| Android 单测（testDebugUnitTest） | **1375 全绿**（app 981 / core:visual 63 / feature:intelligence 41 / feature:journey 16 / feature:memory 7 / feature:presence 27 / feature:presencevisual 30 / feature:qa 113 / feature:wearable 97） |
+| backend pytest | **1120 passed + 1 skipped**（全绿） |
+| Production Kotlin | 239 |
+| Test Kotlin | 170 |
+| QA Kotlin（:feature:qa，非 Production Runtime） | 38 |
 | Python | 69 |
 
 <!-- AUTO:BUILD_STATUS:END -->
@@ -118,7 +118,7 @@
    | Privacy | PASS | payload 扫描测试全绿 |
    | Production Runtime Wiring | **PASS** | Application scoped 唯一启动点（AppContainer 组合 → `WearableContainer.start()`，幂等）；`WearableRuntime.start()` 自动 collect `inboundMessages`；`WearableApplicationIntegrationTest`（:app）11/11 证明全链（连接推送/WHY 往返/同一 Action/观察 sink/断连重连/重复/伪造 Presence/长跑仪表） |
    | Haptics 端到端 | **PASS**（软件侧） | `prefs.hapticsEnabled → envelope.surface.hapticsEnabled → 腕上 vibrate 硬门`（默认 SILENT）；降级 surface 不重置开关；Kotlin + Node 双端测试锁定 |
-   | Vela Static Tests | PASS | `node tests/run.js` 24/24 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门 + 8 项模拟器实测缺陷类回归门）+ simulator 镜像生成门（26 态渲染 0 裁剪 / 0 文本截断 / identity 连续，见 `BAND10_VISUAL_REVIEW.md` §0） |
+   | Vela Static Tests | PASS | `node tests/run.js` 31/31 + `node tests/preflight.js`（结构/manifest/i18n/语法/212×520 布局门 + 8 项模拟器实测缺陷类回归门）+ simulator 镜像生成门（26 态渲染 0 裁剪 / 0 文本截断 / identity 连续，见 `BAND10_VISUAL_REVIEW.md` §0） |
    | Vela RPK Build | **PASS** | 官方 `aiot-toolkit` 2.0.5 CLI 真实构建：`wearable/xiaomi-vela/dist/com.yunjue.echo.mind.debug.1.0.rpk`（42,942 B，SHA256 `1b90a61c…`，debug 模式，ERA 33 R4 HEAD，JSC 字节码）；签名 = Android debug 身份（`verify_wrist_signing.py` 实测 APK↔RPK MATCH） |
    | Band10 模拟器 | **PASS（R4）** | 官方 Vela 模拟器（VVD `Vela_Band10`，system-image vela-miwear-watch-5.0 + 官方 `xiaomi_band_10` skin，212×520）：RPK 安装成功（重启持久）、app 全生命周期无异常、页面渲染色彩/几何像素级验证；过程中修复 **8 个真机级缺陷**（布局约定/i18n 命名/features 声明/toFixed 字符串污染/`private:`/app `onCreate`/app 上下文无 require/div 绑定 style 不渲染→class+CSS keyframes）。细节见 `ECHO_WRIST_REAL_DEVICE_REPORT.md` |
    | Band10 Install（真机） | **BLOCKED** | `BLOCKED_EXTERNAL_BAND10_DEVICE` + `BLOCKED_EXTERNAL_XIAOMI_THIRD_PARTY_CHANNEL`（RPK 已生成；流程基准见 `docs/wearable/BAND10_INSTALL_GUIDE.md`） |
@@ -126,7 +126,7 @@
    | Xiaomi Vendor SDK | **BLOCKED** | `BLOCKED_EXTERNAL_XIAOMI_SDK`（Noop 恒 DISCONNECTED，不伪装 vendor connectivity） |
    | ANS Contract | PASS | frozen REQUIRED_FIELDS（35）+ schema + Kotlin decoder 黄金门 |
    | ANS Cross-repo Validation | PASS（本工作区）/ SKIP（无 ANSWatch 时） | `verify_golden.py`：ANSWATCH_ROOT > sibling ../ANSWatch > SKIP with reason；frozen 验证恒 PASS；CI 不再强依赖 ../ANSWatch |
-   | Source Closure | PASS | SOURCE_MANIFEST 1171 文件 verify 0 missing / 0 mismatch |
+   | Source Closure | PASS | SOURCE_MANIFEST 1313 文件 verify 0 missing / 0 mismatch |
 
    版本：开发态不动 Release Baseline；v0.12.0 / versionCode 9 只在
    Production wiring + Source closure + RPK build + 至少真机安装全绿后再决定；
@@ -161,6 +161,25 @@
    provenance/artifact manifest，RELEASE_BASELINE 时间锚修正）。门禁：Android 1339 全绿 + detekt +
    lint；backend 1099+1；Vela Node 28/28；assembleDebug 无空格路径实测通过。
 
+11. **深化迭代：P2 清偿 + UX 优化（Deepen Iteration）**（2026-08-18）✅——审计遗留 P2×61
+   分诊（51 修复 / 8 FOLLOW_UP 附因 / 2 已吸收，台账 `.trae/specs/deepen-iteration-p2-ux/notes/LEDGER.md`）
+   并全部处置：视觉链（拓扑 LRU 化、确定性盐分段独立流、材质/shader 单源、删 OrganicNoise 死文件、
+   **AGSL 后端补齐 ripple/halo/membrane（触摸反馈对齐=UX-B1）**、Canvas 渲染器 Paint/Path 复用、
+   cavity 公式单源、depth01 满幅）；感知（LifeSeasonTracker 候选日、Gate forDate、日构图显式 filled
+   标志 codec v2 兼容）；app（死工厂/死 composable 删除、壁纸偏好键单源+事务式清除、escalation 映射
+   合一、VM 装配下 IO、**onboarding 尊重 reduceMotion=UX-B2**）；领域（journey 旧渲染链死代码群删除、
+   ContextExceptions roundtrip 修复（memory 模块首个测试）、travelContext 防护、dayComposition 真实化、
+   /v1 幂等、腕上 WHY 门控落地「宁缺勿造」、**EchoActionOverlay 统一 facade=UX-B5**）；backend（查询
+   复合索引迁移 20260818_0001、GET 零审计写副作用、narratives clamp、**DSR/revoke 吊销 refresh_token**、
+   legacy 命中确定性、bootstrap compare_digest）；边界（SBOM fail-closed、dynamic-code/claim-scan 扩全
+   15 模块、final-package 缺清单必败、DELIVERY 真值化、smoke -f、Band10 色板/空态两子项、**腕上触觉
+   1500ms 节流（契约）**）；测试缺口 8 组关闭（maturity 时钟/代理、MotionPolicy/Environment 全矩阵、
+   AiNarrativeService、POST /users、decrypt_text、永真断言清理——并暴露修复 users 重复 500→409）。
+   Visual Lab 补 LOCK/WRIST（UX-B6）。42 黄金哈希再生意图见 LEDGER（盐独立流+dayComposition 真实化）。
+   新增 **docs/architecture/ARCHITECTURE_WALKTHROUGH.md**（301 行架构走读：模块全景/入口地图/
+   四条端到端链路/改进点索引）。门禁：Android **1375 全绿**+detekt+lint；backend **1120+1**；
+   Vela Node **31/31**；assembleDebug 无空格路径实测；SOURCE_MANIFEST **1321** verify OK。
+
 ## 7. Governance（冻结纪律）
 
 - **架构冻结**：14 个 Gradle module 体系冻结，以 `android/settings.gradle.kts` 为唯一事实源
@@ -181,6 +200,9 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
+
+
 
 
 

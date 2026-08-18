@@ -61,7 +61,8 @@ data class LifeSeasonTracker(
 
     /**
      * 置信度（0..1）= 一致性占比 × 数据充分度。
-     * - 一致性占比：自上次提交以来签名与 target 一致的天数比例（刚提交 = 0，持续一致 → 1）；
+     * - 一致性占比：agreeDays / 自上次提交以来的新日期数（候选日计入分母、不计入分子；
+     *   刚提交 = 0，持续一致 → 1）；
      * - 数据充分度：computedDays / [DATA_CONFIDENCE_DAYS]（数据少时不虚高）。
      */
     val confidence: Float
@@ -137,6 +138,10 @@ data class LifeSeasonTracker(
                 base.copy(
                     candidate = if (sameCandidate) base.candidate else fresh,
                     candidateStreak = streak,
+                    // 候选日同样计入 daysSinceCommit（字段 KDoc「上次提交至今的新日期数」）：
+                    // 与 target 不一致的天数进入 confidence 分母（agreeDays 不动 → 一致性
+                    // 占比如实下降），连续多日候选漂移不再造成 confidence 虚高。
+                    daysSinceCommit = base.daysSinceCommit + if (newDay) 1 else 0,
                 )
             }
         }

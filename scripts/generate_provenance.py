@@ -230,7 +230,9 @@ def main() -> int:
         "gradle_version": detect_gradle_version(),
         "python_version": platform.python_version(),
         "build_timestamp_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "ci_run_id": os.environ.get("CI_RUN_ID") or os.environ.get("GITHUB_RUN_ID", ""),
+        # ci_run_id：只接受真实 run 注入（ECHO_CI_RUN_ID/CI_RUN_ID/GITHUB_RUN_ID）；
+        # 无 CI run 时如实 unknown（不伪造空串/占位值——T7-P2-8 诚实化）。
+        "ci_run_id": os.environ.get("ECHO_CI_RUN_ID") or os.environ.get("CI_RUN_ID") or os.environ.get("GITHUB_RUN_ID") or "unknown",
         "builder_environment": "ci" if os.environ.get("CI") else "local-dev",
         "unsigned_apk_path": nfc(str(unsigned_apk.relative_to(ROOT))) if unsigned_apk else None,
         "unsigned_apk_sha256": sha256_file(unsigned_apk) if unsigned_apk else None,

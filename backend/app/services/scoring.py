@@ -1,3 +1,9 @@
+"""PHQ-9/GAD-7 量表计分（历史遗留）。
+
+FOLLOW_UP（审计 T6-P2-8）：score_phq9/score_gad7 生产零调用（问卷写入口已 410，
+escalations case-review 只读历史 QuestionnaireResult 不评分），属 v0.8 计划内退役物；
+删除需同步问卷 410 存根 / content-packs 语义与 workbench 历史只读口径裁定，本轮保留。
+"""
 from dataclasses import dataclass
 
 

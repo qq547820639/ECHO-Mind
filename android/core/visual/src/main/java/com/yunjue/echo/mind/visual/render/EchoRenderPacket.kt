@@ -40,19 +40,26 @@ data class EchoFieldSpec(
     val maturityMultiplier: Float,
 )
 
-/** 材质规格（tone pipeline / 暖色上限 / HDR 门控；物化由后端执行）。 */
+/**
+ * 材质规格（tone pipeline / HDR 门控；物化由后端执行）。
+ *
+ * toneKnee/toneCompression 是 soft-knee 曲线的**唯一事实源**：AGSL 后端经 uniform
+ * iKnee/iComp 注入（AgslEchoBackend.AgslSession.draw），shader 内不再有硬编码副本。
+ * 暖色面积 / 高亮像素上限（V3 §12 ≤15% / §24 ≤4%）的**QA 门执行点 = VisualLabMetrics**
+ * （WARM_AREA_HARD_CAP / HIGHLIGHT_CAP 常量单点）；渲染侧由拓扑 4% warm 分类保证。
+ */
 data class EchoMaterialSpec(
-    /** soft-knee 起点（V3 §24 默认 .58）。 */
+    /** soft-knee 起点（V3 §24 默认 .58；AGSL uniform iKnee）。 */
     val toneKnee: Float = 0.58f,
-    /** soft-knee 压缩率（默认 2.4）。 */
+    /** soft-knee 压缩率（默认 2.4；AGSL uniform iComp）。 */
     val toneCompression: Float = 2.4f,
-    /** 暖色视觉面积上限（V3 §12：≤15%）。 */
-    val warmAreaCap: Float = 0.15f,
-    /** 高亮像素目标上限（V3 §24：≤4%）。 */
-    val highlightCap: Float = 0.04f,
-    /** 是否允许 HDR 高亮（API≥34 且显示链路支持且非省电且热态 < MODERATE 且非 Wallpaper）。 */
+    /**
+     * 是否允许 HDR 高亮（API≥34 且显示链路支持且非省电且热态 < MODERATE 且非 Wallpaper）。
+     * 当前消费方：EchoSceneCompiler 编译 + EchoSceneCompilerTest 断言（§23 语义锚点）；
+     * 后端材质链暂不读取（§T HDR 诚实门恒 BLOCKED）。
+     */
     val hdrAllowed: Boolean = false,
-    /** HDR 高亮像素上限（≤2–3%）。 */
+    /** HDR 高亮像素上限（≤2–3%；QA 门度量口径）。 */
     val hdrGlintCap: Float = 0.025f,
 )
 
@@ -64,9 +71,9 @@ data class EchoMotionSpec(
     val breathAmplitude: Float,
     /** 亮度脉冲上限（≤±3%）。 */
     val brightnessPulse: Float,
-    /** 主轨道完整旋转周期秒（约 21–60 分钟）。 */
+    /** 主轨道完整旋转周期秒（实现区间约 30–55 分钟，随 driftRate 展开）。 */
     val orbitPeriodSeconds: Float,
-    /** filament 内部相位周期秒（26–58 秒）。 */
+    /** filament 内部相位周期秒（实现区间 35–55 秒，随 filamentDensity 展开）。 */
     val filamentPhaseSeconds: Float,
     /** 粒子速度乘数（Reduced ×.08 / Dream ×.55 / Wrist stale ×.10 等已展开）。 */
     val particleVelocity: Float,
@@ -97,9 +104,7 @@ data class EchoInteractionSpec(
     val envelope: Float = 0f,
     /** 最大形变（R 比例；§29 上限 0.035R）。 */
     val maxDeformation: Float = 0.035f,
-    /** 交互半径（R 比例；0.34R）。 */
-    val radius: Float = 0.34f,
-    /** 高斯 sigma（R 比例；0.18R）。 */
+    /** 高斯 sigma（R 比例；0.18R；交互只消费 sigma/maxDeformation）。 */
     val sigma: Float = 0.18f,
 )
 
@@ -111,8 +116,6 @@ data class EchoRenderPacket(
     val motion: EchoMotionSpec,
     val surface: EchoSurfaceSpec,
     val interaction: EchoInteractionSpec,
-    /** 绝对单调时间（纳秒；全 Surface 共享同一时间基准，V3 §25）。 */
-    val canonicalTimeNanos: Long,
 )
 
 /** 渲染质量（V3 §31：NORMAL / CONSERVE / MINIMAL；Identity/Presence/privacy 永不降级）。 */

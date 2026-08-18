@@ -154,6 +154,8 @@ class QaTimeline(
             lifeSeason = tracker.effective,
             // P1-4：日构图开放度与 presence.maturity 同源（成长视觉传导进黄金帧）
             dailyComposition = buildDailyComposition(identity, ambient.vector, maturity),
+            // T3-P2-3：镜像生产 PresenceRepository 的显式填充声明
+            dailyCompositionFilled = true,
             momentState = buildMomentState(ambient.vector, hourOfDay = 12f),
         )
         // V3 §M：Surface/MotionPolicy/RenderQuality 不进入参数映射——

@@ -118,7 +118,7 @@ data class EchoIdentityGenome(
  * 禁止自动推断医学/心理结论（depressed/anxious/burned out 永不出现在字段与文案）。
  */
 data class EchoLifeSeason(
-    /** 阶段桶：0 = <7 天基线；1 = 7-30；2 = 30-90；3 = 90+。 */
+    /** 阶段桶（边界与实现 <7/<30/<90 一致）：0 = <7 天；1 = 7-29；2 = 30-89；3 = ≥90。 */
     val phaseIndex: Int = 0,
     /** 跨日节律漂移幅度 0..1（真实计算，ERA 14 起非 0）。 */
     val drift: Float = 0f,
@@ -174,17 +174,17 @@ data class EchoPresenceState(
     val identityGenome: EchoIdentityGenome = EchoIdentityGenome(),
     val lifeSeason: EchoLifeSeason = EchoLifeSeason(),
     val dailyComposition: EchoDailyComposition = EchoDailyComposition(),
+    /**
+     * 显式「日构图已填充」标志（唯一判定源：真实日图构图值恰为 0 时不再被哨兵推断误判回退）。
+     * 默认按旧哨兵推断（flowSpeed>0 || coherence>0），兼容未显式声明的既有构造方；
+     * 生产装配方（PresenceRepository/QaTimeline）与 codec v2 显式传递。
+     */
+    val dailyCompositionFilled: Boolean = dailyComposition.flowSpeed > 0f || dailyComposition.coherence > 0f,
     val momentState: EchoMomentState = EchoMomentState(),
     val publicNarrative: String? = null,
     val privateNarrative: String? = null,
 )
 
-/**
- * 单一状态存储（进程内 StateFlow 单例语义，由 AppContainer 注入）。
- *
- * ERA 1：内存态 + publish/clear；ERA 2：挂接 AmbientEngine 写入，
- * 并落盘最近一版快照（进程死亡后 Wallpaper 恢复用）。
- */
 // ===== Day-0 SEED 文案（单测锚点；UI 层不得另行硬编码） =====
 
 const val PRESENCE_COPY_SEED_TITLE = "初见"

@@ -11,6 +11,11 @@
 用法：
   REUSE_REPORT=1 python3 scripts/update_release_metadata.py            # 复用既有 junit
   ANDROID_GRADLE_BUILD_RESULT=passed python3 scripts/update_release_metadata.py
+
+validation 门禁值（T7-P2-2 诚实化）：alembic_roundtrip/contract_drift_check/
+android_instrumentation 只接受对应 env 注入（ALEMBIC_ROUNDTRIP_RESULT /
+CONTRACT_DRIFT_CHECK_RESULT / ANDROID_INSTRUMENTATION_RESULT），未注入如实输出
+"not_run"；synthetic_safety_cases/content_packs_validated 由仓库实测推导。
 """
 from __future__ import annotations
 
@@ -132,6 +137,41 @@ def _android_build_status() -> str:
     return os.environ.get("ANDROID_GRADLE_BUILD_RESULT", "not_run_in_this_pipeline")
 
 
+def _injected(env_name: str) -> str:
+    """T7-P2-2 诚实化：validation 门禁值只接受 pipeline 注入；未注入时如实 not_run。
+
+    替代此前硬编码 "passed"/"ci_emulator_gate"（--skip-preflight 下照样输出的假宣称）。
+    """
+    return os.environ.get(env_name, "not_run")
+
+
+def _git_branch() -> str:
+    """branch 实测当前 git 分支（替代硬编码 "main"）。"""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT, text=True
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+def _safety_cases_count() -> int | str:
+    """synthetic_safety_cases 实测语料行数（缺文件如实 not_run，不再硬编码 650）。"""
+    corpus = ROOT / "safety-eval" / "red_team_corpus.v1.jsonl"
+    if not corpus.is_file():
+        return "not_run"
+    return sum(1 for _ in corpus.open(encoding="utf-8"))
+
+
+def _content_packs_count() -> int | str:
+    """content_packs_validated 实测叶子包数（排除 MANIFEST.generated.json 生成物）。"""
+    packs_dir = ROOT / "content-packs"
+    if not packs_dir.is_dir():
+        return "not_run"
+    leaves = [p for p in packs_dir.rglob("*.json") if p.name != "MANIFEST.generated.json"]
+    return len(leaves)
+
+
 def main() -> None:
     files = _collect_source_files()
 
@@ -151,7 +191,7 @@ def main() -> None:
         "version": VERSION,
         "release_status": "pilot-candidate",
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "branch": "main",
+        "branch": _git_branch(),
         "git_ref": f"personal-ambient-intelligence-v{VERSION}",
         "scope": [
             "Android phone-first Personal Ambient Intelligence client",
@@ -165,11 +205,11 @@ def main() -> None:
             "backend_tests_failed": test_stats["failed"] if test_stats else None,
             "backend_tests_skipped": test_stats["skipped"] if test_stats else None,
             "android_gradle_build": _android_build_status(),
-            "synthetic_safety_cases": 650,
-            "content_packs_validated": 4,
-            "alembic_roundtrip": "passed",
-            "contract_drift_check": "passed",
-            "android_instrumentation": "ci_emulator_gate",
+            "synthetic_safety_cases": _safety_cases_count(),
+            "content_packs_validated": _content_packs_count(),
+            "alembic_roundtrip": _injected("ALEMBIC_ROUNDTRIP_RESULT"),
+            "contract_drift_check": _injected("CONTRACT_DRIFT_CHECK_RESULT"),
+            "android_instrumentation": _injected("ANDROID_INSTRUMENTATION_RESULT"),
             "postgresql_docker_integration": "external_gate_not_run",
         },
         "production_claim": False,

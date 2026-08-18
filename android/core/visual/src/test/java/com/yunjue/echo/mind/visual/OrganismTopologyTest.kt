@@ -1,5 +1,6 @@
 package com.yunjue.echo.mind.visual
 
+import com.yunjue.echo.mind.visual.math.DeterministicRandom
 import com.yunjue.echo.mind.visual.model.EchoIdentitySpec
 import com.yunjue.echo.mind.visual.render.EchoRenderQuality
 import com.yunjue.echo.mind.visual.render.OrganismTopologyBuilder
@@ -108,5 +109,78 @@ class OrganismTopologyTest {
         assertTrue(minimal.fragments.size <= normal.fragments.size)
         // identity 结构环数不因质量降级减少（core anatomy 不降级）
         assertEquals(normal.rings.size, minimal.rings.size)
+    }
+
+    /**
+     * T2-P2-1 §32：缓存溢出按 key LRU 淘汰——不再 clear-on-overflow 全量清空
+     * （双 identity 交替渲染时旧实现逐帧全量重建 220 粒子 + 双排序）。
+     */
+    @Test
+    fun topologyCacheEvictsLruInsteadOfClearAll() {
+        OrganismTopologyBuilder.clearCacheForTest()
+        val capacity = 16
+        // 填满容量（不同 identity seed）
+        val built = (0 until capacity).map { i ->
+            OrganismTopologyBuilder.topologyFor(identity(100L + i), EchoRenderQuality.NORMAL, "KNOWN")
+        }
+        assertEquals(capacity, OrganismTopologyBuilder.cacheSizeForTest())
+        // 触碰 key0（成为最近使用），再溢出插入一个新 key
+        val again0 = OrganismTopologyBuilder.topologyFor(identity(100L), EchoRenderQuality.NORMAL, "KNOWN")
+        assertSame(built[0], again0)
+        OrganismTopologyBuilder.topologyFor(identity(999L), EchoRenderQuality.NORMAL, "KNOWN")
+        assertEquals("容量封顶（按 key 淘汰最久未用，不清全表）", capacity, OrganismTopologyBuilder.cacheSizeForTest())
+        // 最近使用的 key0 仍命中（旧 clear-on-overflow 实现会全量重建）
+        val survivor = OrganismTopologyBuilder.topologyFor(identity(100L), EchoRenderQuality.NORMAL, "KNOWN")
+        assertSame("LRU 命中：最近使用条目未被淘汰", built[0], survivor)
+        // 最久未用的 key1 被按 key 淘汰（重新请求 → 重建新实例）
+        val evicted = OrganismTopologyBuilder.topologyFor(identity(101L), EchoRenderQuality.NORMAL, "KNOWN")
+        assertNotSame("最久未用条目按 key 淘汰重建", built[1], evicted)
+        OrganismTopologyBuilder.clearCacheForTest()
+    }
+
+    /**
+     * T2-P2-2 盐分段契约：各层（含层内通道族）盐区间两两不相交——跨层随机流独立，
+     * 消除旧盐空间「particle i 的 shell ≡ particle i-10 的 classRank」等隐藏等值相关。
+     */
+    @Test
+    fun saltSegmentsDoNotCollideAcrossLayers() {
+        val segments = mapOf(
+            "rings" to 1000..1046,
+            "longs" to 2000..2152,
+            "frags.main" to 3000..3199,
+            "frags.depthWarp" to 3400..3439,
+            "frags.curvature" to 3450..3489,
+            "frags.family" to 3500..3539,
+            "particles.shell" to 4000..4219,
+            "particles.classRank" to 4220..4439,
+            "particles.warmRank" to 4440..4659,
+            "particles.sizeJitter" to 4660..4879,
+            "knots.angle" to 5000..5003,
+            "knots.radius" to 5100..5103,
+            "knots.size" to 5200..5203,
+        )
+        val list = segments.entries.toList()
+        for (i in list.indices) {
+            for (j in i + 1 until list.size) {
+                val a = list[i].value
+                val b = list[j].value
+                assertTrue(
+                    "${list[i].key}${a} 与 ${list[j].key}${b} 盐区间相交",
+                    a.last < b.first || b.last < a.first,
+                )
+            }
+        }
+        // 抽样：跨层不同盐在采样 seed 上取自独立随机流（非同值流）
+        val seeds = listOf(11L, 12L, 777L, 20260815L)
+        val saltPairs = listOf(
+            1020 to 2010, // ring lobe amp vs long arcStart
+            3005 to 4005, // frag shell u vs particle shell u
+            4240 to 5100, // particle classRank vs knot radius
+            3455 to 4675, // frag curvature vs particle sizeJitter
+        )
+        for ((sa, sb) in saltPairs) {
+            val differs = seeds.any { s -> DeterministicRandom.at(s, sa) != DeterministicRandom.at(s, sb) }
+            assertTrue("盐 $sa/$sb 在全部采样 seed 上同值（跨层随机流冲突）", differs)
+        }
     }
 }

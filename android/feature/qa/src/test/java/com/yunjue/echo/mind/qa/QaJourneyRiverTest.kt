@@ -1,7 +1,7 @@
 package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.journey.RiverSegmentKind
-import com.yunjue.echo.mind.journey.buildJourneyDays
+import com.yunjue.echo.mind.journey.buildJourneyDaysWithOrganism
 import com.yunjue.echo.mind.journey.buildVisualMemoryRiver
 import com.yunjue.echo.mind.journey.buildCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyCanonicalCodec
@@ -19,7 +19,7 @@ class QaJourneyRiverTest {
 
     @Test
     fun crunchTimelineProducesSpecialOrTransitionSegments() {
-        val days = buildJourneyDays(QaTimeline(QaProfiles.E_PROJECT_CRUNCH).allPortraitsUpTo(120))
+        val days = buildJourneyDaysWithOrganism(QaTimeline(QaProfiles.E_PROJECT_CRUNCH).allPortraitsUpTo(120), identitySeed = 0L)
         val river = buildVisualMemoryRiver(days, emptyMap())
         println("E river: " + river.map { "${it.kind}(${it.startDate}..${it.endDate})" })
         assertTrue("E 冲刺期必须有非平稳河段", river.any { it.kind != RiverSegmentKind.STABLE })
@@ -30,7 +30,7 @@ class QaJourneyRiverTest {
 
     @Test
     fun stableTimelineIsMostlyStableSegments() {
-        val days = buildJourneyDays(QaTimeline(QaProfiles.A_STABLE).allPortraitsUpTo(180))
+        val days = buildJourneyDaysWithOrganism(QaTimeline(QaProfiles.A_STABLE).allPortraitsUpTo(180), identitySeed = 0L)
         val river = buildVisualMemoryRiver(days, emptyMap())
         val stable = river.filter { it.kind == RiverSegmentKind.STABLE }
         assertTrue("A 稳定期以 STABLE 为主（实际 ${stable.size}/${river.size} 段）",

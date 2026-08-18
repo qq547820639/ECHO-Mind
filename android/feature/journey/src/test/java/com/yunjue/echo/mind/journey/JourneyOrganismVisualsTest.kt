@@ -11,9 +11,8 @@ import org.junit.Test
 
 /**
  * Journey Organism 确定性重建测试（ECHO_VISUAL_ACCEPTANCE §二）：
- * - 同一天 + 同一 identity → 逐值相同帧（存参数不存图，可重建）；
- * - 不同天 → 不同帧（时间流逝可见）；
- * - snapshot 重建 = 直接渲染（EchoPortraitSnapshot 是确定性重建的完整载体）；
+ * - 同一天 + 同一 identity → 逐值相同 genome（存参数不存图，帧由 genome 确定性重建）；
+ * - 不同天 → 不同 genome（时间流逝可见）；
  * - 无画像 → null（不编造）。
  */
 class JourneyOrganismVisualsTest {
@@ -38,36 +37,38 @@ class JourneyOrganismVisualsTest {
     }
 
     @Test
-    fun sameDaySameIdentityProducesIdenticalFrame() {
+    fun sameDaySameIdentityProducesIdenticalGenome() {
         val p = portrait("2026-08-16")
-        val a = JourneyOrganismVisuals.frameFor(p, identitySeed = 7L, width = 400f, height = 400f)
-        val b = JourneyOrganismVisuals.frameFor(p, identitySeed = 7L, width = 400f, height = 400f)
+        val a = JourneyOrganismVisuals.genomeFor(p, identitySeed = 7L)
+        val b = JourneyOrganismVisuals.genomeFor(p, identitySeed = 7L)
         assertNotNull(a)
-        assertEquals("同一天同 identity 帧必须逐值相同", a, b)
+        assertEquals("同一天同 identity genome 必须逐值相同（帧确定性由此保证）", a, b)
     }
 
     @Test
-    fun differentDaysProduceDifferentFrames() {
-        val d1 = JourneyOrganismVisuals.frameFor(portrait("2026-08-15"), 7L, 400f, 400f)
-        val d2 = JourneyOrganismVisuals.frameFor(portrait("2026-08-16"), 7L, 400f, 400f)
+    fun differentDaysProduceDifferentGenomes() {
+        val d1 = JourneyOrganismVisuals.genomeFor(portrait("2026-08-15"), 7L)
+        val d2 = JourneyOrganismVisuals.genomeFor(portrait("2026-08-16"), 7L)
         assertNotNull(d1); assertNotNull(d2)
         assertNotEquals("不同天应有差异", d1, d2)
     }
 
+    /**
+     * T5-P2-5：genomeFromParams 不再以 0.47 常量覆盖 dayComposition——
+     * canonical v2 持久化字段（params.dayComposition）经编译器一一映射真实生效。
+     */
     @Test
-    fun snapshotReconstructsSameFrameAsDirectRender() {
-        val p = portrait("2026-08-16")
-        val snapshot = JourneyOrganismVisuals.snapshotFor(p, identitySeed = 7L)
-        assertNotNull(snapshot)
-        val direct = JourneyOrganismVisuals.frameFor(p, 7L, 400f, 400f)
-        val rebuilt = JourneyOrganismVisuals.reconstructFrame(snapshot!!, 400f, 400f)
-        assertEquals("snapshot 重建必须与直接渲染一致", direct, rebuilt)
+    fun genomeFromParamsPreservesPersistedDayComposition() {
+        val params = journeyDayParams(portrait("2026-08-16"))!!.copy(dayComposition = 0.83f)
+        val genome = JourneyOrganismVisuals.genomeFromParams(params, seed = 7L)
+        assertEquals("v2 持久化 dayComposition 必须真实生效（非 0.47 覆盖）", 0.83f, genome.dayComposition)
+        val other = JourneyOrganismVisuals.genomeFromParams(params.copy(dayComposition = 0.12f), seed = 7L)
+        assertNotEquals("不同 dayComposition 应产出不同 genome", genome, other)
     }
 
     @Test
     fun noPortraitYieldsNull() {
         assertNull(JourneyOrganismVisuals.genomeFor(null, 7L))
-        assertNull(JourneyOrganismVisuals.frameFor(null, 7L, 400f, 400f))
     }
 
     @Test

@@ -186,7 +186,14 @@ class WearableApplicationIntegrationTest {
         }
         awaitUntil { platform.outbound.isNotEmpty() }
         val presence = lastOutboundPresence(platform)
-        assertNotNull("REQUEST_WHY 应带克制公开表达", presence.publicHeadline)
+        // T5-P2-7：headlineFor WHY 门控契约收敛——氛围未知（生产 ambient 未接线）
+        // 时 headline 为 null（宁可没有，不编造 KNOWN 文案）；非 null 必须 ∈ 允许清单。
+        val headline = presence.publicHeadline
+        assertTrue(
+            "REQUEST_WHY headline 必须为 null（氛围未知）或允许清单内（实际：$headline）",
+            headline == null ||
+                com.yunjue.echo.mind.wearable.WearablePrivacyProjector.HeadlineAllowlist.ALL.contains(headline),
+        )
     }
 
     @Test

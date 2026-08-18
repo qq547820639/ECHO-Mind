@@ -4,7 +4,8 @@
  * 纪律：
  * - 视觉参数全部由**真实生产模块**计算（wear_visual.computeVisual /
  *   presence_cache 降级逻辑 / wear_protocol 解码），本文件只做 HTML 摆位；
- * - 摆位公式逐行镜像 .ux（echo/why/action 页的几何与配色），
+ * - 摆位公式镜像 .ux（echo/why/action 页的几何与配色；色板 = echo.css 蓝紫族、
+ *   EMPTY 态 = 生产固定尺寸类。V3 §73 结构（粒子/loops/spin/中空核）未镜像——follow-up），
  *   是 QA mirror，不是第二套 renderer；
  * - 212 × 520 官方尺寸；每状态每语言一个 HTML；
  * - 产物目录 out/ 不入库（.gitignore 已排除）。
@@ -97,10 +98,12 @@ function echoPageHtml(env, phase, headlineText, hintText, lang) {
     : visual.computeVisual(env, { phase: phase })
   const identity = (env && env.identity) || { accent: 0.5 }
   const hue = phase === 'empty' ? 'hue-neutral' : hueClassOf(identity.accent)
-  const ringSize = sizeClassOf(v.orbitRadius * 2, 120, 160, ['ring-s', 'ring-m', 'ring-l'])
-  const ringAlpha = sizeClassOf(v.orbitAlpha, 0.4, 0.6, ['ring-a-1', 'ring-a-2', 'ring-a-3'])
-  const glowSize = sizeClassOf(v.glowRadius * 2, 90, 135, ['glow-s', 'glow-m', 'glow-l'])
-  const coreSize = sizeClassOf(v.coreRadius * 2, 60, 78, ['core-s', 'core-m', 'core-l'])
+  // EMPTY 分支镜像 echo/index.ux refresh() 空缓存固定类（ring-m/ring-a-2/glow-m/core-m），
+  // 不经 sizeClassOf 推导（曾推导为 glow-s/core-s 与生产不一致——已修正）。
+  const ringSize = phase === 'empty' ? 'ring-m' : sizeClassOf(v.orbitRadius * 2, 120, 160, ['ring-s', 'ring-m', 'ring-l'])
+  const ringAlpha = phase === 'empty' ? 'ring-a-2' : sizeClassOf(v.orbitAlpha, 0.4, 0.6, ['ring-a-1', 'ring-a-2', 'ring-a-3'])
+  const glowSize = phase === 'empty' ? 'glow-m' : sizeClassOf(v.glowRadius * 2, 90, 135, ['glow-s', 'glow-m', 'glow-l'])
+  const coreSize = phase === 'empty' ? 'core-m' : sizeClassOf(v.coreRadius * 2, 60, 78, ['core-s', 'core-m', 'core-l'])
   const headlineHtml = headlineText !== null && headlineText !== undefined
     ? `<div class="headline-text">${esc(headlineText)}</div>`
     : `<div class="hint-text">${esc(hintText)}</div>`
@@ -194,14 +197,15 @@ body { background: #1a1a1a; }
 .orbit-dot { width: 6px; height: 6px; border-radius: 3px; margin-top: 2px; }
 .glow { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
 .core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; opacity: 0.85; }
-.hue-0 { background-color: rgb(230, 103, 103); border-color: rgb(230, 103, 103); }
-.hue-1 { background-color: rgb(230, 192, 103); border-color: rgb(230, 192, 103); }
-.hue-2 { background-color: rgb(174, 230, 103); border-color: rgb(174, 230, 103); }
-.hue-3 { background-color: rgb(103, 230, 160); border-color: rgb(103, 230, 160); }
-.hue-4 { background-color: rgb(103, 214, 230); border-color: rgb(103, 214, 230); }
-.hue-5 { background-color: rgb(103, 140, 230); border-color: rgb(103, 140, 230); }
-.hue-6 { background-color: rgb(166, 103, 230); border-color: rgb(166, 103, 230); }
-.hue-7 { background-color: rgb(230, 103, 200); border-color: rgb(230, 103, 200); }
+/* V3 §12：蓝—紫族（逐行镜像 src/common/echo.css；旧全谱含被禁红/橙——已修正） */
+.hue-0 { background-color: rgb(103, 144, 230); border-color: rgb(103, 144, 230); }
+.hue-1 { background-color: rgb(103, 132, 230); border-color: rgb(103, 132, 230); }
+.hue-2 { background-color: rgb(103, 121, 230); border-color: rgb(103, 121, 230); }
+.hue-3 { background-color: rgb(103, 109, 230); border-color: rgb(103, 109, 230); }
+.hue-4 { background-color: rgb(109, 103, 230); border-color: rgb(109, 103, 230); }
+.hue-5 { background-color: rgb(121, 103, 230); border-color: rgb(121, 103, 230); }
+.hue-6 { background-color: rgb(132, 103, 230); border-color: rgb(132, 103, 230); }
+.hue-7 { background-color: rgb(144, 103, 230); border-color: rgb(144, 103, 230); }
 .hue-neutral { background-color: rgb(190, 180, 160); border-color: rgb(190, 180, 160); }
 .ring-s { width: 104px; height: 104px; } .ring-m { width: 140px; height: 140px; } .ring-l { width: 176px; height: 176px; }
 .ring-a-1 { opacity: 0.3; } .ring-a-2 { opacity: 0.5; } .ring-a-3 { opacity: 0.7; }

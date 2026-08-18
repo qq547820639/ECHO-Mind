@@ -25,7 +25,7 @@ from app.schemas import (
     PortraitRebuildIn,
 )
 from app.services.audit import append_audit
-from app.services.baseline.calculator import baseline_state
+from app.services.baseline.calculator import MIN_COVERAGE, baseline_state
 from app.services.baseline.confidence import confidence_for
 from app.services.baseline.day_type import bucket_for_date
 from app.services.portrait.engine import baseline_digest, generate_portrait
@@ -103,7 +103,8 @@ def _lightweight_status(db: Session, *, tenant_id: str, user_id: str, tz_name: s
             DailyBehaviorAggregate.user_id == user_id,
             DailyBehaviorAggregate.local_date >= start,
             DailyBehaviorAggregate.local_date <= end,
-            DailyBehaviorAggregate.coverage_score >= 0.25,
+            # 审计 P2-2 修复：有效日 coverage 阈值单一事实源（与 build_baseline 一致）。
+            DailyBehaviorAggregate.coverage_score >= MIN_COVERAGE,
         )) or 0
         version = None
         window_start = window_end = None

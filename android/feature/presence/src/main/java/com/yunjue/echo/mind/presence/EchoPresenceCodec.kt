@@ -23,7 +23,8 @@ import java.time.Instant
  *
  * ERA 53（§52 审计第 3 轮）格式 v2：补齐 Identity 四层（§52 跨进程真值）——
  * 进程死亡后 Wallpaper/Dream 恢复的 ECHO 与前台同一 Identity（全 8 项身份字段 +
- * LifeSeason 7 字段 + DailyComposition 12 字段 + MomentState 2 字段）。
+ * LifeSeason 7 字段 + DailyComposition 12 字段 + MomentState 2 字段 +
+ * 尾部追加 dailyCompositionFilled 标志段——T3-P2-3，旧 40 段快照仍可解）。
  * 叙事字段仍永不入快照（Public Safe 构造保证）；v1 快照继续可解（新字段取结构默认，
  * 与 v1 时代的语义一致——回退旧推导路径）。
  */
@@ -77,6 +78,8 @@ object EchoPresenceCodec {
         // Moment State 2 项（§59 分钟级调制）
         state.momentState.breathingPeriod.toString(),
         state.momentState.noiseScale.toString(),
+        // 日构图已填充显式标志（T3-P2-3；尾部追加：旧 40 段 v2 快照仍可解，缺省按哨兵推断）
+        state.dailyCompositionFilled.toString(),
     ).joinToString("|")
 
     /** 解析失败一律返回 null（fail-closed：渲染中性占位，绝不编造状态）。 */
@@ -152,6 +155,9 @@ object EchoPresenceCodec {
                     breathingPeriod = parts[38].toFloat(),
                     noiseScale = parts[39].toFloat(),
                 ),
+                // 日构图已填充显式标志（T3-P2-3）：旧 40 段 v2 快照缺该段时按哨兵推断（值等价）
+                dailyCompositionFilled = parts.getOrNull(40)?.toBoolean()
+                    ?: (parts[26].toFloat() > 0f || parts[27].toFloat() > 0f),
             )
         }.getOrNull()
     }

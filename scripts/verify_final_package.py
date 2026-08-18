@@ -78,11 +78,15 @@ def main() -> int:
             prov = json.loads(provenance_path.read_text(encoding="utf-8"))
             if prov.get("release_apk_path"):
                 apk = top / prov["release_apk_path"]
-                if apk.is_file() and dist.sha256_file(apk) != prov.get("release_apk_sha256"):
+                if not apk.is_file():
+                    problems.append(f"provenance 记录的 release APK 不在包内：{prov['release_apk_path']}")
+                elif dist.sha256_file(apk) != prov.get("release_apk_sha256"):
                     problems.append("provenance.release_apk_sha256 与包内 APK 不一致")
             elif prov.get("unsigned_apk_path"):
                 apk = top / prov["unsigned_apk_path"]
-                if apk.is_file() and dist.sha256_file(apk) != prov.get("unsigned_apk_sha256"):
+                if not apk.is_file():
+                    problems.append(f"provenance 记录的 unsigned APK 不在包内：{prov['unsigned_apk_path']}")
+                elif dist.sha256_file(apk) != prov.get("unsigned_apk_sha256"):
                     problems.append("provenance.unsigned_apk_sha256 与包内 APK 不一致")
             if prov.get("release_type") == "release" and prov.get("git_dirty"):
                 problems.append("release_type=release 但 git_dirty=true（§15）")
@@ -96,8 +100,13 @@ def main() -> int:
             problems.append("包内缺少 BUILD_PROVENANCE.json")
 
         # 4) 包内 source archive 逐一执行 Final Archive Verification Gate
-        source_manifest_text = (top / "SOURCE_MANIFEST.sha256").read_text(encoding="utf-8") \
-            if (top / "SOURCE_MANIFEST.sha256").is_file() else None
+        # T7-P2-4 fail-closed：缺 SOURCE_MANIFEST.sha256 时整体必败（此前静默跳过第 4/5 步——放行路径已删除）。
+        sm_path = top / "SOURCE_MANIFEST.sha256"
+        if not sm_path.is_file():
+            problems.append("包内缺少 SOURCE_MANIFEST.sha256——源码归档验证门禁 fail-closed（不再静默跳过）")
+            source_manifest_text = None
+        else:
+            source_manifest_text = sm_path.read_text(encoding="utf-8")
         for f in sorted(top.rglob("*.zip")) + sorted(top.rglob("*.tar.gz")):
             rel = rel_of(f)
             if rel == "RELEASE_ARTIFACT_MANIFEST.sha256" or rel.endswith(".release.zip"):
@@ -110,6 +119,8 @@ def main() -> int:
                     result = vsa.verify_extracted(tmp2, manifest, list(dist.REQUIRED_SOURCES))
                     for p in result["problems"]:
                         problems.append(f"source archive [{rel}]：{p}")
+                else:
+                    problems.append(f"source archive [{rel}]：无法执行内嵌清单比对（无 SOURCE_MANIFEST）")
             finally:
                 shutil.rmtree(tmp2, ignore_errors=True)
 

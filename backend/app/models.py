@@ -272,7 +272,12 @@ class Escalation(Base):
     called_emergency_services: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     follow_up_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
     operator_signature: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_escalation_tenant_event"),)
+    # 审计 P2-5：列表 keyset 分页 (opened_at desc, id desc) 与 cursor 比较依赖
+    # (tenant_id, opened_at) 复合索引（迁移 20260818_0001 同步创建）。
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_escalation_tenant_event"),
+        Index("ix_escalations_tenant_opened_at", "tenant_id", "opened_at"),
+    )
 
 
 class DataSubjectRequest(Base):
@@ -360,7 +365,12 @@ class AuditEvent(Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     previous_event_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     event_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    __table_args__ = (UniqueConstraint("tenant_id", "event_id", name="uq_audit_tenant_event"),)
+    # 审计 P2-10：append_audit 读头 / verify_audit_chain 排序高频路径依赖
+    # (tenant_id, occurred_at) 复合索引（迁移 20260818_0001 同步创建）。
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_audit_tenant_event"),
+        Index("ix_audit_events_tenant_occurred_at", "tenant_id", "occurred_at"),
+    )
 
 
 class Skill(Base):

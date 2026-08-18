@@ -3,12 +3,17 @@ package com.yunjue.echo.mind
 import android.content.Context
 import androidx.room.Room
 import com.yunjue.echo.mind.data.EchoDatabase
-import com.yunjue.echo.mind.data.database.*
-import com.yunjue.echo.mind.sensing.AppActivityCollector
-import com.yunjue.echo.mind.sensing.ScreenCollector
-import com.yunjue.echo.mind.sensing.SensingEventHub
-import com.yunjue.echo.mind.sensing.SensingWindowScheduler
-import com.yunjue.echo.mind.sensing.SensorCollector
+import com.yunjue.echo.mind.data.database.MIGRATION_10_11
+import com.yunjue.echo.mind.data.database.MIGRATION_11_12
+import com.yunjue.echo.mind.data.database.MIGRATION_1_2
+import com.yunjue.echo.mind.data.database.MIGRATION_2_3
+import com.yunjue.echo.mind.data.database.MIGRATION_3_4
+import com.yunjue.echo.mind.data.database.MIGRATION_4_5
+import com.yunjue.echo.mind.data.database.MIGRATION_5_6
+import com.yunjue.echo.mind.data.database.MIGRATION_6_7
+import com.yunjue.echo.mind.data.database.MIGRATION_7_8
+import com.yunjue.echo.mind.data.database.MIGRATION_8_9
+import com.yunjue.echo.mind.data.database.MIGRATION_9_10
 import com.yunjue.echo.mind.security.AndroidKeystoreFieldCipher
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
@@ -83,24 +88,6 @@ class AppContainer(context: Context) {
     val contextRetriever get() = intelligence.contextRetriever
     val skillRepository get() = actions.skillRepository
 
-    // ===== Transient 工厂（§45：每次新建，非 Application scoped） =====
-    /** 各 Collector 工厂：使用 applicationContext 避免泄漏 Activity。 */
-    fun newSensorCollector(context: Context): SensorCollector =
-        SensorCollector(context.applicationContext, newSensingEventHub())
-    fun newScreenCollector(context: Context): ScreenCollector =
-        ScreenCollector(context.applicationContext, newSensingEventHub())
-    fun newAppActivityCollector(context: Context): AppActivityCollector =
-        AppActivityCollector(context.applicationContext, newSensingEventHub())
-    /** 麦克风采集器工厂（注入 passiveSensingPrefs 以读取 micEnabled 开关）。 */
-    fun newMicCollector(context: Context): MicCollector =
-        MicCollector(context.applicationContext, core.passiveSensingPrefs)
-
-    /** 进程内共享事件聚合层单例工厂。 */
-    fun newSensingEventHub(): SensingEventHub = SensingEventHub.getInstance()
-
-    /** 5 分钟窗口调度器工厂（可选注入麦克风采集器）。 */
-    fun newSensingWindowScheduler(micCollector: MicCollector? = null): SensingWindowScheduler =
-        SensingWindowScheduler(newSensingEventHub(), micCollector = micCollector)
 }
 
 /**

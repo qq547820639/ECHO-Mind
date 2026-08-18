@@ -155,6 +155,31 @@ class LifeSeasonTrackerTest {
         assertTrue("刚提交置信低", committed.confidence < 0.3f)
     }
 
+    // ===== T3-P2-1：候选日计入 daysSinceCommit（confidence 虚高修复） =====
+
+    @Test
+    fun candidateDaysCountIntoDaysSinceCommitAndLowerConfidence() {
+        // 全一致：10 个新日期签名均与 target 相同
+        var agreed = LifeSeasonTracker.start(season(rhythmShift = "stable"), date(0))
+        for (i in 1..10) agreed = agreed.update(season(rhythmShift = "stable"), date(i.toLong()))
+        assertEquals(10, agreed.daysSinceCommit)
+
+        // 有候选日：同样 10 个新日期，奇数日漂移（later）、偶数日回弹（不提交）
+        var drifted = LifeSeasonTracker.start(season(rhythmShift = "stable"), date(0))
+        for (i in 1..10) {
+            val fresh = if (i % 2 == 1) season(rhythmShift = "later") else season(rhythmShift = "stable")
+            drifted = drifted.update(fresh, date(i.toLong()))
+        }
+        assertEquals(
+            "候选日必须计入 daysSinceCommit（字段 KDoc：上次提交至今的新日期数）",
+            10, drifted.daysSinceCommit,
+        )
+        assertTrue(
+            "候选日拉低一致性占比 → confidence 低于无候选日（不虚高）",
+            drifted.confidence < agreed.confidence,
+        )
+    }
+
     // ===== 签名不含 drift：drift 波动不触发候选 =====
 
     @Test

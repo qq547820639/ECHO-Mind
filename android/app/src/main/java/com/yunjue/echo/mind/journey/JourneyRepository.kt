@@ -58,9 +58,9 @@ open class JourneyRepository(
             resolveSensingPermissionEnabled(consent, localMode, flags["passive_sensing_enabled"])
         }
 
-    /** 画像时间线（窗口天数由 ViewModel 按尺度决定）。 */
+    /** 画像时间线（单一共享流；窗口天数经 refresh(days) 切换，状态自带 days）。 */
     override fun timeline(days: Int): StateFlow<PortraitTimelineUiState> =
-        portraitRepository.observePortraits(days)
+        portraitRepository.observePortraits()
 
     /** 刷新画像窗口。 */
     override suspend fun refresh(days: Int) {

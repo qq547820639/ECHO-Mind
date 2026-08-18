@@ -1,7 +1,7 @@
 # PROFILE_C_IRREGULAR · Day 90（2026-04-05）
 
 - **成熟度**: MATURE
-- **Headline**: 今天比平时集中。
+- **Headline**: 活跃开始比通常早 · 活动比通常多 · 屏幕时间比通常多 · 晚间屏幕比通常更晚 · 今天比较集中。
   - Evidence: 活跃时段占比 58% · 通常 76%
   - AI layer: 这种变化最近几个工作日也出现过。
 - **Life Season**: phase 2 · drift 0.371 · rhythm earlier · screen stable · activity stable · mobility stable · regularity stable
@@ -12,7 +12,7 @@
 
 ## 为什么这一天看起来这样
 
-基线已形成（6 个有效日）。画面由「通常的你」参照驱动：今天比平时集中。
+基线已形成（6 个有效日）。画面由「通常的你」参照驱动：活跃开始比通常早 · 活动比通常多 · 屏幕时间比通常多 · 晚间屏幕比通常更晚 · 今天比较集中。
 
 人生季节漂移较明显（drift 0.371，方向 earlier）——湍流下限被抬高，画面比早期多一层缓慢波动。
 

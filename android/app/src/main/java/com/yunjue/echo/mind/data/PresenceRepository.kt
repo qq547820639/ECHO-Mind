@@ -155,6 +155,8 @@ class PresenceRepository(
             identityGenome = identity,
             lifeSeason = season,
             dailyComposition = daily,
+            // T3-P2-3：显式声明日构图已填充（不依赖 buildDailyComposition 输出恒非零的巧合）
+            dailyCompositionFilled = true,
             momentState = moment,
         )
 

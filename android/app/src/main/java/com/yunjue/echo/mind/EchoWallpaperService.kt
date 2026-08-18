@@ -146,7 +146,7 @@ class EchoWallpaperService : WallpaperService() {
         ) {
             // §AZ：launcher 滚动 → 目标 offset = ((xOffset-.5)*.10) 裁到 ±5%；
             // 每帧向目标轻平滑（drawFrame 内 lerp 0.15）；Reduced Motion → parallax off
-            val reduced = prefs.getBoolean("presence_reduce_motion", false)
+            val reduced = prefs.getBoolean(AppPreferences.KEY_PRESENCE_REDUCE_MOTION, false)
             launcherOffsetTargetX = if (reduced) {
                 0f
             } else {
@@ -184,12 +184,13 @@ class EchoWallpaperService : WallpaperService() {
             lastSnapshotReadMs = SystemClock.elapsedRealtime()
         }
 
-        /** ERA 74 §64：用户视觉偏好进入渲染（减少动画/动态程度/夜间模式；键与 AppPreferences 同源）。 */
+        /** ERA 74 §64：用户视觉偏好进入渲染（减少动画/动态程度/夜间模式；
+         *  键经 AppPreferences 伴生常量同源——编译期内联，不初始化业务容器）。 */
         private fun renderPolicy(): PresenceRenderPolicy = resolveRenderPolicy(
             baseSurface = EchoSurface.WALLPAPER_VISUAL_ONLY,
-            reduceMotion = prefs.getBoolean("presence_reduce_motion", false),
-            motionLevelName = prefs.getString("presence_motion_level", "DEFAULT") ?: "DEFAULT",
-            nightMode = prefs.getBoolean("presence_night_mode", false),
+            reduceMotion = prefs.getBoolean(AppPreferences.KEY_PRESENCE_REDUCE_MOTION, false),
+            motionLevelName = prefs.getString(AppPreferences.KEY_PRESENCE_MOTION_LEVEL, "DEFAULT") ?: "DEFAULT",
+            nightMode = prefs.getBoolean(AppPreferences.KEY_PRESENCE_NIGHT_MODE, false),
         )
 
         private fun startRendering() {

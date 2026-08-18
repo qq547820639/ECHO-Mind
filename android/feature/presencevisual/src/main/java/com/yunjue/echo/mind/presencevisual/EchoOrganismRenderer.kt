@@ -190,10 +190,10 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
         style = Stroke(width = atm.rimWidthFraction * minDim),
     )
 
-    // 2. Halo（远层）
+    // 2. Halo（远层；自带颜色——不再借 frontMembrane.color）
     frame.halos.forEach { halo ->
         drawCircle(
-            color = Color(frame.frontMembrane.color).copy(alpha = halo.alpha.coerceIn(0f, 1f)),
+            color = Color(halo.color).copy(alpha = halo.alpha.coerceIn(0f, 1f)),
             radius = halo.radiusFraction * minDim,
             center = center,
             style = Stroke(width = halo.widthFraction * minDim),
@@ -266,11 +266,11 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
         )
     }
 
-    // 11. 暖金高光（极少量；§12 面积上限）
+    // 11. 暖金高光（极少量；§12 面积上限；颜色 = identity palette.warm 单源——与 AGSL iWarm 同流）
     frame.warmAccents.forEach { w ->
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(ColorSpace.WARM_GOLD).copy(alpha = w.alpha), Color(0x00000000)),
+                colors = listOf(Color(w.color).copy(alpha = w.alpha), Color(0x00000000)),
                 center = Offset(w.x * size.width, w.y * size.height),
                 radius = w.radiusFraction * minDim * 2f,
             ),

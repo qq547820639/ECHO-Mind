@@ -547,8 +547,19 @@ class E2EFlowTest {
     }
 
     @Test
-    fun emptySkillListRepresentsColdStart() {
-        val emptySkills: List<SkillDisplay> = emptyList()
-        assertTrue("空 Skill 列表应表示冷启动", emptySkills.isEmpty())
+    fun emptySkillListResponseMapsToColdStartNotFailure() {
+        // T8-P2-7 修复：原版对测试自建 emptyList() 断言 isEmpty（纯永真）。改测生产冷启动映射：
+        // 后端「空 skills + cold_start_hint」响应 → 真实 fetchSkills（缓存命中走生产解析器）
+        // 必须解析为「空列表 = 冷启动（可展示分阶段文案）」，而非加载失败
+        val response = """
+            {"skills": [], "cold_start_hint": "ECHO 还在最初几天的观察期", "observation_days": 3}
+        """.trimIndent()
+        preferences.setSkillCache(response)
+        val repository = SkillRepository(db, Outbox(db, cipher), preferences, ApiClient(tokenProvider = { null }))
+        val result = repository.fetchSkills()
+        assertFalse("空 skills 是合法冷启动响应，不是加载失败", result.loadFailed)
+        assertEquals(emptyList<SkillDisplay>(), result.skills)
+        assertEquals("ECHO 还在最初几天的观察期", result.coldStartHint)
+        assertEquals(3, result.observationDays)
     }
 }

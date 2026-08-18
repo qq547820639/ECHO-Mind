@@ -18,38 +18,36 @@ VERSION = json.loads((ROOT / "scripts/version_source.json").read_text(encoding="
     "release_version"
 ]
 
-# ERA 18 §96：backend 依赖以 uv.lock 为准（精确版本 + 完整传递闭包）；
-# 无锁文件时回退 pyproject 声明范围。
+# ERA 18 §96：backend 依赖以 uv.lock 为准（精确版本 + 完整传递闭包）。
+# T7-P2-1 fail-closed（2026-08-18 深化轮）：python < 3.11（无 tomllib）或 uv.lock
+# 缺失/不可解析时**报错退出**——曾存在的 pyproject 声明范围静默回退已删除
+#（该回退曾致 SBOM 45 包静默降级，丢 35 个传递依赖且无任何告警/标记）。
+if tomllib is None:
+    raise SystemExit(
+        f"FAIL：SBOM 生成需要 python >= 3.11（tomllib）解析 uv.lock 闭包；"
+        f"当前 python {sys.version.split()[0]}。fail-closed：禁止回退 pyproject 声明范围。"
+    )
 lock_path = ROOT / "backend" / "uv.lock"
-if lock_path.is_file() and tomllib is not None:
+if not lock_path.is_file():
+    raise SystemExit("FAIL：backend/uv.lock 缺失——SBOM 必须由 lock 闭包生成（fail-closed，无回退）。")
+try:
     lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
-    for pkg in lock.get("package", []):
-        name = pkg.get("name", "")
-        version = pkg.get("version", "")
-        if not name:
-            continue
-        packages.append({
-            "SPDXID": f"SPDXRef-Python-{re.sub(r'[^A-Za-z0-9.-]', '-', name)}",
-            "name": name,
-            "versionInfo": version or "declared",
-            "downloadLocation": "NOASSERTION",
-            "licenseConcluded": "NOASSERTION",
-            "licenseDeclared": "NOASSERTION",
-            "supplier": "NOASSERTION",
-        })
-else:
-    pyproject = (ROOT / "backend/pyproject.toml").read_text(encoding="utf-8")
-    for match in re.finditer(r'^\s*"([A-Za-z0-9_.-]+)([^\"]*)",?$', pyproject, re.MULTILINE):
-        name, constraint = match.groups()
-        packages.append({
-            "SPDXID": f"SPDXRef-Python-{name}",
-            "name": name,
-            "versionInfo": constraint.strip() or "declared",
-            "downloadLocation": "NOASSERTION",
-            "licenseConcluded": "NOASSERTION",
-            "licenseDeclared": "NOASSERTION",
-            "supplier": "NOASSERTION",
-        })
+except Exception as exc:  # tomllib.TOMLDecodeError 等
+    raise SystemExit(f"FAIL：uv.lock 不可解析（{exc}）——fail-closed：禁止回退 pyproject 声明范围。")
+for pkg in lock.get("package", []):
+    name = pkg.get("name", "")
+    version = pkg.get("version", "")
+    if not name:
+        continue
+    packages.append({
+        "SPDXID": f"SPDXRef-Python-{re.sub(r'[^A-Za-z0-9.-]', '-', name)}",
+        "name": name,
+        "versionInfo": version or "declared",
+        "downloadLocation": "NOASSERTION",
+        "licenseConcluded": "NOASSERTION",
+        "licenseDeclared": "NOASSERTION",
+        "supplier": "NOASSERTION",
+    })
 
 catalog = (ROOT / "android/gradle/libs.versions.toml").read_text(encoding="utf-8")
 versions = dict(re.findall(r'^(\w+)\s*=\s*"([^"]+)"$', catalog, re.MULTILINE))

@@ -11,6 +11,7 @@ const storage = require('../src/common/cache/storage_wrap.js')
 const cache = require('../src/common/presence/presence_cache.js')
 const visual = require('../src/common/visual/wear_visual.js')
 const accel = require('../src/common/sensor/accel_summary.js')
+const haptic = require('../src/common/haptic/haptic_throttle.js')
 const declaredFeatures = require('./declared_features_test.js')
 
 let passed = 0
@@ -313,6 +314,43 @@ test('module exports page-level start/stop (echo/index.ux call shape)', () => {
   assert.strictEqual(typeof accel.start, 'function')
   assert.strictEqual(typeof accel.stop, 'function')
   assert.strictEqual(typeof accel.create, 'function')
+})
+
+// ------------------------------------------------------------------ haptic throttle（契约 §7 速率限制 ≥1.5s）
+
+console.log('# haptic throttle')
+
+test('haptic rate limit >= 1.5s (contract \u00a77)', () => {
+  assert.strictEqual(haptic.MIN_INTERVAL_MS, 1500)
+  const gate = haptic.create(() => 0)
+  assert.strictEqual(gate.allow(0), true) // 首次放行
+  assert.strictEqual(gate.allow(1499), false) // <1.5s：no-op
+  assert.strictEqual(gate.allow(1500), true) // 恰好 1.5s：放行
+  assert.strictEqual(gate.allow(1500 + 1499), false)
+  assert.strictEqual(gate.allow(1500 + 1500), true)
+})
+
+test('haptic short/long share one throttle window (fast breathing->stop)', () => {
+  let t = 10000
+  const gate = haptic.create(() => t)
+  assert.strictEqual(gate.allow(), true) // short（呼吸开始）
+  t += 800 // 快速「呼吸→结束」<1.5s
+  assert.strictEqual(gate.allow(), false) // long（完成确认）被节流 no-op
+  t += 700 // 距上次放行恰好 1500ms
+  assert.strictEqual(gate.allow(), true)
+})
+
+test('action page wires haptic gate into both vibrate entry points', () => {
+  const fs = require('fs')
+  const path = require('path')
+  const ux = fs.readFileSync(path.join(__dirname, '..', 'src', 'action', 'index.ux'), 'utf8')
+  assert.ok(ux.includes("require('../common/haptic/haptic_throttle.js')"), 'action 页必须接线节流模块')
+  for (const fn of ['vibrateShort', 'vibrateLong']) {
+    const i = ux.indexOf(fn + '() {')
+    assert.ok(i >= 0, '缺少 ' + fn)
+    const body = ux.slice(i, ux.indexOf('}', i))
+    assert.ok(body.includes('hapticGate.allow()'), fn + ' 必须经节流门（契约 \u00a77）')
+  }
 })
 
 // ------------------------------------------------------------------ manifest capability closure (Phase 4)

@@ -7,9 +7,13 @@ import com.yunjue.echo.mind.visual.math.DeterministicRandom
  * VisualGenomeCompiler — EchoVisualParameters → EchoVisualGenome（V3 §H/§J）。
  *
  * **机械编译器**：[EchoVisualParameters] 已经是 canonical 语义值，本编译器只做
- * 参数 → genome 字段的一一映射与 identity 元数据透传；
+ * 参数 → genome 字段映射与 identity 元数据透传；
  * **禁止**从 rhythm/behavior/confidence/maturity 重新推导
  * brightness/turbulence/density/core openness（那是 presence 映射层的职责）。
+ *
+ * 诚实边界：**contrast / accentIntensity / structureComplexity 当前不被视觉链消费**
+ * （genome 无对应字段，渲染链不读取）——三参数保留为 canonical 语义面（上游 presence/
+ * journey 继续填充，未来材质层可接线）；除三者外其余参数一一映射进 genome 字段。
  */
 object VisualGenomeCompiler {
 
