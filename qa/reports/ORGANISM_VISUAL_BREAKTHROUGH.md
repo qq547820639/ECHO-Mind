@@ -134,23 +134,24 @@ glint（>0.8 luma 像素 0.11%，全部带 7.5× 辉光晕 + 对比）。§31 �
 
 ## Tests
 
+最终门禁（分支 `agent/organism-visual-breakthrough`，全部实测通过）：
+
+- `./gradlew clean` → `testDebugUnitTest`：**1377 tests / 0 failures**（clean 后全量）
+- `./gradlew lintDebug detekt`：**通过**（修复 4 个 NewApi——mask 光栅化拆为纯 Canvas 的
+  `AgslMaskRasterizer`，顺带清掉 main 上既有的同类潜在 lint 债 + 3 个 detekt 违规）
+- `./gradlew :app:assembleDebug`：**APK 产出**（app-debug.apk 22.8MB）
+- `make android`（CI 同构门）：**BUILD SUCCESSFUL**
 - `:core:visual` 65 tests ✅（新增体积拓扑/膜谐波/盐分段断言）
-- `:feature:presencevisual` 30 tests ✅（含 CanvasFallbackVisualGateTest 旧门 +
-  **6 个新艺术门**：heroLum 0.10–0.20 / bright≥0.10 / chromatic≥0.30 / chromSat≥0.55 /
-  centralVol≥0.30 / wireframe≤0.30）
-- `:feature:qa` 113 tests ✅（黄金重生成；diversity 背景度量改 ambient 三元组——
-  极暗区 8-bit 量化物理）
-- `:app` + 其余模块 981 tests ✅（唯一失败 `WearableApplicationIntegrationTest` 为
-  30s 协程时序抖动，隔离重跑通过，与渲染无关）
+- `:feature:presencevisual` 30 tests ✅（含旧门 + **6 个新艺术门**）
+- `:feature:qa` 113 tests ✅（黄金重生成；diversity 背景度量改 ambient 三元组）
 
 ## Commits
 
 ```
 20ad607 feat(visual): add deterministic organism volume topology
 ac197d1 feat(renderer): give canvas echo volumetric body and membrane
-(后续)   feat(renderer): add volumetric agsl organism material
-(后续)   feat(visual): propagate organism quality across echo surfaces
-(后续)   test(visual): lock volumetric echo quality regression gates
+ff23e5e feat(renderer): add volumetric agsl organism material + state propagation
+4bef09a test(visual): lock volumetric echo quality regression gates
 ```
 
 ## Remaining visual uncertainty
