@@ -216,7 +216,7 @@ object VisualLabMetrics {
                     if (x > maxX) maxX = x
                     if (y < minY) minY = y
                     if (y > maxY) maxY = y
-                    lumGrid[(y / step) * gw + (x / step)] = true
+                    lumGrid[y / step * gw + x / step] = true
                 }
                 // edge density：1.35R 内水平明暗跳变（纹理丰富度代理）
                 if (dist <= radiusPx * 1.35f && x - edgeStride >= 0 && x + edgeStride < w) {

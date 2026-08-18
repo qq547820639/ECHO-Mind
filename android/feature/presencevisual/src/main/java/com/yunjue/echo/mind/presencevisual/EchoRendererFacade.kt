@@ -257,11 +257,13 @@ class EchoRenderSession(
                     // 否则非 Compose AGSL 会话突破 surface 亮度上限契约、两后端不对齐
                     exposure = spec.genome.luminance,
                     halo = spec.genome.haloIntensity,
-                    primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
-                    secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
-                    warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
-                    // Breakthrough §18/§20：cyan 高光 + FBM 云场相位与帧计算机同源
-                    cyanColor = OrganismFrameComputer.cyanAccentFor(request.genome.identitySeed),
+                    colors = AgslEchoBackend.AgslMaterialColors(
+                        primary = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
+                        secondary = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
+                        warm = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                        // Breakthrough §18/§20：cyan 高光与帧计算机同源
+                        cyan = OrganismFrameComputer.cyanAccentFor(request.genome.identitySeed),
+                    ),
                     noisePhase = AgslEchoBackend.noisePhaseFor(
                         identityPhase = spec.genome.identityPhase,
                         dayComposition = spec.genome.dayComposition,

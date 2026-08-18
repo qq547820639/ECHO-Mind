@@ -129,11 +129,13 @@ fun EchoOrganism(
                         heightPx = size.height,
                         exposure = spec.genome.luminance,
                         halo = spec.genome.haloIntensity,
-                        primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
-                        secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
-                        warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
-                        // Breakthrough §18/§20：cyan 高光 + FBM 云场相位与帧计算机同源
-                        cyanColor = OrganismFrameComputer.cyanAccentFor(base.identitySeed),
+                        colors = AgslEchoBackend.AgslMaterialColors(
+                            primary = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
+                            secondary = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
+                            warm = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                            // Breakthrough §18/§20：cyan 高光与帧计算机同源
+                            cyan = OrganismFrameComputer.cyanAccentFor(base.identitySeed),
+                        ),
                         noisePhase = AgslEchoBackend.noisePhaseFor(
                             identityPhase = base.identityPhase,
                             dayComposition = base.dayComposition,

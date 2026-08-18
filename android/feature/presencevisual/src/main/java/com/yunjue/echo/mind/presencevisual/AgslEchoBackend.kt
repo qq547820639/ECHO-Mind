@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.RuntimeShader
@@ -275,107 +274,39 @@ half4 main(half4 c) {
         heightPx: Int,
         warmColor: Int,
     ): Bitmap {
-        val session = AgslSession(widthPx, heightPx)
-        session.rasterizeMask(frame, widthPx.toFloat(), heightPx.toFloat(), warmColor)
-        session.rasterizeVolumeMask(frame, widthPx.toFloat(), heightPx.toFloat())
-        return session.maskSnapshot()
+        // Breakthrough：mask 光栅化是纯 Canvas 路径（无 API 33 依赖）——
+        // 独立光栅化器让评审证据路径在任意 API 可用，且不经 RuntimeShader。
+        val rasterizer = AgslMaskRasterizer(widthPx, heightPx)
+        rasterizer.rasterizeMask(frame, widthPx.toFloat(), heightPx.toFloat(), warmColor)
+        rasterizer.rasterizeVolumeMask(frame, widthPx.toFloat(), heightPx.toFloat())
+        return rasterizer.maskBitmap.copy(Bitmap.Config.ARGB_8888, false)
     }
 
+    /** AGSL 材质四色（primary/secondary/warm/cyan；detekt 参数收敛载体）。 */
+    data class AgslMaterialColors(
+        val primary: Int,
+        val secondary: Int,
+        val warm: Int,
+        val cyan: Int = 0xFF69D2E7.toInt(),
+    )
+
     /**
-     * AGSL 会话（RuntimeShader 编译一次复用 + 双 mask bitmap 复用——§32 hot path 零位图分配）。
+     * Breakthrough：mask 光栅化器（纯 Canvas——无 API 33 依赖）。
+     * AgslSession 组合复用（bitmap/shader 输入同源）；评审证据路径
+     * （rasterizeMaskForInspection）独立使用，不经 RuntimeShader。
      */
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    class AgslSession(val width: Int, val height: Int, val advanced: Boolean = false) {
-        private val shader = RuntimeShader(SHADER_SOURCE)
-        private val gradingPaint: Paint? = if (advanced && Build.VERSION.SDK_INT >= 36) {
-            try {
-                Paint().apply { colorFilter = android.graphics.RuntimeColorFilter(GRADING_SOURCE) }
-            } catch (_: Throwable) {
-                null
-            }
-        } else {
-            null
-        }
-        private val maskBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    internal class AgslMaskRasterizer(val width: Int, val height: Int) {
+        val maskBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val volumeBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         private val maskCanvas = Canvas(maskBitmap)
-        private val maskShader = BitmapShader(maskBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        private val volumeCanvas = Canvas(volumeBitmap)
         private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
         private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val warmPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        // ---- Breakthrough：体积 mask（A=lobe 覆盖，G=膜/地环边缘 tag，B=lobe 深度）----
-        private val volumeBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        private val volumeCanvas = Canvas(volumeBitmap)
-        private val volumeShader = BitmapShader(volumeBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
         private val volumePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val volumeMatrix = Matrix()
 
-        init {
-            shader.setInputBuffer("iVectorMask", maskShader)
-            shader.setInputBuffer("iVolumeMask", volumeShader)
-            drawPaint.shader = shader
-        }
-
-        /** 绘制一帧（几何/体积每帧重栅格化进复用 bitmap；无 per-frame 分配）。 */
-        fun draw(
-            canvas: Canvas,
-            frame: OrganismFrame,
-            widthPx: Float,
-            heightPx: Float,
-            exposure: Float,
-            halo: Float,
-            primaryColor: Int,
-            secondaryColor: Int,
-            warmColor: Int,
-            material: EchoMaterialSpec = EchoMaterialSpec(),
-            cyanColor: Int = 0xFF69D2E7.toInt(),
-            noisePhase: Float = 0f,
-        ) {
-            rasterizeMask(frame, widthPx, heightPx, warmColor)
-            rasterizeVolumeMask(frame, widthPx, heightPx)
-            shader.setFloatUniform("iResolution", widthPx, heightPx)
-            shader.setFloatUniform("iExposure", exposure.coerceIn(0f, 1f))
-            shader.setFloatUniform("iCavity", frame.coreCavity.radiusFraction)
-            shader.setFloatUniform("iHalo", halo.coerceIn(0f, 1f))
-            // §11 depth fog 强度（Quality Pass：0.55——深处明显偏雾但不吃掉结构）
-            shader.setFloatUniform("iDepthFog", 0.55f)
-            // §W：glow 采样半径随分辨率/密度缩放（分辨率无关的 8-tap 边缘散射）
-            shader.setFloatUniform(
-                "iGlowRadius",
-                glowRadiusPxFor(halo, min(widthPx, heightPx)),
-            )
-            // Breakthrough：星云体积增益（exposure 驱动；Dream 等暗面自然收敛）
-            shader.setFloatUniform("iVolumeGain", 0.50f + 0.55f * exposure.coerceIn(0f, 1f))
-            // Breakthrough：FBM 云场相位（identity/day/clock 的确定性慢函数）
-            shader.setFloatUniform("iPhase", noisePhase, noisePhase * 0.63f + 17.0f)
-            shader.setColorUniform("iPrimary", primaryColor)
-            shader.setColorUniform("iSecondary", secondaryColor)
-            shader.setColorUniform("iWarm", warmColor)
-            shader.setColorUniform("iCyan", cyanColor)
-            // T2-P2-3：tone soft-knee 参数由 packet.material 注入（shader 端无硬编码副本；默认值=编译产物同值）
-            shader.setFloatUniform("iKnee", material.toneKnee)
-            shader.setFloatUniform("iComp", material.toneCompression)
-            val grading = gradingPaint
-            if (grading != null) {
-                // §21：final grading 只作用于 organism 自身 layer
-                val saveCount = canvas.saveLayer(0f, 0f, widthPx, heightPx, grading)
-                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
-                canvas.restoreToCount(saveCount)
-            } else {
-                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
-            }
-        }
-
-        /**
-         * vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖，B=归一化深度，A=coverage）。
-         *
-         * 层对齐（UX-B1）：ripples（§29 触摸涟漪描边）、halos（远层光环）、frontMembrane
-         * （前膜细环）均进 R 通道——AGSL 后端不再静默丢弃这三层（与 Canvas 行为对齐）。
-         * 已知限制：coreCavity 的 §8 有机谐波边缘形变在 shader cavity（正圆 smoothstep）上
-         * 不呈现——属设备 HW 门验证项（AGSL raster 需硬件 canvas）。
-         */
-        internal fun rasterizeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float, warmColor: Int) {
+        /** 几何 mask（R=冷色几何，G=暖色几何，B=深度，A=coverage）。 */
+        fun rasterizeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float, warmColor: Int) {
             maskCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             val minDim = min(widthPx, heightPx)
             val cx = widthPx / 2f
@@ -415,7 +346,7 @@ half4 main(half4 c) {
 
             frame.particles.forEach { p ->
                 if (p.color == warmColor) return@forEach
-                // B=粒子 frontness（SceneParticleV3.depth；不再硬编码 200——depth fog 按真实前后分层）
+                // B=粒子 frontness（SceneParticleV3.depth；depth fog 按真实前后分层）
                 dotPaint.color = Color.argb(
                     (p.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0,
                     (p.depth.coerceIn(0f, 1f) * 255).toInt(),
@@ -464,7 +395,7 @@ half4 main(half4 c) {
          * - 有机膜：轮廓宽描边 + 细亮缘 → G 边缘发射 tag（B=255 前层）；
          * - 地面环：椭圆描边 → G tag（B=0 背层）。
          */
-        internal fun rasterizeVolumeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float) {
+        fun rasterizeVolumeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float) {
             volumeCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             val minDim = min(widthPx, heightPx)
             val cx = widthPx / 2f
@@ -568,8 +499,88 @@ half4 main(half4 c) {
             path.close()
             return path
         }
+    }
 
-        /** mask 只读快照（评审/工程证据用；生产帧路径不调用）。 */
-        fun maskSnapshot(): Bitmap = maskBitmap.copy(Bitmap.Config.ARGB_8888, false)
+    /**
+     * AGSL 会话（RuntimeShader 编译一次复用 + 双 mask bitmap 复用——§32 hot path 零位图分配）。
+     */
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    class AgslSession(val width: Int, val height: Int, val advanced: Boolean = false) {
+        private val shader = RuntimeShader(SHADER_SOURCE)
+        private val gradingPaint: Paint? = if (advanced && Build.VERSION.SDK_INT >= 36) {
+            try {
+                Paint().apply { colorFilter = android.graphics.RuntimeColorFilter(GRADING_SOURCE) }
+            } catch (_: Throwable) {
+                null
+            }
+        } else {
+            null
+        }
+        private val rasterizer = AgslMaskRasterizer(width, height)
+        private val maskShader = BitmapShader(
+            rasterizer.maskBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP,
+        )
+        private val volumeShader = BitmapShader(
+            rasterizer.volumeBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP,
+        )
+        private val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        init {
+            shader.setInputBuffer("iVectorMask", maskShader)
+            shader.setInputBuffer("iVolumeMask", volumeShader)
+            drawPaint.shader = shader
+        }
+
+        /** 绘制一帧（几何/体积每帧重栅格化进复用 bitmap；无 per-frame 分配）。 */
+        fun draw(
+            canvas: Canvas,
+            frame: OrganismFrame,
+            widthPx: Float,
+            heightPx: Float,
+            exposure: Float,
+            halo: Float,
+            colors: AgslMaterialColors,
+            material: EchoMaterialSpec = EchoMaterialSpec(),
+            noisePhase: Float = 0f,
+        ) {
+            val primaryColor = colors.primary
+            val secondaryColor = colors.secondary
+            val warmColor = colors.warm
+            val cyanColor = colors.cyan
+            rasterizer.rasterizeMask(frame, widthPx, heightPx, warmColor)
+            rasterizer.rasterizeVolumeMask(frame, widthPx, heightPx)
+            shader.setFloatUniform("iResolution", widthPx, heightPx)
+            shader.setFloatUniform("iExposure", exposure.coerceIn(0f, 1f))
+            shader.setFloatUniform("iCavity", frame.coreCavity.radiusFraction)
+            shader.setFloatUniform("iHalo", halo.coerceIn(0f, 1f))
+            // §11 depth fog 强度（Quality Pass：0.55——深处明显偏雾但不吃掉结构）
+            shader.setFloatUniform("iDepthFog", 0.55f)
+            // §W：glow 采样半径随分辨率/密度缩放（分辨率无关的 8-tap 边缘散射）
+            shader.setFloatUniform(
+                "iGlowRadius",
+                glowRadiusPxFor(halo, min(widthPx, heightPx)),
+            )
+            // Breakthrough：星云体积增益（exposure 驱动；Dream 等暗面自然收敛）
+            shader.setFloatUniform("iVolumeGain", 0.50f + 0.55f * exposure.coerceIn(0f, 1f))
+            // Breakthrough：FBM 云场相位（identity/day/clock 的确定性慢函数）
+            shader.setFloatUniform("iPhase", noisePhase, noisePhase * 0.63f + 17.0f)
+            shader.setColorUniform("iPrimary", primaryColor)
+            shader.setColorUniform("iSecondary", secondaryColor)
+            shader.setColorUniform("iWarm", warmColor)
+            shader.setColorUniform("iCyan", cyanColor)
+            // T2-P2-3：tone soft-knee 参数由 packet.material 注入（shader 端无硬编码副本；默认值=编译产物同值）
+            shader.setFloatUniform("iKnee", material.toneKnee)
+            shader.setFloatUniform("iComp", material.toneCompression)
+            val grading = gradingPaint
+            if (grading != null) {
+                // §21：final grading 只作用于 organism 自身 layer
+                val saveCount = canvas.saveLayer(0f, 0f, widthPx, heightPx, grading)
+                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
+                canvas.restoreToCount(saveCount)
+            } else {
+                canvas.drawRect(0f, 0f, widthPx, heightPx, drawPaint)
+            }
+        }
+
     }
 }
