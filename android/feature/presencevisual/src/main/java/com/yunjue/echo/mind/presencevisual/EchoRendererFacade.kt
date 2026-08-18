@@ -13,6 +13,7 @@ import com.yunjue.echo.mind.visual.render.EchoRenderQuality
 import com.yunjue.echo.mind.visual.render.EchoRenderTier
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
 import com.yunjue.echo.mind.visual.surface.EchoSurface
+import com.yunjue.echo.mind.visual.surface.EchoVisualSpec
 import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import com.yunjue.echo.mind.visual.surface.SurfacePolicy
 import com.yunjue.echo.mind.visual.surface.defaultQualityFor
@@ -184,8 +185,8 @@ class EchoRenderSession(
 
     /** 渲染一帧到给定 Canvas（时间基准 = boot-global EchoVisualClock.nowNanos()）。 */
     fun draw(canvas: Canvas, clockNanos: Long, interaction: EchoInteractionSpec = request.interaction) {
-        val frame = computeFrame(clockNanos, interaction)
-        dispatch(canvas, frame)
+        val computed = computeFrame(clockNanos, interaction)
+        dispatch(canvas, computed.frame, computed.spec)
     }
 
     /**
@@ -197,9 +198,9 @@ class EchoRenderSession(
      * [offscreenActualBackend]/[offscreenReason] 明示——不得伪装成 AGSL 输出。
      */
     fun renderToBitmap(clockNanos: Long): Bitmap {
-        val frame = computeFrame(clockNanos, request.interaction)
+        val computed = computeFrame(clockNanos, request.interaction)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        OrganismCanvasRenderer.draw(Canvas(bitmap), frame, width.toFloat(), height.toFloat())
+        OrganismCanvasRenderer.draw(Canvas(bitmap), computed.frame, width.toFloat(), height.toFloat())
         return bitmap
     }
 
@@ -214,25 +215,34 @@ class EchoRenderSession(
             "AGSL raster requires hardware canvas — offscreen export uses production CANVAS backend"
         }
 
-    private fun computeFrame(
+    internal fun computeFrame(
         clockNanos: Long,
         interaction: EchoInteractionSpec,
-    ) = OrganismFrameComputer.compute(
-        spec = SurfacePolicy.crop(request.genome, request.surface, clockNanos / 1_000_000_000f),
-        width = width.toFloat(),
-        height = height.toFloat(),
-        options = OrganismFrameComputer.EchoRenderOptions(
-            maturityName = request.maturityName,
-            tier = resolution.resolvedTier,
-            quality = resolution.quality,
-            reducedMotion = resolution.reducedMotion,
-            motionScale = resolution.motionScale,
-            hdrEligible = false, // §T
-            interaction = interaction,
-        ),
-    )
+    ): SessionFrame {
+        // §N Long nanos §R crop→compute→dispatch 全在会话内；frame 与 dispatch 消费同一个已裁剪 spec
+        val spec = SurfacePolicy.cropNanos(request.genome, request.surface, clockNanos)
+        val frame = OrganismFrameComputer.compute(
+            spec = spec,
+            width = width.toFloat(),
+            height = height.toFloat(),
+            options = OrganismFrameComputer.EchoRenderOptions(
+                maturityName = request.maturityName,
+                tier = resolution.resolvedTier,
+                quality = resolution.quality,
+                reducedMotion = resolution.reducedMotion,
+                motionScale = resolution.motionScale,
+                hdrEligible = false, // §T
+                interaction = interaction,
+            ),
+        )
+        return SessionFrame(frame, spec)
+    }
 
-    private fun dispatch(canvas: Canvas, frame: com.yunjue.echo.mind.visual.render.OrganismFrame) {
+    private fun dispatch(
+        canvas: Canvas,
+        frame: com.yunjue.echo.mind.visual.render.OrganismFrame,
+        spec: EchoVisualSpec,
+    ) {
         val backend = resolution.backendName
         if (backend != EchoRendererFacade.BACKEND_CANVAS && Build.VERSION.SDK_INT >= 33) {
             val session = agslSessionFor(backend == EchoRendererFacade.BACKEND_AGSL_ADVANCED)
@@ -243,8 +253,10 @@ class EchoRenderSession(
                     frame = frame,
                     widthPx = width.toFloat(),
                     heightPx = height.toFloat(),
-                    exposure = request.genome.luminance,
-                    halo = request.genome.haloIntensity,
+                    // P1-1：exposure 用 SurfacePolicy.crop 后 luminance（×maxLuminance）——与 Compose 路径同源，
+                    // 否则非 Compose AGSL 会话突破 surface 亮度上限契约、两后端不对齐
+                    exposure = spec.genome.luminance,
+                    halo = spec.genome.haloIntensity,
                     primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
                     secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
                     warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
@@ -261,6 +273,12 @@ class EchoRenderSession(
         if (s != null && s.width == width && s.height == height && s.advanced == advanced) return s
         return AgslEchoBackend.AgslSession(width, height, advanced).also { agslSession = it }
     }
+
+    /** §R 一帧计算产物：frame + 已裁剪 spec（AGSL dispatch 的 exposure/halo 与帧同源，P1-1）。 */
+    internal class SessionFrame(
+        val frame: com.yunjue.echo.mind.visual.render.OrganismFrame,
+        val spec: EchoVisualSpec,
+    )
 
     companion object {
         /**

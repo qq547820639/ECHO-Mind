@@ -8,11 +8,22 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 
+import pytest
+
 from app.auth import create_access_token
 from app.database import SessionLocal
-from app.models import PortraitFeedback
+from app.models import Consent, PortraitFeedback
 
 LOCAL_TODAY = datetime.now(UTC).astimezone(ZoneInfo("Asia/Shanghai")).date()
+
+
+@pytest.fixture(autouse=True)
+def _passive_sensing_consent():
+    """P1-2 门禁适配：feedback 写路径现要求有效 passive_sensing consent。"""
+    with SessionLocal() as db:
+        db.add(Consent(tenant_id="t_demo", user_id="u_demo", consent_type="passive_sensing",
+                       version="test-v1", granted=True, evidence_hash="p" * 64))
+        db.commit()
 
 
 def _feedback_count() -> int:

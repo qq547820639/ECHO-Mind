@@ -55,8 +55,13 @@ class VisualRegressionGoldenTest {
                 val expected = GOLDEN[profile.id]?.get(day)
                 val actual = goldenFor(profile, day)
                 byDay[day] = actual
-                if (expected != null && expected != actual) {
-                    mismatches += "${profile.id} day$day expected=$expected actual=$actual"
+                if (expected != actual) {
+                    // T8 P1-2：缺黄金值（expected==null）同样计入失败——新增 profile 忘加黄金值必须红
+                    mismatches += if (expected == null) {
+                        "${profile.id} day$day MISSING golden (actual=$actual) — 黄金集缺条目，须补值"
+                    } else {
+                        "${profile.id} day$day expected=$expected actual=$actual"
+                    }
                 }
             }
             actualMap[profile.id] = byDay
@@ -72,8 +77,11 @@ class VisualRegressionGoldenTest {
                 println("),")
             }
         }
-        assertEquals("视觉回归黄金集漂移（改渲染必须有意为之并同步更新黄金值）：\n" + mismatches.joinToString("\n"),
-            emptyList<String>(), mismatches)
+        assertEquals(
+            "视觉回归黄金集漂移或缺条目（改渲染必须有意为之并同步更新黄金值；缺值=失败）：\n" +
+                mismatches.joinToString("\n"),
+            emptyList<String>(), mismatches,
+        )
     }
 
     companion object {
@@ -81,63 +89,68 @@ class VisualRegressionGoldenTest {
          * 黄金值（ECHO Organism Quality Pass 后重生成：真实 Lab 彩度 + LCh hue 蓝紫锚定 +
          * 拓扑 v4（非闭合环/碎片 24-40/粒子壳层收敛）+ 呼吸 8.2–10.2s / 自转 30–55min +
          * AGL mask B 深度通道 + 有机暗腔谐波。有意改渲染，同步更新黄金值）。
+         *
+         * 本轮再生（审计修复）：P1-4 buildDailyComposition 开放度改由真实 maturity 驱动
+         * （SEED→MATURE 成长视觉传导进日构图，day≥3 帧变化）+ P1-2 帧运动求值改 Long
+         * nanos 时基（各周期先 mod 再转 Float，canonical 12s 锚的 Float 舍入路径随之变化）。
+         * 视觉意图不变：仅修正成长开放度传导与大 uptime 相位精度。
          */
         val GOLDEN: Map<String, Map<Int, Long>> = mapOf(
             "PROFILE_A_STABLE" to mapOf(
-                0 to 5473820547046315695L,
-                3 to 8809768241631964629L,
-                7 to -2829992596683578242L,
-                28 to 3794299456768968402L,
-                90 to 6917089540143827340L,
-                180 to 4343198096148028642L,
+                0 to -5924949369037277691L,
+                3 to -7831890446957498069L,
+                7 to 741078999638388851L,
+                28 to -7670109804189219725L,
+                90 to -5711627876226442298L,
+                180 to 8858476470749948613L,
             ),
             "PROFILE_B_NIGHT_OWL" to mapOf(
-                0 to -2729769070633727727L,
-                3 to -1058044373057689436L,
-                7 to -2443169104249783454L,
-                28 to -7434121026275244977L,
-                90 to -4467931510106013005L,
-                180 to -6062591307602332424L,
+                0 to 5066765594635725869L,
+                3 to 6248026494812006049L,
+                7 to -6559277146227545301L,
+                28 to -5802607663314462648L,
+                90 to -7702691394111584636L,
+                180 to -2345210406872999937L,
             ),
             "PROFILE_C_IRREGULAR" to mapOf(
-                0 to 1655415090365077665L,
-                3 to 8550520073685715355L,
-                7 to 837031737572581687L,
-                28 to -647236851216087042L,
-                90 to 1072506913698088942L,
-                180 to -4691646243866459290L,
+                0 to 6000535988749220743L,
+                3 to 6073433465078876343L,
+                7 to -628213372053809488L,
+                28 to -8376361103957500868L,
+                90 to 5955173373223291738L,
+                180 to 3273105276932377051L,
             ),
             "PROFILE_D_TRAVEL" to mapOf(
-                0 to 6963547666204445788L,
-                3 to 6869894840508205503L,
-                7 to 6985931269232768834L,
-                28 to -8314820516130336827L,
-                90 to -4177589258081725351L,
-                180 to 3488979138204924703L,
+                0 to -4674525490671313656L,
+                3 to 6341478686748552544L,
+                7 to -4236186243971329512L,
+                28 to -6234808906294518021L,
+                90 to -2656304412972396493L,
+                180 to 2312804242064426045L,
             ),
             "PROFILE_E_PROJECT_CRUNCH" to mapOf(
-                0 to 844786674713499644L,
-                3 to -1340433292336335441L,
-                7 to -7448584328983426410L,
-                28 to -2729507404834867037L,
-                90 to -605906705192193354L,
-                180 to -3637379914744004025L,
+                0 to -8872915584013655572L,
+                3 to 7772815266078300482L,
+                7 to 6990222377412345976L,
+                28 to 4516423567065440918L,
+                90 to -1076387452291026204L,
+                180 to -9174377614777809450L,
             ),
             "PROFILE_F_LOW_DATA" to mapOf(
                 0 to -5092003507759433868L,
-                3 to 169263782290188658L,
-                7 to 6411257560164332370L,
-                28 to -4718387380045935865L,
-                90 to 8874519560228374955L,
-                180 to 974842509581843573L,
+                3 to 3581824422224329621L,
+                7 to -345501416373146789L,
+                28 to -2785685915508624958L,
+                90 to -5391598439112979072L,
+                180 to 1768159244827918283L,
             ),
             "PROFILE_G_WEEKEND_DIFFERENT" to mapOf(
-                0 to 3554559839168027659L,
-                3 to -5402627301635732828L,
-                7 to 3333401786748455409L,
-                28 to 1321621516596039862L,
-                90 to -2674369152464266922L,
-                180 to 5833323441124317685L,
+                0 to -4903146377064541604L,
+                3 to 3236119138693893005L,
+                7 to 6936691450037679464L,
+                28 to -7251044413523166710L,
+                90 to 6536096907692089129L,
+                180 to 8785959373415320814L,
             ),
         )
     }

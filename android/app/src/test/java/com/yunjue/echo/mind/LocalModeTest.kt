@@ -253,4 +253,23 @@ class LocalModeTest {
         rights.deleteLocalData(userId)
         assertEquals("删除后足迹应归零", 0, rights.footprintSummary(userId).total)
     }
+
+    @Test
+    fun rebuildTodayPortraitLocalModeStaysOnLocalEngineWithoutThrowing() = runBlocking {
+        // P1-5 行为路径：本地模式「重新生成」直接端侧重算（无网络分支），主线程调用不抛异常。
+        // 订阅模式网络段的 IO 调度回归由 SourceIntegrityTest
+        // .rebuildTodayPortraitNetworkSectionRunsOnIoDispatcher 锁定——Robolectric 不模拟
+        // NetworkOnMainThreadException 且 ApiClient 基址不可注入，无法在此做主线程网络断言。
+        preferences.userId = "rebuild_local_u"
+        preferences.setPassiveSensingEnabled(true)
+        insertTodayWindow()
+
+        val repo = repository()
+        repo.rebuildTodayPortrait()
+
+        val state = repo.observeTodayPortrait().value
+        assertTrue("本地模式 rebuild 应走端侧引擎", state.localComputed)
+        assertEquals(PortraitStatus.WARMING_UP, state.status)
+        assertTrue(state.portrait?.summary?.isNotBlank() == true)
+    }
 }

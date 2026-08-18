@@ -61,24 +61,27 @@ def ingest_derived_feature(
     row, replay = ingest_feature(db, tenant_id=principal.tenant_id, user_id=payload.user_id, feature=payload)
     if replay:
         return {"id": row.id, "idempotent_replay": True, "escalation_id": None}
+    user = db.get(User, payload.user_id)
+    tz_name = (user.timezone if user is not None else None) or "Asia/Shanghai"
+    ws = payload.window_start
+    if ws.tzinfo is None:  # SQLite 路径防御：naive 一律按 UTC 解释
+        ws = ws.replace(tzinfo=timezone.utc)
+    # P1-5 修复：narrative 与 aggregate/portrait 统一用户本地日界线
+    # （timezone.py 契约：禁止用 UTC 日期作为"一天"），两链路按日期 JOIN 不再错位。
+    local_date = ws.astimezone(ZoneInfo(tz_name)).date()
     # 写路径：入库后同步构建当日叙事（GET 不再读时生成）
     build_daily_narrative(
         db,
         tenant_id=principal.tenant_id,
         user_id=payload.user_id,
-        date=payload.window_start.date(),
+        date=local_date,
+        tz_name=tz_name,
     )
     # Milestone B：非幂等重放时同步更新当日行为聚合（日界线用用户本地时区）。
     # Phase 5（C1）：仅 aggregate_eligible schema（passive-core-v1）触发聚合与
     # 物化；mic_opt 等外围特征仍 ingest 存储但绝不进入 DailyBehaviorAggregate。
-    user = db.get(User, payload.user_id)
     local_today = None
     if user is not None and is_aggregate_eligible(payload.schema_version):
-        tz_name = user.timezone or "Asia/Shanghai"
-        ws = payload.window_start
-        if ws.tzinfo is None:  # SQLite 路径防御：naive 一律按 UTC 解释
-            ws = ws.replace(tzinfo=timezone.utc)
-        local_date = ws.astimezone(ZoneInfo(tz_name)).date()
         upsert_daily_aggregate(
             db,
             tenant_id=principal.tenant_id,

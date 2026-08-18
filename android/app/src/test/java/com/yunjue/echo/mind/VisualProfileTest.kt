@@ -5,7 +5,9 @@ import com.yunjue.echo.mind.model.EchoIdentityGenome
 import com.yunjue.echo.mind.model.BehaviorState
 
 import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.presence.AmbientVector
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
+import com.yunjue.echo.mind.presence.buildDailyComposition
 import com.yunjue.echo.mind.presence.computeVisualParameters
 import com.yunjue.echo.mind.presence.dayBrightnessCurve
 import com.yunjue.echo.mind.visual.render.ColorSpace
@@ -111,6 +113,36 @@ class VisualProfileTest {
             13f,
         )
         assertTrue("coverage=0 → dataClarity 走 confidence 兜底", noData.dataClarity > 0f)
+    }
+
+    @Test
+    fun dailyCompositionCoreOpennessFollowsMaturity() {
+        // P1-4：日构图 coreOpenness 由真实 maturity 驱动（不再硬编码 SEED 0.15 常数）——
+        // Day-0 与 Day-180 用户的日构图开放度不同（PART 66 成长视觉契约）
+        val identity = EchoIdentityGenome(seed = 42L, accentHue = 0.6f)
+        val vector = AmbientVector(
+            activation = 0.5f, regularity = 0.6f, density = 0.5f,
+            deviation = 0.3f, confidence = 0.7f,
+        )
+        val seedDaily = buildDailyComposition(identity, vector, EchoMaturity.SEED)
+        val matureDaily = buildDailyComposition(identity, vector, EchoMaturity.MATURE)
+        assertTrue("SEED 日构图更闭合", seedDaily.coreOpenness < matureDaily.coreOpenness)
+        // hasDaily 分支传导：maturity 经日构图进入视觉参数
+        val pSeed = computeVisualParameters(
+            state(maturity = EchoMaturity.SEED).copy(
+                identityGenome = identity,
+                dailyComposition = seedDaily,
+            ),
+            13f,
+        )
+        val pMature = computeVisualParameters(
+            state(maturity = EchoMaturity.MATURE).copy(
+                identityGenome = identity,
+                dailyComposition = matureDaily,
+            ),
+            13f,
+        )
+        assertTrue(pSeed.coreOpenness < pMature.coreOpenness)
     }
 
     @Test

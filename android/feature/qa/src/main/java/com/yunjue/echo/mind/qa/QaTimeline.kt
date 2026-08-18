@@ -134,9 +134,10 @@ class QaTimeline(
         trackerDay = dayIndex
 
         val identity = identityFor(dayIndex, ambient)
+        val maturity = echoMaturity(calendarDays)
         val presence = EchoPresenceState(
             updatedAt = date.atStartOfDay(zone).toInstant(),
-            maturity = echoMaturity(calendarDays),
+            maturity = maturity,
             rhythmState = RhythmState(
                 activityLevel = ambient.vector.activation,
                 rhythmDelta = tracker.effective.drift,
@@ -151,7 +152,8 @@ class QaTimeline(
             confidence = ambient.vector.confidence,
             identityGenome = identity,
             lifeSeason = tracker.effective,
-            dailyComposition = buildDailyComposition(identity, ambient.vector),
+            // P1-4：日构图开放度与 presence.maturity 同源（成长视觉传导进黄金帧）
+            dailyComposition = buildDailyComposition(identity, ambient.vector, maturity),
             momentState = buildMomentState(ambient.vector, hourOfDay = 12f),
         )
         // V3 §M：Surface/MotionPolicy/RenderQuality 不进入参数映射——

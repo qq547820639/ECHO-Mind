@@ -30,7 +30,14 @@ from app.services.baseline.confidence import confidence_for
 from app.services.baseline.day_type import bucket_for_date
 from app.services.portrait.engine import baseline_digest, generate_portrait
 
-from app.api.deps import DB, PRINCIPAL, ensure_user
+from app.api.deps import (
+    DB,
+    PRINCIPAL,
+    ensure_user,
+    require_active_subscription,
+    require_passive_sensing_consent,
+    require_write_role,
+)
 from sqlalchemy.orm import Session
 from app.auth import Principal
 
@@ -193,9 +200,15 @@ def _record_portrait_feedback(db: Session, principal: Principal, payload: Portra
 
     - user 由 principal.subject 确定（body 里的 user_id 被忽略，绝不信任）；
     - feedback 为新增数据，非 append-only，无需 immutability 防护；
-    - 重复 event_id 直接返回已有记录 + idempotent_replay（与 features.py ingest 一致）。
+    - 重复 event_id 直接返回已有记录 + idempotent_replay（与 features.py ingest 一致）；
+    - P1-1/P1-2 修复：写路径挂 require_write_role（只读角色 403）+
+      require_active_subscription（订阅到期 402）+ passive_sensing consent 门禁
+      （撤回同意 → 412，对齐 /features/ingest 语义：撤回后停止处理/输出画像）。
     """
-    ensure_user(db, principal, principal.subject)
+    require_write_role(db, principal, object_type="portrait_feedback")
+    user = ensure_user(db, principal, principal.subject)
+    require_active_subscription(db, user)
+    require_passive_sensing_consent(db, principal, principal.subject)
     existing = db.scalar(select(PortraitFeedback).where(
         PortraitFeedback.tenant_id == principal.tenant_id,
         PortraitFeedback.event_id == payload.event_id,
@@ -220,8 +233,16 @@ def _record_portrait_feedback(db: Session, principal: Principal, payload: Portra
 
 
 def _rebuild_portrait(db: Session, principal: Principal, user_id: str, local_date: date_cls | None = None) -> PortraitOut:
-    """显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。"""
+    """显式重建当日画像（写路径：upsert aggregate + baseline + portrait，写审计）。
+
+    P1-1/P1-2 修复：挂 require_write_role（auditor 等只读角色 403）+
+    require_active_subscription（订阅到期 402）+ passive_sensing consent 门禁
+    （撤回同意 → 412；画像由被动感知派生数据重算，撤回后不得继续处理/输出）。
+    """
+    require_write_role(db, principal, object_type="daily_portrait")
     user = _resolve_user(db, principal, user_id)
+    require_active_subscription(db, user)
+    require_passive_sensing_consent(db, principal, user_id)
     tz_name = user.timezone or "Asia/Shanghai"
     local_date = local_date or _local_today(tz_name)
     row = generate_portrait(db, tenant_id=principal.tenant_id, user_id=user_id,

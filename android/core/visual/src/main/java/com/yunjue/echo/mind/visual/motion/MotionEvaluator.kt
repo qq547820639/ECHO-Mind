@@ -16,6 +16,9 @@ import kotlin.math.sin
  * - 帧层只做插值（§26）：本求值器不重算任何 Presence/Identity/Daily 语义。
  * - Reduced Motion / Dream / LOW_POWER 的精确系数已在 [EchoMotionSpec] 编译期展开，
  *   这里只按参数求值。
+ * - §N 时间精度：生产路径用 Long nanos 入口（各周期先 mod 再转 Float）；
+ *   Float 秒入口仅供 canonical 小时间锚（如 12s）——绝对秒数以 Float 携带在
+ *   大 uptime 下 ulp 超过帧间隔（≈24 天 ulp≈0.25s），相位会帧间阶跃。
  */
 
 /** 一帧的运动状态（renderer 消费）。 */
@@ -38,7 +41,7 @@ object MotionEvaluator {
 
     private const val TWO_PI = 2f * PI.toFloat()
 
-    /** 由运动语义参数 + 绝对时间（秒）求值（确定性）。 */
+    /** 由运动语义参数 + 绝对时间（秒）求值（确定性；仅限 canonical 小时间锚，大 uptime 用 nanos 入口）。 */
     fun evaluate(motion: EchoMotionSpec, timeSeconds: Float): EchoMotionState {
         val t = timeSeconds
         val period = motion.breathPeriodSeconds.coerceAtLeast(1f)
@@ -61,7 +64,54 @@ object MotionEvaluator {
         )
     }
 
+    /**
+     * §N Long-nanos 求值入口（生产路径）：时间全程保持 Long（boot-global nanos），
+     * 各周期先 t mod periodNanos 再转 Float——绝对秒数以 Float 携带在大 uptime 下
+     * ulp 超过帧间隔（≈24 天 ulp≈0.25s、≈70 天 ulp≈0.5s），呼吸/丝相位会帧间阶跃。
+     * 速度乘数（orbitVelocity/filamentPhaseScale/particleVelocity）折进有效周期后取模：
+     * 消费方只把角度喂给 cos/sin（chirality=±1），模掉整数圈数学等价。
+     * 确定性保持：同 nanos → 同状态（mod 后小 t 与大 t 同相位同结果）。
+     */
+    fun evaluate(motion: EchoMotionSpec, timeNanos: Long): EchoMotionState {
+        val t = timeNanos.coerceAtLeast(0L)
+        val period = motion.breathPeriodSeconds.coerceAtLeast(1f)
+        val breathPhase = phase01(t, nanosOf(period))
+        val breathScale = 1f - motion.breathAmplitude * cos(breathPhase * TWO_PI)
+        val haloMultiplier = 1f + motion.brightnessPulse * sin(breathPhase * TWO_PI + PI.toFloat() / 2f)
+        val orbitPeriod = motion.orbitPeriodSeconds.coerceAtLeast(60f)
+        val orbitVelocity = motion.orbitVelocity
+        val globalRotation = if (orbitVelocity <= 0f) 0f else
+            TWO_PI * phase01(t, nanosOf(orbitPeriod / orbitVelocity))
+        val filamentScale = motion.filamentPhaseScale
+        val filamentPhase = if (filamentScale <= 0f) 0f else
+            TWO_PI * phase01(t, nanosOf(motion.filamentPhaseSeconds.coerceAtLeast(4f) / filamentScale))
+        val particleVelocity = motion.particleVelocity
+        val particleRotation = if (particleVelocity <= 0f) 0f else
+            TWO_PI * phase01(t, nanosOf(orbitPeriod * 1.7f / particleVelocity))
+        return EchoMotionState(
+            breathScale = breathScale,
+            globalRotation = globalRotation,
+            filamentPhase = filamentPhase,
+            particleRotation = particleRotation,
+            haloMultiplier = haloMultiplier,
+            interactionEnvelope = 0f,
+        )
+    }
+
+    private fun nanosOf(seconds: Float): Long = (seconds * 1_000_000_000f).toLong().coerceAtLeast(1L)
+
+    private fun phase01(t: Long, periodNanos: Long): Float = (t % periodNanos).toFloat() / periodNanos.toFloat()
+
     /** 带交互包络的求值（touch 只改变 transient renderer interaction，§29）。 */
+    fun evaluate(
+        motion: EchoMotionSpec,
+        timeNanos: Long,
+        interaction: EchoInteractionSpec,
+    ): EchoMotionState = evaluate(motion, timeNanos).let {
+        if (interaction.active) it.copy(interactionEnvelope = interaction.envelope) else it
+    }
+
+    /** 带交互包络的 Float 秒求值（canonical 小时间锚；生产路径用 Long nanos 版本）。 */
     fun evaluate(
         motion: EchoMotionSpec,
         timeSeconds: Float,

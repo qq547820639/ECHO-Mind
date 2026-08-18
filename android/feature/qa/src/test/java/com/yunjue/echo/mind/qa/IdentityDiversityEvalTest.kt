@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.qa
 
 import com.yunjue.echo.mind.presence.AmbientVector
+import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.presence.EchoVisualMapper
 import com.yunjue.echo.mind.presence.PresenceMotionLevel
@@ -112,8 +113,9 @@ class IdentityDiversityEvalTest {
         val signatures = seeds().map { seed ->
             val identity = deriveIdentityGenome(seed, 0.6f, PresenceMotionLevel.DEFAULT)
             val state = EchoPresenceState(
+                maturity = EchoMaturity.KNOWN,
                 identityGenome = identity,
-                dailyComposition = buildDailyComposition(identity, vector),
+                dailyComposition = buildDailyComposition(identity, vector, EchoMaturity.KNOWN),
             )
             val params = EchoVisualMapper.map(state, 12f)
             // 结构签名：流动 / 凝聚 / 开放度（不含颜色）
@@ -134,10 +136,12 @@ class IdentityDiversityEvalTest {
         val frames = seeds().map { seed ->
             val identity = deriveIdentityGenome(seed, 0.6f, PresenceMotionLevel.DEFAULT)
             val state = EchoPresenceState(
+                maturity = EchoMaturity.KNOWN,
                 identityGenome = identity,
                 dailyComposition = buildDailyComposition(
                     identity,
                     AmbientVector(activation = 0.5f, regularity = 0.6f, density = 0.5f, deviation = 0.3f, confidence = 0.7f),
+                    EchoMaturity.KNOWN,
                 ),
             )
             com.yunjue.echo.mind.visual.render.OrganismFrameComputer.compute(

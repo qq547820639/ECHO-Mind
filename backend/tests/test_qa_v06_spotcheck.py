@@ -89,6 +89,7 @@ def _make_dsr(db, *, request_id: str, request_type: str = "delete",
 
 def test_profile_get_is_readonly_no_version_bump(client, user_headers):
     """未 rebuild 时 GET /profile → 404；rebuild 后两次 GET version 不变。"""
+    _grant_passive_consent(client, user_headers)
     r404 = client.get("/v1/profile/u_demo", headers=user_headers)
     assert r404.status_code == 404
 
@@ -106,6 +107,7 @@ def test_profile_get_is_readonly_no_version_bump(client, user_headers):
 
 def test_profile_rebuild_increments_version(client, user_headers):
     """POST rebuild 后 version+1（写路径显式）。"""
+    _grant_passive_consent(client, user_headers)
     client.post("/v1/profile/u_demo/rebuild", headers=user_headers)
     v1 = client.get("/v1/profile/u_demo", headers=user_headers).json()["version"]
     client.post("/v1/profile/u_demo/rebuild", headers=user_headers)

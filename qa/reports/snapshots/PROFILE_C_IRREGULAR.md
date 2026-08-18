@@ -60,7 +60,7 @@
 - 成熟度：EMERGING
 - 一句话：**我开始看到一些属于你的节奏。**
 - 证据：已观察 10 分钟 · 基线第 3 天
-- 视觉：flow=0.21 coherence=0.37 openness=0.60 turbulence=0.21 pulse=5.4s
+- 视觉：flow=0.21 coherence=0.37 openness=0.70 turbulence=0.21 pulse=5.4s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）
@@ -114,7 +114,7 @@
 - 一句话：**今天开始得比通常慢一些。**
 - 证据：15:44 · 通常 07:08
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.68 coherence=0.46 openness=0.60 turbulence=0.71 pulse=4.1s
+- 视觉：flow=0.68 coherence=0.46 openness=0.78 turbulence=0.71 pulse=4.1s
 
 ### Why（3 条证据）
 - 活跃起点：今天 15:44 · 通常 07:08（偏高）
@@ -171,7 +171,7 @@
 - 一句话：**今天比平时零散一些。**
 - 证据：活跃时段占比 78% · 通常 59%
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.70 coherence=0.65 openness=0.60 turbulence=0.57 pulse=4.1s
+- 视觉：flow=0.70 coherence=0.65 openness=0.82 turbulence=0.57 pulse=4.1s
 
 ### Why（1 条证据）
 - 活跃时段占比：今天 79% · 通常 60%（偏高）
@@ -227,7 +227,7 @@
 - 一句话：**今天比平时集中。**
 - 证据：活跃时段占比 58% · 通常 76%
 - AI 层：这种变化最近几个工作日也出现过。
-- 视觉：flow=0.67 coherence=0.58 openness=0.60 turbulence=0.74 pulse=4.1s
+- 视觉：flow=0.67 coherence=0.58 openness=0.82 turbulence=0.74 pulse=4.1s
 
 ### Why（4 条证据）
 - 活跃起点：今天 05:21 · 通常 10:45（偏低）
@@ -290,7 +290,7 @@
 - 成熟度：MATURE
 - 一句话：**ECHO 还在了解今天。**
 - 证据：已观察 0 分钟
-- 视觉：flow=0.21 coherence=0.37 openness=0.60 turbulence=0.25 pulse=5.4s
+- 视觉：flow=0.21 coherence=0.37 openness=0.82 turbulence=0.25 pulse=5.4s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）

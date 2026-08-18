@@ -353,22 +353,27 @@ class PortraitRepository(
             emitLocalTodayPortrait()
             return
         }
-        val fetch = try {
-            apiClient.rebuildPortrait()
-        } catch (e: Exception) {
-            null
-        }
-        if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
-            val dto = PortraitParsers.parseDailyPortrait(fetch.second!!)
-            if (dto != null) {
-                runCatching {
-                    db.portraitDao().insert(dto.toEntity(preferences.userId, dto.date, System.currentTimeMillis()))
+        // 阻塞网络调用（HttpURLConnection）须在 IO 调度器执行（与 refreshTodayPortrait 等
+        // 同类方法一致）——主线程调用会抛 NetworkOnMainThreadException 且被下方 catch 吞掉，
+        // 订阅模式「重新生成画像」将静默降级为本地重算。
+        withContext(Dispatchers.IO) {
+            val fetch = try {
+                apiClient.rebuildPortrait()
+            } catch (e: Exception) {
+                null
+            }
+            if (fetch != null && fetch.first in 200..299 && !fetch.second.isNullOrBlank()) {
+                val dto = PortraitParsers.parseDailyPortrait(fetch.second!!)
+                if (dto != null) {
+                    runCatching {
+                        db.portraitDao().insert(dto.toEntity(preferences.userId, dto.date, System.currentTimeMillis()))
+                    }
+                    _todayPortraitState.value = PortraitUiState(
+                        status = mapServerStatus(dto.status) ?: PortraitStatus.ERROR,
+                        portrait = dto
+                    )
+                    return@withContext
                 }
-                _todayPortraitState.value = PortraitUiState(
-                    status = mapServerStatus(dto.status) ?: PortraitStatus.ERROR,
-                    portrait = dto
-                )
-                return
             }
         }
         // 服务端重建失败 → 本地重算回退

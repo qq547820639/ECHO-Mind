@@ -7,8 +7,8 @@
 - **Life Season**: phase 0 · drift 0.113 · rhythm stable · screen stable · activity stable · mobility stable · regularity stable
 - **Identity**: seed=42757 · hue=0.758 · colorFamily=4 · textureFamily=2 · coreTopology=0.503 · symmetry=0.948 · orbit=0.215 · motionPersonality=0.577
 - **Ambient**: activation=0.608 · regularity=0.719 · density=0.124 · deviation=1.000 · coverage=0.883 · confidence=0.378 · baselineDays=3
-- **Visual APP @12:00**: flow=0.61 coherence=0.70 turbulence=0.55 density=0.48 openness=0.40 dispersion=0.34 pulse=4.4s depth=0.80 brightness=0.70 contrast=1.00 accent=0.80 structure=0.22
-- **Visual LOCK_SAFE @12:00**: flow=0.61 coherence=0.70 turbulence=0.55 density=0.48 openness=0.40 dispersion=0.34 pulse=4.4s depth=0.80 brightness=0.70 contrast=1.00 accent=0.80 structure=0.22
+- **Visual APP @12:00**: flow=0.61 coherence=0.70 turbulence=0.55 density=0.48 openness=0.50 dispersion=0.34 pulse=4.4s depth=0.80 brightness=0.70 contrast=1.00 accent=0.80 structure=0.22
+- **Visual LOCK_SAFE @12:00**: flow=0.61 coherence=0.70 turbulence=0.55 density=0.48 openness=0.50 dispersion=0.34 pulse=4.4s depth=0.80 brightness=0.70 contrast=1.00 accent=0.80 structure=0.22
 
 ## 为什么这一天看起来这样
 

@@ -1,5 +1,7 @@
 package com.yunjue.echo.mind.intelligence
 
+import java.net.URI
+
 /**
  * ERA 4 — Provider 配置校验（纯 Kotlin；社区版 BYOM 的第一道门）。
  *
@@ -50,16 +52,24 @@ fun validateProviderConfig(config: ProviderConfigDraft): List<String> {
 }
 
 /**
- * ERA 40 安全复核：明文例外严格限定私网——
- * localhost/127.0.0.1、10/8、192.168/16、**172.16/12（RFC 1918）**。
- * 旧实现 `startsWith("http://172.")` 误放行公网 172.x（如 172.217.x）→ API Key 明文出网；
- * 现按 RFC 1918 精确判定。纯函数，单测锚定。
+ * ERA 40 安全复核：明文例外严格限定私网——解析 URL host 后精确判定（不做 DNS 解析）：
+ * - host ∈ {localhost, 127.0.0.1, ::1}（本机）；
+ * - host 为字面 IPv4 且属 10/8、172.16/12、192.168/16（RFC 1918）或 169.254/16（link-local）。
+ * 域名伪装（10.evil.com / localhost.attacker.com / 192.168.0.1.evil.com 等合法公网域名）
+ * 一律非私网 → 必须 HTTPS；旧前缀匹配实现已被此类向量绕过。纯函数，单测锚定。
  */
 internal fun isPrivateLanUrl(normalizedBaseUrl: String): Boolean {
-    if (normalizedBaseUrl.startsWith("http://localhost")) return true
-    if (normalizedBaseUrl.startsWith("http://127.0.0.1")) return true
-    if (normalizedBaseUrl.startsWith("http://10.")) return true
-    if (normalizedBaseUrl.startsWith("http://192.168.")) return true
-    val rfc1918Prefix = Regex("^http://172\\.(1[6-9]|2[0-9]|3[0-1])\\.")
-    return rfc1918Prefix.containsMatchIn(normalizedBaseUrl)
+    val host = runCatching { URI(normalizedBaseUrl).host }.getOrNull() ?: return false
+    if (host.equals("localhost", ignoreCase = true)) return true
+    if (host == "127.0.0.1" || host == "::1" || host == "[::1]") return true
+    val octets = host.split(".")
+    if (octets.size != 4) return false
+    if (octets.any { it.isEmpty() || it.length > 3 || it.any { ch -> !ch.isDigit() } }) return false
+    val a = octets[0].toInt()
+    val b = octets[1].toInt()
+    if (octets[2].toInt() > 255 || octets[3].toInt() > 255 || a > 255 || b > 255) return false
+    return a == 10 ||
+        a == 172 && b in 16..31 ||
+        a == 192 && b == 168 ||
+        a == 169 && b == 254
 }

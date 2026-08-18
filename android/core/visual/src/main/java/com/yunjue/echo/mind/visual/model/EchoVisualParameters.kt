@@ -26,7 +26,7 @@ data class EchoVisualParameters(
     val coreOpenness: Float,
     /** 径向展开 0..1（daily composition 的 dispersion）。 */
     val dispersion: Float,
-    /** 呼吸周期（秒；非心率模拟）。 */
+    /** 呼吸周期（秒；非心率模拟）。输入周期域 3.6–6.0s → 编译到 8.2–10.2s 呈现窗口（EchoSceneCompiler §27）。 */
     val pulsePeriodSeconds: Float,
     /** 空间深度 0..1（regularity 语义）。 */
     val depth: Float,

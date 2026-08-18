@@ -101,6 +101,11 @@ class PassiveSensingService : Service() {
             // 感知服务运行中按需 reconcile 麦克风采集器与 FGS 类型，无需重启整个感知。
             ACTION_START_MIC -> {
                 if (!started) {
+                    // startForegroundService 契约（P1-6）：经 startForegroundService 拉起的服务
+                    // 必须先 startForeground 再退出——未进前台直接 stopSelf 会触发
+                    // ForegroundServiceDidNotStartInTime（Android 8+/12+）导致 app 崩溃。
+                    startForegroundWithTypes(buildNotification(), micReady = false)
+                    stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     return START_NOT_STICKY
                 }

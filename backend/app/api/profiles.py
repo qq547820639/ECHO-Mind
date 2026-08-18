@@ -12,7 +12,14 @@ from app.services.audit import append_audit
 from app.services.profile import get_profile as get_profile_cached
 from app.services.profile import rebuild_profile
 
-from app.api.deps import DB, PRINCIPAL, ensure_user
+from app.api.deps import (
+    DB,
+    PRINCIPAL,
+    ensure_user,
+    require_active_subscription,
+    require_passive_sensing_consent,
+    require_write_role,
+)
 
 router = APIRouter(prefix="/v1")
 
@@ -29,8 +36,16 @@ def get_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
 
 @router.post("/profile/{user_id}/rebuild")
 def rebuild_user_profile(user_id: str, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
-    """显式重建画像：traits + version+1；仅写路径调用。"""
-    ensure_user(db, principal, user_id)
+    """显式重建画像：traits + version+1；仅写路径调用。
+
+    P1-1/P1-2 修复：挂 require_write_role（只读角色 403）+
+    require_active_subscription（订阅到期 402）+ passive_sensing consent 门禁
+    （撤回同意 → 412；画像缓存由被动感知派生数据重算）。
+    """
+    require_write_role(db, principal, object_type="user_profile")
+    user = ensure_user(db, principal, user_id)
+    require_active_subscription(db, user)
+    require_passive_sensing_consent(db, principal, user_id)
     row = rebuild_profile(db, tenant_id=principal.tenant_id, user_id=user_id)
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="profile.rebuild", object_type="user_profile", object_id=row.id,

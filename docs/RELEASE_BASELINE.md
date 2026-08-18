@@ -20,8 +20,9 @@
 | LAST_RELEASE_BASELINE 日期 | 2026-08-15 |
 | 已发布版本 | v0.11.0（versionCode 8；APK `ECHO_Mind_v0.11.0.apk` 本地测试密钥签名 v2,v3，生产签名由运营签名环境执行；release 包 `releases/ECHO_Mind_v0.11.0.release.zip`） |
 | 上一 baseline | v0.10.0（`6e84086`，被 v0.11.0 取代） |
-| DEVELOPMENT_HEAD（记录时） | `88db3b9`（provenance git_commit 与之相等；Release Closure 全绿） |
+| DEVELOPMENT_HEAD（记录时） | `88db3b9`（**closure 时点** provenance git_commit 与之相等；Release Closure 全绿） |
 | Release Closure 证据 | backend 1077 passed + 1 skipped + ruff + mypy strict；Android testDebugUnitTest 全绿 + lint + detekt + assembleDebug；assembleRelease（-PECHO_GIT_COMMIT 全 40 位钉定）；SOURCE_MANIFEST 1083；确定性归档双格式验证；SBOM 80；provenance（release / signed v2,v3 / APK 内嵌 commit 绑定）；artifact manifest 9 条目；final package §18 终态门禁 PASS；test_release_set + test_source_archive 16/16 |
+| closure 后仓库元数据再生（2026-08-18 审计轮） | 按纪律 §5 在审计轮最终树重生成 SOURCE_MANIFEST / sbom.spdx.json（python 3.12 uv.lock 全闭包）/ BUILD_PROVENANCE / RELEASE_ARTIFACT_MANIFEST——仓库根元数据描述**审计轮 HEAD**，非 closure 时点快照；closure 发布包内清单以 v0.11.0 release zip 为准 |
 
 ## 3. 纪律
 

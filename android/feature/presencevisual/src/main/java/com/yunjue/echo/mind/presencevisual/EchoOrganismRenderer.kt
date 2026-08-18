@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -60,20 +60,21 @@ fun EchoOrganism(
     /** §45 Correction 脉冲触发（递增计数；只触发 transient 视觉反馈，不改任何状态层）。 */
     correctionPulseTrigger: Int = 0,
 ) {
-    var clockSeconds by remember { mutableFloatStateOf(0f) }
+    var clockNanos by remember { mutableLongStateOf(0L) }
     // 帧钟（§N）：ticker 只负责请求帧，视觉时间来自 boot-global EchoVisualClock——
     // 同一 ECHO 不因 recompose/navigation/visibility 重启 phase 0；REDUCED 下仍推进
     // （低频呼吸/亮度漂移保留），运动系数在编译期已降级。
     LaunchedEffect(Unit) {
         while (true) {
-            withFrameNanos { clockSeconds = EchoVisualClock.nowSeconds() }
+            withFrameNanos { clockNanos = EchoVisualClock.nowNanos() }
         }
     }
 
-    // §45：触发沿捕获当前帧钟；每帧年龄 = clockSeconds - pulseStart
-    var pulseStartSeconds by remember { mutableFloatStateOf(Float.NaN) }
+    // §45：触发沿捕获当前帧钟；每帧年龄 = clockNanos - pulseStart（Long nanos 差值——
+    // Float 大数相减 catastrophic cancellation 会在大 uptime 下把 0.9s 脉冲量化到不可用）
+    var pulseStartNanos by remember { mutableLongStateOf(-1L) }
     LaunchedEffect(correctionPulseTrigger) {
-        if (correctionPulseTrigger > 0) pulseStartSeconds = clockSeconds
+        if (correctionPulseTrigger > 0) pulseStartNanos = clockNanos
     }
     val effectiveOptions = remember(options, motion, maturityName) {
         options.copy(
@@ -95,11 +96,11 @@ fun EchoOrganism(
         modifier = modifier.semantics { contentDescription = semanticsText },
     ) {
         val base = genome ?: return@Canvas // null genome → 静默空画布（不编造状态）
-        val spec = SurfacePolicy.crop(base, surface, clockSeconds)
-        val pulseAge = if (pulseStartSeconds.isNaN()) null else clockSeconds - pulseStartSeconds
+        val spec = SurfacePolicy.cropNanos(base, surface, clockNanos)
+        val pulseAgeNanos = if (pulseStartNanos < 0L) null else clockNanos - pulseStartNanos
         val frame = OrganismFrameComputer.compute(
             spec, size.width, size.height,
-            effectiveOptions.copy(correctionPulseAgeSeconds = pulseAge),
+            effectiveOptions.copy(correctionPulseAgeNanos = pulseAgeNanos),
         )
         val useAgsl = agslUsable && android.os.Build.VERSION.SDK_INT >= 33 &&
             effectiveOptions.tier != com.yunjue.echo.mind.visual.render.EchoRenderTier.LEGACY

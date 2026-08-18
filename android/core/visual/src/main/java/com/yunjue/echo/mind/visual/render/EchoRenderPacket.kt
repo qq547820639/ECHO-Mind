@@ -58,7 +58,7 @@ data class EchoMaterialSpec(
 
 /** 运动语义参数（MotionEvaluator 的输入；帧插值在 evaluator 内，V3 §25–§28）。 */
 data class EchoMotionSpec(
-    /** 呼吸周期秒（6.8–10.8 区间由 deriver 保证；surface/reduced 调整在此展开）。 */
+    /** 呼吸周期秒（输入周期域 3.6–6.0s → 编译到 8.2–10.2s 呈现窗口；Dream ×1.18 / Reduced ×1.45 在此展开）。 */
     val breathPeriodSeconds: Float,
     /** 呼吸幅度（App 2.4% / Wallpaper 1.6% / Dream 2.0% / Reduced 0.7%）。 */
     val breathAmplitude: Float,

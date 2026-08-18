@@ -174,4 +174,42 @@ class SourceIntegrityTest {
         }
         assertTrue("不得取代 SensingRuntimeStatus（六态独立保留）", "SensingRuntimeStatus.STARTING" in runtime)
     }
+
+    /** 提取方法体文本（从签名行到 companion object 边界的宽松截取）。 */
+    private fun methodBody(text: String, signature: String): String {
+        val start = text.indexOf(signature)
+        assertTrue("应找到方法：$signature", start >= 0)
+        val rest = text.substring(start)
+        val companion = rest.indexOf("\n    companion object")
+        return if (companion > 0) rest.substring(0, companion) else rest
+    }
+
+    @Test
+    fun rebuildTodayPortraitNetworkSectionRunsOnIoDispatcher() {
+        // P1-5 回归：订阅模式「重新生成画像」的阻塞网络调用（apiClient.rebuildPortrait，
+        // HttpURLConnection）必须在 withContext(Dispatchers.IO) 内执行——主线程调用会抛
+        // NetworkOnMainThreadException 且被 catch 吞掉（静默降级本地重算）。
+        // Robolectric 不模拟 NetworkOnMainThreadException，故以源码结构断言锁定调度契约。
+        val text = readOrFail(File(srcRoot, "data/PortraitRepository.kt"))
+        val body = methodBody(text, "suspend fun rebuildTodayPortrait")
+        val io = body.indexOf("withContext(Dispatchers.IO)")
+        val call = body.indexOf("apiClient.rebuildPortrait()")
+        assertTrue("rebuildTodayPortrait 应包含 withContext(Dispatchers.IO)", io >= 0)
+        assertTrue("apiClient.rebuildPortrait() 应在 withContext(Dispatchers.IO) 块内执行", call > io)
+    }
+
+    @Test
+    fun eveningReminderSchedulesNextAfterReminderNotBefore() {
+        // P1-7 回归：scheduleNext(REPLACE) 若位于 doWork 首行会取消正在运行的自身（挂起点抛
+        // CancellationException → 21:00 提醒静默丢失）；必须位于 finally——完成本次提醒
+        //（含所有提前 return 路径）后再排明晚。
+        val text = readOrFail(File(srcRoot, "EveningReminderWorker.kt"))
+        val body = methodBody(text, "override suspend fun doWork")
+        val notify = body.indexOf("nm.notify(")
+        val schedule = body.indexOf("scheduleNext(")
+        val finally = body.indexOf("finally")
+        assertTrue("doWork 应有 finally 块承载自续期", finally >= 0)
+        assertTrue("scheduleNext 应位于 finally 块内", schedule > finally)
+        assertTrue("排下一次应在发送提醒之后（scheduleNext 位于 notify 之后）", schedule > notify)
+    }
 }

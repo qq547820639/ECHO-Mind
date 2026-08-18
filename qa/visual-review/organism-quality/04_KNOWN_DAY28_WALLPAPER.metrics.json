@@ -11,17 +11,17 @@
   "reason": null,
   "quality": "CONSERVE",
   "metrics": {
-    "nearBlackRatio": 0.92580,
+    "nearBlackRatio": 0.92558,
     "highLuminanceRatio": 0.00009,
     "extremeGlintRatio": 0.00000,
-    "warmRatio": 0.00098,
+    "warmRatio": 0.00099,
     "negativeSpaceRatio": 1.00000,
-    "visualMassInside": 0.97245,
-    "organismWidthFraction": 0.72593,
-    "organismHeightFraction": 0.33083,
-    "edgeDensity": 0.12292,
-    "centerLuminance": 0.05963,
-    "outerLuminance": 0.01684
+    "visualMassInside": 0.96005,
+    "organismWidthFraction": 0.73704,
+    "organismHeightFraction": 0.33583,
+    "edgeDensity": 0.12398,
+    "centerLuminance": 0.05837,
+    "outerLuminance": 0.01700
   },
   "gate": {
     "nearBlackPass": true,

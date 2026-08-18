@@ -60,7 +60,7 @@
 - 成熟度：EMERGING
 - 一句话：**今天动得比平时多一些。**
 - 证据：活动量 1.09 · 通常 0.92
-- 视觉：flow=0.72 coherence=0.26 openness=0.35 turbulence=0.86 pulse=4.3s
+- 视觉：flow=0.72 coherence=0.26 openness=0.46 turbulence=0.86 pulse=4.3s
 
 ### Why（3 条证据）
 - 活动量：今天 1.09 · 通常 0.92（偏高）
@@ -116,7 +116,7 @@
 - 一句话：**今天动得比平时多一些。**
 - 证据：活动量 1.05 · 通常 0.92
 - AI 层：这种变化最近几个工作日也出现过。
-- 视觉：flow=0.72 coherence=0.34 openness=0.35 turbulence=0.90 pulse=4.3s
+- 视觉：flow=0.72 coherence=0.34 openness=0.53 turbulence=0.90 pulse=4.3s
 
 ### Why（3 条证据）
 - 活动量：今天 1.05 · 通常 0.92（偏高）
@@ -173,7 +173,7 @@
 - 一句话：**今晚比平时晚一些才安静下来。**
 - 证据：晚间屏幕 71 分钟 · 通常 56 分钟
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.71 coherence=0.40 openness=0.35 turbulence=0.70 pulse=4.3s
+- 视觉：flow=0.71 coherence=0.40 openness=0.58 turbulence=0.70 pulse=4.3s
 
 ### Why（1 条证据）
 - 晚间屏幕：今天 71 分钟 · 通常 56 分钟（偏高）
@@ -230,7 +230,7 @@
 - 一句话：**今天屏幕时间比平时短。**
 - 证据：423 分钟 · 通常 456 分钟
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.53 coherence=0.41 openness=0.35 turbulence=0.94 pulse=4.9s
+- 视觉：flow=0.53 coherence=0.41 openness=0.58 turbulence=0.94 pulse=4.9s
 
 ### Why（1 条证据）
 - 屏幕时间：今天 423 分钟 · 通常 457 分钟（偏低）
@@ -291,7 +291,7 @@
 - 一句话：**今晚比平时更早安静下来。**
 - 证据：晚间屏幕 89 分钟 · 通常 152 分钟
 - AI 层：这种变化最近几个工作日也出现过。
-- 视觉：flow=0.71 coherence=0.41 openness=0.35 turbulence=0.91 pulse=4.3s
+- 视觉：flow=0.71 coherence=0.41 openness=0.58 turbulence=0.91 pulse=4.3s
 
 ### Why（4 条证据）
 - 活跃起点：今天 09:09 · 通常 09:41（偏低）

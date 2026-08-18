@@ -114,7 +114,10 @@ fun reconstructJourneyFrame(
  * v2（V3 §H）：`v2|date|seed|maturity|params(18)|identity(8)|evidenceIdsCsv|createdAtEpochMs`
  * ——params 扩展为 canonical 18 字段（dataClarity/haloIntensity/momentIntensity/
  * filamentDensity/seasonPhase/dayComposition 进入持久化，roundtrip 无损）。
- * v1（历史快照）：params(12)，新字段解析为默认 0f（fail-closed 向后兼容）。
+ * v1（历史快照）：`v1|date|seed|maturity|params(12)|identity(8)|evidenceIdsCsv|createdAtEpochMs`
+ * ——26 段；params 前 12 字段与 identity(8) 布局同 v2，v2 增量字段
+ * （dataClarity/haloIntensity/momentIntensity/filamentDensity/seasonPhase/dayComposition）
+ * 解析为默认 0f（fail-closed 向后兼容）。
  */
 object JourneyCanonicalCodec {
 
@@ -169,7 +172,11 @@ object JourneyCanonicalCodec {
             if (!CANONICAL_DATE_REGEX.matches(date)) return null
             val maturity = EchoMaturity.entries.firstOrNull { it.name == parts[3] } ?: return null
             val p = { i: Int -> parts[i].toFloat() }
-            val evidence = parts[30].ifEmpty { "" }
+            // identity 起始段：v2=22（params 18 之后）；v1=16（params 12 之后）。
+            // 两种布局的 params 前 12 字段与 identity(8)、evidence、createdAt 顺序完全一致，
+            // v2 仅在 params 尾部多 6 个字段。
+            val identityOffset = if (v2) 22 else 16
+            val evidence = parts[identityOffset + 8].ifEmpty { "" }
                 .split(",")
                 .filter { it.isNotBlank() }
             JourneyCanonicalDay(
@@ -196,18 +203,18 @@ object JourneyCanonicalCodec {
                     dayComposition = if (v2) p(21) else 0f,
                 ),
                 identityReference = EchoIdentityGenome(
-                    seed = parts[22].toLong(),
-                    accentHue = p(23),
-                    colorFamily = parts[24].toInt(),
-                    textureFamily = parts[25].toInt(),
-                    coreTopology = p(26),
-                    symmetryTendency = p(27),
-                    orbitGeometry = p(28),
-                    motionPersonality = p(29),
+                    seed = parts[identityOffset].toLong(),
+                    accentHue = p(identityOffset + 1),
+                    colorFamily = parts[identityOffset + 2].toInt(),
+                    textureFamily = parts[identityOffset + 3].toInt(),
+                    coreTopology = p(identityOffset + 4),
+                    symmetryTendency = p(identityOffset + 5),
+                    orbitGeometry = p(identityOffset + 6),
+                    motionPersonality = p(identityOffset + 7),
                 ),
                 maturity = maturity,
                 keyEvidenceIds = evidence,
-                createdAtEpochMs = parts[31].toLong(),
+                createdAtEpochMs = parts[identityOffset + 9].toLong(),
             )
         }.getOrNull()
     }

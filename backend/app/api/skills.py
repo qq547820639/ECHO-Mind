@@ -26,7 +26,14 @@ from app.schemas import (
 from app.services.audit import append_audit
 from app.services.sandbox.sanitizer import sanitize_skill, sanitize_skills
 
-from app.api.deps import DB, PRINCIPAL, ensure_user, require_active_subscription, require_feature_flag
+from app.api.deps import (
+    DB,
+    PRINCIPAL,
+    ensure_user,
+    require_active_subscription,
+    require_feature_flag,
+    require_write_role,
+)
 
 router = APIRouter(prefix="/v1")
 
@@ -153,8 +160,12 @@ def create_skill_completion(
     - 校验 skill 属于当前用户且 status=='signed'
     - audit action=skill.completion
     - 服务端只记录执行状态，不承载可执行内容
+    - P1-1/P2-1 修复：挂 require_write_role（只读角色 403）+
+      require_active_subscription（订阅到期 402，对齐 GET /skills 门禁）。
     """
-    ensure_user(db, principal, payload.user_id)
+    require_write_role(db, principal, object_type="skill_completion")
+    user = ensure_user(db, principal, payload.user_id)
+    require_active_subscription(db, user)
     existing = db.scalar(select(SkillCompletion).where(
         SkillCompletion.tenant_id == principal.tenant_id,
         SkillCompletion.event_id == payload.event_id,

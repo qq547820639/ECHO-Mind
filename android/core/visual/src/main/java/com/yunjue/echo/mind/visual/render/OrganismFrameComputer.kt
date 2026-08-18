@@ -38,8 +38,8 @@ object OrganismFrameComputer {
         val motionScale: Float = 1f,
         /** §42 Sensing Disabled：detail × .55。 */
         val detailScale: Float = 1f,
-        /** §45 Correction 视觉反馈：距用户纠正的秒数（null = 无进行中脉冲）。 */
-        val correctionPulseAgeSeconds: Float? = null,
+        /** §45 Correction 视觉反馈：距用户纠正的纳秒差值（null = 无进行中脉冲；§N Long 精度）。 */
+        val correctionPulseAgeNanos: Long? = null,
         /** §54 Awakening 时间线：halo 0→.55 渐入（1 = 正常）。 */
         val haloScale: Float = 1f,
         /** §54 Awakening 时间线：outer ring alpha 0→1。 */
@@ -118,10 +118,11 @@ object OrganismFrameComputer {
         )
         val identity = packet.identity
         val field = packet.field
-        val motionBase = MotionEvaluator.evaluate(packet.motion, spec.clockSeconds, packet.interaction)
+        val motionBase = MotionEvaluator.evaluate(packet.motion, spec.clockNanos, packet.interaction)
         // §45：Correction 脉冲（halo -8% + filament phase 暂停 150ms 后 converge；identity 不变）
-        val motion = options.correctionPulseAgeSeconds?.let { ageMs ->
-            val (haloDelta, pauseSeconds) = MotionEvaluator.correctionPulse((ageMs * 1000f).toLong())
+        val motion = options.correctionPulseAgeNanos?.let { ageNanos ->
+            // §N 脉冲年龄为 Long nanos 差值（大 uptime 下 Float 秒差值 catastrophic cancellation）；ms 量化精确无损
+            val (haloDelta, pauseSeconds) = MotionEvaluator.correctionPulse(ageNanos / 1_000_000L)
             if (haloDelta == 0f && pauseSeconds == 0f) {
                 motionBase
             } else {
@@ -331,7 +332,7 @@ object OrganismFrameComputer {
             )
         }
         if (spec.genome.momentIntensity > 0.05f) {
-            val p = spec.clockSeconds % 1.6f / 1.6f
+            val p = spec.clockNanos % 1_600_000_000L / 1_600_000_000f
             ripples += Ripple(
                 x = 0.5f, y = 0.5f,
                 radiusFraction = baseR * (1f + p * 0.8f),

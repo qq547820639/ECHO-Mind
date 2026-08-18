@@ -130,7 +130,10 @@ class PresenceRepository(
         // ERA 21 §18：日构图按日历日固化（同日 refresh 不重算，避免一天内构图漂移）；
         // Moment 继续消费当日向量（分钟级呼吸）
         val hourOfDay = now.atZone(zone).hour + now.atZone(zone).minute / 60f
-        val daily = dailyCompositionGate.compositionFor(today) { buildDailyComposition(identity, ambient.vector) }
+        val daily = dailyCompositionGate.compositionFor(today) {
+            // P1-4：日构图开放度用真实 maturity（与 assembled.maturity 同源；同日不变）
+            buildDailyComposition(identity, ambient.vector, echoMaturity(calendarDays))
+        }
         val moment = buildMomentState(ambient.vector, hourOfDay)
 
         val assembled = EchoPresenceState(

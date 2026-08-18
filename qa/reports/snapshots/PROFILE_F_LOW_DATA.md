@@ -60,7 +60,7 @@
 - 成熟度：EMERGING
 - 一句话：**我开始看到一些属于你的节奏。**
 - 证据：已观察 0 分钟 · 基线第 1 天
-- 视觉：flow=0.18 coherence=0.50 openness=0.70 turbulence=0.06 pulse=5.4s
+- 视觉：flow=0.18 coherence=0.50 openness=0.80 turbulence=0.06 pulse=5.4s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）
@@ -114,7 +114,7 @@
 - 一句话：**今天屏幕时间比平时短。**
 - 证据：200 分钟 · 通常 246 分钟
 - AI 层：这种变化最近几个工作日也出现过。
-- 视觉：flow=0.51 coherence=0.52 openness=0.70 turbulence=0.56 pulse=4.5s
+- 视觉：flow=0.51 coherence=0.52 openness=0.88 turbulence=0.56 pulse=4.5s
 
 ### Why（2 条证据）
 - 屏幕时间：今天 201 分钟 · 通常 246 分钟（偏低）
@@ -170,7 +170,7 @@
 - 一句话：**今晚比平时晚一些才安静下来。**
 - 证据：晚间屏幕 399 分钟 · 通常 61 分钟
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.54 coherence=0.65 openness=0.70 turbulence=0.64 pulse=4.4s
+- 视觉：flow=0.54 coherence=0.65 openness=0.92 turbulence=0.64 pulse=4.4s
 
 ### Why（3 条证据）
 - 活跃起点：今天 08:20 · 通常 08:55（偏低）
@@ -227,7 +227,7 @@
 - 成熟度：MATURE
 - 一句话：**ECHO 还在了解今天。**
 - 证据：已观察 85 分钟
-- 视觉：flow=0.18 coherence=0.50 openness=0.70 turbulence=0.14 pulse=5.4s
+- 视觉：flow=0.18 coherence=0.50 openness=0.92 turbulence=0.14 pulse=5.4s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）
@@ -289,7 +289,7 @@
 - 一句话：**今天屏幕时间比平时长。**
 - 证据：311 分钟 · 通常 249 分钟
 - AI 层：这种变化最近几个工作日也出现过。
-- 视觉：flow=0.56 coherence=0.67 openness=0.70 turbulence=0.65 pulse=4.4s
+- 视觉：flow=0.56 coherence=0.67 openness=0.92 turbulence=0.65 pulse=4.4s
 
 ### Why（1 条证据）
 - 屏幕时间：今天 311 分钟 · 通常 250 分钟（偏高）

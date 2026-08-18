@@ -13,10 +13,16 @@ data class EchoVisualSpec(
     val genome: EchoVisualGenome,
     /** surface 能力（renderer 据此决定是否画文字/证据/暖高光）。 */
     val capabilities: SurfaceCapabilities,
-    /** 渲染时的确定性时间基准（秒；测试注入固定值，运行时注入墙钟）。 */
+    /** 渲染时的确定性时间基准（秒；测试注入固定值，运行时注入墙钟——仅限 canonical 小时间锚）。 */
     val clockSeconds: Float,
     /** 目标 surface（V3 SceneCompiler 需要真实 surface，禁止从 capabilities 反推）。 */
     val surface: EchoSurface = EchoSurface.APP_PRIVATE,
+    /**
+     * §N Long-nanos 时间基准（boot-global；生产运动求值唯一时间源——
+     * Float 秒在大 uptime 下 ulp 超过帧间隔，相位精度只能靠 Long 保持）。
+     * 缺省由 clockSeconds 派生（canonical/Journey 固定小时间锚无损）。
+     */
+    val clockNanos: Long = (clockSeconds * 1_000_000_000f).toLong(),
 )
 
 /**
@@ -34,5 +40,20 @@ object SurfacePolicy {
             luminance = (genome.luminance * cap.maxLuminance).coerceIn(0f, 1f),
         )
         return EchoVisualSpec(genome = scaled, capabilities = cap, clockSeconds = clockSeconds, surface = surface)
+    }
+
+    /** §N Long-nanos 裁剪入口（生产路径：boot-global 时钟全程保持 Long 精度）。 */
+    fun cropNanos(genome: EchoVisualGenome, surface: EchoSurface, clockNanos: Long): EchoVisualSpec {
+        val cap = capabilitiesFor(surface)
+        val scaled = genome.copy(
+            luminance = (genome.luminance * cap.maxLuminance).coerceIn(0f, 1f),
+        )
+        return EchoVisualSpec(
+            genome = scaled,
+            capabilities = cap,
+            clockSeconds = clockNanos / 1_000_000_000f,
+            surface = surface,
+            clockNanos = clockNanos,
+        )
     }
 }

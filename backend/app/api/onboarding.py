@@ -181,11 +181,17 @@ def verify_onboarding_code(payload: OnboardingVerifyIn, db: DB, request: Request
     consumed, reason = redeem_code(db, code=code, actor_ip=actor_ip, device_id=device_id)
     if consumed is None:
         if reason is not None and reason != "not_found":
-            # 命中但被拒（revoked/expired/replay/rate_limited/user_not_active）：统一 403
+            # P0-2 修复：拒绝路径先持久化防爆破状态（attempt 行 + attempt_count
+            # 递增）再抛 403——否则 HTTPException 后依赖 teardown 回滚事务，
+            # 失败计数永不落库，rate limit / max_attempts 在真实 HTTP 语义下失效。
+            db.commit()
             raise HTTPException(status_code=403, detail="该激活码已受限，请联系机构")
         # legacy 回退：external_ref 旧语义（v0.8 退役）
         user = db.scalar(select(User).where(User.external_ref == code))
         if user is None:
+            # P0-2 修复：not_found 的失败 attempt 行同样先持久化（IP/device
+            # 维度 rate limit 的数据来源），再统一 404。
+            db.commit()
             raise HTTPException(status_code=404, detail="无效激活码")
         if user.status != "active":
             raise HTTPException(status_code=403, detail="该激活码已受限，请联系机构")

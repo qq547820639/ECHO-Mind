@@ -11,17 +11,17 @@
   "reason": "AGSL raster requires hardware canvas — offscreen export uses production CANVAS backend",
   "quality": "NORMAL",
   "metrics": {
-    "nearBlackRatio": 0.88599,
-    "highLuminanceRatio": 0.00009,
+    "nearBlackRatio": 0.88415,
+    "highLuminanceRatio": 0.00010,
     "extremeGlintRatio": 0.00000,
-    "warmRatio": 0.00100,
+    "warmRatio": 0.00101,
     "negativeSpaceRatio": 1.00000,
-    "visualMassInside": 0.97786,
-    "organismWidthFraction": 0.72222,
-    "organismHeightFraction": 0.34103,
-    "edgeDensity": 0.14984,
-    "centerLuminance": 0.06098,
-    "outerLuminance": 0.01731
+    "visualMassInside": 0.96643,
+    "organismWidthFraction": 0.73889,
+    "organismHeightFraction": 0.34786,
+    "edgeDensity": 0.15187,
+    "centerLuminance": 0.05904,
+    "outerLuminance": 0.01757
   },
   "gate": {
     "nearBlackPass": true,

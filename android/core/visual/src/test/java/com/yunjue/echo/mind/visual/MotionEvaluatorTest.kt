@@ -94,6 +94,51 @@ class MotionEvaluatorTest {
     }
 
     @Test
+    fun longNanosPhaseStaysContinuousAtHugeUptime() {
+        // §N P1-2：400 天 uptime（3.456e16 ns）下 Float 秒 ulp≈4s——相邻 16ms 帧差被完全吞掉；
+        // Long-nanos 求值先 mod 周期再转 Float，相邻帧 breathScale 差保持理论值（16ms @ 8.4s × 2.4% ≈ 2.9e-4）
+        val m = motion()
+        val t400d = 400L * 24 * 3600 * 1_000_000_000L
+        val a = MotionEvaluator.evaluate(m, t400d)
+        val b = MotionEvaluator.evaluate(m, t400d + 16_000_000L)
+        assertTrue("相邻 16ms 帧差异应为正且平滑", b.breathScale != a.breathScale)
+        assertTrue(
+            "相邻 16ms 帧差异 < 1e-3（实际 ${kotlin.math.abs(b.breathScale - a.breathScale)}）",
+            kotlin.math.abs(b.breathScale - a.breathScale) < 1e-3f,
+        )
+        // 反例锁定：Float 绝对秒在同 uptime 下 16ms 差异被 ulp 吞掉（修复动机实证）
+        val fa = MotionEvaluator.evaluate(m, t400d / 1_000_000_000f)
+        val fb = MotionEvaluator.evaluate(m, (t400d + 16_000_000L) / 1_000_000_000f)
+        assertEquals("相位 Float 秒下 16ms 帧差被 ulp 吞掉", fa, fb)
+    }
+
+    @Test
+    fun longNanosMatchesPhaseReducedSmallT() {
+        // 确定性：大 t 与（mod 周期后的）小 t 计算结果一致——同相位同状态
+        val m = motion()
+        val periodNanos = (m.breathPeriodSeconds * 1_000_000_000f).toLong()
+        val t400d = 400L * 24 * 3600 * 1_000_000_000L
+        val big = MotionEvaluator.evaluate(m, t400d)
+        val small = MotionEvaluator.evaluate(m, t400d % periodNanos)
+        assertEquals(small.breathScale, big.breathScale, 1e-6f)
+        assertEquals(small.haloMultiplier, big.haloMultiplier, 1e-6f)
+    }
+
+    @Test
+    fun correctionPulseAgeNanosDifferenceSurvivesHugeUptime() {
+        // §45 P1-2：脉冲年龄 = Long nanos 差值（Float 大数相减 catastrophic cancellation
+        // 会把 0.9s 脉冲量化到不可用）；ms 量化（Long 除法）精确无损
+        val pulseStart = 400L * 24 * 3600 * 1_000_000_000L // ~400 天 uptime 时触发
+        val age450ms = pulseStart + 450_000_000L - pulseStart // Long 差值精确 = 450ms
+        assertEquals(450L, age450ms / 1_000_000L)
+        val (haloDelta, _) = MotionEvaluator.correctionPulse(age450ms / 1_000_000L)
+        assertEquals("450ms 处 halo 脉冲仍呈现峰值", -0.08f, haloDelta, 0.005f)
+        // 反例锁定：Float 秒差值在该 uptime 下 ulp≈4s，450ms 无法表示
+        val floatAge = pulseStart + 450_000_000L / 1_000_000_000f - pulseStart / 1_000_000_000f
+        assertTrue("Float 差值无法表示 450ms（实际 $floatAge）", kotlin.math.abs(floatAge - 0.45f) > 0.05f)
+    }
+
+    @Test
     fun correctionPulseTimeline() {
         // §45：~900ms；halo -8% 单峰；phase 前 150ms 暂停、之后平滑收敛
         val (h0, p0) = MotionEvaluator.correctionPulse(0L)

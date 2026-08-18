@@ -26,14 +26,14 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `216f3b3`，2026-08-18 01:30 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `d3c87fa`，2026-08-18 03:57 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1321 全绿**（app 972 / core:visual 52 / feature:intelligence 32 / feature:journey 6 / feature:presence 25 / feature:presencevisual 23 / feature:qa 115 / feature:wearable 96） |
-| backend pytest | **1084 passed + 1 skipped**（全绿） |
+| Android 单测（testDebugUnitTest） | **1339 全绿**（app 977 / core:visual 56 / feature:intelligence 35 / feature:journey 11 / feature:presence 25 / feature:presencevisual 24 / feature:qa 115 / feature:wearable 96） |
+| backend pytest | **1099 passed + 1 skipped**（全绿） |
 | Production Kotlin | 241 |
-| Test Kotlin | 163 |
+| Test Kotlin | 165 |
 | QA Kotlin（:feature:qa，非 Production Runtime） | 39 |
 | Python | 69 |
 
@@ -148,6 +148,19 @@
    `qa/visual-review/organism-quality/`（5 张人眼评审图 + appendix，**视觉审美结论
    PENDING_PRINCIPAL_VISUAL_REVIEW**；AGSL raster/真机门 BLOCKED_EXTERNAL_DEVICE）。
 
+10. **全仓逐行审计（Repo-Wide Line-by-Line Audit）**（2026-08-18）✅——396 生产文件/53,821 LOC
+   + 237 测试文件 100% 逐行覆盖（P2/P3 明细与真值结论见 `.trae/specs/audit-repo-line-by-line/findings/T2–T8`）。
+   发现 **P0×2 / P1×22 / P2×61 / P3×105**，全部 P0/P1 当轮修复 + 回归锁定（Android +18、backend +15
+   新测试；证据 `qa/reports/REPO_LINE_AUDIT.md` + `REPO_LINE_AUDIT_FIXES.md`）。要点：backend DSR
+   删除矩阵补全 v0.7 派生表 + 激活码防爆破拒绝路径持久化（两处 P0）；5 写端点 RBAC/consent/订阅门
+   补齐；escalations PG 分页修复；narrative 本地日界线统一；DSR export 真实导出；app 三处功能级缺陷
+   （画像重建主线程网络/FGS 崩溃路径/提醒自取消）；视觉链三处正确性（AGSL exposure 未裁剪/时钟
+   Float 长期精度→Long nanos/呼吸量纲 KDoc-实现统一）；JourneyCanonical v1 真解码；LAN 判定防域名
+   伪装；腕上加速度计 10s 窗口落地（契约 §8）；三处测试质量缺陷（自证断言/黄金缺条目静默过/假迁移
+   测试）；发布元数据三件套按纪律 §5 在本轮最终树原子再生（SOURCE_MANIFEST/SBOM(3.12 全闭包)/
+   provenance/artifact manifest，RELEASE_BASELINE 时间锚修正）。门禁：Android 1339 全绿 + detekt +
+   lint；backend 1099+1；Vela Node 28/28；assembleDebug 无空格路径实测通过。
+
 ## 7. Governance（冻结纪律）
 
 - **架构冻结**：14 个 Gradle module 体系冻结，以 `android/settings.gradle.kts` 为唯一事实源
@@ -168,6 +181,8 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
+
 
 
 

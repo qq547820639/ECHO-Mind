@@ -269,6 +269,52 @@ test('movementClass thresholds mirror neutral classification', () => {
   assert.strictEqual(accel.classifyMotion(2.0), 'VIGOROUS')
 })
 
+test('foreground window flush at WINDOW_MS (contract \u00a78: 5-15s)', () => {
+  let t = 0
+  const windows = []
+  let callback = null
+  const fakeSensor = {
+    subscribeAccelerometer(opts) { callback = opts.callback },
+    unsubscribeAccelerometer() { callback = null },
+  }
+  const a = accel.create(() => t)
+  assert.strictEqual(a.start({ sensor: fakeSensor, onWindow: (w) => windows.push(w) }), true)
+  const sample = () => callback({ x: 0, y: 0, z: 10.81 }) // |magnitude - G| = 1.0
+  for (let i = 0; i < 49; i++) { t += 200; sample() } // t=200..9800
+  assert.strictEqual(windows.length, 0) // \u7a97\u53e3\u672a\u6ee1\u4e0d\u4e0a\u62a5
+  t += 200
+  sample() // t=10000 \u2192 \u7a97\u53e3\u6ee1 10s \u2192 flush \u5e76\u5f00\u65b0\u7a97
+  assert.strictEqual(windows.length, 1)
+  const w0 = windows[0]
+  assert.strictEqual(w0.windowStartMs, 0)
+  assert.strictEqual(w0.windowEndMs, 10000)
+  const span0 = w0.windowEndMs - w0.windowStartMs
+  assert.ok(span0 >= 5000 && span0 <= 15000) // \u5951\u7ea6 5-15s \u533a\u95f4
+  assert.ok(w0.motionEnergy !== null && w0.motionEnergy > 0) // observation \u975e\u96f6
+  assert.strictEqual(w0.movementClass, 'WALKING')
+  assert.strictEqual(w0.quality, 'GOOD') // coverage = 49*200/10000 = 0.98
+  for (let i = 0; i < 49; i++) { t += 200; sample() } // t=10200..19800
+  assert.strictEqual(windows.length, 1) // \u7b2c\u4e8c\u7a97\u672a\u6ee1\u4e0d\u4e0a\u62a5
+  t += 200
+  sample() // t=20000 \u2192 \u7b2c\u4e8c\u7a97 flush
+  assert.strictEqual(windows.length, 2)
+  assert.strictEqual(windows[1].windowStartMs, 10000)
+  assert.ok(windows[1].motionEnergy > 0)
+  for (let i = 0; i < 5; i++) { t += 200; sample() } // t=20200..21000
+  a.stop() // onHide \u2192 \u4f59\u7a97 flush
+  assert.strictEqual(windows.length, 3)
+  assert.strictEqual(windows[2].windowStartMs, 20000)
+  assert.strictEqual(windows[2].windowEndMs, 21000)
+  assert.ok(windows[2].motionEnergy > 0)
+  assert.strictEqual(callback, null) // \u9000\u8ba2\u4f20\u611f\u5668
+})
+
+test('module exports page-level start/stop (echo/index.ux call shape)', () => {
+  assert.strictEqual(typeof accel.start, 'function')
+  assert.strictEqual(typeof accel.stop, 'function')
+  assert.strictEqual(typeof accel.create, 'function')
+})
+
 // ------------------------------------------------------------------ manifest capability closure (Phase 4)
 
 console.log('# declared vela features (MINIMUM CAPABILITY DECLARATION)')

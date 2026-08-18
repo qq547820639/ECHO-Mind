@@ -248,11 +248,12 @@ class PerformanceBaselineTest {
             repeat(200) {
                 val identity = deriveIdentityGenome(seed = 42L, baselineStability = vector.regularity, motionPreference = PresenceMotionLevel.DEFAULT)
                 val season = computeLifeSeason(portraits)
-                val daily = buildDailyComposition(identity, vector)
+                val maturity = echoMaturity(30)
+                val daily = buildDailyComposition(identity, vector, maturity)
                 val moment = buildMomentState(vector, hourOfDay = 14f)
                 val assembled = EchoPresenceState(
                     updatedAt = java.time.Instant.EPOCH,
-                    maturity = echoMaturity(30),
+                    maturity = maturity,
                     identityGenome = identity,
                     lifeSeason = season,
                     dailyComposition = daily,

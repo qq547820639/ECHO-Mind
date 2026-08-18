@@ -61,7 +61,7 @@
 - 成熟度：EMERGING
 - 一句话：**今天动得比平时少一些。**
 - 证据：活动量 0.68 · 通常 0.95
-- 视觉：flow=0.55 coherence=0.30 openness=0.69 turbulence=0.82 pulse=4.5s
+- 视觉：flow=0.55 coherence=0.30 openness=0.80 turbulence=0.82 pulse=4.5s
 
 ### Why（1 条证据）
 - 活动量：今天 0.68 · 通常 0.95（偏低）
@@ -116,7 +116,7 @@
 - 一句话：**今晚比平时更早安静下来。**
 - 证据：晚间屏幕 74 分钟 · 通常 88 分钟
 - AI 层：这种变化最近也出现过。
-- 视觉：flow=0.60 coherence=0.39 openness=0.69 turbulence=0.86 pulse=4.4s
+- 视觉：flow=0.60 coherence=0.39 openness=0.87 turbulence=0.86 pulse=4.4s
 
 ### Why（3 条证据）
 - 活动量：今天 0.95 · 通常 0.90（偏高）
@@ -174,7 +174,7 @@
 - 一句话：**今晚比平时晚一些才安静下来。**
 - 证据：晚间屏幕 110 分钟 · 通常 74 分钟
 - AI 层：最近不太常见，我在留意。
-- 视觉：flow=0.58 coherence=0.46 openness=0.69 turbulence=0.89 pulse=4.4s
+- 视觉：flow=0.58 coherence=0.46 openness=0.92 turbulence=0.89 pulse=4.4s
 
 ### Why（2 条证据）
 - 晚间屏幕：今天 111 分钟 · 通常 74 分钟（偏高）
@@ -233,7 +233,7 @@
 - 成熟度：MATURE
 - 一句话：**今天和你的节奏很接近。**
 - 证据：与通常的差异很小（VERY_SIMILAR）
-- 视觉：flow=0.59 coherence=0.45 openness=0.69 turbulence=0.88 pulse=4.4s
+- 视觉：flow=0.59 coherence=0.45 openness=0.92 turbulence=0.88 pulse=4.4s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）
@@ -294,7 +294,7 @@
 - 成熟度：MATURE
 - 一句话：**今天和你的节奏很接近。**
 - 证据：与通常的差异很小（VERY_SIMILAR）
-- 视觉：flow=0.60 coherence=0.43 openness=0.69 turbulence=0.86 pulse=4.3s
+- 视觉：flow=0.60 coherence=0.43 openness=0.92 turbulence=0.86 pulse=4.3s
 
 ### Why（0 条证据）
 - （尚无足够数据，不硬凑）

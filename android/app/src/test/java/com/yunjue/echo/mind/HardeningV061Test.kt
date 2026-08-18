@@ -3,6 +3,9 @@ package com.yunjue.echo.mind
 import android.content.Context
 import com.yunjue.echo.mind.data.database.*
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.data.ApiClient
@@ -380,27 +383,65 @@ class HardeningV061Test {
 
     @Test
     fun roomMigrationV5ToV6CreatesEscalationTable() = runBlocking {
-        val dbV5 = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
-            .allowMainThreadQueries()
-            .addMigrations(MIGRATION_4_5)
-            .build()
-        // 打开即迁移到 v5；关闭后以 v6 打开验证 escalation_requests 可用
-        dbV5.dao().pendingOutbox()
-        dbV5.close()
+        // T8 P1-22 修复：真迁移——FrameworkSQLiteOpenHelperFactory 以 v5 版本号建库，
+        // 直调 MIGRATION_5_6.migrate 在 v5 旧库上执行（参照 DatabaseMigrationTest 范式）。
+        // 旧写法打开两个最新 schema 内存库，MIGRATION_5_6 从未真正执行，SQL 列名拼错也绿。
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-56-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(5) {
+                    override fun onCreate(sqLiteDatabase: SupportSQLiteDatabase) = Unit
+                    override fun onUpgrade(sqLiteDatabase: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val rawDb = helper.writableDatabase
+        try {
+            assertFalse("v5 库应无 escalation_requests 表", hasTable(rawDb, "escalation_requests"))
+            MIGRATION_5_6.migrate(rawDb)
+            assertTrue("MIGRATION_5_6 应创建 escalation_requests", hasTable(rawDb, "escalation_requests"))
+            // 列级断言：列名/列序与建表 SQL 一致（列名拼错在此红，而非留到真机升级崩溃）
+            val columns = rawDb.query("PRAGMA table_info(escalation_requests)").use { cursor ->
+                val names = mutableListOf<String>()
+                while (cursor.moveToNext()) names.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+                names
+            }
+            assertEquals(
+                listOf(
+                    "eventId", "userId", "trigger", "evidenceSummaryCiphertext", "status",
+                    "serverEscalationId", "serverStatusJson", "createdAtEpochMs", "updatedAtEpochMs", "outboxSynced"
+                ),
+                columns
+            )
+            // 幂等：CREATE TABLE IF NOT EXISTS 重复执行不报错
+            MIGRATION_5_6.migrate(rawDb)
+            assertTrue("重复迁移应幂等", hasTable(rawDb, "escalation_requests"))
+        } finally {
+            rawDb.close()
+        }
 
+        // 迁移产物与 Room 实体契约匹配（最新 schema 的 escalation DAO 可用性锚点，保留自原测试）
         val migrated = Room.inMemoryDatabaseBuilder(context, EchoDatabase::class.java)
             .allowMainThreadQueries()
-            .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
             .build()
-        migrated.escalationDao().upsert(
-            EscalationEntity(
-                eventId = "esc_mig_1", userId = "u", trigger = "help_requested",
-                evidenceSummaryCiphertext = "x", status = "QUEUED",
-                serverEscalationId = null, serverStatusJson = null,
-                createdAtEpochMs = 0L, updatedAtEpochMs = 0L
+        try {
+            migrated.escalationDao().upsert(
+                EscalationEntity(
+                    eventId = "esc_mig_1", userId = "u", trigger = "help_requested",
+                    evidenceSummaryCiphertext = "x", status = "QUEUED",
+                    serverEscalationId = null, serverStatusJson = null,
+                    createdAtEpochMs = 0L, updatedAtEpochMs = 0L
+                )
             )
-        )
-        assertNotNull(migrated.escalationDao().byEventId("esc_mig_1"))
-        migrated.close()
+            assertNotNull(migrated.escalationDao().byEventId("esc_mig_1"))
+        } finally {
+            migrated.close()
+        }
     }
+
+    private fun hasTable(db: SupportSQLiteDatabase, table: String): Boolean =
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            arrayOf<Any>(table)
+        ).use { it.moveToFirst() }
 }

@@ -100,6 +100,23 @@ class EchoRendererFacadeResolutionTest {
     }
 
     @Test
+    fun agslSessionExposureIsSurfaceCropped() {
+        // P1-1：非 Compose AGSL 会话的 exposure 必须来自 SurfacePolicy.crop 后 spec
+        // （Wallpaper ×0.7 上限）——与 Compose 路径（EchoOrganismRenderer 的 spec.genome.luminance）同源；
+        // dispatch(canvas, frame, spec) 消费 computeFrame 返回的同一裁剪 spec（源码级断言：不存在第二个未裁剪输入）
+        val req = request(surface = EchoSurface.WALLPAPER_VISUAL_ONLY, tier = EchoRenderTier.STANDARD)
+        val session = EchoRendererFacade.createSession(req, 108, 234)
+        val computed = session.computeFrame(0L, req.interaction)
+        assertEquals(
+            "Wallpaper exposure 已裁剪 ×0.7（AGSL 与 Compose 同源）",
+            req.genome.luminance * 0.7f,
+            computed.spec.genome.luminance,
+            1e-6f,
+        )
+        assertEquals(req.genome.identitySeed, computed.spec.genome.identitySeed)
+    }
+
+    @Test
     fun qualityDefaultsPerSurfaceAndEnvMayDowngrade() {
         // 默认质量预算：WALLPAPER→CONSERVE / WRIST→MINIMAL / APP→NORMAL
         assertEquals(

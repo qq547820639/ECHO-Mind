@@ -37,7 +37,7 @@ data class EchoVisualGenome(
     val filamentDensity: Float,
     /** 漂移速率 0..1（轨道/粒子的缓慢漂移；非抖动）。 */
     val driftRate: Float,
-    /** 脉动速率（呼吸周期秒数；非心率模拟）。 */
+    /** 脉动速率（呼吸周期输入秒数；域 3.6–6.0s → 编译到 8.2–10.2s 呈现窗口；非心率模拟）。 */
     val pulseRate: Float,
     /** 湍流 0..1（与基线偏差的非评价性表达；局部轨迹扰动）。 */
     val turbulence: Float,

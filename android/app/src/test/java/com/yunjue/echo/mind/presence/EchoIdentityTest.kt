@@ -1,4 +1,5 @@
 package com.yunjue.echo.mind.presence
+import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.model.EchoMomentState
 import com.yunjue.echo.mind.model.EchoDailyComposition
@@ -113,7 +114,7 @@ class EchoIdentityTest {
     @Test
     fun dailyCompositionRangesValid() {
         val identity = deriveIdentityGenome(42L, 0.6f, PresenceMotionLevel.DEFAULT)
-        val daily = buildDailyComposition(identity, vector())
+        val daily = buildDailyComposition(identity, vector(), EchoMaturity.KNOWN)
         for (v in listOf(daily.flowSpeed, daily.coherence, daily.turbulence, daily.particleDensity,
                 daily.coreOpenness, daily.dispersion, daily.depth, daily.brightness,
                 daily.contrast, daily.accentIntensity, daily.structureComplexity)) {
@@ -160,7 +161,9 @@ class EchoIdentityTest {
     fun sameStateSameMappingAcrossSurfaces() {
         val state = EchoPresenceState(
             identityGenome = deriveIdentityGenome(7L, 0.5f, PresenceMotionLevel.DEFAULT),
-            dailyComposition = buildDailyComposition(deriveIdentityGenome(7L, 0.5f, PresenceMotionLevel.DEFAULT), vector()),
+            dailyComposition = buildDailyComposition(
+                deriveIdentityGenome(7L, 0.5f, PresenceMotionLevel.DEFAULT), vector(), EchoMaturity.KNOWN,
+            ),
             momentState = buildMomentState(vector(), 12f),
         )
         // 同一 state 映射两次结果一致（确定性；§63 One ECHO / Multiple Surfaces）

@@ -8,6 +8,7 @@ from typing import Any
 
 from datetime import UTC, datetime, timedelta
 from datetime import date as date_cls
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
@@ -44,7 +45,11 @@ def get_daily_narrative(
     - ``date`` 单日查询（向后兼容），缺失返回 404；
     - ``from``/``to`` 批量查询：返回 ordered narratives + data coverage + missing dates。
     """
-    ensure_user(db, principal, user_id)
+    user = ensure_user(db, principal, user_id)
+    # P1-5 修复：无参默认日与写入侧统一为用户本地日（原 UTC 日期在跨日界线
+    # 时区下会与 narrative.date（本地日）错位）。
+    tz_name = user.timezone or "Asia/Shanghai"
+    today = datetime.now(UTC).astimezone(ZoneInfo(tz_name)).date()
 
     if date is not None:
         narrative = db.scalar(select(DailyNarrative).where(
@@ -56,7 +61,6 @@ def get_daily_narrative(
             raise HTTPException(status_code=404, detail="no narrative for date")
         return _narrative_to_dict(narrative, user_id)
 
-    today = datetime.now(UTC).date()
     if from_ is not None and to is not None:
         if from_ > to:
             raise HTTPException(status_code=422, detail="from must be <= to")

@@ -85,6 +85,34 @@ class EchoSceneCompilerTest {
     }
 
     @Test
+    fun breathInputDomainMapsOntoPresentationWindow() {
+        // P1-3 量纲锁定：pulseRate 输入域 3.6–6.0s 线性映射到 8.2–10.2s 呈现窗口；
+        // 超域输入 coerce 饱和到窗口端点（旧 fixtures 6.8–10.8 曾全落上饱和 → 呼吸维度失效）
+        fun breathOf(pulse: Float): Float {
+            val spec = SurfacePolicy.crop(
+                VisualGenomeCompiler.compile(
+                    params.copy(pulsePeriodSeconds = pulse),
+                    EchoIdentityGenome(seed = 5L, coreTopology = 0.7f, orbitGeometry = 0.4f),
+                ),
+                EchoSurface.APP_PRIVATE,
+                12f,
+            )
+            return EchoSceneCompiler.compile(spec, 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD)
+                .motion.breathPeriodSeconds
+        }
+        assertEquals(8.2f, breathOf(3.6f), 1e-4f)
+        assertEquals(10.2f, breathOf(6.0f), 1e-4f)
+        assertEquals("下饱和", 8.2f, breathOf(0f), 1e-4f)
+        assertEquals("上饱和（旧 fixture 域 6.8–10.8 全落此端）", 10.2f, breathOf(8.2f), 1e-4f)
+        assertEquals(
+            "fixtures base 中点 4.6 → 呈现 ~9.03s",
+            8.2f + 2.0f * (4.6f - 3.6f) / 2.4f,
+            breathOf(4.6f),
+            1e-3f,
+        )
+    }
+
+    @Test
     fun reducedMotionExactFactors() {
         val normal = EchoSceneCompiler.compile(
             specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,

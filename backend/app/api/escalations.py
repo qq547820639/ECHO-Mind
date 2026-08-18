@@ -136,8 +136,15 @@ def list_escalations(
     if assigned_to:
         query = query.where(Escalation.assigned_to == assigned_to)
     if cursor:
-        # keyset 分页：(opened_at, id) 字典序，稳定且避免 offset 深翻页
-        cursor_opened, cursor_id = cursor.split("_", 1)
+        # keyset 分页：(opened_at, id) 字典序，稳定且避免 offset 深翻页。
+        # P1-3 修复：cursor 中的 opened_at 解析回 datetime 再与 DateTime 列比较
+        # （str 绑定在 PostgreSQL 下报 operator does not exist → 第二页起 500）；
+        # 非法 cursor 统一 422，不透出内部异常。
+        cursor_opened_raw, cursor_id = cursor.split("_", 1)
+        try:
+            cursor_opened = datetime.fromisoformat(cursor_opened_raw)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid cursor") from exc
         query = query.where(
             (Escalation.opened_at < cursor_opened) |
             ((Escalation.opened_at == cursor_opened) & (Escalation.id < cursor_id))

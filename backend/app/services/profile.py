@@ -13,13 +13,14 @@ v0.6 契约：
 """
 from __future__ import annotations
 
-from datetime import date as date_cls, datetime, time, timedelta, timezone
+from datetime import date as date_cls, datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import DailyNarrative, DerivedFeature, UserProfile, utcnow
 from app.schemas import DerivedFeatureIn
+from app.services.aggregates.timezone import local_day_window
 
 #: 画像聚合窗口：近 N 天叙事 + 派生特征
 PROFILE_WINDOW_DAYS = 7
@@ -53,15 +54,16 @@ def ingest_feature(
 
 
 def build_daily_narrative(
-    db: Session, *, tenant_id: str, user_id: str, date: date_cls
+    db: Session, *, tenant_id: str, user_id: str, date: date_cls, tz_name: str = "UTC"
 ) -> DailyNarrative:
     """按 tenant+user+date 幂等生成/更新每日叙事（写路径：ingest/显式重建时调用）。
 
-    使用时间范围查询：``window_start >= date 00:00 AND window_start < date+1 00:00``，
-    禁止全量拉取后 Python 过滤。事件不含任何情绪标签（PRD 契约点 2）。
+    使用时间范围查询，禁止全量拉取后 Python 过滤。事件不含任何情绪标签
+    （PRD 契约点 2）。P1-5 修复：日界线与 aggregate/portrait 同源——按
+    ``tz_name`` 的本地日经 ``local_day_window`` 换算 UTC 窗口（date 为该时区
+    下的本地日期），禁止 UTC 日期作为"一天"（timezone.py 契约）。
     """
-    start = datetime.combine(date, time.min, tzinfo=timezone.utc)
-    end = start + timedelta(days=1)
+    start, end = local_day_window(tz_name, date)
     features = db.scalars(
         select(DerivedFeature).where(
             DerivedFeature.tenant_id == tenant_id,

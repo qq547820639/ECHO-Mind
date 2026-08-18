@@ -29,28 +29,33 @@ class EveningReminderWorker(appContext: Context, params: WorkerParameters) : Cor
 
     @SuppressLint("MissingPermission") // 前置 areNotificationsEnabled() 已覆盖 POST_NOTIFICATIONS 权限/开关检查
     override suspend fun doWork(): Result {
-        // 先排下一次（自续期），无论本次是否发通知
-        scheduleNext(applicationContext)
-        val container = runCatching { (applicationContext as EchoMindApplication).container }.getOrNull()
-            ?: return Result.success()
-        if (!container.preferences.eveningReminderEnabled) return Result.success()
-        val sensingEnabled = runCatching {
-            container.preferences.passiveSensingPrefs.passiveSensingEnabled.first()
-        }.getOrDefault(false)
-        if (!sensingEnabled) return Result.success()
+        try {
+            val container = runCatching { (applicationContext as EchoMindApplication).container }.getOrNull()
+                ?: return Result.success()
+            if (!container.preferences.eveningReminderEnabled) return Result.success()
+            val sensingEnabled = runCatching {
+                container.preferences.passiveSensingPrefs.passiveSensingEnabled.first()
+            }.getOrDefault(false)
+            if (!sensingEnabled) return Result.success()
 
-        val nm = NotificationManagerCompat.from(applicationContext)
-        if (!nm.areNotificationsEnabled()) return Result.success()
-        ensureChannel(applicationContext)
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentTitle("ECHO Mind")
-            .setContentText("今天的数据已记录完毕。打开看看今天的你。")
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setAutoCancel(true)
-            .build()
-        runCatching { nm.notify(NOTIFICATION_ID, notification) }
-        return Result.success()
+            val nm = NotificationManagerCompat.from(applicationContext)
+            if (!nm.areNotificationsEnabled()) return Result.success()
+            ensureChannel(applicationContext)
+            val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_compass)
+                .setContentTitle("ECHO Mind")
+                .setContentText("今天的数据已记录完毕。打开看看今天的你。")
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setAutoCancel(true)
+                .build()
+            runCatching { nm.notify(NOTIFICATION_ID, notification) }
+            return Result.success()
+        } finally {
+            // 自续期移至末尾（P1-7）：原首行 scheduleNext(REPLACE) 会取消正在运行的自身——
+            // 取消送达后协程在挂起点（开关/感知检查读 DataStore）抛 CancellationException，
+            // 本次 21:00 提醒静默丢失。finally 覆盖全部提前 return 路径，发送完成后再排明晚。
+            scheduleNext(applicationContext)
+        }
     }
 
     companion object {

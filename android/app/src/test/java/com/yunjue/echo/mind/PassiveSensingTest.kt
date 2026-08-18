@@ -26,6 +26,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -407,6 +408,33 @@ class PassiveSensingTest {
             assertTrue("开关 + 权限齐备时应就绪", service.micReadyToStart())
             prefs.setMicEnabled(false)
             assertFalse("开关关闭时不应就绪", service.micReadyToStart())
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    fun startMicOnNotRunningServiceEntersForegroundBeforeStopSelf() {
+        // P1-6 回归：服务未运行时经 startForegroundService 发 ACTION_START_MIC——
+        // 修复前直接 stopSelf 而从未 startForeground，真机抛 ForegroundServiceDidNotStartInTime；
+        // 修复后先 startForeground 再退（no-op 语义保留）。Robolectric 以 shadow 的
+        // lastForegroundNotificationId 验证「先入前台再退出」契约。
+        val controller = Robolectric.buildService(PassiveSensingService::class.java)
+        val service = controller.create().get()
+        try {
+            assertFalse("前置：服务未运行", service.isSensingRunning())
+            service.onStartCommand(
+                Intent(context, PassiveSensingService::class.java)
+                    .setAction(PassiveSensingService.ACTION_START_MIC),
+                0, 1
+            )
+            val shadow = Shadows.shadowOf(service)
+            assertTrue("未运行时保持 no-op 语义（stopSelf）", shadow.isStoppedBySelf)
+            assertNotEquals(
+                "stopSelf 前必须已 startForeground（startForegroundService 5 秒契约）",
+                -1,
+                shadow.lastForegroundNotificationId
+            )
         } finally {
             controller.destroy()
         }

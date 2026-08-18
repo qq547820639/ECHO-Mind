@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,17 +22,23 @@ from app.models import (
     AuditEvent,
     Checkin,
     Consent,
+    DailyBehaviorAggregate,
     DailyNarrative,
+    DailyPortrait,
     DataSubjectRequest,
     DerivedFeature,
     EmergencyContact,
     Escalation,
     JournalEntry,
+    MaterializationState,
+    PersonalBaseline,
+    PortraitFeedback,
     PracticeCompletion,
     QuestionnaireResult,
     RiskSignal,
     SandboxRun,
     Skill,
+    SkillCompletion,
     Tool,
     User,
     UserProfile,
@@ -40,7 +47,6 @@ from app.schemas import DataSubjectRequestComplete, DataSubjectRequestCreate
 from app.services.audit import append_audit
 
 from app.api.deps import DB, PRINCIPAL, ensure_user, require_write_role
-from datetime import datetime
 
 router = APIRouter(prefix="/v1")
 
@@ -48,10 +54,19 @@ router = APIRouter(prefix="/v1")
 #: DSR delete 矩阵：删除的派生/主动内容表（按 category -> model 映射）。
 #: 值为异构的 SQLAlchemy 模型类（均含 tenant_id/user_id 列，但无公共声明基类），
 #: 故值类型用 Any 表达——运行时由 Session.query 按各模型真实映射解析。
+#: P0-1 修复：补齐 v0.7 Portrait Core 全部派生表（aggregates/baselines/portraits
+#: 在前，materialization_state/feedback 在后）；skill_completions 外键引用 skills，
+#: 必须先于 skills 删除（PG 外键约束）。
 DSR_DELETE_MODELS: dict[str, Any] = {
     "derived_features": DerivedFeature,
     "daily_narratives": DailyNarrative,
     "user_profiles": UserProfile,
+    "daily_behavior_aggregates": DailyBehaviorAggregate,
+    "personal_baselines": PersonalBaseline,
+    "daily_portraits": DailyPortrait,
+    "materialization_state": MaterializationState,
+    "portrait_feedback": PortraitFeedback,
+    "skill_completions": SkillCompletion,
     "checkins": Checkin,
     "journal_entries": JournalEntry,
     "questionnaire_results": QuestionnaireResult,
@@ -137,6 +152,36 @@ def _execute_dsr_delete(db: Session, tenant_id: str, user_id: str) -> dict[str, 
     return per_category
 
 
+def _jsonify_column(value: Any) -> Any:
+    """ORM 列值 → JSON 安全值（datetime/date 转 ISO 字符串，其余原样）。"""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return str(value)
+    return value
+
+
+def _execute_dsr_export(db: Session, tenant_id: str, user_id: str) -> dict[str, list[dict[str, Any]]]:
+    """执行 DSR export：导出删除矩阵同范围的用户自身数据（P1-6 修复）。
+
+    - 范围与 DSR_DELETE_MODELS 完全一致（数据主体访问权的最小完整集）；
+    - 产物为 {category: [row dict...]}，由 complete_dsr 序列化进既有
+      result_summary 存储与返回路径（不新造导出存储机制）；
+    - 行内容为该模型全部列的 JSON 安全形态（密文字段保持密文，不解密）。
+    """
+    exported: dict[str, list[dict[str, Any]]] = {}
+    for category, model in DSR_DELETE_MODELS.items():
+        rows = db.query(model).filter(
+            model.tenant_id == tenant_id,
+            model.user_id == user_id,
+        ).all()
+        exported[category] = [
+            {col.key: _jsonify_column(getattr(row, col.key)) for col in model.__table__.columns}
+            for row in rows
+        ]
+    return exported
+
+
 @router.post("/data-subject-requests")
 def create_dsr(payload: DataSubjectRequestCreate, db: DB, principal: PRINCIPAL) -> dict[str, Any]:
     require_write_role(db, principal, object_type="data_subject_request")
@@ -212,22 +257,36 @@ def complete_dsr(
         }
 
     per_category: dict[str, dict[str, Any]] = {}
+    export_data: dict[str, list[dict[str, Any]]] | None = None
     if row.request_type == "delete":
         per_category = _execute_dsr_delete(db, principal.tenant_id, row.user_id)
+    elif row.request_type == "export":
+        export_data = _execute_dsr_export(db, principal.tenant_id, row.user_id)
     row.status = "completed"
-    row.completed_at = __import__("datetime").datetime.now(__import__("datetime").UTC)
+    row.completed_at = datetime.now(__import__("datetime").UTC)
     if row.request_type == "delete":
         summary_text = "按数据分类矩阵执行：派生产物/主动录入已删除；审计与危机处置记录依法保留。"
+    elif row.request_type == "export":
+        summary_text = "用户自身数据已导出（范围与删除矩阵一致），见 result_summary.export。"
     else:
         summary_text = f"请求类型 {row.request_type} 已标记完成。"
     summary = {
         "per_category": per_category,
         "summary": summary_text,
     }
+    if export_data is not None:
+        summary["export"] = export_data
     row.result_summary = json.dumps(summary, ensure_ascii=False)
+    # 审计 metadata 不携带导出数据内容（仅类别计数——最小必要审计）；
+    # delete 的 per_category 为计数摘要，保持既有回执-证据链绑定语义。
+    audit_metadata: dict[str, Any] = {"request_type": row.request_type}
+    if row.request_type == "delete":
+        audit_metadata["per_category"] = per_category
+    elif export_data is not None:
+        audit_metadata["export_counts"] = {k: len(v) for k, v in export_data.items()}
     append_audit(db, tenant_id=principal.tenant_id, actor_type=principal.role, actor_id=principal.subject,
                  action="dsr.complete", object_type="data_subject_request", object_id=row.id,
-                 metadata={"request_type": row.request_type, "per_category": per_category})
+                 metadata=audit_metadata)
     db.commit()
     return {
         "id": row.id,

@@ -5,7 +5,6 @@ import com.yunjue.echo.mind.model.EchoLifeSeason
 import com.yunjue.echo.mind.model.EchoMaturity
 import com.yunjue.echo.mind.model.EchoMomentState
 import com.yunjue.echo.mind.model.EchoPresenceState
-import com.yunjue.echo.mind.model.echoMaturity
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import kotlin.math.abs
@@ -334,11 +333,14 @@ private fun medianOf(values: List<Double>): Double? {
 
 /**
  * §58 — 当日稳定视觉构图（layout/core openness/flow/density/texture/daily seed
- * 全部由 Identity + 当日 Ambient 向量确定性合成；一天内不漂移）。
+ * 全部由 Identity + 当日 Ambient 向量 + 成熟度确定性合成；一天内不漂移）。
+ * P1-4：coreOpenness 由调用方传入真实 maturity（日构图按日固化，同日 maturity 不变，
+ * 不违反 §18 日内稳定）——成长视觉契约（PART 66 SEED 闭合的芽 → MATURE 完整开放）。
  */
 fun buildDailyComposition(
     identity: EchoIdentityGenome,
     vector: AmbientVector,
+    maturity: EchoMaturity,
 ): EchoDailyComposition {
     val activity = vector.activation.coerceIn(0f, 1f)
     val deviation = vector.deviation.coerceIn(0f, 1f)
@@ -350,7 +352,7 @@ fun buildDailyComposition(
         turbulence = lerp(1f - identity.symmetryTendency, deviation, 0.5f).coerceIn(0f, 1f),
         particleDensity = (0.25f + identity.textureFamily * 0.10f + vector.density.coerceIn(0f, 1f) * 0.25f)
             .coerceIn(0.1f, 1f),
-        coreOpenness = lerp(identity.coreTopology, maturityOpenness(echoMaturity(0)), 0.3f),
+        coreOpenness = lerp(identity.coreTopology, maturityOpenness(maturity), 0.3f),
         dispersion = ((1f - coherence) * 0.5f + 0.2f).coerceIn(0.15f, 0.8f),
         pulsePeriod = 5.6f - activity * 1.8f,
         depth = (0.3f + regularity * 0.7f).coerceIn(0.3f, 1f),

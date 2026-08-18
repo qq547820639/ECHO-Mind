@@ -85,7 +85,8 @@ object VisualLabFixtures {
         filamentDensity = k.structureComplexity.coerceIn(0f, 1f),
         haloIntensity = k.halo.coerceIn(0f, 1f),
         luminance = k.exposure.coerceIn(0f, 1f),
-        pulseRate = 6.8f + (1f - k.motion.coerceIn(0.05f, 1f)) * 4f,
+        // 输入域 3.6–6.0s（P1-3 量纲修复：旧 6.8–10.8 全部饱和在 10.2s 呈现端，呼吸维度失效）
+        pulseRate = 6.0f - k.motion.coerceIn(0.05f, 1f) * 2.4f,
     )
 
     /** 换 identity（identity diversity 评审：几何维度随之变化，不只换色）。 */
@@ -107,7 +108,7 @@ object VisualLabFixtures {
         particleDensity = 0.6f,
         filamentDensity = 0.7f,
         driftRate = 0.5f,
-        pulseRate = 8.2f,
+        pulseRate = 4.6f, // 输入域 3.6–6.0s 的中点 → 呈现 ~9.03s（域内真实生效）
         turbulence = 0.3f,
         luminance = 0.7f,
         spectralBias = frac(DeterministicRandom.mix(seed, 1)),
