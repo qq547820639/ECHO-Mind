@@ -80,9 +80,19 @@ data class EchoIdentitySpec(
                 warmKnotTopology = identityUnit(seed, 11),
                 // Quality §9：chroma 为 CIELCh Lab 量纲（0..~48 实用区间）——
                 // 旧值 0.12 在 ±100 Lab 轴上近无彩（灰色线圈根因），修正为真实彩度。
+                // Organism Visual Breakthrough §18：彩度上调至 gamut 裁剪域之上
+                // （ColorSpace.lch 二分收缩取最大可达饱和度）——中亮度紫罗兰 c≈42 时
+                // sRGB R≈G（灰化），c 52/48 让丝/膜/环拿到真正饱和的蓝紫族。
+                // primary L 带 per-identity 微差（0.72–0.76）：c=52 裁剪下相近 hue 的
+                // 两个 identity 会在 8-bit RGB 撞色——亮度维分散保证互异（也是
+                // 「不同用户不只换颜色」的一个几何外维度）。
                 palette = EchoPaletteSpec(
-                    primary = PerceptualColor(l = 0.74f, c = 42f, h = primaryHue),
-                    secondary = PerceptualColor(l = 0.58f, c = 38f, h = secondaryHue),
+                    primary = PerceptualColor(
+                        l = 0.72f + 0.04f * identityUnit(seed, 23),
+                        c = 52f,
+                        h = primaryHue,
+                    ),
+                    secondary = PerceptualColor(l = 0.58f, c = 48f, h = secondaryHue),
                     warm = PerceptualColor(l = 0.74f, c = 26f, h = warmHue),
                 ),
             )

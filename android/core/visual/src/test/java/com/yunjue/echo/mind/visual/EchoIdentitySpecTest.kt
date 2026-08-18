@@ -38,8 +38,10 @@ class EchoIdentitySpecTest {
             assertTrue("primaryHue LCh 285..313", id.palette.primary.h in 285f..313f)
             assertTrue("secondaryHue LCh <= 336 (sRGB ~300)", id.palette.secondary.h <= 336f)
             assertTrue("warmHue LCh 70..82 (sRGB ~28-40)", id.palette.warm.h in 70f..82f)
-            // chroma 为 Lab 量纲（真实彩度；旧 0.12 近无彩——灰色线圈根因）
-            assertTrue("primary chroma real", id.palette.primary.c in 30f..48f)
+            // chroma 为 Lab 量纲（真实彩度；旧 0.12 近无彩——灰色线圈根因）。
+            // Organism Visual Breakthrough §18：primary 上调至 52（GamutClip 收缩取最大
+            // 可达饱和度——中亮度紫罗兰 c≈42 时 sRGB R≈G 灰化的修复）
+            assertTrue("primary chroma real", id.palette.primary.c in 30f..56f)
         }
     }
 

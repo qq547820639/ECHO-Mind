@@ -313,13 +313,14 @@ object OrganismTopologyBuilder {
         // 数量随 maturity：SEED ~12–14 / KNOWN ~20–21 / MATURE ~21–23（§10：12–28 主要 lobe；
         // SEED 更简单但仍是有机体，绝不退回 atom wireframe）
         val lobeCount = (4f + 16f * maturity + 3f * identity.lobeCount / 5f).toInt().coerceIn(8, 26)
-        // 色族分层（hash 排名，与粒子分类同纪律）：cyan 26% / primary 38% / secondary 36%
+        // 色族分层（hash 排名，与粒子分类同纪律）：cyan 33% / primary 32% / secondary 35%
+        //（Breakthrough §18：cyan 是重要生命高光之一——份额上调，但不超过主色族之和）
         val lobeRank = (0 until lobeCount).sortedBy { DeterministicRandom.at(seed, 6250 + it) }
         val familyByIndex = IntArray(lobeCount)
         lobeRank.forEachIndexed { rank, idx ->
             familyByIndex[idx] = when {
-                rank < (lobeCount * 0.26f).toInt() -> 2 // cyan accent
-                rank < (lobeCount * 0.64f).toInt() -> 0 // primary
+                rank < (lobeCount * 0.33f).toInt() -> 2 // cyan accent
+                rank < (lobeCount * 0.65f).toInt() -> 0 // primary
                 else -> 1 // secondary violet
             }
         }
@@ -327,9 +328,10 @@ object OrganismTopologyBuilder {
         for (i in 0 until lobeCount) {
             val dir = fibDir(i, lobeCount, identity.identityPhase * TWO_PI + 2.4f)
             val u = DeterministicRandom.at(seed, 6050 + i)
-            // 二次分布：主体在中内层（0.14–0.74R），lobe 群聚成 nebula 而非均匀环
-            val shell = 0.14f + 0.60f * u * u
-            val rx = 0.16f + 0.20f * DeterministicRandom.at(seed, 6100 + i)
+            // 二次分布：主体在中内层（0.12–0.62R），lobe 群聚成 nebula 而非均匀环；
+            // 收拢保证 luminous bbox 宽 ≤0.84 viewport（Breakthrough §31）
+            val shell = 0.12f + 0.50f * u * u
+            val rx = 0.15f + 0.17f * DeterministicRandom.at(seed, 6100 + i)
             lobes += VolumeLobeTopo(
                 dir = dir,
                 shellRadius = shell,

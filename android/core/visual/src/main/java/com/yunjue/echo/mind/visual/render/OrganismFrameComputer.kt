@@ -151,8 +151,10 @@ object OrganismFrameComputer {
             identity.palette.secondary.l, identity.palette.secondary.c, identity.palette.secondary.h,
         )
         val warm = ColorSpace.lch(identity.palette.warm.l, identity.palette.warm.c, identity.palette.warm.h)
-        // §10/§12 GLINT 专用近白蓝（真正亮的位置非常少；glint 分类才有资格）
-        val glint = ColorSpace.argb(1f, 0.94f, 0.97f, 1.0f)
+        // §10/§12 GLINT 专用近白蓝（真正亮的位置非常少；glint 分类才有资格）。
+        // Breakthrough：luma 必须 ≥0.86（旧 0.84/0.85 在 alpha×color 后恒 <0.8——
+        // 「真正亮」档位永远无法达到的物理根因）。
+        val glint = ColorSpace.argb(1f, 0.97f, 0.985f, 1.0f)
         // Organism Visual Breakthrough §18：cyan 生命高光族（electric cyan，LCh ≈198–222；
         // identity 微差 ±10°，总体视觉族稳定 blue → cyan → violet）
         val cyanHue = 198f + 24f * EchoIdentitySpec.identityUnit(identity.identitySeed, 41)
@@ -169,17 +171,17 @@ object OrganismFrameComputer {
         val farHaloClarity = lerp(0.65f, 1f, clarity)
 
         // ---- 1. Ambient field（近黑；视觉质量来自大量 black + 少量真亮，§24）----
-        // Organism Visual Breakthrough §43：deep navy 场比旧中性近黑略 lifted——
-        // 大量黑暗保留，但中心区域不再是死黑（mid stop 后移到 0.58）。
+        // Breakthrough §43：deep navy 场极克制——黑暗是主角，organism 自己发光；
+        // center L≈0.048–0.09（低于 chromatic 阈值），把 hero 内的黑暗还给身体之间。
         val exposure = field.exposure.coerceIn(0f, 1f)
         val ambient = AmbientField(
             centerColor = ColorSpace.lch(
-                0.075f + exposure * 0.075f,
-                9f, identity.palette.primary.h,
+                0.048f + exposure * 0.042f,
+                5f, identity.palette.primary.h,
             ),
             midColor = ColorSpace.lch(
-                0.030f + exposure * 0.024f,
-                6f, identity.palette.primary.h,
+                0.018f + exposure * 0.014f,
+                4f, identity.palette.primary.h,
             ),
             edgeColor = ColorSpace.lch(
                 0.008f + exposure * 0.010f,
@@ -315,7 +317,7 @@ object OrganismFrameComputer {
                 color = if (k.warm) warm else secondary,
                 alpha = (if (k.warm) 0.80f else 0.62f) + 0.22f * field.coreOpenness,
             )
-        }
+        } + emissionKnots(cavityRadius, motion.breathScale, field.coreOpenness, ctx)
         val strands = buildCoreStrands(topo, cavityRadius, motion.breathScale, ctx)
 
         // ---- 6. 粒子（Fibonacci 基 + 慢迁移；§17/§30/§31/§41 + §12 反星空）----
@@ -362,9 +364,9 @@ object OrganismFrameComputer {
             deformScale = membraneDeformScale(options.maturityName),
             localWaveAmplitude = 0.012f + field.turbulence * 0.010f,
             localWavePhase = motion.filamentPhase * 0.6f + dailyPhase,
-            fillColor = ColorSpace.lch(0.20f, 26f, identity.palette.primary.h),
+            fillColor = ColorSpace.lch(0.20f, 40f, identity.palette.primary.h),
             fillAlpha = (0.10f + field.coherence * 0.08f) * filamentClarity,
-            edgeColor = ColorSpace.lch(0.46f, 40f, identity.palette.primary.h),
+            edgeColor = ColorSpace.lch(0.50f, 58f, identity.palette.primary.h),
             edgeAlpha = (0.10f + field.coherence * 0.10f) * filamentClarity,
             edgeWidthFraction = 0.045f,
             rimColor = ctx.cyan,
@@ -381,7 +383,7 @@ object OrganismFrameComputer {
         // ---- 8d. 核心辉光（Breakthrough §14：心脏光把暗腔嵌入组织）----
         val coreGlow = CoreGlow(
             radiusFraction = cavityRadius * baseR * 2.4f,
-            color = ColorSpace.lch(0.44f, 34f, identity.palette.primary.h),
+            color = ColorSpace.lch(0.48f, 58f, identity.palette.primary.h),
             alpha = (0.14f + field.coreOpenness * 0.10f + exposure * 0.06f) * filamentClarity,
         )
 
@@ -483,6 +485,40 @@ object OrganismFrameComputer {
         Vec3(p.x * cosA + p.z * sinA, p.y, -p.x * sinA + p.z * cosA)
 
     /**
+     * Breakthrough §14/§28：核心发射结——暗腔 rim 上 3 个 identity 稳定的近白 cyan 高光。
+     * 它们与 GLINT 粒子同族（画面里极少数「真正亮」的位置；§10），
+     * 让「心脏」在云组织中有可见的生命火种。盐 6760–6799。
+     */
+    private fun emissionKnots(
+        cavityRadius: Float,
+        breathScale: Float,
+        coreOpenness: Float,
+        ctx: FrameCtx,
+    ): List<CoreKnotV> {
+        val seed = ctx.identity.identitySeed
+        val count = 3
+        val out = ArrayList<CoreKnotV>(count)
+        val baseAngle = DeterministicRandom.range(seed, 6760, 0f, TWO_PI)
+        for (i in 0 until count) {
+            val ang = baseAngle + i * (TWO_PI / count) +
+                DeterministicRandom.range(seed, 6761 + i, -0.35f, 0.35f)
+            val r = cavityRadius * (1.12f + 0.28f * DeterministicRandom.at(seed, 6770 + i))
+            val p = rotY(
+                Vec3(cos(ang) * r, sin(ang) * r * 0.85f, 0.38f),
+                ctx.cosA, ctx.sinA,
+            ) * breathScale
+            out += CoreKnotV(
+                x = 0.5f + p.x * ctx.baseR * ctx.sx,
+                y = 0.5f + p.y * ctx.baseR * ctx.sy,
+                radiusFraction = 0.018f + 0.012f * DeterministicRandom.at(seed, 6780 + i),
+                color = ctx.glint,
+                alpha = 0.90f + 0.07f * coreOpenness,
+            )
+        }
+        return out
+    }
+
+    /**
      * Breakthrough §10/§11：体积叶帧求值（确定性——lobe 拓扑 identity 恒定，
      * 此处只做慢漂移/呼吸/深度分层/清晰度调制）。
      */
@@ -514,13 +550,15 @@ object OrganismFrameComputer {
             val innerBoost = 1f + 0.35f * (1f - lb.shellRadius.coerceIn(0f, 1f))
             val depthBoost = 0.72f + 0.28f * depth
             val alpha = (
-                0.10f + 0.085f * lb.softness
+                0.12f + 0.10f * lb.softness
                 ) * pulse * depthBoost * innerBoost * clarity * (0.72f + 0.28f * exposure)
             val color = when (lb.family) {
-                2 -> ColorSpace.lch(0.56f + 0.05f * lb.softness, 52f, 198f + 24f *
+                // Breakthrough §18：chroma 超出 gamut 上限——ColorSpace 二分收缩自动取
+                // 该 L/hue 下最大可达饱和度（中亮度紫罗兰在 c≈44 时 sRGB R≈G、sat≈0.46 的灰化根因）。
+                2 -> ColorSpace.lch(0.62f + 0.05f * lb.softness, 100f, 198f + 24f *
                     EchoIdentitySpec.identityUnit(ctx.identity.identitySeed, 41))
-                1 -> ColorSpace.lch(0.36f, 38f, hueSecondary)
-                else -> ColorSpace.lch(0.42f + 0.05f * lb.softness, 44f, huePrimary)
+                1 -> ColorSpace.lch(0.41f, 56f, hueSecondary)
+                else -> ColorSpace.lch(0.47f + 0.05f * lb.softness, 62f, huePrimary)
             }
             out += VolumeLobeV(
                 x = px,
@@ -786,7 +824,7 @@ object OrganismFrameComputer {
             // glint 的远层淡出较缓（§10：保留极少数真正亮的生命高光）
             alpha *= lerp(0.45f, 1f, frontness)
             alpha *= if (pb.kind == ParticleKind.GLINT) {
-                lerp(1f, 0.35f, smoothstep(0.55f, 0.92f, pb.shellRadius))
+                alphaShellFadeGlint(pb.shellRadius)
             } else {
                 lerp(1f, 0.14f, smoothstep(0.55f, 0.92f, pb.shellRadius))
             }
@@ -800,11 +838,11 @@ object OrganismFrameComputer {
                 val r2 = sqrt(p.x * p.x + p.y * p.y)
                 alpha *= smoothstep(ctx.coreInner, ctx.coreOuter, r2)
             }
-            // §12：back 更小，front 略大；glint 稍大以可辨（§10 真亮位置）
+            // §12：back 更小，front 略大；glint 显著更大（§10 真亮位置——真亮极少但必须真亮）
             val size = (0.0022f + pb.sizeJitter * 0.0048f) *
                 (0.7f + ctx.field.depth * 0.5f) *
                 lerp(0.80f, 1.12f, frontness) *
-                if (pb.kind == ParticleKind.GLINT) 1.5f else 1f
+                if (pb.kind == ParticleKind.GLINT) 2.6f else 1f
             out += SceneParticleV3(
                 x = px, y = py,
                 radiusFraction = size,
@@ -830,7 +868,7 @@ object OrganismFrameComputer {
      */
     private fun depth01(z: Float): Float = (z * 2.2f + 1f).coerceIn(0f, 1f)
 
-    /** glint 的远壳层淡出（§10：比普通粒子缓）。 */
+    /** glint 的远壳层淡出（§10：比普通粒子缓；Breakthrough：地板抬到 0.5——真亮不被压灭）。 */
     private fun alphaShellFadeGlint(shellRadius: Float): Float =
-        lerp(1f, 0.35f, smoothstep(0.55f, 0.92f, shellRadius))
+        lerp(1f, 0.5f, smoothstep(0.65f, 0.95f, shellRadius))
 }

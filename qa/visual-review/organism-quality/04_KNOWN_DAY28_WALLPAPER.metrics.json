@@ -11,17 +11,17 @@
   "reason": null,
   "quality": "CONSERVE",
   "metrics": {
-    "nearBlackRatio": 0.92196,
-    "highLuminanceRatio": 0.00005,
+    "nearBlackRatio": 0.74302,
+    "highLuminanceRatio": 0.00013,
     "extremeGlintRatio": 0.00000,
-    "warmRatio": 0.00243,
-    "negativeSpaceRatio": 1.00000,
-    "visualMassInside": 0.95541,
-    "organismWidthFraction": 0.72593,
-    "organismHeightFraction": 0.32417,
-    "edgeDensity": 0.13464,
-    "centerLuminance": 0.07859,
-    "outerLuminance": 0.01700
+    "warmRatio": 0.00177,
+    "negativeSpaceRatio": 0.99994,
+    "visualMassInside": 0.83317,
+    "organismWidthFraction": 0.86111,
+    "organismHeightFraction": 0.36667,
+    "edgeDensity": 0.17160,
+    "centerLuminance": 0.24058,
+    "outerLuminance": 0.01763
   },
   "gate": {
     "nearBlackPass": true,
@@ -31,8 +31,8 @@
     "warmTargetPass": true,
     "negativeSpacePass": true,
     "visualMassPass": true,
-    "organismWidthPass": true,
+    "organismWidthPass": false,
     "cavityPass": true,
-    "allPass": true
+    "allPass": false
   }
 }

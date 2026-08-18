@@ -108,10 +108,10 @@ class OrganismTopologyTest {
         val cyanCount = mature.volumeLobes.count { it.family == 2 }
         assertTrue("cyan lobe 存在（electric life）", cyanCount > 0)
         assertTrue("cyan lobe 占比 ≤ 40%", cyanCount <= mature.volumeLobes.size * 4 / 10)
-        // 几何域约束
+        // 几何域约束（Breakthrough §31 收拢：luminous bbox 宽 ≤0.84 viewport）
         mature.volumeLobes.forEach { lb ->
-            assertTrue("lobe shell 0.14..0.74R", lb.shellRadius in 0.14f..0.74f)
-            assertTrue("lobe rx 0.16..0.36R", lb.radiusX in 0.16f..0.36f)
+            assertTrue("lobe shell 0.12..0.62R", lb.shellRadius in 0.12f..0.62f)
+            assertTrue("lobe rx 0.15..0.32R", lb.radiusX in 0.15f..0.32f)
             assertTrue("lobe ry < rx", lb.radiusY < lb.radiusX)
             assertTrue("lobe softness 0.55..1.0", lb.softness in 0.55f..1.0f)
         }

@@ -92,8 +92,10 @@ def analyze(path: Path) -> dict:
     hero_rgb = rgb[y0:y1, x0:x1]
 
     chromatic = (hero_sat > CHROM_SAT_MIN) & (hero_luma > CHROM_LUMA_MIN)
+    chromatic_strong = (hero_sat > 0.25) & (hero_luma > 0.10)
     bright = hero_luma > BRIGHT
     very_bright = hero_luma > VERY_BRIGHT
+    bright50 = hero_luma > 0.50
     warm = is_warm(hero_rgb, hero_luma)
 
     # 发光 bbox（全图；与 VisualLabMetrics 口径一致 luma > 0.06）
@@ -136,8 +138,13 @@ def analyze(path: Path) -> dict:
         "p95_luminance": round(float(np.percentile(hero_luma, 95)), 5),
         "bright_ratio": round(float(bright.mean()), 5),
         "very_bright_ratio": round(float(very_bright.mean()), 5),
+        "bright50_ratio": round(float(bright50.mean()), 5),
         "chromatic_cov": round(float(chromatic.mean()), 5),
+        "chromatic_cov_strong": round(float(chromatic_strong.mean()), 5),
         "chromatic_sat": round(float(hero_sat[chromatic].mean()) if chromatic.any() else 0.0, 5),
+        "chromatic_sat_strong": round(
+            float(hero_sat[chromatic_strong].mean()) if chromatic_strong.any() else 0.0, 5
+        ),
         "warm_ratio": round(float(warm.mean()), 5),
         "hero_bbox_w": round(float(bw), 5),
         "hero_bbox_h": round(float(bh), 5),
