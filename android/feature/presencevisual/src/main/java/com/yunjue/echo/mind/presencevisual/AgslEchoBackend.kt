@@ -4,24 +4,36 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
 import com.yunjue.echo.mind.visual.render.EchoMaterialSpec
 import com.yunjue.echo.mind.visual.render.FilamentStroke
+import com.yunjue.echo.mind.visual.render.MembraneSpec
 import com.yunjue.echo.mind.visual.render.OrganismFrame
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 /**
  * AgslEchoBackend — V3 §19/§20 AGSL 材质后端（STANDARD / ADVANCED tier）。
  *
  * 职责拆分（shape ≠ material）：
  * - CPU（core:visual）已产出 vector 几何（OrganismFrame 全部层）；
- * - 本后端只把几何栅格化为 **vector mask**（R = 冷色几何覆盖，G = 暖色几何覆盖），
- *   材质（ambient / core SDF / glow / spectral mix / tone soft knee）全部在 AGSL 内完成。
+ * - 本后端把几何栅格化为 **两个 vector mask**：
+ *   · iVectorMask（几何 mask）：R = 冷色几何覆盖，G = 暖色几何覆盖，B = 归一化深度；
+ *   · iVolumeMask（体积 mask，Organism Visual Breakthrough §19–§22）：A = 体积覆盖
+ *     （lobes/coreGlow），G = 边缘发射 tag（membrane/ground rings），B = lobe 深度；
+ * - 材质（ambient / core SDF / glow / FBM nebula cloud field / spectral mix /
+ *   edge emission / depth absorption / tone soft knee）全部在 AGSL 内完成：
+ *   multi-frequency warped-noise 云场把 lobe 覆盖变成真正有内部组织的星云气体
+ *   （§20/§21/§22：噪声被 organism geometry 约束、多尺度、低速——不像云彩贴图）。
  * - 只作用于 organism 自身绘制区域；**不**给整个 Compose parent tree 套 RenderEffect。
  * - Shader 输入只有 uniform + mask；不读取 Repository / DB / Observation / 私密叙事（§8）。
+ * - 确定性：同 mask + 同 uniform（含 iPhase 时钟相位）→ 逐像素相同（§54 禁 frame random）。
  *
  * 失败安全：RuntimeShader 编译失败 / API < 33 → [isAvailable] = false，调用侧回退
  * Canvas 后端（LEGACY；同一 organism，更简单材质，§22）。
@@ -38,15 +50,47 @@ uniform float iGlowRadius;
 uniform float iDepthFog;
 uniform float iKnee;
 uniform float iComp;
+uniform float iVolumeGain;
+uniform float2 iPhase;
 layout(color) uniform half4 iPrimary;
 layout(color) uniform half4 iSecondary;
 layout(color) uniform half4 iWarm;
+layout(color) uniform half4 iCyan;
 uniform shader iVectorMask;
+uniform shader iVolumeMask;
 
 // soft-knee 参数经 uniform iKnee/iComp 注入（唯一事实源 = EchoMaterialSpec；shader 无硬编码副本）
 half softKnee(half x, half knee, half comp) {
     if (x <= knee) return x;
     return knee + (1.0 - knee) * (1.0 - exp(-(x - knee) * comp));
+}
+
+// ---- Breakthrough §20：deterministic FBM（hash → value noise → 4 octave + domain warp）----
+// 输入只有 uv + iPhase（identity/day/clock 相位）；同输入恒同输出（§54 禁 frame random）。
+float hash21(float2 p) {
+    p = fract(p * float2(233.34, 851.73));
+    p += dot(p, p + 23.45);
+    return fract(p.x * p.y);
+}
+float vnoise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + float2(1.0, 0.0));
+    float c = hash21(i + float2(0.0, 1.0));
+    float d = hash21(i + float2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float fbm4(float2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+        v += a * vnoise(p);
+        p = p * 2.03 + float2(11.7, 5.3);
+        a *= 0.5;
+    }
+    return v;
 }
 
 half4 main(float2 fragCoord) {
@@ -77,6 +121,33 @@ half4 main(float2 fragCoord) {
     glow += iVectorMask.eval(fragCoord + float2(-gd, gd)).r;
     glow *= 0.125;
 
+    // ---- Breakthrough §21/§22：volumetric nebula material ----
+    // volume mask：A = 体积覆盖（lobe/coreGlow），G = 边缘发射 tag（membrane/ground），B = lobe 深度
+    half4 vol = iVolumeMask.eval(fragCoord);
+    half volCov = vol.a;
+    half edgeTag = vol.g;
+    half volDepth = vol.b;
+    half lobeCov = max(volCov - edgeTag, 0.0);
+
+    half3 cloudCol = half3(0.0);
+    half cloudDensity = 0.0;
+    if (volCov > 0.004) {
+        // 多尺度 domain-warped FBM（§22：低速、被 organism geometry 约束——不像云彩贴图）
+        float2 p = uv * 1.7 + iPhase;
+        float2 w = float2(
+            fbm4(p * 1.6 + float2(0.0, 1.7)),
+            fbm4(p * 1.9 + float2(5.2, 9.4))
+        );
+        half cloud = half(fbm4(p * 2.6 + w * 0.85));
+        cloudDensity = lobeCov * half(0.42 + 0.85 * float(cloud));
+        // 色谱混合：第二噪声场选择 blue / violet / cyan 云区（§18 blue→cyan→violet 族）
+        half chromaField = half(fbm4(p * 1.25 + float2(8.2, 2.8)));
+        cloudCol = mix(iPrimary.rgb, iSecondary.rgb, chromaField);
+        cloudCol = mix(cloudCol, iCyan.rgb, 0.55 * smoothstep(0.52, 0.85, float(cloud)));
+        // 深度吸收：深处云更暗（§21 coreAbsorption）
+        cloudCol *= mix(0.55, 1.0, volDepth);
+    }
+
     // 空心核 SDF：腔内压暗（dark cavity），腔缘一圈 internal atmosphere 微亮
     half cavity = 1.0 - smoothstep(iCavity * 0.82, iCavity * 1.04, r);
     half rim = smoothstep(iCavity * 0.82, iCavity, r) *
@@ -92,6 +163,10 @@ half4 main(float2 fragCoord) {
     // spectral mix：几何由内向外从 primary 过渡到 secondary（§12 蓝紫族）
     half3 cool = mix(iPrimary.rgb, iSecondary.rgb, half(min(r * 1.5, 1.0)));
     half3 col = cool * (geom * 0.9 + glow * 0.35) + iWarm.rgb * warm;
+    // 星云体积贡献（§21：base volume 与 filaments 分离材质）
+    col += cloudCol * cloudDensity * iVolumeGain;
+    // 膜/地面环边缘发射（§13 membrane scattering——不是描边）
+    col += mix(iCyan.rgb, iPrimary.rgb, 0.35) * edgeTag * 0.42;
     col = mix(col, iSecondary.rgb * (geom * 0.55 + glow * 0.20), half3(fog * 0.65));
     col += iPrimary.rgb * (ambient + rim * 0.10 * half(iHalo));
     col += mix(iPrimary.rgb, iSecondary.rgb, 0.5) * haze;
@@ -104,7 +179,10 @@ half4 main(float2 fragCoord) {
     col.g = softKnee(col.g, knee, comp);
     col.b = softKnee(col.b, knee, comp);
 
-    half alpha = clamp(geom * 0.95 + glow * 0.5 + warm + ambient + rim * 0.12 + haze, 0.0, 1.0);
+    half alpha = clamp(
+        geom * 0.95 + glow * 0.5 + warm + ambient + rim * 0.12 + haze + volCov * 0.85,
+        0.0, 1.0
+    );
     alpha *= (1.0 - cavity * 0.90);
     return half4(col * alpha, alpha); // premultiplied
 }
@@ -176,9 +254,20 @@ half4 main(half4 c) {
         ((2.5f + 3.5f * haloIntensity.coerceIn(0f, 1f)) * (minDim / 1080f)).coerceIn(2f, 6f)
 
     /**
+     * Breakthrough §20：FBM 云场相位（确定性——identity/day/clock 的慢函数；
+     * 同 clock 恒同值。宿主从 spec genome + clockNanos 计算，shader 不自造时间）。
+     */
+    fun noisePhaseFor(
+        identityPhase: Float,
+        dayComposition: Float,
+        clockSeconds: Float,
+    ): Float = (identityPhase * 0.61f + dayComposition * 0.23f + clockSeconds * 0.004f) % 97f
+
+    /**
      * 工程/评审证据：把生产 vector mask（R 冷几何 / G 暖几何 / B 深度 / A coverage）
      * 栅格化为独立 bitmap——AGSL raster 需设备 HW canvas，mask 是 JVM 可验证的
      * Advanced 材质输入真值（不得伪装成 AGSL 输出）。
+     * Breakthrough：体积 mask（A/G/B）同步栅格化（成本证据覆盖新体积层）。
      */
     fun rasterizeMaskForInspection(
         frame: com.yunjue.echo.mind.visual.render.OrganismFrame,
@@ -188,11 +277,12 @@ half4 main(half4 c) {
     ): Bitmap {
         val session = AgslSession(widthPx, heightPx)
         session.rasterizeMask(frame, widthPx.toFloat(), heightPx.toFloat(), warmColor)
+        session.rasterizeVolumeMask(frame, widthPx.toFloat(), heightPx.toFloat())
         return session.maskSnapshot()
     }
 
     /**
-     * AGSL 会话（RuntimeShader 编译一次复用 + mask bitmap 复用——§32 hot path 零位图分配）。
+     * AGSL 会话（RuntimeShader 编译一次复用 + 双 mask bitmap 复用——§32 hot path 零位图分配）。
      */
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     class AgslSession(val width: Int, val height: Int, val advanced: Boolean = false) {
@@ -214,12 +304,20 @@ half4 main(half4 c) {
         private val warmPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val drawPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+        // ---- Breakthrough：体积 mask（A=lobe 覆盖，G=膜/地环边缘 tag，B=lobe 深度）----
+        private val volumeBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        private val volumeCanvas = Canvas(volumeBitmap)
+        private val volumeShader = BitmapShader(volumeBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        private val volumePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val volumeMatrix = Matrix()
+
         init {
             shader.setInputBuffer("iVectorMask", maskShader)
+            shader.setInputBuffer("iVolumeMask", volumeShader)
             drawPaint.shader = shader
         }
 
-        /** 绘制一帧（几何每帧重栅格化进复用 bitmap；无 per-frame 分配）。 */
+        /** 绘制一帧（几何/体积每帧重栅格化进复用 bitmap；无 per-frame 分配）。 */
         fun draw(
             canvas: Canvas,
             frame: OrganismFrame,
@@ -231,8 +329,11 @@ half4 main(half4 c) {
             secondaryColor: Int,
             warmColor: Int,
             material: EchoMaterialSpec = EchoMaterialSpec(),
+            cyanColor: Int = 0xFF69D2E7.toInt(),
+            noisePhase: Float = 0f,
         ) {
             rasterizeMask(frame, widthPx, heightPx, warmColor)
+            rasterizeVolumeMask(frame, widthPx, heightPx)
             shader.setFloatUniform("iResolution", widthPx, heightPx)
             shader.setFloatUniform("iExposure", exposure.coerceIn(0f, 1f))
             shader.setFloatUniform("iCavity", frame.coreCavity.radiusFraction)
@@ -244,9 +345,14 @@ half4 main(half4 c) {
                 "iGlowRadius",
                 glowRadiusPxFor(halo, min(widthPx, heightPx)),
             )
+            // Breakthrough：星云体积增益（exposure 驱动；Dream 等暗面自然收敛）
+            shader.setFloatUniform("iVolumeGain", 0.50f + 0.55f * exposure.coerceIn(0f, 1f))
+            // Breakthrough：FBM 云场相位（identity/day/clock 的确定性慢函数）
+            shader.setFloatUniform("iPhase", noisePhase, noisePhase * 0.63f + 17.0f)
             shader.setColorUniform("iPrimary", primaryColor)
             shader.setColorUniform("iSecondary", secondaryColor)
             shader.setColorUniform("iWarm", warmColor)
+            shader.setColorUniform("iCyan", cyanColor)
             // T2-P2-3：tone soft-knee 参数由 packet.material 注入（shader 端无硬编码副本；默认值=编译产物同值）
             shader.setFloatUniform("iKnee", material.toneKnee)
             shader.setFloatUniform("iComp", material.toneCompression)
@@ -349,6 +455,118 @@ half4 main(half4 c) {
                 strokePaint.color = Color.argb((r.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 255)
                 maskCanvas.drawCircle(r.x * widthPx, r.y * heightPx, r.radiusFraction * minDim, strokePaint)
             }
+        }
+
+        /**
+         * Breakthrough §21：体积 mask 栅格化。
+         * - 体积叶：椭圆软渐变（旋转 via canvas transform）→ A 覆盖 + B 深度；
+         * - coreGlow：圆形软渐变 → A（B=中层深度）；
+         * - 有机膜：轮廓宽描边 + 细亮缘 → G 边缘发射 tag（B=255 前层）；
+         * - 地面环：椭圆描边 → G tag（B=0 背层）。
+         */
+        internal fun rasterizeVolumeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float) {
+            volumeCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+            val minDim = min(widthPx, heightPx)
+            val cx = widthPx / 2f
+            val cy = heightPx / 2f
+
+            // 1. 体积叶（A + B 深度；软椭圆渐变）
+            frame.volumeLobes.forEach { lobe ->
+                val rx = lobe.radiusX * minDim
+                val ry = lobe.radiusY * minDim
+                if (rx <= 0f || ry <= 0f || lobe.alpha <= 0.003f) return@forEach
+                volumePaint.style = Paint.Style.FILL
+                val depthByte = (lobe.depth.coerceIn(0f, 1f) * 255).toInt()
+                volumePaint.shader = RadialGradient(
+                    0f, 0f, rx,
+                    intArrayOf(
+                        Color.argb((lobe.alpha * 255).toInt(), 0, 0, depthByte),
+                        Color.argb((lobe.alpha * 0.55f * 255).toInt(), 0, 0, depthByte),
+                        Color.argb((lobe.alpha * 0.16f * 255).toInt(), 0, 0, depthByte),
+                        Color.argb(0, 0, 0, depthByte),
+                    ),
+                    floatArrayOf(0f, 0.32f, 0.60f, 0.88f),
+                    Shader.TileMode.CLAMP,
+                )
+                volumeCanvas.save()
+                volumeCanvas.translate(lobe.x * widthPx, lobe.y * heightPx)
+                volumeCanvas.rotate(Math.toDegrees(lobe.rotation.toDouble()).toFloat())
+                volumeCanvas.scale(1f, (ry / rx).coerceIn(0.05f, 1f))
+                volumeCanvas.drawCircle(0f, 0f, rx, volumePaint)
+                volumeCanvas.restore()
+            }
+
+            // 2. 核心辉光（A；B=中层深度 0.55）
+            frame.coreGlow?.let { glow ->
+                val gr = glow.radiusFraction * minDim
+                if (gr > 0f && glow.alpha > 0.003f) {
+                    val db = 140
+                    volumePaint.shader = RadialGradient(
+                        cx, cy, gr,
+                        Color.argb((glow.alpha * 255).toInt(), 0, 0, db),
+                        Color.argb(0, 0, 0, db),
+                        Shader.TileMode.CLAMP,
+                    )
+                    volumeCanvas.drawCircle(cx, cy, gr, volumePaint)
+                }
+            }
+
+            // 3. 有机膜（G 边缘发射 tag；宽散射带 + 细亮缘两档）
+            frame.membrane?.let { mem ->
+                val path = membraneMaskPath(mem, cx, cy, mem.radiusFraction * minDim)
+                volumePaint.style = Paint.Style.STROKE
+                volumePaint.strokeCap = Paint.Cap.ROUND
+                volumePaint.shader = null
+                volumePaint.strokeWidth = mem.edgeWidthFraction * minDim
+                volumePaint.color = Color.argb(
+                    (mem.edgeAlpha.coerceIn(0f, 1f) * 255).toInt(), 0, 255, 255,
+                )
+                volumeCanvas.drawPath(path, volumePaint)
+                volumePaint.strokeWidth = mem.rimWidthFraction * minDim
+                volumePaint.color = Color.argb(
+                    (mem.rimAlpha.coerceIn(0f, 1f) * 255).toInt(), 0, 255, 255,
+                )
+                volumeCanvas.drawPath(path, volumePaint)
+            }
+
+            // 4. 地面空间环（G tag；B=0 背层）
+            volumePaint.style = Paint.Style.STROKE
+            frame.groundRings.forEach { ring ->
+                val rcx = widthPx / 2f
+                val rcy = ring.yCenter * heightPx
+                val rx = ring.radiusXFraction * minDim
+                val ry = ring.radiusYFraction * minDim
+                volumePaint.strokeWidth = ring.widthFraction * minDim
+                volumePaint.color = Color.argb(
+                    (ring.alpha.coerceIn(0f, 1f) * 255).toInt(), 0, 255, 0,
+                )
+                volumeCanvas.drawOval(rcx - rx, rcy - ry, rcx + rx, rcy + ry, volumePaint)
+            }
+        }
+
+        /** 有机膜轮廓 path（与 OrganismCanvasRenderer.membranePathOf 同式）。 */
+        private fun membraneMaskPath(
+            mem: MembraneSpec,
+            cx: Float,
+            cy: Float,
+            radiusPx: Float,
+        ): android.graphics.Path {
+            val path = android.graphics.Path()
+            val steps = 72
+            val harmonics = mem.harmonics
+            for (i in 0..steps) {
+                val theta = i.toFloat() / steps * 2f * Math.PI.toFloat()
+                var r = 1f
+                harmonics.forEach { h ->
+                    r += h.amplitude * sin(h.order * theta + h.phase) * mem.deformScale
+                }
+                r += mem.localWaveAmplitude * sin(2f * theta + mem.localWavePhase)
+                val x = cx + cos(theta) * radiusPx * r
+                val y = cy + sin(theta) * radiusPx * r
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            return path
         }
 
         /** mask 只读快照（评审/工程证据用；生产帧路径不调用）。 */

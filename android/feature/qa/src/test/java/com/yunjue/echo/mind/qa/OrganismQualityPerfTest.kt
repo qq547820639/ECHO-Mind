@@ -93,6 +93,18 @@ class OrganismQualityPerfTest {
             allocKbPer100 < 32_000.0,
         )
         assertTrue("master 帧必须携带核心结构（rings/longs/particles）", frame.structuralRings.isNotEmpty() && frame.longFilaments.isNotEmpty() && frame.particles.isNotEmpty())
+        // Breakthrough §10/§12/§26：master 帧必须携带体积层（lobes/membrane/ground rings/core glow）
+        assertTrue(
+            "master 帧必须携带体积层（lobes=${frame.volumeLobes.size}）",
+            frame.volumeLobes.size >= 12,
+        )
+        assertTrue("master 帧必须携带有机膜", frame.membrane != null)
+        assertTrue("master 帧必须携带核心辉光", frame.coreGlow != null)
+        assertTrue("APP surface 必须有下方空间环", frame.groundRings.isNotEmpty())
+        assertTrue(
+            "体积叶 alpha 必须有真实分层（max>=0.10）",
+            frame.volumeLobes.maxOf { it.alpha } >= 0.10f,
+        )
     }
 
     @Suppress("ExplicitGarbageCollectionCall") // 测量用堆基线整理（非生产代码路径）

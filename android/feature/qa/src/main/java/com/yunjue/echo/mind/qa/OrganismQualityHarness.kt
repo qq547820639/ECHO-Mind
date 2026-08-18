@@ -206,7 +206,13 @@ object OrganismQualityHarness {
                 "organismHeightFraction": ${v(m.organismHeightFraction)},
                 "edgeDensity": ${v(m.edgeDensity)},
                 "centerLuminance": ${v(m.centerLuminance)},
-                "outerLuminance": ${v(m.outerLuminance)}
+                "outerLuminance": ${v(m.outerLuminance)},
+                "heroMeanLuminance": ${v(m.heroMeanLuminance)},
+                "heroBrightRatio": ${v(m.heroBrightRatio)},
+                "chromaticLuminousRatio": ${v(m.chromaticLuminousRatio)},
+                "meanChromaticSaturation": ${v(m.meanChromaticSaturation)},
+                "centralVolumeCoverage": ${v(m.centralVolumeCoverage)},
+                "wireframeDominance": ${v(m.wireframeDominance)}
               },
               "gate": {
                 "nearBlackPass": ${gate.nearBlackPass},
@@ -218,6 +224,12 @@ object OrganismQualityHarness {
                 "visualMassPass": ${gate.visualMassPass},
                 "organismWidthPass": ${gate.organismWidthPass},
                 "cavityPass": ${gate.cavityPass},
+                "heroLuminancePass": ${gate.heroLuminancePass},
+                "heroBrightPass": ${gate.heroBrightPass},
+                "chromaticLuminousPass": ${gate.chromaticLuminousPass},
+                "chromaticSaturationPass": ${gate.chromaticSaturationPass},
+                "centralVolumePass": ${gate.centralVolumePass},
+                "wireframePass": ${gate.wireframePass},
                 "allPass": ${gate.allPass}
               }
             }
@@ -229,8 +241,8 @@ object OrganismQualityHarness {
         val sb = StringBuilder()
         sb.appendLine("# Organism Quality Pass — 自动指标总表")
         sb.appendLine()
-        sb.appendLine("| Shot | 后端（请求→实际） | nearBlack | highLum | glint | warm | negSpace | mass@.9R | bbox W×H | edge | cavity | 门 |")
-        sb.appendLine("|---|---|---|---|---|---|---|---|---|---|---|---|")
+        sb.appendLine("| Shot | 后端（请求→实际） | nearBlack | highLum | glint | warm | negSpace | mass@.9R | bbox W×H | heroLum | bright | chrom | chromSat | cVol | wire | cavity | 门 |")
+        sb.appendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for (r in results) {
             val backend = "${r.requestedBackend}→${r.actualBackend}" +
                 (r.reason?.let { "（$it）" } ?: "")
@@ -240,13 +252,19 @@ object OrganismQualityHarness {
                     "| ${pct(r.metrics.extremeGlintRatio)} | ${pct(r.metrics.warmRatio)} " +
                     "| ${pct(r.metrics.negativeSpaceRatio)} | ${pct(r.metrics.visualMassInside)} " +
                     "| ${pct(r.metrics.organismWidthFraction)}×${pct(r.metrics.organismHeightFraction)} " +
-                    "| %.3f".format(r.metrics.edgeDensity) +
+                    "| %.3f".format(r.metrics.heroMeanLuminance) +
+                    "| ${pct(r.metrics.heroBrightRatio)} " +
+                    "| ${pct(r.metrics.chromaticLuminousRatio)} " +
+                    "| %.3f".format(r.metrics.meanChromaticSaturation) +
+                    "| ${pct(r.metrics.centralVolumeCoverage)} " +
+                    "| %.3f".format(r.metrics.wireframeDominance) +
                     "| %.3f".format(r.metrics.centerLuminance) +
                     "| ${if (r.gate.allPass) "PASS" else "FAIL"} |",
             )
         }
         sb.appendLine()
         sb.appendLine("阈值：nearBlack≥58% · highLum≤4% · glint≤2.5% · warm target≤10%（hard≤15%）· negSpace≥40% · mass@.9R≥82% · bbox 宽 72–82% viewport · cavity<0.45")
+        sb.appendLine("Breakthrough 艺术门（§31）：heroLum 0.10–0.20 · bright≥10% · chromatic≥30% · chromSat≥0.55 · centralVol≥30% · wireframe≤0.30")
         sb.appendLine()
         for (n in extraNotes) sb.appendLine("- $n")
         File(outDir, "SUMMARY.md").writeText(sb.toString())

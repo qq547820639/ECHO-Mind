@@ -163,7 +163,12 @@ class IdentityDiversityEvalTest {
         // 身份多样性由几何维度承担（lobe/chirality/tilt/频率族/核心比）。
         // 强调色只需可分辨下限（同族内不同 hue 仍可见）。
         val distinctAccents = frames.map { it.frontMembrane.color and 0x00FFFFFF }.toSet().size
-        val distinctBackgrounds = frames.map { it.ambientField.centerColor }.toSet().size
+        // Breakthrough §43：ambient 场三元组（center+mid+edge）——极暗 center 在 8-bit sRGB
+        // 只有少数可分级（L*<12 区量化粗），单点计数在曝光响应放大后触碰量化悬崖；
+        // 三元组度量「背景场互异」语义不变且对量化稳健。
+        val distinctBackgrounds = frames.map {
+            Triple(it.ambientField.centerColor, it.ambientField.midColor, it.ambientField.edgeColor)
+        }.toSet().size
         val distinctRadii = frames.map { (it.coreCavity.radiusFraction * 1000f).roundToInt() }.toSet().size
         val distinctCounts = frames.map { it.particles.size }.toSet().size
         // 几何多样性（V3 §82：至少 3 个几何维度明显变化）

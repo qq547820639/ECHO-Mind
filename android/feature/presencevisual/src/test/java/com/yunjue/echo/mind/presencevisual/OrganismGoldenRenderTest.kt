@@ -127,7 +127,11 @@ class OrganismGoldenRenderTest {
                 EchoSurface.WALLPAPER_VISUAL_ONLY,
             ),
             "dream" to Pair(
-                fixture(7L, EchoMaturity.KNOWN, 0.8f, 0.3f, 0.85f, 0.1f), EchoSurface.DREAM_AMBIENT,
+                // Breakthrough §41：Dream = 暗/慢/暖的休息态（亮度参数编码暗态；
+                // warm accent 由 DREAM surface allowWarmAccent=true 提供）
+                fixture(7L, EchoMaturity.KNOWN, 0.8f, 0.3f, 0.85f, 0.1f)
+                    .let { it.copy(params = it.params.copy(brightness = 0.42f)) },
+                EchoSurface.DREAM_AMBIENT,
             ),
             "wrist" to Pair(
                 fixture(7L, EchoMaturity.KNOWN, 0.8f, 0.6f, 0.85f, 0.3f), EchoSurface.WRIST_PUBLIC_SAFE,

@@ -157,8 +157,7 @@ object OrganismFrameComputer {
         val glint = ColorSpace.argb(1f, 0.97f, 0.985f, 1.0f)
         // Organism Visual Breakthrough §18：cyan 生命高光族（electric cyan，LCh ≈198–222；
         // identity 微差 ±10°，总体视觉族稳定 blue → cyan → violet）
-        val cyanHue = 198f + 24f * EchoIdentitySpec.identityUnit(identity.identitySeed, 41)
-        val cyan = ColorSpace.lch(0.62f, 58f, cyanHue)
+        val cyan = cyanAccentFor(identity.identitySeed)
 
         // 视觉半径 R（minDim 归一化；呼吸只缩放表现，不改 identity）
         val breathScale = options.breathScaleOverride ?: motion.breathScale
@@ -176,7 +175,7 @@ object OrganismFrameComputer {
         val exposure = field.exposure.coerceIn(0f, 1f)
         val ambient = AmbientField(
             centerColor = ColorSpace.lch(
-                0.048f + exposure * 0.042f,
+                0.032f + exposure * 0.088f,
                 5f, identity.palette.primary.h,
             ),
             midColor = ColorSpace.lch(
@@ -365,26 +364,32 @@ object OrganismFrameComputer {
             localWaveAmplitude = 0.012f + field.turbulence * 0.010f,
             localWavePhase = motion.filamentPhase * 0.6f + dailyPhase,
             fillColor = ColorSpace.lch(0.20f, 40f, identity.palette.primary.h),
-            fillAlpha = (0.10f + field.coherence * 0.08f) * filamentClarity,
+            fillAlpha = (0.10f + field.coherence * 0.08f) * filamentClarity *
+                (0.55f + 0.45f * exposure),
             edgeColor = ColorSpace.lch(0.50f, 58f, identity.palette.primary.h),
-            edgeAlpha = (0.10f + field.coherence * 0.10f) * filamentClarity,
+            edgeAlpha = (0.10f + field.coherence * 0.10f) * filamentClarity *
+                (0.55f + 0.45f * exposure),
             edgeWidthFraction = 0.045f,
             rimColor = ctx.cyan,
-            rimAlpha = (0.12f + field.coherence * 0.10f) * filamentClarity,
+            rimAlpha = (0.12f + field.coherence * 0.10f) * filamentClarity *
+                (0.60f + 0.40f * exposure),
             rimWidthFraction = 0.0035f,
         )
 
         // ---- 8c. 体积叶（Breakthrough §10/§11：nebula lobes——多层低 alpha 叠加成云）----
+        // Breakthrough §42：WRIST/LOCK 是 SECOND BODY / 低动效面——压缩 lobe 数量与
+        // alpha（不塞 full nebula；identity hue / core / membrane 仍在 → 一眼认出同一 ECHO）
         val volumeLobes = evalVolumeLobes(
             topo = topo, motion = motion, clarity = filamentClarity,
             exposure = exposure, ctx = ctx,
+            surface = packet.surface.surface,
         )
 
         // ---- 8d. 核心辉光（Breakthrough §14：心脏光把暗腔嵌入组织）----
         val coreGlow = CoreGlow(
             radiusFraction = cavityRadius * baseR * 2.4f,
             color = ColorSpace.lch(0.48f, 58f, identity.palette.primary.h),
-            alpha = (0.14f + field.coreOpenness * 0.10f + exposure * 0.06f) * filamentClarity,
+            alpha = (0.08f + field.coreOpenness * 0.10f + exposure * 0.16f) * filamentClarity,
         )
 
         // ---- 8e. 下方空间能量环（Breakthrough §26：ECHO「存在于空间」）----
@@ -479,6 +484,13 @@ object OrganismFrameComputer {
         else -> 1.00f
     }
 
+    /**
+     * Breakthrough §18：cyan 生命高光色（公式单一事实源——帧求值/膜 rim/AGSL iCyan 同源；
+     * identity 微差 ±10°，视觉族稳定 blue → cyan → violet）。
+     */
+    fun cyanAccentFor(seed: Long): Argb =
+        ColorSpace.lch(0.62f, 58f, 198f + 24f * EchoIdentitySpec.identityUnit(seed, 41))
+
     private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
     private fun rotY(p: Vec3, cosA: Float, sinA: Float): Vec3 =
@@ -512,7 +524,8 @@ object OrganismFrameComputer {
                 y = 0.5f + p.y * ctx.baseR * ctx.sy,
                 radiusFraction = 0.018f + 0.012f * DeterministicRandom.at(seed, 6780 + i),
                 color = ctx.glint,
-                alpha = 0.90f + 0.07f * coreOpenness,
+                // §41：发射结随曝光熄火（Dream/深夜休息态的心脏火种收敛；白天苏醒）
+                alpha = (0.90f + 0.07f * coreOpenness) * (0.55f + 0.45f * ctx.field.exposure),
             )
         }
         return out
@@ -521,6 +534,7 @@ object OrganismFrameComputer {
     /**
      * Breakthrough §10/§11：体积叶帧求值（确定性——lobe 拓扑 identity 恒定，
      * 此处只做慢漂移/呼吸/深度分层/清晰度调制）。
+     * §42：WRIST/LOCK 压缩（数量减半/三分之一 + alpha 折扣）——SECOND BODY 不需要 full nebula。
      */
     private fun evalVolumeLobes(
         topo: OrganismTopology,
@@ -528,15 +542,28 @@ object OrganismFrameComputer {
         clarity: Float,
         exposure: Float,
         ctx: FrameCtx,
+        surface: EchoSurface,
     ): List<VolumeLobeV> {
         val lobes = topo.volumeLobes
         if (lobes.isEmpty()) return emptyList()
-        val out = ArrayList<VolumeLobeV>(lobes.size)
+        val lobeStride = when (surface) {
+            EchoSurface.WRIST_PUBLIC_SAFE -> 2 // 保留一半
+            EchoSurface.LOCK_PUBLIC_SAFE -> 3 // 保留三分之二
+            else -> 1
+        }
+        val surfaceAlphaScale = when (surface) {
+            EchoSurface.WRIST_PUBLIC_SAFE -> 0.75f
+            EchoSurface.LOCK_PUBLIC_SAFE -> 0.88f
+            else -> 1f
+        }
+        val out = ArrayList<VolumeLobeV>(lobes.size / lobeStride + 1)
         val huePrimary = ctx.identity.palette.primary.h
         val hueSecondary = ctx.identity.palette.secondary.h
         for (i in lobes.indices) {
             // §42 Sensing Disabled：detail ×.55——低 detail 下隔一个丢一层（确定性）
             if (ctx.detailScale < 0.6f && i % 2 == 1) continue
+            // §42 SECOND BODY 压缩（确定性 index 抽稀）
+            if (lobeStride > 1 && i % lobeStride != 0) continue
             val lb = lobes[i]
             var p = lb.dir * lb.shellRadius
             p = rotY(p, ctx.cosA, ctx.sinA)
@@ -549,9 +576,12 @@ object OrganismFrameComputer {
             // 内层 lobe 更亮更实（中心组织感）；外层更弥散
             val innerBoost = 1f + 0.35f * (1f - lb.shellRadius.coerceIn(0f, 1f))
             val depthBoost = 0.72f + 0.28f * depth
+            // Breakthrough §41/§48：曝光响应放大（旧 0.72+0.28e 把 Dream/Night 的「暗」压平——
+            // genome luminance 经 SurfacePolicy 裁剪后 0.2–0.7 的实际范围需要可感知的明暗差）
             val alpha = (
                 0.12f + 0.10f * lb.softness
-                ) * pulse * depthBoost * innerBoost * clarity * (0.72f + 0.28f * exposure)
+                ) * pulse * depthBoost * innerBoost * clarity * (0.45f + 0.55f * exposure) *
+                surfaceAlphaScale
             val color = when (lb.family) {
                 // Breakthrough §18：chroma 超出 gamut 上限——ColorSpace 二分收缩自动取
                 // 该 L/hue 下最大可达饱和度（中亮度紫罗兰在 c≈44 时 sRGB R≈G、sat≈0.46 的灰化根因）。

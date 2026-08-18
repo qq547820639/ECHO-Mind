@@ -12,16 +12,22 @@
   "quality": "NORMAL",
   "metrics": {
     "nearBlackRatio": 0.69466,
-    "highLuminanceRatio": 0.00015,
+    "highLuminanceRatio": 0.00023,
     "extremeGlintRatio": 0.00000,
-    "warmRatio": 0.00200,
+    "warmRatio": 0.00198,
     "negativeSpaceRatio": 0.99946,
-    "visualMassInside": 0.83792,
+    "visualMassInside": 0.85412,
     "organismWidthFraction": 0.86481,
     "organismHeightFraction": 0.38291,
-    "edgeDensity": 0.19591,
-    "centerLuminance": 0.24776,
-    "outerLuminance": 0.01856
+    "edgeDensity": 0.18057,
+    "centerLuminance": 0.24999,
+    "outerLuminance": 0.01856,
+    "heroMeanLuminance": 0.15444,
+    "heroBrightRatio": 0.17337,
+    "chromaticLuminousRatio": 0.46757,
+    "meanChromaticSaturation": 0.42833,
+    "centralVolumeCoverage": 0.42078,
+    "wireframeDominance": 0.02588
   },
   "gate": {
     "nearBlackPass": true,
@@ -33,6 +39,12 @@
     "visualMassPass": true,
     "organismWidthPass": false,
     "cavityPass": true,
+    "heroLuminancePass": true,
+    "heroBrightPass": true,
+    "chromaticLuminousPass": true,
+    "chromaticSaturationPass": false,
+    "centralVolumePass": true,
+    "wireframePass": true,
     "allPass": false
   }
 }
