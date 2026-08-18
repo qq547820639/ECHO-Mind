@@ -1,7 +1,7 @@
 # REPO_LINE_AUDIT — 全仓逐行审计报告
 
 > 审计起点 HEAD：`d3c87fa`（main）· 审计时间：2026-08-18
-> 状态：**审计完成（Task 9 汇总）；修复进行中（见 ECHO_ORGANISM 同目录 REPO_LINE_AUDIT_FIXES.md）**
+> 状态：**审计与修复完成**——P0×2 / P1×22 全部修复 + 33 个新回归测试锁定，随 `c598143` 推送 origin/main（修复证据见同目录 `REPO_LINE_AUDIT_FIXES.md`）；P2×61 / P3×105 为记录待办（明细见 findings/T2–T8），真机视觉/功耗门仍属 BLOCKED_EXTERNAL_DEVICE
 > 纪律：每条结论可追溯到 `文件:行` 或工具输出；详细证据在各任务发现文件（`.trae/specs/audit-repo-line-by-line/findings/T2–T8`）。
 
 ## 1. 审计框架
