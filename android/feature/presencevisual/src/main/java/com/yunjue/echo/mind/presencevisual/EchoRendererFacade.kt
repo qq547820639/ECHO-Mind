@@ -188,13 +188,31 @@ class EchoRenderSession(
         dispatch(canvas, frame)
     }
 
-    /** 离屏渲染一帧（真实后端：CANVAS 或 AGSL→bitmap；导出/仪器化视觉门共用）。 */
+    /**
+     * 离屏渲染一帧（导出/仪器化视觉门共用）。
+     *
+     * 后端真值：离屏 bitmap 是**软件位图**——Android 真实约束：RuntimeShader 无法在软件
+     * canvas 上栅格化（BaseCanvas#throwIfHasHwFeaturesInSwMode），AGSL raster 只能发生在
+     * 设备硬件加速 canvas。因此离屏导出**固定走生产 CANVAS 后端**，并在
+     * [offscreenActualBackend]/[offscreenReason] 明示——不得伪装成 AGSL 输出。
+     */
     fun renderToBitmap(clockNanos: Long): Bitmap {
         val frame = computeFrame(clockNanos, request.interaction)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        dispatch(Canvas(bitmap), frame)
+        OrganismCanvasRenderer.draw(Canvas(bitmap), frame, width.toFloat(), height.toFloat())
         return bitmap
     }
+
+    /** 离屏导出的真实后端（恒 CANVAS；AGSL raster 需设备 HW canvas）。 */
+    val offscreenActualBackend: String get() = EchoRendererFacade.BACKEND_CANVAS
+
+    /** 离屏导出后端与 resolution 不一致时的原因（真值落盘用）。 */
+    val offscreenReason: String?
+        get() = if (resolution.backendName == EchoRendererFacade.BACKEND_CANVAS) {
+            resolution.reason
+        } else {
+            "AGSL raster requires hardware canvas — offscreen export uses production CANVAS backend"
+        }
 
     private fun computeFrame(
         clockNanos: Long,
@@ -245,17 +263,27 @@ class EchoRenderSession(
     }
 
     companion object {
-        /** §P：Journey minis 命名低预算预设（tier LEGACY / quality MINIMAL / JOURNEY_PRIVATE）。 */
-        fun journeyThumbnailRequest(
+        /**
+         * §P：Mini/缩略图命名低预算预设（tier LEGACY / quality MINIMAL）——
+         * Me 身份头像 / Journey 缩略图等共用；不启动高成本 full renderer。
+         */
+        fun thumbnailRequest(
             genome: EchoVisualGenome,
             maturityName: String = "KNOWN",
+            surface: EchoSurface = EchoSurface.JOURNEY_PRIVATE,
         ): EchoRenderRequest = EchoRenderRequest(
             genome = genome,
-            surface = EchoSurface.JOURNEY_PRIVATE,
+            surface = surface,
             motion = MotionPolicy.NORMAL,
             maturityName = maturityName,
             requestedTier = EchoRenderTier.LEGACY,
             quality = EchoRenderQuality.MINIMAL,
         )
+
+        /** §P：Journey minis 命名低预算预设（JOURNEY_PRIVATE surface）。 */
+        fun journeyThumbnailRequest(
+            genome: EchoVisualGenome,
+            maturityName: String = "KNOWN",
+        ): EchoRenderRequest = thumbnailRequest(genome, maturityName, EchoSurface.JOURNEY_PRIVATE)
     }
 }

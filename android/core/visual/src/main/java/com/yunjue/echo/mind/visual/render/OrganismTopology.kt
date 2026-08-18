@@ -9,13 +9,15 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * OrganismTopology — V3 §14–§18 稳定拓扑（identity 级缓存）。
+ * OrganismTopology — V3 §14–§18 稳定拓扑（identity 级缓存）+ Organism Quality Pass §6/§7。
  *
- * 三层结构（§14）：
- *  A. Structural Rings（约 20%：少量稳定，表达 identity skeleton）
- *  B. Long Filaments（约 45%：跨半球、3D orientation、不是每条完整圆）
- *  C. Local Filament Fragments（约 35%：短局部生命纹理，不大量穿过中心）
- *  + Fibonacci 球粒子基位置（§17）+ 稳定 core knots（§18）。
+ * 三层结构（§6 视觉目标；identity 恒定，maturity 只调丰富度）：
+ *  A. Structural Rings（15–20%：4–7 个非闭合骨架弧——不是轨道圆）
+ *  B. Long Filaments（35–45%：跨半球、0.55–0.92R 分布、arc ≤1.6π）
+ *  C. Local Filament Fragments（35–45%：24–40 个短弧（18°–75°），壳层 0.45–0.95R，
+ *     很少穿过 core cavity；identity 恒定，daily 只调可见度/材质）
+ *  + Fibonacci 球粒子基位置（§17：78/17/5 ambient/bright/glint，壳层收敛 0.50–1.00R）
+ *  + 稳定 core knots（§18：2–4 个，位置族 identity 恒定）。
  *
  * 缓存纪律（§32）：拓扑只随 identity / quality / maturity / TOPOLOGY_VERSION 重建；
  * Moment 更新永不重建；render hot path 不分配新拓扑。
@@ -36,15 +38,18 @@ data class Vec3(val x: Float, val y: Float, val z: Float) {
 /** filament 稳定平面基（u/v 张成平面，normal 为深度轴）。 */
 data class FilamentPlane(val u: Vec3, val v: Vec3, val normal: Vec3)
 
-/** 结构环（identity skeleton；稳定倾角 + lobe 谐波）。 */
+/** 结构环（identity skeleton；稳定倾角 + lobe 谐波 + 非闭合弧口）。 */
 data class StructuralRingTopo(
     val plane: FilamentPlane,
     val radiusRatio: Float,
     val lobeHarmonicAmp: Float,
     val phase: Float,
+    /** 弧口（非完整圆——打破轨道圆读感；0..TWO_PI）。 */
+    val arcStart: Float,
+    val arcLength: Float,
 )
 
-/** 长丝（跨半球弧；arcLength < 2π —— 不是完整圆）。 */
+/** 长丝（跨半球弧；arcLength ≤1.6π —— 不是完整圆）。 */
 data class LongFilamentTopo(
     val plane: FilamentPlane,
     val arcStart: Float,
@@ -55,7 +60,7 @@ data class LongFilamentTopo(
     val depthWarpAmp: Float,
 )
 
-/** 局部碎片（短弧；圆心偏置在壳层上，不穿过中心）。 */
+/** 局部碎片（短弧 18°–75°；圆心偏置在 0.45–0.95R 壳层，很少穿过中心）。 */
 data class LocalFragmentTopo(
     val center: Vec3,
     val plane: FilamentPlane,
@@ -63,6 +68,12 @@ data class LocalFragmentTopo(
     val arcLength: Float,
     val radiusRatio: Float,
     val phase: Float,
+    /** 面外深度摆动（打破平面感；identity 恒定）。 */
+    val depthWarpAmp: Float,
+    /** 曲率微调（daily 可轻微调制，不改拓扑）。 */
+    val curvature: Float,
+    /** 少数碎片用 primary（其余 secondary）——碎片不是同一色带。 */
+    val primaryFamily: Boolean,
 )
 
 /** 粒子基位置（Fibonacci 球方向 + 稳定壳层半径 + 分类）。 */
@@ -96,7 +107,7 @@ data class OrganismTopology(
 object OrganismTopologyBuilder {
 
     /** 拓扑结构版本（算法变更 → 缓存自然失效；golden 需显式审核）。 */
-    const val TOPOLOGY_VERSION = 3
+    const val TOPOLOGY_VERSION = 4
 
     private const val GOLDEN_ANGLE = 2.39996323f
     private const val MAX_PARTICLES = 220
@@ -137,8 +148,9 @@ object OrganismTopologyBuilder {
         val maturity = EchoSceneCompiler.maturityMultiplier(maturityName)
         val filScale = profile.filamentScale * maturity
 
-        // ---- A. Structural Rings（~20%；2..4 个，倾角来自 identity） ----
-        val ringCount = (2 + identity.lobeCount / 2).coerceIn(2, 4) // lobe 2..5 → 3..4
+        // ---- A. Structural Rings（15–20%；4..7 个非闭合骨架弧，倾角来自 identity）----
+        val ringCount = (4 + identity.lobeCount / 2 +
+            (identity.warmKnotTopology * 1.99f).toInt()).coerceIn(4, 7)
         val rings = ArrayList<StructuralRingTopo>(ringCount)
         for (i in 0 until ringCount) {
             val tilt = if (i == 0) {
@@ -149,51 +161,60 @@ object OrganismTopologyBuilder {
             val roll = DeterministicRandom.range(seed, 310 + i, 0f, TWO_PI)
             rings += StructuralRingTopo(
                 plane = planeFromTiltRoll(tilt, roll),
-                radiusRatio = 0.62f + 0.042f * i + identity.orbitalBias * 0.4f,
-                lobeHarmonicAmp = 0.015f + 0.02f * DeterministicRandom.at(seed, 320 + i),
+                radiusRatio = 0.58f + 0.055f * i + identity.orbitalBias * 0.35f,
+                lobeHarmonicAmp = 0.030f + 0.035f * DeterministicRandom.at(seed, 320 + i),
                 phase = identity.identityPhase * TWO_PI + i * 0.9f,
+                // 非闭合：留 3%–16% 弧口（打破轨道圆；identity 恒定）
+                arcStart = DeterministicRandom.range(seed, 330 + i, 0f, TWO_PI),
+                arcLength = TWO_PI * (0.84f + 0.13f * DeterministicRandom.at(seed, 340 + i)),
             )
         }
 
-        // ---- B. Long Filaments（~45%；跨半球弧，非完整圆） ----
-        val longCount = (9f * filScale).toInt().coerceIn(3, 14)
+        // ---- B. Long Filaments（35–45%；跨半球弧，非完整圆，径向 0.55–0.92R 展开）----
+        val longCount = (18f * filScale).toInt().coerceIn(6, 22)
         val longs = ArrayList<LongFilamentTopo>(longCount)
         for (i in 0 until longCount) {
             val normal = fibDir(i, longCount, identity.identityPhase * TWO_PI)
             longs += LongFilamentTopo(
                 plane = planeFromNormal(normal),
                 arcStart = DeterministicRandom.range(seed, 400 + i * 7, 0f, TWO_PI),
-                arcLength = DeterministicRandom.range(seed, 401 + i * 7, 1.15f * PI.toFloat(), 1.95f * PI.toFloat()),
-                baseRadiusRatio = 0.64f + 0.14f * DeterministicRandom.at(seed, 402 + i * 7),
+                arcLength = DeterministicRandom.range(seed, 401 + i * 7, 1.0f * PI.toFloat(), 1.6f * PI.toFloat()),
+                baseRadiusRatio = 0.55f + 0.37f * DeterministicRandom.at(seed, 402 + i * 7),
                 freqOffset = (DeterministicRandom.at(seed, 403 + i * 7) * 2.99f).toInt(), // f + 0..2
                 phase = DeterministicRandom.at(seed, 404 + i * 7) * TWO_PI,
-                depthWarpAmp = 0.10f + 0.22f * DeterministicRandom.at(seed, 405 + i * 7),
+                depthWarpAmp = 0.14f + 0.20f * DeterministicRandom.at(seed, 405 + i * 7),
             )
         }
 
-        // ---- C. Local Fragments（~35%；短弧，壳层偏置圆心，不穿中心） ----
-        val fragCount = (7f * filScale).toInt().coerceIn(2, 12)
+        // ---- C. Local Fragments（35–45%；18°–75° 短弧，壳层 0.45–0.95R，很少穿中心）----
+        val fragCount = (34f * filScale).toInt().coerceIn(10, 40)
         val frags = ArrayList<LocalFragmentTopo>(fragCount)
         for (i in 0 until fragCount) {
             val dir = fibDir(i * 2 + 1, fragCount * 2 + 1, identity.identityPhase * TWO_PI + 1.3f)
-            val shell = 0.38f + 0.26f * DeterministicRandom.at(seed, 500 + i * 5)
+            // 二次分布：主体在中外层（0.48–0.95R），极少贴核
+            val u = DeterministicRandom.at(seed, 500 + i * 5)
+            val shell = 0.48f + 0.47f * u * u
             frags += LocalFragmentTopo(
                 center = dir * shell,
                 plane = planeFromNormal(fibDir(i + 40, fragCount + 41, identity.identityPhase)),
                 arcStart = DeterministicRandom.range(seed, 501 + i * 5, 0f, TWO_PI),
-                arcLength = DeterministicRandom.range(seed, 502 + i * 5, 0.5f, 1.4f),
-                radiusRatio = 0.12f + 0.16f * DeterministicRandom.at(seed, 503 + i * 5),
+                // 18°–75°（0.31–1.31 rad）
+                arcLength = DeterministicRandom.range(seed, 502 + i * 5, 0.31f, 1.31f),
+                radiusRatio = 0.09f + 0.15f * DeterministicRandom.at(seed, 503 + i * 5),
                 phase = DeterministicRandom.at(seed, 504 + i * 5) * TWO_PI,
+                depthWarpAmp = 0.05f + 0.09f * DeterministicRandom.at(seed, 540 + i),
+                curvature = 0.4f + 0.6f * DeterministicRandom.at(seed, 541 + i),
+                primaryFamily = DeterministicRandom.at(seed, 542 + i) < 0.28f,
             )
         }
 
-        // ---- Fibonacci 球粒子基（§17；分类精确 78/16/6：hash 排名分层，避免阈值抽样漂移） ----
+        // ---- Fibonacci 球粒子基（§17；分类精确 78/17/5：hash 排名分层，避免阈值抽样漂移）----
         val classRank = (0 until MAX_PARTICLES).sortedBy { DeterministicRandom.at(seed, 610 + it) }
         val kindByIndex = IntArray(MAX_PARTICLES) // 0 ambient / 1 bright / 2 glint
         classRank.forEachIndexed { rank, idx ->
             kindByIndex[idx] = when {
                 rank < (MAX_PARTICLES * 0.78f).toInt() -> 0
-                rank < (MAX_PARTICLES * 0.94f).toInt() -> 1
+                rank < (MAX_PARTICLES * 0.95f).toInt() -> 1
                 else -> 2
             }
         }
@@ -204,10 +225,12 @@ object OrganismTopologyBuilder {
         for (i in 0 until MAX_PARTICLES) {
             val dir = fibDir(i, MAX_PARTICLES, identity.identityPhase * GOLDEN_ANGLE)
             val u = DeterministicRandom.at(seed, 600 + i)
-            val shell = 0.48f + 0.60f * u * (0.85f + identity.particleDepthBias * 0.3f)
+            // 壳层收敛 0.50–1.00R（削减远层散点——星空感来源；深度偏置微调形态）
+            val shell = (0.50f + 0.50f * u * u * (0.92f + identity.particleDepthBias * 0.16f))
+                .coerceAtMost(1.0f)
             particles += ParticleBase(
                 dir = dir,
-                shellRadius = shell.coerceAtMost(1.08f),
+                shellRadius = shell,
                 kind = when (kindByIndex[i]) {
                     0 -> ParticleKind.AMBIENT
                     1 -> ParticleKind.BRIGHT
@@ -218,7 +241,7 @@ object OrganismTopologyBuilder {
             )
         }
 
-        // ---- Core knots（§18：2–4 个稳定结；一个在暖色族） ----
+        // ---- Core knots（§18：2–4 个稳定结；一个在暖色族=核心解剖）----
         val knotCount = 2 + (identity.warmKnotTopology * 2.99f).toInt().coerceIn(0, 2)
         val knots = ArrayList<CoreKnotTopo>(knotCount)
         for (i in 0 until knotCount) {
@@ -227,8 +250,8 @@ object OrganismTopologyBuilder {
             val r = identity.coreRatio * (0.35f + 0.45f * DeterministicRandom.at(seed, 710 + i))
             knots += CoreKnotTopo(
                 offset = Vec3(cos(angle) * r, sin(angle) * r * 0.8f, 0.25f * r),
-                radiusRatio = 0.016f + 0.018f * DeterministicRandom.at(seed, 720 + i),
-                warm = i == 0, // 仅一个小暖结（§12 暖色面积上限由渲染执行）
+                radiusRatio = 0.024f + 0.024f * DeterministicRandom.at(seed, 720 + i),
+                warm = i == 0, // 仅一个小暖结（核心解剖；§12 暖色面积上限由渲染执行）
             )
         }
 

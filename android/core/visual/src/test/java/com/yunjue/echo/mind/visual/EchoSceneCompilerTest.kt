@@ -75,8 +75,8 @@ class EchoSceneCompilerTest {
         val dream = EchoSceneCompiler.compile(
             specFor(5L, EchoSurface.DREAM_AMBIENT), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
         )
-        // §27：period 6.8–10.8s（Dream ×1.18 放宽上限）；幅度 App 2.4% / Wallpaper 1.6% / Dream 2.0%
-        assertTrue(app.motion.breathPeriodSeconds in 6.8f..10.8f)
+        // §27 + Quality §18：period 8.2–10.2s（Dream ×1.18 放宽上限）；幅度 App 2.4% / Wallpaper 1.6% / Dream 2.0%
+        assertTrue(app.motion.breathPeriodSeconds in 8.2f..10.2f)
         assertEquals(0.024f, app.motion.breathAmplitude, 1e-4f)
         assertEquals(0.016f, wallpaper.motion.breathAmplitude, 1e-4f)
         assertEquals(0.020f, dream.motion.breathAmplitude, 1e-4f)
@@ -119,9 +119,9 @@ class EchoSceneCompilerTest {
         val packet = EchoSceneCompiler.compile(
             specFor(5L, EchoSurface.APP_PRIVATE), 1080f, 2340f, "KNOWN", EchoRenderTier.STANDARD,
         )
-        // §28：主轨道 21–60 分钟；filament 相位 26–58 秒
-        assertTrue(packet.motion.orbitPeriodSeconds in 1260f..3600f)
-        assertTrue(packet.motion.filamentPhaseSeconds in 26f..58f)
+        // §28 + Quality §18：主自转 30–55 分钟；filament 相位 35–55 秒
+        assertTrue(packet.motion.orbitPeriodSeconds in 30f * 60f..55f * 60f)
+        assertTrue(packet.motion.filamentPhaseSeconds in 35f..55f)
     }
 
     @Test

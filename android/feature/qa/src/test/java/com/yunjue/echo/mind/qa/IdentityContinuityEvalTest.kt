@@ -125,7 +125,9 @@ class IdentityContinuityEvalTest {
 
     @Test
     fun allProfilesHaveVisiblyDistinctFrames() {
-        val colors = QaProfiles.ALL.map { QaTimeline.computeFrame(QaTimeline(it).snapshotAt(90)).ambientField.centerColor }
+        // Organism Quality §9：互异性用 primary（frontMembrane.color）判定——
+        // ambient center 在近黑区（L*≈6–9）物理上无法承载 hue 区分（出 sRGB 色域即收敛近中性）
+        val colors = QaProfiles.ALL.map { QaTimeline.computeFrame(QaTimeline(it).snapshotAt(90)).frontMembrane.color }
         // 7 个 profile 的安装种子不同 → 主色应全部互异（帧渲染使用种子散列色相）
         assertEquals("7 个用户主色互异", 7, colors.toSet().size)
     }

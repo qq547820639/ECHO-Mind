@@ -34,11 +34,42 @@ class EchoIdentitySpecTest {
             assertTrue("baseFrequency 2..5", id.baseFrequency in 2..5)
             assertTrue("orbitalBias", id.orbitalBias in -.12f.. .12f)
             assertTrue("membraneBias", id.membraneBias in .86f..1.14f)
-            assertTrue("primaryHue 218..262", id.palette.primary.h in 218f..262f)
-            val secDelta = id.palette.secondary.h - id.palette.primary.h
-            assertTrue("secondary +22..44", secDelta in 22f..44f)
-            assertTrue("warmHue 28..40", id.palette.warm.h in 28f..40f)
+            // Organism Quality §9：LCh hue 285..313（≈ sRGB 225–275 蓝紫族；本仓库 LCh→sRGB 实测锚定）
+            assertTrue("primaryHue LCh 285..313", id.palette.primary.h in 285f..313f)
+            assertTrue("secondaryHue LCh <= 336 (sRGB ~300)", id.palette.secondary.h <= 336f)
+            assertTrue("warmHue LCh 70..82 (sRGB ~28-40)", id.palette.warm.h in 70f..82f)
+            // chroma 为 Lab 量纲（真实彩度；旧 0.12 近无彩——灰色线圈根因）
+            assertTrue("primary chroma real", id.palette.primary.c in 30f..48f)
         }
+    }
+
+    @Test
+    fun primaryFamilyRendersAsSrgbBlueViolet() {
+        // Organism Quality §9：最终 sRGB hue 主范围 225–275°（跨 seed 全族校验）
+        for (seed in 1L..200L) {
+            val id = EchoIdentitySpec.derive(seed)
+            val argb = ColorSpace.lch(id.palette.primary.l, id.palette.primary.c, id.palette.primary.h)
+            val r = (argb shr 16 and 0xFF) / 255f
+            val g = (argb shr 8 and 0xFF) / 255f
+            val b = (argb and 0xFF) / 255f
+            val mx = maxOf(r, g, b); val mn = minOf(r, g, b)
+            assertTrue("primary not achromatic (sat > .15)", mx > 0f && (mx - mn) / mx > 0.15f)
+            assertTrue("primary blue dominant (b >= r, b >= g)", b >= r && b >= g)
+            val hueDeg = rgbHue(r, g, b)
+            assertTrue("primary sRGB hue 220..280 (got $hueDeg)", hueDeg in 220f..280f)
+        }
+    }
+
+    private fun rgbHue(r: Float, g: Float, b: Float): Float {
+        val mx = maxOf(r, g, b); val mn = minOf(r, g, b)
+        if (mx == mn) return 0f
+        val d = mx - mn
+        val h = when (mx) {
+            r -> (g - b) / d % 6f
+            g -> (b - r) / d + 2f
+            else -> (r - g) / d + 4f
+        }
+        return (h * 60f % 360f + 360f) % 360f
     }
 
     @Test
@@ -73,13 +104,14 @@ class EchoIdentitySpecTest {
 
     @Test
     fun lchConversionIsDeterministic() {
+        // chroma 用 Lab 量纲（真实彩度）；0.105 量级在 Lab 上近无彩，两 hue 会坍缩同色
         assertEquals(
-            ColorSpace.lch(0.66f, 0.105f, 240f),
-            ColorSpace.lch(0.66f, 0.105f, 240f),
+            ColorSpace.lch(0.66f, 30f, 240f),
+            ColorSpace.lch(0.66f, 30f, 240f),
         )
         assertNotEquals(
-            ColorSpace.lch(0.66f, 0.105f, 240f),
-            ColorSpace.lch(0.66f, 0.105f, 34f),
+            ColorSpace.lch(0.66f, 30f, 240f),
+            ColorSpace.lch(0.66f, 30f, 34f),
         )
     }
 }

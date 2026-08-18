@@ -72,9 +72,9 @@ object EchoSceneCompiler {
         val g = spec.genome
         val maturity = maturityMultiplier(maturityName)
 
-        // ---- §27 呼吸：period 收敛到 6.8–10.8s 窗口（genome.pulseRate 既有 3.6..6s 量纲归一）----
+        // ---- §27 呼吸：period 收敛到 8.2–10.2s 窗口（Organism Quality §18：MASTER 8–10s）----
         val baseT = ((g.pulseRate - 3.6f) / 2.4f).coerceIn(0f, 1f)
-        var breathPeriod = 6.8f + baseT * 4.0f
+        var breathPeriod = 8.2f + baseT * 2.0f
         var breathAmplitude = when (spec.surface) {
             EchoSurface.WALLPAPER_VISUAL_ONLY -> 0.016f
             EchoSurface.DREAM_AMBIENT -> 0.020f
@@ -86,9 +86,9 @@ object EchoSceneCompiler {
             breathPeriod *= 1.45f
         }
 
-        // ---- §28 轨道 / filament 相位周期 ----
-        val orbitPeriod = lerp(21f * 60f, 60f * 60f, g.driftRate.coerceIn(0f, 1f))
-        val filamentPhase = lerp(26f, 58f, g.filamentDensity.coerceIn(0f, 1f))
+        // ---- §28 轨道 / filament 相位周期（Quality §18：自转 30–55min；丝内相位 35–55s）----
+        val orbitPeriod = lerp(30f * 60f, 55f * 60f, g.driftRate.coerceIn(0f, 1f))
+        val filamentPhase = lerp(35f, 55f, g.filamentDensity.coerceIn(0f, 1f))
 
         // ---- §30 Reduced Motion / §71 Dream 运动乘数（在此一次性展开，backend 不再判断）----
         var particleVelocity = 1f

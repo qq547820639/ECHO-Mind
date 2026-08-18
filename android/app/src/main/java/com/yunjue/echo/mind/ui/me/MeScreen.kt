@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.ui.me
 
 import android.content.Intent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -32,9 +34,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -410,6 +416,8 @@ private fun MeListItem(
 /**
  * 我的 ECHO 身份摘要（§AR：~48dp ECHO 头像 + 成熟度 + 一句话状态）。
  * 视觉沿用全局唯一 Presence（同一语义链 EchoVisualMapper → VisualGenomeCompiler）。
+ * Organism Quality §33：经统一 renderer facade（显式 MINI/THUMBNAIL 低成本预设，
+ * 不绕过 facade 另起渲染，也不启动高成本 full renderer）。
  */
 @Composable
 private fun MeEchoIdentity(presence: EchoPresenceState?, reduceMotion: Boolean) {
@@ -429,18 +437,26 @@ private fun MeEchoIdentity(presence: EchoPresenceState?, reduceMotion: Boolean) 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(48.dp).testTag("me_echo_portrait")) {
-            com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                genome = genome,
-                modifier = Modifier.size(48.dp),
-                surface = com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
-                motion = if (reduceMotion) {
-                    com.yunjue.echo.mind.visual.surface.MotionPolicy.REDUCED
-                } else {
-                    com.yunjue.echo.mind.visual.surface.MotionPolicy.NORMAL
-                },
-                maturityName = maturityName,
-                aggregateDescription = statusLine,
-            )
+            genome?.let { g ->
+                // 统一 facade session + MINIMAL 质量（静态 canonical 帧——头像不需要帧动画）
+                val density = LocalDensity.current
+                val sizePx = with(density) { 48.dp.roundToPx() }
+                val session = remember(g, maturityName) {
+                    com.yunjue.echo.mind.presencevisual.EchoRendererFacade.createSession(
+                        com.yunjue.echo.mind.presencevisual.EchoRenderSession.thumbnailRequest(
+                            g, maturityName,
+                            com.yunjue.echo.mind.visual.surface.EchoSurface.APP_PRIVATE,
+                        ),
+                        sizePx, sizePx,
+                    )
+                }
+                val clockNanos = remember { com.yunjue.echo.mind.presencevisual.EchoVisualClock.nowNanos() }
+                Canvas(
+                    Modifier.fillMaxSize().semantics { contentDescription = statusLine },
+                ) {
+                    session.draw(drawContext.canvas.nativeCanvas, clockNanos)
+                }
+            }
         }
         Spacer(Modifier.width(14.dp))
         Column {

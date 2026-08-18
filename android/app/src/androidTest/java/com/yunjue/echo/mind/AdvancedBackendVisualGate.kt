@@ -48,14 +48,22 @@ class AdvancedBackendVisualGate {
             session.resolution.backendName != EchoRendererFacade.BACKEND_CANVAS,
         )
 
+        // 离屏 raster 恒 CANVAS（软件位图无法执行 RuntimeShader——Android 真实约束）；
+        // 本门断言：① resolution 真值非 CANVAS；② 同帧 Canvas raster 指标达标；
+        // ③ AGSL shader 真实可编译（isAvailable 已在 assume 中证明）。
+        // AGSL raster 的像素级视觉证据需设备 HW canvas（RenderNode/HardwareRenderer），
+        // 属 BLOCKED_EXTERNAL_DEVICE 项——见 qa/reports/ECHO_ORGANISM_QUALITY_FINAL.md。
+
         val bitmap = session.renderToBitmap((12f * 1_000_000_000L).toLong())
         val identity = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(genome.identitySeed)
-        val baseR = (0.19f + genome.radialSpread * 0.11f + genome.coreIntensity * 0.02f) *
-            identity.membraneBias
+        val baseR = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.baseRadiusFor(
+            genome.radialSpread, genome.coreIntensity, identity.membraneBias,
+        )
         val m = VisualLabMetrics.compute(bitmap, W / 2f, H / 2f, baseR * W)
         val gate = VisualLabMetrics.evaluate(m)
         assertTrue("near-black ${m.nearBlackRatio} >= 58%", gate.nearBlackPass)
-        assertTrue("highlight ${m.highlightRatio} <= 4%", gate.highlightPass)
+        assertTrue("high-luminance ${m.highLuminanceRatio} <= 4%", gate.highLuminancePass)
+        assertTrue("extreme glint ${m.extremeGlintRatio} <= 2.5%", gate.extremeGlintPass)
         assertTrue("warm ${m.warmRatio} <= 15%", gate.warmPass)
         assertTrue("negative-space ${m.negativeSpaceRatio} >= 40%", gate.negativeSpacePass)
         assertTrue("visual-mass@.9R ${m.visualMassInside} >= 82%", gate.visualMassPass)

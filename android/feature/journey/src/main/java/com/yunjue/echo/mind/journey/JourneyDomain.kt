@@ -35,8 +35,9 @@ data class JourneyPeriod(
 )
 
 /** Portrait DTO → JourneyDay（纯映射；视觉参数一次装配）。 */
-fun buildJourneyDays(portraits: List<DailyPortraitDto>): List<JourneyDay> =
-    portraits.sortedBy { it.date }.map { dto ->
+fun buildJourneyDays(portraits: List<DailyPortraitDto>): List<JourneyDay> {
+    val earliest = portraits.minOfOrNull { it.date }
+    return portraits.sortedBy { it.date }.map { dto ->
         JourneyDay(
             date = dto.date,
             baselineDays = dto.baselineDays,
@@ -45,9 +46,10 @@ fun buildJourneyDays(portraits: List<DailyPortraitDto>): List<JourneyDay> =
             dimensionValues = PORTRAIT_TREND_DIMENSIONS.associateWith { key ->
                 dto.dimensionValue(key) ?: ""
             }.filterValues { it.isNotBlank() },
-            visualParams = journeyDayParams(dto),
+            visualParams = journeyDayParams(dto, earliest),
         )
     }
+}
 
 /**
  * visual-runtime：带 identity seed 的 JourneyDay 装配（同时携带 9 层 organism genome）。
@@ -56,8 +58,9 @@ fun buildJourneyDays(portraits: List<DailyPortraitDto>): List<JourneyDay> =
 fun buildJourneyDaysWithOrganism(
     portraits: List<DailyPortraitDto>,
     identitySeed: Long,
-): List<JourneyDay> =
-    portraits.sortedBy { it.date }.map { dto ->
+): List<JourneyDay> {
+    val earliest = portraits.minOfOrNull { it.date }
+    return portraits.sortedBy { it.date }.map { dto ->
         JourneyDay(
             date = dto.date,
             baselineDays = dto.baselineDays,
@@ -66,10 +69,11 @@ fun buildJourneyDaysWithOrganism(
             dimensionValues = PORTRAIT_TREND_DIMENSIONS.associateWith { key ->
                 dto.dimensionValue(key) ?: ""
             }.filterValues { it.isNotBlank() },
-            visualParams = journeyDayParams(dto),
-            genome = JourneyOrganismVisuals.genomeFor(dto, identitySeed),
+            visualParams = journeyDayParams(dto, earliest),
+            genome = JourneyOrganismVisuals.genomeFor(dto, identitySeed, earliest),
         )
     }
+}
 
 /** 代表日：SIMILAR 维度数最多的日子（平手取最近一天）；空列表 → null。 */
 fun journeyRepresentativeDay(days: List<JourneyDay>): JourneyDay? {

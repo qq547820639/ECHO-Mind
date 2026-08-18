@@ -2,7 +2,6 @@ package com.yunjue.echo.mind.journey
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PORTRAIT_TREND_DIMENSIONS
-import com.yunjue.echo.mind.model.echoMaturity
 import com.yunjue.echo.mind.presence.EchoVisualParameters
 import com.yunjue.echo.mind.presence.maturityOpenness
 import com.yunjue.echo.mind.visual.model.EchoPortraitSnapshot
@@ -32,8 +31,16 @@ object JourneyOrganismVisuals {
     /** Journey portrait 基准亮度（白天 canonical；一致性优先）。 */
     private const val CANONICAL_DAY_BRIGHTNESS = 0.7f
 
-    /** 画像 + identity seed → 当日 organism genome（确定性；无画像 = null）。 */
-    fun genomeFor(portrait: DailyPortraitDto?, identitySeed: Long): EchoVisualGenome? {
+    /**
+     * 画像 + identity seed → 当日 organism genome（确定性；无画像 = null）。
+     * [earliestDate]：时间线最早画像日期——成熟度经 [portraitMaturityProxy] 日历代理
+     * （Organism Quality §34；null = baselineDays 兜底，见其 KDoc）。
+     */
+    fun genomeFor(
+        portrait: DailyPortraitDto?,
+        identitySeed: Long,
+        earliestDate: String? = null,
+    ): EchoVisualGenome? {
         if (portrait == null) return null
         val dims = portrait.dimensions
         val value = { key: String -> dims[key]?.value }
@@ -54,7 +61,7 @@ object JourneyOrganismVisuals {
             .maxOrNull()?.coerceIn(0f, 1f) ?: 0.2f
         val known = PORTRAIT_TREND_DIMENSIONS.count { dims[it]?.value in setOf("SIMILAR", "VERY_SIMILAR") }
         val coherence = (0.45f + 0.3f * (known / PORTRAIT_TREND_DIMENSIONS.size.toFloat())).coerceIn(0.2f, 0.8f)
-        val maturity = echoMaturity(portrait.baselineDays)
+        val maturity = portraitMaturityProxy(portrait, earliestDate)
         val openness = maturityOpenness(maturity)
         val regularity = when (value("RHYTHM")) {
             "SIMILAR", "VERY_SIMILAR" -> 0.7f

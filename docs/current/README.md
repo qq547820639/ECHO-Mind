@@ -1,9 +1,9 @@
-# docs/current — 当前事实索引（ECHO Mind v0.10 · Personal Ambient Intelligence）
+# docs/current — 当前事实索引（ECHO Mind v0.11 · Personal Ambient Intelligence）
 
 > 本目录是**当前状态**的唯一事实源索引；历史 v0.2 / v0.6 / v0.7 / Path A 文档已全部归档于 `docs/archive/`。
 > 当前状态唯一锚点 `docs/STATUS.md`；文档权威顺序见 `docs/STATUS.md` §7 Governance。
 
-## 当前事实（v0.10.0，2026-08，ERA 31 全部 Batch 1–8 完成 + v0.10.0 后打磨轮 R11–R49 + ERA 32 治理减法）
+## 当前事实（v0.11.0，2026-08，v0.11.0 Closure + ERA 33 ECHO Wrist / Second Body；历史打磨轮见 docs/CHANGELOG/）
 
 | 事实 | 位置 | 状态 |
 |---|---|---|
@@ -54,7 +54,7 @@ Me（ui/me/MeScreen + 六子领域）
 
 ## 单一版本事实源
 
-- `scripts/version_source.json`：release_version=0.10.0（CI 强制一致）
+- `scripts/version_source.json`：release_version=0.11.0（CI 强制一致）
 - 校验：`backend/tests/test_version_consistency.py` + `scripts/release_preflight.sh` + CI
 
 ## 历史文档归档

@@ -51,11 +51,11 @@
 - **理由**：机器词表与用户语言分离是信任与合规的双保险；「今天比较安静」与 Phase 6.3 禁令冲突，不回滚该禁令。
 - **后果**：`publicNarrative` 生成器（ERA 5+）必须过白名单门禁才能上锁屏。
 
-## ADR-009：成熟度映射数据驱动（baselineDays），不动基线算法
+## ADR-009：成熟度映射（已由 ERA 21 + Organism Quality §34 修订为日历语义）
 
-- **决策**：`echoMaturity(baselineDays)`：0→SEED、1-2→DISCOVERING、3-6→EMERGING、7-27→KNOWN、≥28→MATURE；后端冷启动三态与端侧基线算法零改动。
-- **理由**：Day0 独立成 SEED 只需客户端映射，避免契约与算法返工；MATURE 用完整 28 天窗口作为「这是我的 ECHO」门槛。
-- **后果**：老用户无 awakenedAt 时 SEED 页不显示「已观察 N 分钟」（不伪造观察时长）。
+- **决策（现行）**：`echoMaturity(calendarDaysSinceAwakening)`：0→SEED、1-2→DISCOVERING、3-6→EMERGING、7-27→KNOWN、≥28→MATURE——**自苏醒锚点（awakenedAtEpochMs）起的日历天数**，即「认识你多久」。
+- **理由**：`baseline.validDays` 是 28 天滚动窗口的分桶有效日（weekday 桶 ≤20），稀疏数据用户永远到不了 MATURE；ERA 21 起生产 PresenceRepository 已切换日历语义，Organism Quality §34 统一命名与 KDoc，Journey 历史重建用 `portraitMaturityProxy` 显式代理（画像日期相对时间线最早日期的日历跨度）。
+- **后果**：老用户无 awakenedAt 时 SEED 页不显示「已观察 N 分钟」（不伪造观察时长）；旧表述「数据驱动 baselineDays」作废。
 
 ## ADR-010：订阅重构延后到产品评审（不在本轮工程裁决）
 
@@ -644,7 +644,7 @@
 ### ADR-067 结项记录（ERA 79，两轮结论）
 
 - 第 1 轮：基线三路径（画像/基线状态/Presence 输入）窗口化加载——纠正第 73 轮「streak 需全历史」误判（基线窗口实为固定 28 天）；窗口边界/覆盖阈值/状态阶梯 golden 锚定。
-- 第 2 轮：镜像一致性终检——本地 LocalPortraitGoldenTest 001~008 与 backend test_portrait_golden.py 逐场景对齐；confidenceFor 与 backend baseline/confidence.py 逐边界镜像（HIGH 0.7/7/无缺失、MEDIUM 0.3/3、缺失源降级）；基线 validDays → 状态机 → echoMaturity 视觉成熟度阶梯传导锚定（BASELINE_READY ↔ 至少 KNOWN）。
+- 第 2 轮：镜像一致性终检——本地 LocalPortraitGoldenTest 001~008 与 backend test_portrait_golden.py 逐场景对齐；confidenceFor 与 backend baseline/confidence.py 逐边界镜像（HIGH 0.7/7/无缺失、MEDIUM 0.3/3、缺失源降级）；基线 validDays → 状态机 →（ERA 21 起）echoMaturity 日历语义阶梯（BASELINE_READY ↔ 至少 KNOWN 的旧传导已由苏醒锚点日历天数接管，见 ADR-009 修订）。
 - 结论：Personal Baseline 端到端完成——「ECHO 区分你的平常与今天的变化」的事实基础在窗口语义、覆盖阈值、状态机、置信与视觉传导全链具备本地-后端双锚点。
 
 ## ADR-068：下一长阶段选型——First-Run 纵向切面真值审计（FINAL PRODUCT ACCEPTANCE 首段，ERA 80）

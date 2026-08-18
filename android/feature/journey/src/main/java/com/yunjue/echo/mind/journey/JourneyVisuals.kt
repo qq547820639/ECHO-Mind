@@ -18,8 +18,26 @@ import kotlin.math.max
  * - 周/月尺度聚合为代表性参数（视觉逐渐聚合，不是一堆折线图）。
  */
 
+/**
+ * 历史画像的成熟度**显式代理**（Organism Quality §34 语义统一）：
+ * 生产 Presence 的成熟度 = 「自苏醒锚点起的日历天数」（echoMaturity 单一定义）；
+ * Journey 历史重建处没有苏醒锚点，用画像日期相对时间线最早画像日期的**日历天数**
+ * 作代理（单调、可越过 28 → 与 Presence 日历语义同构）。
+ * [earliestDate] 未知（单画像/无时间线上下文）时退化为 baselineDays
+ * （28 天窗口分桶有效日，≤20——对长期用户会低估；仅为兜底，不作为语义）。
+ */
+fun portraitMaturityProxy(portrait: DailyPortraitDto, earliestDate: String?): EchoMaturity {
+    val earliest = earliestDate?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+    val date = runCatching { java.time.LocalDate.parse(portrait.date) }.getOrNull()
+    return if (earliest != null && date != null) {
+        echoMaturity(java.time.temporal.ChronoUnit.DAYS.between(earliest, date).toInt())
+    } else {
+        echoMaturity(portrait.baselineDays)
+    }
+}
+
 /** 画像 → 当日视觉参数（确定性；无画像 = null，渲染器给占位帧）。 */
-fun journeyDayParams(portrait: DailyPortraitDto?): EchoVisualParameters? {
+fun journeyDayParams(portrait: DailyPortraitDto?, earliestDate: String? = null): EchoVisualParameters? {
     if (portrait == null) return null
     val dims = portrait.dimensions
     val value = { key: String -> dims[key]?.value }
@@ -40,7 +58,7 @@ fun journeyDayParams(portrait: DailyPortraitDto?): EchoVisualParameters? {
         .maxOrNull()?.coerceIn(0f, 1f) ?: 0.2f
     val known = PORTRAIT_TREND_DIMENSIONS.count { dims[it]?.value in setOf("SIMILAR", "VERY_SIMILAR") }
     val coherence = (0.45f + 0.3f * (known / PORTRAIT_TREND_DIMENSIONS.size.toFloat())).coerceIn(0.2f, 0.8f)
-    val openness = maturityOpenness(echoMaturity(portrait.baselineDays))
+    val openness = maturityOpenness(portraitMaturityProxy(portrait, earliestDate))
     val regularity = when (value("RHYTHM")) {
         "SIMILAR", "VERY_SIMILAR" -> 0.7f
         "IRREGULAR" -> 0.3f

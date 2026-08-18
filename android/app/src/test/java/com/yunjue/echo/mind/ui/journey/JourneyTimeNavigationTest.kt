@@ -45,6 +45,11 @@ import java.time.YearMonth
 @Config(sdk = [35], qualifiers = "w360dp-h800dp")
 class JourneyTimeNavigationTest {
 
+    /** Organism Quality §32 拆分后：结构断言读整个 journey 包（root + 各 period 文件）。 */
+    private fun journeyPackageSource(): String =
+        File("src/main/java/com/yunjue/echo/mind/ui/journey").listFiles { f -> f.extension == "kt" }
+            ?.joinToString("\n") { it.readText() } ?: ""
+
     @get:Rule
     val compose = createComposeRule()
 
@@ -194,7 +199,7 @@ class JourneyTimeNavigationTest {
 
     @Test
     fun dayTimelineHasSingleVerticalScrollOwner() {
-        val source = File("src/main/java/com/yunjue/echo/mind/ui/journey/JourneyScreen.kt").readText()
+        val source = journeyPackageSource()
         assertFalse("Journey 不得再有 verticalScroll 包裹（§AK）", source.contains(".verticalScroll("))
         assertFalse("Journey 不得回到 Page(verticalScroll) 包裹（§AK）", source.contains("Page("))
         assertTrue("每个尺度应有 LazyColumn 主滚动容器", source.contains("LazyColumn"))
@@ -204,7 +209,7 @@ class JourneyTimeNavigationTest {
 
     @Test
     fun weekIsHorizontalStripNotArc() {
-        val source = File("src/main/java/com/yunjue/echo/mind/ui/journey/JourneyScreen.kt").readText()
+        val source = journeyPackageSource()
         assertFalse("WeekArc 已删除（§AM）", source.contains("WeekArc"))
         assertTrue(source.contains("journey_week_strip"))
         assertTrue(source.contains("journey_week_day"))

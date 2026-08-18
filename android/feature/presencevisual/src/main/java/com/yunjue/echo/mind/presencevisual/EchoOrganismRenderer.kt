@@ -28,6 +28,8 @@ import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import com.yunjue.echo.mind.visual.surface.SurfacePolicy
 import com.yunjue.echo.mind.visual.surface.motionScaleFor
 import com.yunjue.echo.mind.visual.surface.reducedMotionFor
+import androidx.compose.ui.geometry.Size
+import kotlin.math.PI
 import kotlin.math.min
 
 /**
@@ -111,17 +113,23 @@ fun EchoOrganism(
                 return@Canvas
             }
             drawIntoCanvas { composeCanvas ->
-                session.draw(
-                    canvas = composeCanvas.nativeCanvas,
-                    frame = frame,
-                    widthPx = size.width,
-                    heightPx = size.height,
-                    exposure = spec.genome.luminance,
-                    halo = spec.genome.haloIntensity,
-                    primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
-                    secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
-                    warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
-                )
+                try {
+                    session.draw(
+                        canvas = composeCanvas.nativeCanvas,
+                        frame = frame,
+                        widthPx = size.width,
+                        heightPx = size.height,
+                        exposure = spec.genome.luminance,
+                        halo = spec.genome.haloIntensity,
+                        primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
+                        secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
+                        warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                    )
+                } catch (_: IllegalArgumentException) {
+                    // 软件 canvas（Robolectric/Compose preview/个别低层 fallback）无法执行
+                    // RuntimeShader——按 §22 设计降级为 Canvas 后端（同一 organism，更简单材质）。
+                    drawOrganism(frame)
+                }
             }
         } else {
             drawOrganism(frame)
@@ -149,15 +157,36 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
     val minDim = min(size.width, size.height)
     val center = Offset(size.width / 2f, size.height / 2f)
 
-    // 1. Ambient field（近黑径向衰减）
+    // 1. Ambient field（近黑径向衰减；半径随身体 ≈1.6R）
     drawRect(
         brush = Brush.radialGradient(
             0f to Color(frame.ambientField.centerColor),
             0.42f to Color(frame.ambientField.midColor),
             1f to Color(frame.ambientField.edgeColor),
             center = center,
-            radius = minDim * 1.15f,
+            radius = (frame.ambientField.radiusFraction * minDim).coerceAtLeast(minDim * 0.4f),
         ),
+    )
+
+    // 1b. Atmosphere（§13：volume haze 环形分布 + rim 膜散射；克制——禁整屏 bloom）
+    val atm = frame.atmosphere
+    drawCircle(
+        brush = Brush.radialGradient(
+            0f to Color(atm.hazeColor).copy(alpha = 0f),
+            0.42f to Color(atm.hazeColor).copy(alpha = atm.hazeAlpha * 0.45f),
+            0.72f to Color(atm.hazeColor).copy(alpha = atm.hazeAlpha),
+            1f to Color(atm.hazeColor).copy(alpha = 0f),
+            center = center,
+            radius = atm.hazeRadiusFraction * minDim,
+        ),
+        radius = atm.hazeRadiusFraction * minDim,
+        center = center,
+    )
+    drawCircle(
+        color = Color(atm.rimColor).copy(alpha = atm.rimAlpha.coerceIn(0f, 1f)),
+        radius = atm.rimRadiusFraction * minDim,
+        center = center,
+        style = Stroke(width = atm.rimWidthFraction * minDim),
     )
 
     // 2. Halo（远层）
@@ -174,21 +203,23 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
     frame.structuralRings.forEach { drawStrokePath(it, minDim) }
     // 4. 长丝（含 behind-core 遮挡 alpha）
     frame.longFilaments.forEach { drawStrokePath(it, minDim, glowPass = true) }
-    // 5. 局部碎片
-    frame.localFragments.forEach { drawStrokePath(it, minDim) }
+    // 5. 局部碎片（§7：含辉光——可见的生命纹理）
+    frame.localFragments.forEach { drawStrokePath(it, minDim, glowPass = true) }
 
-    // 6. 空心核：暗腔 + 内部大气（禁止实心白球，§18）
+    // 6. 空心核：暗腔 + 内部大气（禁止实心白球，§8；有机形变边缘）
     val cavityR = frame.coreCavity.radiusFraction * minDim
-    drawCircle(
+    drawPath(
+        path = cavityPath(frame, center, cavityR * 1.35f),
         brush = Brush.radialGradient(
             colors = listOf(Color(frame.coreCavity.atmosphereColor), Color(frame.coreCavity.darkColor)),
             center = center,
             radius = cavityR * 1.35f,
         ),
-        radius = cavityR * 1.35f,
-        center = center,
     )
-    drawCircle(color = Color(frame.coreCavity.darkColor), radius = cavityR, center = center)
+    drawPath(
+        path = cavityPath(frame, center, cavityR),
+        color = Color(frame.coreCavity.darkColor),
+    )
 
     // 7. 核心细缕 + 稳定结
     frame.coreStrands.forEach { drawStrokePath(it, minDim) }
@@ -246,6 +277,29 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
             center = Offset(w.x * size.width, w.y * size.height),
         )
     }
+}
+
+/** §8 有机暗腔路径（identity 恒定谐波形变；与 OrganismCanvasRenderer.cavityPath 同式）。 */
+private fun cavityPath(frame: OrganismFrame, center: Offset, radiusPx: Float): androidx.compose.ui.graphics.Path {
+    val path = androidx.compose.ui.graphics.Path()
+    val harmonics = frame.coreCavity.harmonics
+    if (harmonics.isEmpty()) {
+        path.addOval(
+            androidx.compose.ui.geometry.Rect(center - Offset(radiusPx, radiusPx), Size(radiusPx * 2f, radiusPx * 2f)),
+        )
+        return path
+    }
+    val steps = 48
+    for (i in 0..steps) {
+        val theta = i.toFloat() / steps * 2f * PI.toFloat()
+        var r = 1f
+        harmonics.forEach { h -> r += h.amplitude * kotlin.math.cos(h.order * theta + h.phase) }
+        val x = center.x + kotlin.math.cos(theta) * radiusPx * r
+        val y = center.y + kotlin.math.sin(theta) * radiusPx * r
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
 }
 
 /**

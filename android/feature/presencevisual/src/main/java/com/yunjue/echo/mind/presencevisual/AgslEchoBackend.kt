@@ -34,6 +34,7 @@ uniform float iExposure;
 uniform float iCavity;
 uniform float iHalo;
 uniform float iGlowRadius;
+uniform float iDepthFog;
 layout(color) uniform half4 iPrimary;
 layout(color) uniform half4 iSecondary;
 layout(color) uniform half4 iWarm;
@@ -53,10 +54,11 @@ half4 main(float2 fragCoord) {
     // 近黑 ambient（近中心微亮，快速落黑；§24 大量 black + 少量真亮）
     half ambient = half(exp(-r * r * 7.5) * iExposure * 0.16);
 
-    // vector mask：R = 冷色几何，G = 暖色几何
+    // vector mask：R = 冷色几何，G = 暖色几何，B = 归一化深度（0 back → 1 front）
     half4 mask = iVectorMask.eval(fragCoord);
     half geom = mask.r;
     half warm = mask.g;
+    half depth = mask.b;
 
     // glow：8 向 uniform 半径多采近似边缘散射（§20/§W edge scattering，
     // 采样半径由宿主按分辨率/密度注入 iGlowRadius，分辨率无关）
@@ -78,10 +80,19 @@ half4 main(float2 fragCoord) {
     half rim = smoothstep(iCavity * 0.82, iCavity, r) *
         (1.0 - smoothstep(iCavity, iCavity * 1.30, r));
 
+    // Organism Quality §13：subtle volume haze（violet/blue atmosphere——
+    // 空间感 ≠ 整屏 blur；峰值在身体边缘内侧，中心与外围都保持克制）
+    half haze = half(exp(-r * r * 3.2) * (1.0 - exp(-r * r * 18.0)) * iExposure * 0.05);
+
+    // §11 depth fog：深处几何向 secondary(violet) 雾色偏移并压暗（front/middle/back）
+    half fog = clamp((1.0 - depth) * iDepthFog, 0.0, 1.0);
+
     // spectral mix：几何由内向外从 primary 过渡到 secondary（§12 蓝紫族）
     half3 cool = mix(iPrimary.rgb, iSecondary.rgb, half(min(r * 1.5, 1.0)));
     half3 col = cool * (geom * 0.9 + glow * 0.35) + iWarm.rgb * warm;
+    col = mix(col, iSecondary.rgb * (geom * 0.55 + glow * 0.20), half3(fog * 0.65));
     col += iPrimary.rgb * (ambient + rim * 0.10 * half(iHalo));
+    col += mix(iPrimary.rgb, iSecondary.rgb, 0.5) * haze;
     col *= (1.0 - cavity * 0.82);
 
     // tone：soft knee，禁止 hard clip（§24）
@@ -89,7 +100,7 @@ half4 main(float2 fragCoord) {
     col.g = softKnee(col.g);
     col.b = softKnee(col.b);
 
-    half alpha = clamp(geom * 0.95 + glow * 0.5 + warm + ambient + rim * 0.12, 0.0, 1.0);
+    half alpha = clamp(geom * 0.95 + glow * 0.5 + warm + ambient + rim * 0.12 + haze, 0.0, 1.0);
     alpha *= (1.0 - cavity * 0.90);
     return half4(col * alpha, alpha); // premultiplied
 }
@@ -161,6 +172,22 @@ half4 main(half4 c) {
         ((2.5f + 3.5f * haloIntensity.coerceIn(0f, 1f)) * (minDim / 1080f)).coerceIn(2f, 6f)
 
     /**
+     * 工程/评审证据：把生产 vector mask（R 冷几何 / G 暖几何 / B 深度 / A coverage）
+     * 栅格化为独立 bitmap——AGSL raster 需设备 HW canvas，mask 是 JVM 可验证的
+     * Advanced 材质输入真值（不得伪装成 AGSL 输出）。
+     */
+    fun rasterizeMaskForInspection(
+        frame: com.yunjue.echo.mind.visual.render.OrganismFrame,
+        widthPx: Int,
+        heightPx: Int,
+        warmColor: Int,
+    ): Bitmap {
+        val session = AgslSession(widthPx, heightPx)
+        session.rasterizeMask(frame, widthPx.toFloat(), heightPx.toFloat(), warmColor)
+        return session.maskSnapshot()
+    }
+
+    /**
      * AGSL 会话（RuntimeShader 编译一次复用 + mask bitmap 复用——§32 hot path 零位图分配）。
      */
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -205,6 +232,8 @@ half4 main(half4 c) {
             shader.setFloatUniform("iExposure", exposure.coerceIn(0f, 1f))
             shader.setFloatUniform("iCavity", frame.coreCavity.radiusFraction)
             shader.setFloatUniform("iHalo", halo.coerceIn(0f, 1f))
+            // §11 depth fog 强度（Quality Pass：0.55——深处明显偏雾但不吃掉结构）
+            shader.setFloatUniform("iDepthFog", 0.55f)
             // §W：glow 采样半径随分辨率/密度缩放（分辨率无关的 8-tap 边缘散射）
             shader.setFloatUniform(
                 "iGlowRadius",
@@ -224,8 +253,8 @@ half4 main(half4 c) {
             }
         }
 
-        /** vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖；per-point alpha 已烘焙深度/遮挡）。 */
-        private fun rasterizeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float, warmColor: Int) {
+        /** vector mask 栅格化（R=冷色几何覆盖，G=暖色几何覆盖，B=归一化深度，A=coverage）。 */
+        internal fun rasterizeMask(frame: OrganismFrame, widthPx: Float, heightPx: Float, warmColor: Int) {
             maskCanvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
             val minDim = min(widthPx, heightPx)
 
@@ -238,7 +267,10 @@ half4 main(half4 c) {
                     val b = pts[i]
                     val alpha = ((a.alpha + b.alpha) * 0.5f).coerceIn(0f, 1f)
                     if (alpha <= 0.004f) continue
-                    strokePaint.color = Color.argb((alpha * 255).toInt(), 255, 0, 0)
+                    val depth = ((a.depth + b.depth) * 0.5f).coerceIn(0f, 1f)
+                    strokePaint.color = Color.argb(
+                        (alpha * 255).toInt(), 255, 0, (depth * 255).toInt(),
+                    )
                     maskCanvas.drawLine(
                         a.x * widthPx, a.y * heightPx, b.x * widthPx, b.y * heightPx, strokePaint,
                     )
@@ -251,7 +283,9 @@ half4 main(half4 c) {
 
             frame.particles.forEach { p ->
                 if (p.color == warmColor) return@forEach
-                dotPaint.color = Color.argb((p.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 0)
+                dotPaint.color = Color.argb(
+                    (p.alpha.coerceIn(0f, 1f) * 255).toInt(), 255, 0, 200,
+                )
                 maskCanvas.drawCircle(p.x * widthPx, p.y * heightPx, p.radiusFraction * minDim, dotPaint)
             }
             // 暖色几何进 G 通道（暖结 / 暖高光 / 暖粒子；面积 ≤15% 由 CPU 侧拓扑保证）
@@ -272,5 +306,8 @@ half4 main(half4 c) {
                 }
             }
         }
+
+        /** mask 只读快照（评审/工程证据用；生产帧路径不调用）。 */
+        fun maskSnapshot(): Bitmap = maskBitmap.copy(Bitmap.Config.ARGB_8888, false)
     }
 }

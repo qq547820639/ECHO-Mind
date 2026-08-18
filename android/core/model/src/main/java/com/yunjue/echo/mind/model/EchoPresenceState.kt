@@ -14,21 +14,26 @@ import java.time.Instant
  * ECHO 成长成熟度（Master Prompt PART 66）：
  * SEED → DISCOVERING → EMERGING → KNOWN → MATURE。
  *
- * 数据驱动的确定性映射（不依赖时间锚点，复用既有 baseline_days）：
- * - 0 天：SEED（Day 0，必有画报，但不伪造观察）
+ * 单一定义（Organism Quality §34 语义统一）：**自苏醒锚点（awakenedAtEpochMs）起的
+ * 日历天数**驱动的确定性阶梯——「认识你多久」，与数据丰富度无关：
+ * - Day 0：SEED（苏醒当天，必有画报，但不伪造观察）
  * - 1-2 天：DISCOVERING（出现真实观察，不与 baseline 比较）
  * - 3-6 天：EMERGING（tentative patterns，与后端 EARLY_BASELINE 同构）
  * - 7-27 天：KNOWN（baseline 成熟，「今天 vs 通常的你」）
  * - ≥28 天：MATURE（完整基线窗口，「这是我的 ECHO」）
+ *
+ * 注意：`baseline.validDays`（28 天滚动窗口内的分桶有效日，weekday 桶 ≤20）是**另一个钟**，
+ * 只用于置信度/状态机，不得喂给本函数（稀疏数据用户永远到不了 MATURE 的旧缺陷即源于此）。
+ * 历史 Journey 重建无苏醒锚点时使用显式代理（见 JourneyVisuals.portraitMaturityProxy）。
  */
 enum class EchoMaturity { SEED, DISCOVERING, EMERGING, KNOWN, MATURE }
 
-/** 成熟度纯函数：baseline 有效天数 → 阶段（负数按 0 处理）。 */
-fun echoMaturity(baselineDays: Int): EchoMaturity = when {
-    baselineDays >= 28 -> EchoMaturity.MATURE
-    baselineDays >= 7 -> EchoMaturity.KNOWN
-    baselineDays >= 3 -> EchoMaturity.EMERGING
-    baselineDays >= 1 -> EchoMaturity.DISCOVERING
+/** 成熟度纯函数：自苏醒起的日历天数 → 阶段（负数按 0 处理）。 */
+fun echoMaturity(calendarDaysSinceAwakening: Int): EchoMaturity = when {
+    calendarDaysSinceAwakening >= 28 -> EchoMaturity.MATURE
+    calendarDaysSinceAwakening >= 7 -> EchoMaturity.KNOWN
+    calendarDaysSinceAwakening >= 3 -> EchoMaturity.EMERGING
+    calendarDaysSinceAwakening >= 1 -> EchoMaturity.DISCOVERING
     else -> EchoMaturity.SEED
 }
 

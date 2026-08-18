@@ -42,10 +42,11 @@ class CanvasFallbackVisualGateTest {
             ),
         )
         val bitmap = OrganismCanvasRenderer.renderToBitmap(frame, W, H)
-        // R 与帧计算机同公式：baseR = (0.19 + dispersion*0.11 + coreOpenness*0.02) * membraneBias
+        // R 与帧计算机同公式（单一事实源 baseRadiusFor）
         val identity = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(genome.identitySeed)
-        val baseR = (0.19f + genome.radialSpread * 0.11f + genome.coreIntensity * 0.02f) *
-            identity.membraneBias
+        val baseR = OrganismFrameComputer.baseRadiusFor(
+            genome.radialSpread, genome.coreIntensity, identity.membraneBias,
+        )
         val metrics = VisualLabMetrics.compute(bitmap, W / 2f, H / 2f, baseR * W)
         return bitmap to metrics
     }
@@ -55,7 +56,8 @@ class CanvasFallbackVisualGateTest {
         val (_, m) = renderReference()
         val gate = VisualLabMetrics.evaluate(m)
         assertTrue("near-black ${m.nearBlackRatio} >= 58%", gate.nearBlackPass)
-        assertTrue("highlight ${m.highlightRatio} <= 4%", gate.highlightPass)
+        assertTrue("high-luminance ${m.highLuminanceRatio} <= 4%", gate.highLuminancePass)
+        assertTrue("extreme glint ${m.extremeGlintRatio} <= 2.5%", gate.extremeGlintPass)
         assertTrue("warm ${m.warmRatio} <= 15%", gate.warmPass)
         assertTrue("negative-space ${m.negativeSpaceRatio} >= 40%", gate.negativeSpacePass)
         assertTrue("visual-mass@.9R ${m.visualMassInside} >= 82%", gate.visualMassPass)

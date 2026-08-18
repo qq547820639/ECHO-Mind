@@ -5,430 +5,16 @@
   "name": "ECHO-Mind-PortraitCore-v0.11.0-source-SBOM",
   "documentNamespace": "https://example.invalid/echo-mind/portrait-core/v0.11.0/sbom",
   "creationInfo": {
-    "created": "2026-08-15T00:00:00Z",
+    "created": "2026-08-18T01:04:53Z",
     "creators": [
       "Tool: scripts/generate_sbom.py"
     ]
   },
   "packages": [
     {
-      "SPDXID": "SPDXRef-Python-alembic",
-      "name": "alembic",
-      "versionInfo": "1.19.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-annotated-doc",
-      "name": "annotated-doc",
-      "versionInfo": "0.0.5",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-annotated-types",
-      "name": "annotated-types",
-      "versionInfo": "0.8.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-anyio",
-      "name": "anyio",
-      "versionInfo": "4.14.2",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-certifi",
-      "name": "certifi",
-      "versionInfo": "2026.7.22",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-cffi",
-      "name": "cffi",
-      "versionInfo": "2.1.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-click",
-      "name": "click",
-      "versionInfo": "8.4.2",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-colorama",
-      "name": "colorama",
-      "versionInfo": "0.4.6",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-coverage",
-      "name": "coverage",
-      "versionInfo": "7.15.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-cryptography",
-      "name": "cryptography",
-      "versionInfo": "50.0.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-echo-mind-portrait-core",
-      "name": "echo-mind-portrait-core",
-      "versionInfo": "0.10.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
       "SPDXID": "SPDXRef-Python-fastapi",
       "name": "fastapi",
-      "versionInfo": "0.140.13",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-greenlet",
-      "name": "greenlet",
-      "versionInfo": "3.5.5",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-h11",
-      "name": "h11",
-      "versionInfo": "0.16.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-httpcore",
-      "name": "httpcore",
-      "versionInfo": "1.0.9",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-httptools",
-      "name": "httptools",
-      "versionInfo": "0.8.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-httpx",
-      "name": "httpx",
-      "versionInfo": "0.28.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-idna",
-      "name": "idna",
-      "versionInfo": "3.18",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-iniconfig",
-      "name": "iniconfig",
-      "versionInfo": "2.3.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-jinja2",
-      "name": "jinja2",
-      "versionInfo": "3.1.6",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-librt",
-      "name": "librt",
-      "versionInfo": "0.15.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-mako",
-      "name": "mako",
-      "versionInfo": "1.4.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-markupsafe",
-      "name": "markupsafe",
-      "versionInfo": "3.0.3",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-mypy",
-      "name": "mypy",
-      "versionInfo": "1.20.2",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-mypy-extensions",
-      "name": "mypy-extensions",
-      "versionInfo": "1.1.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-packaging",
-      "name": "packaging",
-      "versionInfo": "26.3",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pathspec",
-      "name": "pathspec",
-      "versionInfo": "1.1.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pluggy",
-      "name": "pluggy",
-      "versionInfo": "1.6.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-psycopg",
-      "name": "psycopg",
-      "versionInfo": "3.3.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-psycopg-binary",
-      "name": "psycopg-binary",
-      "versionInfo": "3.3.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pycparser",
-      "name": "pycparser",
-      "versionInfo": "3.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pydantic",
-      "name": "pydantic",
-      "versionInfo": "2.13.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pydantic-core",
-      "name": "pydantic-core",
-      "versionInfo": "2.46.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pydantic-settings",
-      "name": "pydantic-settings",
-      "versionInfo": "2.15.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pygments",
-      "name": "pygments",
-      "versionInfo": "2.20.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pyjwt",
-      "name": "pyjwt",
-      "versionInfo": "2.13.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pytest",
-      "name": "pytest",
-      "versionInfo": "9.1.1",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pytest-cov",
-      "name": "pytest-cov",
-      "versionInfo": "6.3.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-python-dotenv",
-      "name": "python-dotenv",
-      "versionInfo": "1.2.2",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-python-multipart",
-      "name": "python-multipart",
-      "versionInfo": "0.0.32",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-pyyaml",
-      "name": "pyyaml",
-      "versionInfo": "6.0.3",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-ruff",
-      "name": "ruff",
-      "versionInfo": "0.16.3",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-sqlalchemy",
-      "name": "sqlalchemy",
-      "versionInfo": "2.0.52",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-starlette",
-      "name": "starlette",
-      "versionInfo": "1.6.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-typing-extensions",
-      "name": "typing-extensions",
-      "versionInfo": "4.16.0",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-typing-inspection",
-      "name": "typing-inspection",
-      "versionInfo": "0.4.4",
-      "downloadLocation": "NOASSERTION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "supplier": "NOASSERTION"
-    },
-    {
-      "SPDXID": "SPDXRef-Python-tzdata",
-      "name": "tzdata",
-      "versionInfo": "2026.3",
+      "versionInfo": ">=0.128,<0.141",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -437,34 +23,133 @@
     {
       "SPDXID": "SPDXRef-Python-uvicorn",
       "name": "uvicorn",
-      "versionInfo": "0.35.0",
+      "versionInfo": "[standard]>=0.35,<0.36",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
       "supplier": "NOASSERTION"
     },
     {
-      "SPDXID": "SPDXRef-Python-uvloop",
-      "name": "uvloop",
-      "versionInfo": "0.22.1",
+      "SPDXID": "SPDXRef-Python-pydantic",
+      "name": "pydantic",
+      "versionInfo": ">=2.12,<3",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
       "supplier": "NOASSERTION"
     },
     {
-      "SPDXID": "SPDXRef-Python-watchfiles",
-      "name": "watchfiles",
-      "versionInfo": "1.2.0",
+      "SPDXID": "SPDXRef-Python-pydantic-settings",
+      "name": "pydantic-settings",
+      "versionInfo": ">=2.10,<3",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
       "supplier": "NOASSERTION"
     },
     {
-      "SPDXID": "SPDXRef-Python-websockets",
-      "name": "websockets",
-      "versionInfo": "17.0.1",
+      "SPDXID": "SPDXRef-Python-sqlalchemy",
+      "name": "sqlalchemy",
+      "versionInfo": ">=2.0.45,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-alembic",
+      "name": "alembic",
+      "versionInfo": ">=1.16,<2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-PyJWT",
+      "name": "PyJWT",
+      "versionInfo": ">=2.10,<3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-jinja2",
+      "name": "jinja2",
+      "versionInfo": ">=3.1,<4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-python-multipart",
+      "name": "python-multipart",
+      "versionInfo": ">=0.0.20,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-psycopg",
+      "name": "psycopg",
+      "versionInfo": "[binary]>=3.2,<4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-cryptography",
+      "name": "cryptography",
+      "versionInfo": ">=50,<51",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-pytest",
+      "name": "pytest",
+      "versionInfo": ">=9,<10",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-pytest-cov",
+      "name": "pytest-cov",
+      "versionInfo": ">=6,<7",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-httpx",
+      "name": "httpx",
+      "versionInfo": ">=0.28,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-ruff",
+      "name": "ruff",
+      "versionInfo": ">=0.12,<1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Python-mypy",
+      "name": "mypy",
+      "versionInfo": ">=1.17,<2",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -518,7 +203,7 @@
     {
       "SPDXID": "SPDXRef-Android-androidx-compose-bom",
       "name": "androidx.compose:compose-bom",
-      "versionInfo": "2026.06.00",
+      "versionInfo": "2026.08.00",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -661,8 +346,8 @@
     },
     {
       "SPDXID": "SPDXRef-Android-sqlcipher",
-      "name": "net.zetetic:android-database-sqlcipher",
-      "versionInfo": "4.5.4",
+      "name": "net.zetetic:sqlcipher-android",
+      "versionInfo": "4.17.0",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -736,7 +421,7 @@
     {
       "annotationType": "OTHER",
       "annotator": "Tool: scripts/generate_sbom.py",
-      "annotationDate": "2026-08-15T00:00:00Z",
+      "annotationDate": "2026-08-18T01:04:53Z",
       "comment": "Source declaration SBOM. License conclusions and resolved transitive dependencies require CI/Anchore review."
     }
   ]

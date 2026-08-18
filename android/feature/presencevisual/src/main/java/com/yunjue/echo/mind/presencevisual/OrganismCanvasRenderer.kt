@@ -3,12 +3,16 @@ package com.yunjue.echo.mind.presencevisual
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
 import com.yunjue.echo.mind.visual.render.ColorSpace
+import com.yunjue.echo.mind.visual.render.CoreCavity
 import com.yunjue.echo.mind.visual.render.FilamentStroke
 import com.yunjue.echo.mind.visual.render.OrganismFrame
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 /**
  * OrganismCanvasRenderer — android.graphics.Canvas 渲染器（V3 LEGACY/Canvas fallback 正式后端）。
@@ -16,6 +20,9 @@ import kotlin.math.min
  * 供 Wallpaper / Dream / 离屏 golden 截图共用；与 Compose 渲染器消费同一 [OrganismFrame]。
  * V3 §22：API 26–32 完整可用——同一 Identity/Topology/Motion/SceneCompiler/Palette，
  * 仅 Material Backend 不同（multi-stroke / radial gradient / restrained halo / depth alpha）。
+ *
+ * Organism Quality Pass：体积大气（haze+rim，§13）、碎片辉光（§7）、
+ * 有机形变暗腔路径（§8）、ambient 半径随身体（1.6R）。
  */
 object OrganismCanvasRenderer {
 
@@ -31,10 +38,10 @@ object OrganismCanvasRenderer {
         val cx = widthPx / 2f
         val cy = heightPx / 2f
 
-        // 1. Ambient field（近黑径向衰减）
+        // 1. Ambient field（近黑径向衰减；半径随身体 ≈1.6R——大气包裹而非整屏）
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
-                cx, cy, minDim * 1.15f,
+                cx, cy, (frame.ambientField.radiusFraction * minDim).coerceAtLeast(minDim * 0.4f),
                 intArrayOf(
                     frame.ambientField.centerColor,
                     frame.ambientField.midColor,
@@ -44,6 +51,30 @@ object OrganismCanvasRenderer {
             )
         }
         canvas.drawRect(0f, 0f, widthPx, heightPx, bgPaint)
+
+        // 1b. Atmosphere（§13：volume haze 环形分布 + rim 膜散射；克制——禁整屏 bloom）
+        val atm = frame.atmosphere
+        val hazeR = atm.hazeRadiusFraction * minDim
+        val hazePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(
+                cx, cy, hazeR,
+                intArrayOf(
+                    withAlpha(atm.hazeColor, 0f),
+                    withAlpha(atm.hazeColor, atm.hazeAlpha * 0.45f),
+                    withAlpha(atm.hazeColor, atm.hazeAlpha),
+                    withAlpha(atm.hazeColor, 0f),
+                ),
+                floatArrayOf(0f, 0.42f, 0.72f, 1f), Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.drawCircle(cx, cy, hazeR, hazePaint)
+        val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = atm.rimColor
+            strokeWidth = atm.rimWidthFraction * minDim
+            alpha = (atm.rimAlpha.coerceIn(0f, 1f) * 255f).toInt()
+        }
+        canvas.drawCircle(cx, cy, atm.rimRadiusFraction * minDim, rimPaint)
 
         // 2. Halo（远层）
         val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -56,13 +87,13 @@ object OrganismCanvasRenderer {
             canvas.drawCircle(cx, cy, halo.radiusFraction * minDim, haloPaint)
         }
 
-        // 3-5. 三层丝（结构环 / 长丝 + 辉光 / 局部碎片）
+        // 3-5. 三层丝（结构环 / 长丝 + 辉光 / 局部碎片 + 辉光——§7 碎片可见性）
         val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
         frame.structuralRings.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
         frame.longFilaments.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = true) }
-        frame.localFragments.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
+        frame.localFragments.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = true) }
 
-        // 6. 空心核：暗腔 + 内部大气（§18；禁止实心白球）
+        // 6. 空心核：暗腔 + 内部大气（§8；禁止实心白球；有机形变边缘）
         val cavityR = frame.coreCavity.radiusFraction * minDim
         val atmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
@@ -70,9 +101,9 @@ object OrganismCanvasRenderer {
                 frame.coreCavity.atmosphereColor, frame.coreCavity.darkColor, Shader.TileMode.CLAMP,
             )
         }
-        canvas.drawCircle(cx, cy, cavityR * 1.35f, atmPaint)
+        canvas.drawPath(cavityPath(frame.coreCavity, cx, cy, cavityR * 1.35f), atmPaint)
         val darkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = frame.coreCavity.darkColor }
-        canvas.drawCircle(cx, cy, cavityR, darkPaint)
+        canvas.drawPath(cavityPath(frame.coreCavity, cx, cy, cavityR), darkPaint)
 
         // 7. 核心细缕 + 稳定结
         frame.coreStrands.forEach { drawStroke(canvas, it, minDim, strokePaint, glow = false) }
@@ -129,6 +160,30 @@ object OrganismCanvasRenderer {
             }
             canvas.drawCircle(wx, wy, w.radiusFraction * minDim * 2f, warmPaint)
         }
+    }
+
+    /**
+     * §8 有机暗腔路径：radius(θ) = R·(1 + Σ amp·cos(order·θ + phase))——
+     * identity 恒定的 2/3 阶谐波形变，非机械完美圆。
+     */
+    private fun cavityPath(cavity: CoreCavity, cx: Float, cy: Float, radiusPx: Float): Path {
+        if (cavity.harmonics.isEmpty()) {
+            return Path().apply { addCircle(cx, cy, radiusPx, Path.Direction.CW) }
+        }
+        val path = Path()
+        val steps = 48
+        for (i in 0..steps) {
+            val theta = i.toFloat() / steps * 2f * Math.PI.toFloat()
+            var r = 1f
+            cavity.harmonics.forEach { h ->
+                r += h.amplitude * cos(h.order * theta + h.phase)
+            }
+            val x = cx + cos(theta) * radiusPx * r
+            val y = cy + sin(theta) * radiusPx * r
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        return path
     }
 
     /**

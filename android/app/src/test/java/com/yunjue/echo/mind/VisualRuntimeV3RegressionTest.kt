@@ -17,7 +17,12 @@ class VisualRuntimeV3RegressionTest {
     private fun read(path: String): String = File(path).readText()
 
     private val scene = "src/main/java/com/yunjue/echo/mind/ui/EchoSceneScreen.kt"
-    private val journey = "src/main/java/com/yunjue/echo/mind/ui/journey/JourneyScreen.kt"
+
+    /** Organism Quality §32 拆分后：Journey 结构断言读整个包（root + period/组件文件）。 */
+    private val journey: String by lazy {
+        File("src/main/java/com/yunjue/echo/mind/ui/journey")
+            .listFiles { f -> f.extension == "kt" }?.joinToString("\n") { it.readText() } ?: ""
+    }
     private val onboarding = "src/main/java/com/yunjue/echo/mind/ui/OnboardingScreen.kt"
     private val me = "src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt"
     private val shell = "src/main/java/com/yunjue/echo/mind/ui/EchoMindApp.kt"
@@ -35,7 +40,7 @@ class VisualRuntimeV3RegressionTest {
 
     @Test
     fun journeyRootHasNoFilterChipsAndChartsStayBehindEvidence() {
-        val s = read(journey)
+        val s = journey
         assertFalse("Journey root 不得有 FilterChip", s.contains("FilterChip("))
         assertTrue("scale selector testTag", s.contains("journey_scale_selector"))
         assertTrue("memory visual testTag", s.contains("journey_memory_visual"))

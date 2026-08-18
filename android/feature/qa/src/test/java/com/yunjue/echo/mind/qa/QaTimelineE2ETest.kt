@@ -184,6 +184,6 @@ class QaTimelineE2ETest {
     @Test
     fun differentProfilesHaveDifferentEchos() {
         val frames = QaProfiles.ALL.map { QaTimeline.computeFrame(timelineFor(it).snapshotAt(90)) }
-        assertEquals("7 个 profile 主色互异", 7, frames.map { it.ambientField.centerColor }.toSet().size)
+        assertEquals("7 个 profile 主色互异", 7, frames.map { it.frontMembrane.color }.toSet().size)
     }
 }

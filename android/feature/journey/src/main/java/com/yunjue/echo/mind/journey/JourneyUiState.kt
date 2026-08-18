@@ -150,7 +150,21 @@ fun assembleJourneyMemoryState(
         )
     } else null
     val seasonExplanation = if (scale == JourneyScale.SEASON || scale == JourneyScale.YEAR) {
-        explainLifeSeasonVisual(computeLifeSeason(timeline.portraits))
+        // §34 语义统一：phaseIndex 用日历语义（时间线最早→最新画像的日历跨度作苏醒代理；
+        // 旧单参重载会退化为 baselineDays 28 天窗口钟，长期用户永远到不了 90+ 阶段）
+        val calendarSpan = runCatching {
+            val dates = timeline.portraits.mapNotNull {
+                runCatching { java.time.LocalDate.parse(it.date) }.getOrNull()
+            }
+            if (dates.size >= 2) {
+                java.time.temporal.ChronoUnit.DAYS.between(dates.min(), dates.max()).toInt()
+            } else {
+                0
+            }
+        }.getOrDefault(0)
+        explainLifeSeasonVisual(
+            computeLifeSeason(timeline.portraits, wakeMinutes = emptyList(), calendarDays = calendarSpan),
+        )
     } else emptyList()
     // §41：时间地标只在 YEAR 尺度装配（与年视图同生命周期；§33 四类地标，不把普通波动地标化）
     val landmarks = if (scale == JourneyScale.YEAR && yearView != null) {

@@ -29,14 +29,14 @@
 | 新对象 | 存储 | 迁移 |
 |---|---|---|
 | `EchoPresenceState` 快照 | 进程内 StateFlow + SharedPreferences 单条快照 | 无迁移（可重算） |
-| `firstAwakenedAtEpochMs` | SharedPreferences 新键 | 老用户回填：取本地最早 feature window 日期 |
+| `awakenedAtEpochMs` | SharedPreferences 新键 | 老用户回填：取本地最早 feature window 日期 |
 | `EchoMemory`（ERA 6） | Room 新表 `echo_memories`（id/type/content/source/confidence/createdAt/lastConfirmedAt/importance/retentionClass/provenance） | 迁移 8→9 纯加表；Correction Memory 从 portrait_feedback 回填 |
 | Provider credentials（ERA 4） | Keystore 加密独立存储（复用 AndroidKeystoreFieldCipher 模式） | 无迁移；与个人数据逻辑隔离 |
 | Affective state（ERA 10） | 新表 + 独立 consent 类型 | 必须 opt-in；不自动从画像链迁移任何推断 |
 
 ## 4. 现有用户回填策略（关键）
 
-- v0.7 老用户已完成 onboarding → 看不到新 ECHO Awakening。回填：`firstAwakenedAtEpochMs = 本地最早特征窗口日期`，maturity 按「今天 - 该日期」推导（SEED/DISCOVERING/EMERGING/KNOWN/MATURE），不强行重放授权。
+- v0.7 老用户已完成 onboarding → 看不到新 ECHO Awakening。回填：`awakenedAtEpochMs = 本地最早特征窗口日期`，maturity 按「今天 - 该日期」的日历天数推导（echoMaturity 单一定义）（SEED/DISCOVERING/EMERGING/KNOWN/MATURE），不强行重放授权。
 - 基线数据原样可用 → Day7 仪式沿用 `baselineUnlockedShown` 机制（不重复触发）。
 - 订阅/激活码语义不变；ERA 后续的订阅档位变更另走产品评审（不属本迁移）。
 

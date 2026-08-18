@@ -103,7 +103,7 @@ fun reconstructJourneyFrame(
         width = width,
         height = height,
         options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
-            maturityName = com.yunjue.echo.mind.model.echoMaturity(fallbackPortrait!!.baselineDays).name,
+            maturityName = portraitMaturityProxy(fallbackPortrait!!, earliestDate = null).name,
         ),
     )
 }

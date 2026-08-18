@@ -108,6 +108,11 @@ fun EchoVisualSurface(
                 surface = EchoSurface.APP_PRIVATE,
                 motion = policy.motion,
                 maturityName = presence?.maturity?.name ?: "SEED",
+                // Organism Quality §3/§16：App Home 请求 AGSL 材质（STANDARD tier）——
+                // facade 按 capability 解析：API≥33 HW canvas → AGSL；API<33 → CANVAS+reason；
+                // 软件 canvas（preview/Robolectric）→ EchoOrganism 内合法降级 Canvas 后端。
+                // Wallpaper/Dream 仍钉 LEGACY（电池敏感面，216f3b3 决策不变）。
+                requestedTier = com.yunjue.echo.mind.visual.render.EchoRenderTier.STANDARD,
             ),
             modifier = modifier.fillMaxSize(),
             aggregateDescription = description,

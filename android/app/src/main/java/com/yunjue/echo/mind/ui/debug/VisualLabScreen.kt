@@ -201,9 +201,12 @@ private fun exportLab(
     val session = EchoRendererFacade.createSession(request, EXPORT_W, EXPORT_H)
     val bitmap = session.renderToBitmap((EXPORT_CLOCK_SECONDS * 1_000_000_000L).toLong())
     val resolution = session.resolution
-    // 视觉半径与帧计算机一致（baseR ≈ 0.19 + dispersion*0.11 + coreOpenness*0.02）× membraneBias
-    val approxR = EXPORT_W * 0.30f
-    val metrics = VisualLabMetrics.compute(bitmap, EXPORT_W / 2f, EXPORT_H / 2f, approxR)
+    // 视觉半径与帧计算机同公式（单一事实源 baseRadiusFor）
+    val identity = com.yunjue.echo.mind.visual.model.EchoIdentitySpec.derive(request.genome.identitySeed)
+    val baseR = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.baseRadiusFor(
+        request.genome.radialSpread, request.genome.coreIntensity, identity.membraneBias,
+    )
+    val metrics = VisualLabMetrics.compute(bitmap, EXPORT_W / 2f, EXPORT_H / 2f, baseR * EXPORT_W)
     val gate = VisualLabMetrics.evaluate(metrics)
 
     val dir = File(cacheDir, "visual-lab").also { it.mkdirs() }
@@ -214,15 +217,20 @@ private fun exportLab(
         .put("surface", request.surface.name)
         .put("requestedBackend", request.requestedTier.name)
         .put("resolvedBackend", resolution.resolvedTier.name)
+        .put("actualBackend", session.offscreenActualBackend)
         .put("backendName", resolution.backendName)
         .put("quality", resolution.quality.name)
-        .put("reason", resolution.reason ?: JSONObject.NULL)
+        .put("reason", session.offscreenReason ?: JSONObject.NULL)
         .put("reducedMotion", resolution.reducedMotion)
         .put("nearBlackRatio", metrics.nearBlackRatio.toDouble())
-        .put("highlightRatio", metrics.highlightRatio.toDouble())
+        .put("highLuminanceRatio", metrics.highLuminanceRatio.toDouble())
+        .put("extremeGlintRatio", metrics.extremeGlintRatio.toDouble())
         .put("warmRatio", metrics.warmRatio.toDouble())
         .put("negativeSpaceRatio", metrics.negativeSpaceRatio.toDouble())
         .put("visualMassInside", metrics.visualMassInside.toDouble())
+        .put("organismWidthFraction", metrics.organismWidthFraction.toDouble())
+        .put("organismHeightFraction", metrics.organismHeightFraction.toDouble())
+        .put("edgeDensity", metrics.edgeDensity.toDouble())
         .put("centerLuminance", metrics.centerLuminance.toDouble())
         .put("outerLuminance", metrics.outerLuminance.toDouble())
         .put("gateAllPass", gate.allPass)
@@ -230,12 +238,18 @@ private fun exportLab(
 
     return buildString {
         appendLine("导出：${dir.absolutePath}/$tag.{png,metrics.json}")
-        appendLine("后端：请求 ${request.requestedTier.name} → 实际 ${resolution.backendName}${resolution.reason?.let { "（$it）" } ?: ""}")
+        appendLine(
+            "后端：预览解析 ${resolution.backendName}${resolution.reason?.let { "（$it）" } ?: ""}；" +
+                "离屏导出 raster ${session.offscreenActualBackend}（软件位图无法执行 RuntimeShader——Android 真实约束）",
+        )
         appendLine("near-black %.1f%%（≥58%% %s）".format(metrics.nearBlackRatio * 100, ok(gate.nearBlackPass)))
-        appendLine("highlight %.2f%%（≤4%% %s）".format(metrics.highlightRatio * 100, ok(gate.highlightPass)))
-        appendLine("warm %.1f%%（≤15%% %s）".format(metrics.warmRatio * 100, ok(gate.warmPass)))
+        appendLine("high-luminance %.2f%%（≤4%% %s）".format(metrics.highLuminanceRatio * 100, ok(gate.highLuminancePass)))
+        appendLine("extreme glint %.2f%%（≤2.5%% %s）".format(metrics.extremeGlintRatio * 100, ok(gate.extremeGlintPass)))
+        appendLine("warm %.1f%%（target≤10%% %s / hard≤15%% %s）".format(metrics.warmRatio * 100, ok(gate.warmTargetPass), ok(gate.warmPass)))
         appendLine("negative-space %.1f%%（≥40%% %s）".format(metrics.negativeSpaceRatio * 100, ok(gate.negativeSpacePass)))
         appendLine("visual-mass@.9R %.1f%%（≥82%% %s）".format(metrics.visualMassInside * 100, ok(gate.visualMassPass)))
+        appendLine("organism bbox %.1f%%×%.1f%%（宽 72–82%% %s）".format(metrics.organismWidthFraction * 100, metrics.organismHeightFraction * 100, ok(gate.organismWidthPass)))
+        appendLine("edge-density %.3f".format(metrics.edgeDensity))
         appendLine("center-luma %.3f（cavity %s）".format(metrics.centerLuminance, ok(gate.cavityPass)))
         appendLine("Reference 门：${if (gate.allPass) "PASS" else "FAIL"}")
     }

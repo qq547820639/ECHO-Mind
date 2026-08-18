@@ -1,0 +1,38 @@
+{
+  "id": "03_QUIET_APP",
+  "surface": "APP_PRIVATE",
+  "maturity": "KNOWN",
+  "viewport": 1080x2340,
+  "identitySeed": 7710,
+  "requestedBackend": "ADVANCED",
+  "resolvedBackend": "STANDARD",
+  "actualBackend": "CANVAS",
+  "resolutionBackend": "AGSL",
+  "reason": "AGSL raster requires hardware canvas — offscreen export uses production CANVAS backend",
+  "quality": "NORMAL",
+  "metrics": {
+    "nearBlackRatio": 0.91885,
+    "highLuminanceRatio": 0.00009,
+    "extremeGlintRatio": 0.00000,
+    "warmRatio": 0.00102,
+    "negativeSpaceRatio": 1.00000,
+    "visualMassInside": 0.98965,
+    "organismWidthFraction": 0.71111,
+    "organismHeightFraction": 0.33675,
+    "edgeDensity": 0.14738,
+    "centerLuminance": 0.06095,
+    "outerLuminance": 0.01682
+  },
+  "gate": {
+    "nearBlackPass": true,
+    "highLuminancePass": true,
+    "extremeGlintPass": true,
+    "warmPass": true,
+    "warmTargetPass": true,
+    "negativeSpacePass": true,
+    "visualMassPass": true,
+    "organismWidthPass": false,
+    "cavityPass": true,
+    "allPass": false
+  }
+}

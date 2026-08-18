@@ -26,15 +26,15 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `f59668d`，2026-08-17 16:17 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `216f3b3`，2026-08-18 01:30 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
-| Android 单测（testDebugUnitTest） | **1309 全绿**（app 966 / core:visual 49 / feature:intelligence 32 / feature:journey 6 / feature:presence 25 / feature:presencevisual 22 / feature:qa 113 / feature:wearable 96） |
+| Android 单测（testDebugUnitTest） | **1321 全绿**（app 972 / core:visual 52 / feature:intelligence 32 / feature:journey 6 / feature:presence 25 / feature:presencevisual 23 / feature:qa 115 / feature:wearable 96） |
 | backend pytest | **1084 passed + 1 skipped**（全绿） |
-| Production Kotlin | 232 |
-| Test Kotlin | 160 |
-| QA Kotlin（:feature:qa，非 Production Runtime） | 36 |
+| Production Kotlin | 241 |
+| Test Kotlin | 163 |
+| QA Kotlin（:feature:qa，非 Production Runtime） | 39 |
 | Python | 69 |
 
 <!-- AUTO:BUILD_STATUS:END -->
@@ -135,6 +135,18 @@
    （Band 10 profile，212×520）安装并运行、页面渲染验证通过"（ERA 33 R4 实测）；
    不得宣称 installed on Band 10 / connected / Production Ready
    （真机安装验收清单见 `docs/wearable/BAND10_INSTALL_GUIDE.md` §3）。
+9. **ECHO Organism Quality Pass + Runtime Finish**（2026-08-18）✅ 软件侧完成——
+   修复两处颜色数学根因（palette chroma 量纲 + Lab→XYZ 分母）使 ECHO 呈现真实蓝紫彩度；
+   拓扑 v4（非闭合结构环 4–7 / 长丝 0.55–0.92R / 局部碎片 24–40 成主体 / 粒子反星空收敛 /
+   有机形变暗腔 + 暖结核心解剖）；体积大气层（haze+rim）；运动对齐 Art Direction
+   （呼吸 8.2–10.2s / 自转 30–55min / 丝相位 35–55s）；AGSL mask 升级 R/G/B(depth)/A +
+   depth fog shader；后端真值纪律（离屏 raster 恒 CANVAS + reason，修复设备 AGSL 离屏导出
+   崩溃缺陷）；App Home 请求 STANDARD(AGSL)，Wallpaper/Dream 维持 CANVAS；
+   JourneyScreen 按 cohesion 拆 10 文件（UX 不变）；Me mini 统一 facade（MINI 预算）；
+   maturity 语义统一（日历单一定义 + Journey 显式代理）；docs/current 版本收口 v0.11。
+   证据：`qa/reports/ECHO_ORGANISM_QUALITY_{BASELINE,RENDERER,PERFORMANCE,FINAL}.md` +
+   `qa/visual-review/organism-quality/`（5 张人眼评审图 + appendix，**视觉审美结论
+   PENDING_PRINCIPAL_VISUAL_REVIEW**；AGSL raster/真机门 BLOCKED_EXTERNAL_DEVICE）。
 
 ## 7. Governance（冻结纪律）
 
@@ -156,6 +168,8 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
+
 
 
 

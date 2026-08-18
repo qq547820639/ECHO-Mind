@@ -57,9 +57,14 @@ data class EchoIdentitySpec(
         fun derive(seed: Long): EchoIdentitySpec {
             // §12 primary hue 与 EchoIdentityGenome.accentHue 同源（frac(mix(seed,1))）——
             // App / Wallpaper / Dream / Wrist 呈现同一 hue 族（SAME ECHO 色族一致）。
-            val primaryHue = 218f + 44f * fracOf(DeterministicRandom.mix(seed, 1)) // 218°..262°
-            val secondaryHue = primaryHue + 22f + 22f * identityUnit(seed, 21) // §12：+22°..44°
-            val warmHue = 28f + 12f * identityUnit(seed, 22)               // §12：28°..40°
+            // Organism Quality §9：sRGB 主范围 225–275°（deep electric blue → violet）。
+            // 本转换（CIELCh D65 → sRGB）蓝紫区压缩严重：sRGB 225–275° ↔ LCh 283–313°，
+            // 故 LCh 取 285–313（实测锚定，见 qa/reports/ECHO_ORGANISM_QUALITY_RENDERER.md）。
+            val primaryHue = 285f + 28f * fracOf(DeterministicRandom.mix(seed, 1)) // sRGB ≈ 227–275
+            // §9 secondary 可到 sRGB ~300°（small magenta transition；LCh ≤336）
+            val secondaryHue = minOf(primaryHue + 12f + 14f * identityUnit(seed, 21), 336f)
+            // §9 warm 28–38°（sRGB）：LCh 70–82 → sRGB ≈ 28–40（暖区同样压缩，实测锚定）
+            val warmHue = 70f + 12f * identityUnit(seed, 22)
             return EchoIdentitySpec(
                 identitySeed = seed,
                 lobeCount = 2 + floor(identityUnit(seed, 1) * 4f).toInt(), // 2..5
@@ -73,10 +78,12 @@ data class EchoIdentitySpec(
                 identityPhase = identityUnit(seed, 9),
                 particleDepthBias = identityUnit(seed, 10),
                 warmKnotTopology = identityUnit(seed, 11),
+                // Quality §9：chroma 为 CIELCh Lab 量纲（0..~48 实用区间）——
+                // 旧值 0.12 在 ±100 Lab 轴上近无彩（灰色线圈根因），修正为真实彩度。
                 palette = EchoPaletteSpec(
-                    primary = PerceptualColor(l = 0.78f, c = 0.12f, h = primaryHue),
-                    secondary = PerceptualColor(l = 0.62f, c = 0.095f, h = secondaryHue),
-                    warm = PerceptualColor(l = 0.72f, c = 0.12f, h = warmHue),
+                    primary = PerceptualColor(l = 0.74f, c = 42f, h = primaryHue),
+                    secondary = PerceptualColor(l = 0.58f, c = 38f, h = secondaryHue),
+                    warm = PerceptualColor(l = 0.74f, c = 26f, h = warmHue),
                 ),
             )
         }
