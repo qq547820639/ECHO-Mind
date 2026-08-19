@@ -30,7 +30,9 @@ internal fun JourneyScaleContent(
             selectedDate = selectedDate,
             feedback = feedback,
             onSelectDay = onSelectDay,
-            detail = { JourneyDetailSections(state = state, onEvent = onEvent, feedback = feedback, anchorDate = anchorDate) },
+            selectedCanonical = state.selectedCanonical,
+            selectedDayExplanation = state.selectedDayExplanation,
+            detail = { JourneyDetailSections(state = state, onEvent = onEvent, feedback = feedback, anchorDate = anchorDate, showDayReconstruction = false) },
         )
         JourneyScale.WEEK -> WeekScaleContent(
             days = state.visualDays,
