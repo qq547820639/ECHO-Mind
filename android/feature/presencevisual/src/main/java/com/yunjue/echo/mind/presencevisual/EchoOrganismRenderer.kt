@@ -10,25 +10,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import com.yunjue.echo.mind.visual.model.EchoVisualGenome
 import com.yunjue.echo.mind.visual.render.ColorSpace
 import com.yunjue.echo.mind.visual.render.FilamentStroke
+import com.yunjue.echo.mind.visual.render.MembraneSpec
 import com.yunjue.echo.mind.visual.render.OrganismFrame
 import com.yunjue.echo.mind.visual.render.OrganismFrameComputer
+import com.yunjue.echo.mind.visual.render.ParticleKind
 import com.yunjue.echo.mind.visual.surface.EchoSurface
 import com.yunjue.echo.mind.visual.surface.MotionPolicy
 import com.yunjue.echo.mind.visual.surface.SurfacePolicy
 import com.yunjue.echo.mind.visual.surface.motionScaleFor
 import com.yunjue.echo.mind.visual.surface.reducedMotionFor
-import androidx.compose.ui.geometry.Size
 import kotlin.math.PI
 import kotlin.math.min
 
@@ -122,9 +129,18 @@ fun EchoOrganism(
                         heightPx = size.height,
                         exposure = spec.genome.luminance,
                         halo = spec.genome.haloIntensity,
-                        primaryColor = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
-                        secondaryColor = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
-                        warmColor = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                        colors = AgslEchoBackend.AgslMaterialColors(
+                            primary = ColorSpace.lch(palette.primary.l, palette.primary.c, palette.primary.h),
+                            secondary = ColorSpace.lch(palette.secondary.l, palette.secondary.c, palette.secondary.h),
+                            warm = ColorSpace.lch(palette.warm.l, palette.warm.c, palette.warm.h),
+                            // Breakthrough §18/§20：cyan 高光与帧计算机同源
+                            cyan = OrganismFrameComputer.cyanAccentFor(base.identitySeed),
+                        ),
+                        noisePhase = AgslEchoBackend.noisePhaseFor(
+                            identityPhase = base.identityPhase,
+                            dayComposition = base.dayComposition,
+                            clockSeconds = clockNanos / 1_000_000_000f,
+                        ),
                     )
                 } catch (_: IllegalArgumentException) {
                     // 软件 canvas（Robolectric/Compose preview/个别低层 fallback）无法执行
@@ -153,7 +169,13 @@ internal class AgslSessionHolder {
     }
 }
 
-/** DrawScope 绘制 V3 分层 organism（public：Journey 等其他 Surface 复用）。 */
+/** DrawScope 绘制 V3 分层 organism（public：Journey 等其他 Surface 复用）。
+ *
+ * Organism Visual Breakthrough 分层（与 OrganismCanvasRenderer 同序/同帧模型）：
+ * ambient → atmosphere → halos → ground rings → back lobes → core glow →
+ * 三层丝（3-pass）→ mid lobes → cavity → front lobes → strands/knots →
+ * particles（带辉光晕）→ organic membrane → ripples → warm accents。
+ */
 fun DrawScope.drawOrganism(frame: OrganismFrame) {
     val minDim = min(size.width, size.height)
     val center = Offset(size.width / 2f, size.height / 2f)
@@ -162,7 +184,7 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
     drawRect(
         brush = Brush.radialGradient(
             0f to Color(frame.ambientField.centerColor),
-            0.42f to Color(frame.ambientField.midColor),
+            0.58f to Color(frame.ambientField.midColor),
             1f to Color(frame.ambientField.edgeColor),
             center = center,
             radius = (frame.ambientField.radiusFraction * minDim).coerceAtLeast(minDim * 0.4f),
@@ -200,14 +222,30 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
         )
     }
 
-    // 3. 结构环（identity skeleton）
+    // 2b. 下方空间能量环 + 反射辉光（Breakthrough §26）
+    drawGroundRings(frame, minDim)
+
+    // 3. 后层体积叶（nebula 云底）
+    drawVolumeLobes(frame, minDim, maxDepth = 0.45f)
+
+    // 3b. 核心辉光（心脏光）
+    frame.coreGlow?.let { glow ->
+        drawNebulaImage(
+            nebulaImage(glow.color), center.x, center.y,
+            glow.radiusFraction * minDim, glow.radiusFraction * minDim,
+            0f, glow.alpha,
+        )
+    }
+
+    // 4-6. 三层丝（3-pass 丝材质：宽辉光 + 中间体 + 细亮芯）
     frame.structuralRings.forEach { drawStrokePath(it, minDim) }
-    // 4. 长丝（含 behind-core 遮挡 alpha）
     frame.longFilaments.forEach { drawStrokePath(it, minDim, glowPass = true) }
-    // 5. 局部碎片（§7：含辉光——可见的生命纹理）
     frame.localFragments.forEach { drawStrokePath(it, minDim, glowPass = true) }
 
-    // 6. 空心核：暗腔 + 内部大气（禁止实心白球，§8；有机形变边缘）
+    // 6b. 中层体积叶（主云体）
+    drawVolumeLobes(frame, minDim, minDepth = 0.45f, maxDepth = 0.82f)
+
+    // 7. 空心核：暗腔 + 内部大气（§14 重平衡：小而柔，嵌入云组织）
     val cavityR = frame.coreCavity.radiusFraction * minDim
     drawPath(
         path = cavityPath(frame, center, cavityR * 1.35f),
@@ -219,44 +257,65 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
     )
     drawPath(
         path = cavityPath(frame, center, cavityR),
-        color = Color(frame.coreCavity.darkColor),
+        color = Color(frame.coreCavity.darkColor).copy(alpha = 0.92f),
     )
 
-    // 7. 核心细缕 + 稳定结
+    // 7b. 前层体积叶（前景云——部分遮暗腔，制造深度）
+    drawVolumeLobes(frame, minDim, minDepth = 0.82f)
+
+    // 8. 核心细缕 + 稳定结（bright nodes；平坦中心剖面——Canvas 渲染器同式）
     frame.coreStrands.forEach { drawStrokePath(it, minDim) }
     frame.coreKnots.forEach { k ->
+        val kr = k.radiusFraction * minDim * 1.4f
+        val kCenter = Offset(k.x * size.width, k.y * size.height)
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(k.color).copy(alpha = k.alpha.coerceIn(0f, 1f)),
-                    Color(k.color).copy(alpha = 0f),
-                ),
-                center = Offset(k.x * size.width, k.y * size.height),
-                radius = k.radiusFraction * minDim * 1.4f,
+                0f to Color(k.color).copy(alpha = k.alpha.coerceIn(0f, 1f)),
+                0.30f to Color(k.color).copy(alpha = k.alpha.coerceIn(0f, 1f) * 0.88f),
+                1f to Color(k.color).copy(alpha = 0f),
+                center = kCenter,
+                radius = kr,
             ),
-            radius = k.radiusFraction * minDim * 1.4f,
-            center = Offset(k.x * size.width, k.y * size.height),
+            radius = kr,
+            center = kCenter,
         )
     }
 
-    // 8. 粒子（Fibonacci 投影）
+    // 9. 粒子（BRIGHT/GLINT 带辉光晕——嵌在 volume 中的光尘）
     frame.particles.forEach { p ->
+        val px = p.x * size.width
+        val py = p.y * size.height
+        if (p.kind != ParticleKind.AMBIENT) {
+            val haloScale = if (p.kind == ParticleKind.GLINT) 7.5f else 5.0f
+            val haloAlpha = if (p.kind == ParticleKind.GLINT) 0.42f else 0.26f
+            drawNebulaImage(
+                nebulaImage(p.color), px, py,
+                p.radiusFraction * minDim * haloScale,
+                p.radiusFraction * minDim * haloScale,
+                0f, p.alpha * haloAlpha,
+            )
+        }
         drawCircle(
             color = Color(p.color).copy(alpha = p.alpha.coerceIn(0f, 1f)),
             radius = p.radiusFraction * minDim,
-            center = Offset(p.x * size.width, p.y * size.height),
+            center = Offset(px, py),
         )
     }
 
-    // 9. 前膜（前半球壳层微光）
-    drawCircle(
-        color = Color(frame.frontMembrane.color).copy(alpha = frame.frontMembrane.alpha.coerceIn(0f, 1f)),
-        radius = frame.frontMembrane.radiusFraction * minDim,
-        center = center,
-        style = Stroke(width = minDim * 0.0016f),
-    )
+    // 10. 有机生命膜（fill + edge scattering + rim glow + outer haze）
+    val membrane = frame.membrane
+    if (membrane != null) {
+        drawMembrane(membrane, center, minDim)
+    } else {
+        drawCircle(
+            color = Color(frame.frontMembrane.color).copy(alpha = frame.frontMembrane.alpha.coerceIn(0f, 1f)),
+            radius = frame.frontMembrane.radiusFraction * minDim,
+            center = center,
+            style = Stroke(width = minDim * 0.0016f),
+        )
+    }
 
-    // 10. 涟漪
+    // 11. 涟漪
     frame.ripples.forEach { r ->
         drawCircle(
             color = Color(frame.frontMembrane.color).copy(alpha = r.alpha.coerceIn(0f, 1f)),
@@ -266,7 +325,7 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
         )
     }
 
-    // 11. 暖金高光（极少量；§12 面积上限；颜色 = identity palette.warm 单源——与 AGSL iWarm 同流）
+    // 12. 暖金高光（极少量；§12 面积上限；颜色 = identity palette.warm 单源——与 AGSL iWarm 同流）
     frame.warmAccents.forEach { w ->
         drawCircle(
             brush = Brush.radialGradient(
@@ -278,6 +337,140 @@ fun DrawScope.drawOrganism(frame: OrganismFrame) {
             center = Offset(w.x * size.width, w.y * size.height),
         )
     }
+}
+
+// ===== Breakthrough 体积层（Compose adapter；与 Canvas 渲染器同帧同序）=====
+
+/** Compose 星云纹理缓存（Bitmap→ImageBitmap 零拷贝包装；进程级复用）。 */
+private val nebulaImageCache = HashMap<Int, ImageBitmap>()
+
+private fun nebulaImage(color: Int): ImageBitmap =
+    nebulaImageCache.getOrPut(color) { NebulaTextureCache.textureFor(color).asImageBitmap() }
+
+private fun DrawScope.drawVolumeLobes(
+    frame: OrganismFrame,
+    minDim: Float,
+    minDepth: Float = 0f,
+    maxDepth: Float = 1f,
+) {
+    frame.volumeLobes.forEach { lobe ->
+        if (lobe.depth < minDepth || lobe.depth >= maxDepth) return@forEach
+        drawNebulaImage(
+            nebulaImage(lobe.color),
+            lobe.x * size.width, lobe.y * size.height,
+            lobe.radiusX * minDim, lobe.radiusY * minDim,
+            Math.toDegrees(lobe.rotation.toDouble()).toFloat(),
+            lobe.alpha,
+        )
+    }
+}
+
+private fun DrawScope.drawNebulaImage(
+    image: ImageBitmap,
+    cx: Float,
+    cy: Float,
+    rx: Float,
+    ry: Float,
+    rotationDeg: Float,
+    alpha: Float,
+) {
+    if (rx <= 0f || ry <= 0f || alpha <= 0.003f) return
+    val dstW = (rx * 2f).toInt().coerceAtLeast(1)
+    val dstH = (ry * 2f).toInt().coerceAtLeast(1)
+    val drawBlock: DrawScope.() -> Unit = {
+        drawImage(
+            image = image,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(image.width, image.height),
+            dstOffset = IntOffset((cx - rx).toInt(), (cy - ry).toInt()),
+            dstSize = IntSize(dstW, dstH),
+            alpha = alpha.coerceIn(0f, 1f),
+        )
+    }
+    if (rotationDeg != 0f) {
+        withTransform({ rotate(rotationDeg, pivot = Offset(cx, cy)) }) { drawBlock() }
+    } else {
+        drawBlock()
+    }
+}
+
+private fun DrawScope.drawGroundRings(frame: OrganismFrame, minDim: Float) {
+    val rings = frame.groundRings
+    if (rings.isEmpty()) return
+    val first = rings.first()
+    drawNebulaImage(
+        nebulaImage(first.color),
+        size.width / 2f, (first.yCenter + 0.02f) * size.height,
+        first.radiusXFraction * minDim * 0.9f,
+        first.radiusYFraction * minDim * 2.6f,
+        0f, first.alpha * 0.55f,
+    )
+    rings.forEach { ring ->
+        val rcx = size.width / 2f
+        val rcy = ring.yCenter * size.height
+        drawOval(
+            color = Color(ring.color).copy(alpha = ring.alpha.coerceIn(0f, 1f)),
+            topLeft = Offset(rcx - ring.radiusXFraction * minDim, rcy - ring.radiusYFraction * minDim),
+            size = Size(ring.radiusXFraction * minDim * 2f, ring.radiusYFraction * minDim * 2f),
+            style = Stroke(width = ring.widthFraction * minDim),
+        )
+    }
+}
+
+private fun DrawScope.drawMembrane(mem: MembraneSpec, center: Offset, minDim: Float) {
+    val rPx = mem.radiusFraction * minDim
+    val path = membranePath(mem, center, rPx)
+    // a. inner body fill
+    drawPath(
+        path = path,
+        brush = Brush.radialGradient(
+            0f to Color(mem.fillColor).copy(alpha = 0f),
+            0.55f to Color(mem.fillColor).copy(alpha = mem.fillAlpha * 0.45f),
+            1f to Color(mem.fillColor).copy(alpha = mem.fillAlpha),
+            center = center,
+            radius = rPx,
+        ),
+    )
+    // b. outer haze
+    drawPath(
+        path = path,
+        color = Color(mem.edgeColor).copy(alpha = mem.edgeAlpha.coerceIn(0f, 1f) * 0.32f),
+        style = Stroke(width = mem.edgeWidthFraction * minDim * 2.4f),
+    )
+    // c. edge scattering band
+    drawPath(
+        path = path,
+        color = Color(mem.edgeColor).copy(alpha = mem.edgeAlpha.coerceIn(0f, 1f)),
+        style = Stroke(width = mem.edgeWidthFraction * minDim),
+    )
+    // d. rim glow（cyan 局部亮缘）
+    drawPath(
+        path = path,
+        color = Color(mem.rimColor).copy(alpha = mem.rimAlpha.coerceIn(0f, 1f)),
+        style = Stroke(width = mem.rimWidthFraction * minDim),
+    )
+}
+
+/** Breakthrough §12 有机膜轮廓（与 OrganismCanvasRenderer.membranePathOf 同式）。 */
+private fun membranePath(
+    mem: MembraneSpec,
+    center: Offset,
+    radiusPx: Float,
+): androidx.compose.ui.graphics.Path {
+    val path = androidx.compose.ui.graphics.Path()
+    val steps = 72
+    val harmonics = mem.harmonics
+    for (i in 0..steps) {
+        val theta = i.toFloat() / steps * 2f * PI.toFloat()
+        var r = 1f
+        harmonics.forEach { h -> r += h.amplitude * kotlin.math.sin(h.order * theta + h.phase) * mem.deformScale }
+        r += mem.localWaveAmplitude * kotlin.math.sin(2f * theta + mem.localWavePhase)
+        val x = center.x + kotlin.math.cos(theta) * radiusPx * r
+        val y = center.y + kotlin.math.sin(theta) * radiusPx * r
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
 }
 
 /** §8 有机暗腔路径（identity 恒定谐波形变；与 OrganismCanvasRenderer.cavityPath 同式）。 */
@@ -305,32 +498,36 @@ private fun cavityPath(frame: OrganismFrame, center: Offset, radiusPx: Float): a
 
 /**
  * 逐段描边（per-point alpha 已烘焙 3D 深度/遮挡）。
- * §Y：每段先画宽而淡的 GLOW，再画细而实的 core（crisp core 压在辉光之上，
- * 与 OrganismCanvasRenderer 同序）。
+ * Breakthrough §16 丝的三层材质：wide soft glow → medium chromatic body → thin bright core
+ * （与 OrganismCanvasRenderer.drawStroke 同序同参）。
  */
 private fun DrawScope.drawStrokePath(stroke: FilamentStroke, minDim: Float, glowPass: Boolean = false) {
     val pts = stroke.points
     if (pts.size < 2) return
     val w = stroke.widthFraction * minDim
     val color = Color(stroke.color)
+    if (glowPass && stroke.glow > 0f) {
+        drawStrokeSegments(pts, w * 5.2f) { a -> color.copy(alpha = a * stroke.glow * 0.15f) }
+        drawStrokeSegments(pts, w * 2.4f) { a -> color.copy(alpha = a * stroke.glow * 0.42f) }
+    }
+    drawStrokeSegments(pts, w) { a -> color.copy(alpha = a) }
+}
+
+private inline fun DrawScope.drawStrokeSegments(
+    pts: List<com.yunjue.echo.mind.visual.render.StrokePoint>,
+    strokeWidth: Float,
+    colorFor: (Float) -> Color,
+) {
     for (i in 1 until pts.size) {
         val a = pts[i - 1]
         val b = pts[i]
         val alpha = ((a.alpha + b.alpha) * 0.5f).coerceIn(0f, 1f)
         if (alpha <= 0.004f) continue
-        if (glowPass && stroke.glow > 0f) {
-            drawLine(
-                color = color.copy(alpha = alpha * stroke.glow * 0.4f),
-                start = Offset(a.x * size.width, a.y * size.height),
-                end = Offset(b.x * size.width, b.y * size.height),
-                strokeWidth = w * 3.2f,
-            )
-        }
         drawLine(
-            color = color.copy(alpha = alpha),
+            color = colorFor(alpha),
             start = Offset(a.x * size.width, a.y * size.height),
             end = Offset(b.x * size.width, b.y * size.height),
-            strokeWidth = w,
+            strokeWidth = strokeWidth,
         )
     }
 }

@@ -30,6 +30,14 @@ class AgslBackendTest {
         assertTrue(src.contains("uniform shader iVectorMask"))
         assertTrue("必须 premultiplied alpha 输出", src.contains("col * alpha"))
         assertTrue("tone soft knee（§24 禁止 hard clip）", src.contains("softKnee"))
+        // Organism Visual Breakthrough §19–§22：体积材质输入
+        assertTrue("缺少 volume mask 输入", src.contains("uniform shader iVolumeMask"))
+        for (u in listOf("iCyan", "iVolumeGain", "iPhase")) {
+            assertTrue("缺少体积材质 uniform $u", src.contains(u))
+        }
+        // §20：FBM 云场（deterministic；多频 warped noise）
+        assertTrue("缺少 FBM 云场", src.contains("fbm4"))
+        assertTrue("缺少 domain warp", src.contains("w * 0.85"))
     }
 
     @Test

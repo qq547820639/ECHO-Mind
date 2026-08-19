@@ -93,6 +93,41 @@ data class CoreKnotTopo(
     val warm: Boolean,
 )
 
+/**
+ * 体积叶拓扑（Organism Visual Breakthrough §10：nebula lobe 的 identity 稳定锚点）。
+ * 单层 alpha 很低、多层叠加成云——lobe 位置/大小/色族数月恒定；
+ * Moment/Daily 只在帧求值期做 drift / pulse / intensity（不重建拓扑）。
+ */
+data class VolumeLobeTopo(
+    /** lobe 中心单位方向（Fibonacci 球；identity 相位）。 */
+    val dir: Vec3,
+    /** 中心距（单位 R；0.14–0.74——主体在膜内，含少量贴核）。 */
+    val shellRadius: Float,
+    /** 长半轴（单位 R）。 */
+    val radiusX: Float,
+    /** 短半轴（单位 R；radiusX 的 0.62–0.95）。 */
+    val radiusY: Float,
+    /** 椭圆倾角（rad）。 */
+    val tilt: Float,
+    /** 色族：0 primary / 1 secondary(violet) / 2 cyan accent。 */
+    val family: Int,
+    /** 边缘软度 0..1（1 = 最弥散）。 */
+    val softness: Float,
+    /** 慢呼吸相位偏移（rad）。 */
+    val phase: Float,
+)
+
+/**
+ * 膜轮廓谐波（Organism Visual Breakthrough §12：有机膜边界）。
+ * radius(θ) = R·(1 + Σ amp·sin(order·θ + phase)·deformScale + localWave)——
+ * identity 恒定；成熟度只调 deformScale（SEED 野生 → MATURE 稳定）。
+ */
+data class MembraneHarmonic(
+    val order: Int,
+    val amplitude: Float,
+    val phase: Float,
+)
+
 /** 完整稳定拓扑。 */
 data class OrganismTopology(
     val rings: List<StructuralRingTopo>,
@@ -100,13 +135,17 @@ data class OrganismTopology(
     val fragments: List<LocalFragmentTopo>,
     val particles: List<ParticleBase>,
     val coreKnots: List<CoreKnotTopo>,
+    /** 体积叶（nebula lobes；§10：成熟 ECHO 12–28 个主要 lobe）。 */
+    val volumeLobes: List<VolumeLobeTopo>,
+    /** 膜轮廓谐波（identity 恒定；orders 2/3/5）。 */
+    val membraneHarmonics: List<MembraneHarmonic>,
     val version: Int,
 )
 
 object OrganismTopologyBuilder {
 
     /** 拓扑结构版本（算法变更 → 缓存自然失效；golden 需显式审核）。 */
-    const val TOPOLOGY_VERSION = 4
+    const val TOPOLOGY_VERSION = 5
 
     private const val GOLDEN_ANGLE = 2.39996323f
     private const val MAX_PARTICLES = 220
@@ -154,7 +193,8 @@ object OrganismTopologyBuilder {
         val seed = identity.identitySeed
         // 盐分段（确定性独立随机流纪律）：rings 1000–1046 / longs 2000–2152 / frags 3000–3199
         // （形变族 3400–3539）/ particles 4000–4879（shell 4000+/分类 4220+/暖标 4440+/抖动 4660+）
-        // / knots 5000–5203——全部盐区间两两不相交
+        // / knots 5000–5203 / volumeLobes 6000–6399 / membrane 6500–6519
+        // ——全部盐区间两两不相交
         // （OrganismTopologyTest.saltSegmentsDoNotCollideAcrossLayers 静态断言）。
         val profile = EchoSceneCompiler.qualityProfile(quality)
         val maturity = EchoSceneCompiler.maturityMultiplier(maturityName)
@@ -267,7 +307,67 @@ object OrganismTopologyBuilder {
             )
         }
 
-        return OrganismTopology(rings, longs, frags, particles, knots, TOPOLOGY_VERSION)
+        // ---- Volume Lobes（Organism Visual Breakthrough §10：identity 稳定 nebula 锚点）----
+        // 盐 6000–6399（dir 族 6000+ / shell 6050+ / rx 6100+ / ry 6150+ / tilt 6200+ /
+        // familyRank 6250+ / softness 6300+ / phase 6350+——与既有盐区间两两不相交）。
+        // 数量随 maturity：SEED ~12–14 / KNOWN ~20–21 / MATURE ~21–23（§10：12–28 主要 lobe；
+        // SEED 更简单但仍是有机体，绝不退回 atom wireframe）
+        val lobeCount = (4f + 16f * maturity + 3f * identity.lobeCount / 5f).toInt().coerceIn(8, 26)
+        // 色族分层（hash 排名，与粒子分类同纪律）：cyan 33% / primary 32% / secondary 35%
+        //（Breakthrough §18：cyan 是重要生命高光之一——份额上调，但不超过主色族之和）
+        val lobeRank = (0 until lobeCount).sortedBy { DeterministicRandom.at(seed, 6250 + it) }
+        val familyByIndex = IntArray(lobeCount)
+        lobeRank.forEachIndexed { rank, idx ->
+            familyByIndex[idx] = when {
+                rank < (lobeCount * 0.33f).toInt() -> 2 // cyan accent
+                rank < (lobeCount * 0.65f).toInt() -> 0 // primary
+                else -> 1 // secondary violet
+            }
+        }
+        val lobes = ArrayList<VolumeLobeTopo>(lobeCount)
+        for (i in 0 until lobeCount) {
+            val dir = fibDir(i, lobeCount, identity.identityPhase * TWO_PI + 2.4f)
+            val u = DeterministicRandom.at(seed, 6050 + i)
+            // 二次分布：主体在中内层（0.12–0.62R），lobe 群聚成 nebula 而非均匀环；
+            // 收拢保证 luminous bbox 宽 ≤0.84 viewport（Breakthrough §31）
+            val shell = 0.12f + 0.50f * u * u
+            val rx = 0.15f + 0.17f * DeterministicRandom.at(seed, 6100 + i)
+            lobes += VolumeLobeTopo(
+                dir = dir,
+                shellRadius = shell,
+                radiusX = rx,
+                radiusY = rx * (0.62f + 0.33f * DeterministicRandom.at(seed, 6150 + i)),
+                tilt = DeterministicRandom.range(seed, 6200 + i, 0f, PI.toFloat()),
+                family = familyByIndex[i],
+                softness = 0.55f + 0.45f * DeterministicRandom.at(seed, 6300 + i),
+                phase = DeterministicRandom.at(seed, 6350 + i) * TWO_PI,
+            )
+        }
+
+        // ---- Membrane Harmonics（§12：有机膜轮廓；identity 恒定，orders 2/3/5）----
+        // 盐：amp 6500–6504 / phase 6510–6514（两段不相交）。振幅基线 ±3–5.5%
+        // （帧求值按 maturity deformScale 缩放：SEED ±8–14% 野生 / KNOWN ±3–5.5% / MATURE 更稳）。
+        val membraneHarmonics = listOf(
+            MembraneHarmonic(
+                order = 2,
+                amplitude = 0.030f + 0.025f * DeterministicRandom.at(seed, 6500),
+                phase = DeterministicRandom.range(seed, 6510, 0f, TWO_PI),
+            ),
+            MembraneHarmonic(
+                order = 3,
+                amplitude = 0.022f + 0.020f * DeterministicRandom.at(seed, 6501),
+                phase = DeterministicRandom.range(seed, 6511, 0f, TWO_PI),
+            ),
+            MembraneHarmonic(
+                order = 5,
+                amplitude = 0.010f + 0.012f * DeterministicRandom.at(seed, 6502),
+                phase = DeterministicRandom.range(seed, 6512, 0f, TWO_PI),
+            ),
+        )
+
+        return OrganismTopology(
+            rings, longs, frags, particles, knots, lobes, membraneHarmonics, TOPOLOGY_VERSION,
+        )
     }
 
     /** Fibonacci 球第 i 个方向（§17：goldenAngle·i + identityPhase）。 */

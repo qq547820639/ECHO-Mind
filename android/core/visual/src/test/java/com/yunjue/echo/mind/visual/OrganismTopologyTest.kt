@@ -90,6 +90,50 @@ class OrganismTopologyTest {
         assertTrue("2–4 个稳定结", a.coreKnots.size in 2..4)
     }
 
+    /**
+     * Organism Visual Breakthrough §10：体积叶拓扑——成熟 ECHO 12–28 个主要 lobe，
+     * SEED 明显更少但仍是有机体（非原子线框）；色族覆盖 primary/secondary/cyan；
+     * lobe 位置 identity 恒定（同 seed 同结果，换 seed 结构不同）。
+     */
+    @Test
+    fun volumeLobesExistWithMaturityScalingAndFamilies() {
+        val mature = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "MATURE")
+        val known = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "KNOWN")
+        val seed = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "SEED")
+        assertTrue("MATURE lobes 12..28（实际 ${mature.volumeLobes.size}）", mature.volumeLobes.size in 12..28)
+        assertTrue("KNOWN lobes 12..28（实际 ${known.volumeLobes.size}）", known.volumeLobes.size in 12..28)
+        assertTrue("SEED lobes 更少但仍是有机体（>=8，实际 ${seed.volumeLobes.size}）", seed.volumeLobes.size >= 8)
+        assertTrue("SEED lobes < MATURE lobes", seed.volumeLobes.size < mature.volumeLobes.size)
+        // 色族覆盖：cyan accent 存在且占比 ≤ 1/3（cyan 是高光，不是主色）
+        val cyanCount = mature.volumeLobes.count { it.family == 2 }
+        assertTrue("cyan lobe 存在（electric life）", cyanCount > 0)
+        assertTrue("cyan lobe 占比 ≤ 40%", cyanCount <= mature.volumeLobes.size * 4 / 10)
+        // 几何域约束（Breakthrough §31 收拢：luminous bbox 宽 ≤0.84 viewport）
+        mature.volumeLobes.forEach { lb ->
+            assertTrue("lobe shell 0.12..0.62R", lb.shellRadius in 0.12f..0.62f)
+            assertTrue("lobe rx 0.15..0.32R", lb.radiusX in 0.15f..0.32f)
+            assertTrue("lobe ry < rx", lb.radiusY < lb.radiusX)
+            assertTrue("lobe softness 0.55..1.0", lb.softness in 0.55f..1.0f)
+        }
+        // identity 恒定：同 seed 逐值相同；不同 seed 结构不同
+        val again = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "MATURE")
+        assertEquals(mature.volumeLobes, again.volumeLobes)
+        val other = OrganismTopologyBuilder.topologyFor(identity(12L), EchoRenderQuality.NORMAL, "MATURE")
+        assertTrue("不同 identity 的 lobe 拓扑不同", mature.volumeLobes != other.volumeLobes)
+    }
+
+    /** Breakthrough §12：膜谐波 identity 恒定（orders 2/3/5，振幅克制）。 */
+    @Test
+    fun membraneHarmonicsAreIdentityStable() {
+        val a = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "KNOWN")
+        val b = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "MATURE")
+        assertEquals("膜谐波与 maturity 无关（identity 恒定）", a.membraneHarmonics, b.membraneHarmonics)
+        assertEquals("orders = 2/3/5", listOf(2, 3, 5), a.membraneHarmonics.map { it.order })
+        a.membraneHarmonics.forEach {
+            assertTrue("膜谐波振幅克制（±5.5% 内）", it.amplitude in 0.008f..0.056f)
+        }
+    }
+
     @Test
     fun cacheRebuildsOnlyOnKeyChange() {
         val base = OrganismTopologyBuilder.topologyFor(identity(11L), EchoRenderQuality.NORMAL, "KNOWN")
@@ -141,6 +185,8 @@ class OrganismTopologyTest {
     /**
      * T2-P2-2 盐分段契约：各层（含层内通道族）盐区间两两不相交——跨层随机流独立，
      * 消除旧盐空间「particle i 的 shell ≡ particle i-10 的 classRank」等隐藏等值相关。
+     * Organism Visual Breakthrough 新增：volumeLobes 6050–6385 / membrane 6500–6514 /
+     * groundRings 6710–6754。
      */
     @Test
     fun saltSegmentsDoNotCollideAcrossLayers() {
@@ -158,6 +204,16 @@ class OrganismTopologyTest {
             "knots.angle" to 5000..5003,
             "knots.radius" to 5100..5103,
             "knots.size" to 5200..5203,
+            "lobes.shell" to 6050..6085,
+            "lobes.rx" to 6100..6135,
+            "lobes.ry" to 6150..6185,
+            "lobes.tilt" to 6200..6235,
+            "lobes.familyRank" to 6250..6285,
+            "lobes.softness" to 6300..6335,
+            "lobes.phase" to 6350..6385,
+            "membrane.amp" to 6500..6504,
+            "membrane.phase" to 6510..6514,
+            "groundRings" to 6710..6754,
         )
         val list = segments.entries.toList()
         for (i in list.indices) {

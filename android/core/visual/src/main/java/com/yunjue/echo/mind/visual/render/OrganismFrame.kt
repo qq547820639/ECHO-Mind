@@ -93,6 +93,76 @@ data class CoreKnotV(
 /** 前膜（front membrane：前半球壳层微光）。 */
 data class FrontMembrane(val radiusFraction: Float, val color: Argb, val alpha: Float)
 
+/**
+ * 体积叶（nebula lobe 的帧求值产物；Organism Visual Breakthrough §10/§11）。
+ * 坐标为视口归一化（0..1）；半径为 minDim 分数。多层低 alpha 叠加成云。
+ */
+data class VolumeLobeV(
+    val x: Float,
+    val y: Float,
+    val radiusX: Float,
+    val radiusY: Float,
+    /** 椭圆旋转（rad）。 */
+    val rotation: Float,
+    val color: Argb,
+    /** 单层 alpha（低；叠加产生密度）。 */
+    val alpha: Float,
+    /** 边缘软度 0..1。 */
+    val softness: Float,
+    /** 归一化深度 0..1（0 back → 1 front；AGSL volume mask B 通道 / Canvas 排序）。 */
+    val depth: Float,
+)
+
+/**
+ * 有机生命膜（Organism Visual Breakthrough §12/§13）。
+ * 轮廓：radius(θ) = R·(1 + Σ amp·sin(order·θ + phase)·deformScale + localWave)；
+ * 不只是 stroke——inner fill + edge scattering + rim glow 由渲染器分层表达。
+ */
+data class MembraneSpec(
+    /** 基础半径（minDim 分数；≈0.92R）。 */
+    val radiusFraction: Float,
+    /** identity 恒定谐波（orders 2/3/5；OrganismTopology.membraneHarmonics）。 */
+    val harmonics: List<CavityHarmonic>,
+    /** 成熟度形变缩放（SEED 野生 1.5–1.7 / KNOWN 1.0 / MATURE 0.88）。 */
+    val deformScale: Float,
+    /** 时间性 local wave 幅度（呼吸期非对称漂移；确定性，来自 clock）。 */
+    val localWaveAmplitude: Float,
+    val localWavePhase: Float,
+    /** 内体填充色（低亮度 identity 色）。 */
+    val fillColor: Argb,
+    val fillAlpha: Float,
+    /** 边缘散射色（较亮）。 */
+    val edgeColor: Argb,
+    val edgeAlpha: Float,
+    /** 边缘散射带宽度（minDim 分数）。 */
+    val edgeWidthFraction: Float,
+    /** 局部亮缘色（cyan 高光族）。 */
+    val rimColor: Argb,
+    val rimAlpha: Float,
+    val rimWidthFraction: Float,
+)
+
+/** 下方空间能量环（Organism Visual Breakthrough §26：让 ECHO「存在于空间」）。 */
+data class GroundRing(
+    /** 椭圆中心 Y（视口归一化； organism 下方）。 */
+    val yCenter: Float,
+    /** 半长轴（minDim 分数）。 */
+    val radiusXFraction: Float,
+    /** 半短轴（minDim 分数；压扁透视）。 */
+    val radiusYFraction: Float,
+    val alpha: Float,
+    val color: Argb,
+    /** 描边宽度（minDim 分数）。 */
+    val widthFraction: Float,
+)
+
+/** 核心辉光（cavity 周围的心脏光——把暗腔「嵌入」云与丝的组织中，§14）。 */
+data class CoreGlow(
+    val radiusFraction: Float,
+    val color: Argb,
+    val alpha: Float,
+)
+
 /** 粒子（Fibonacci 球投影；kind 决定亮度上限；depth = frontness 0..1 供 AGSL mask B 通道）。 */
 data class SceneParticleV3(
     val x: Float,
@@ -125,4 +195,13 @@ data class OrganismFrame(
     val frontMembrane: FrontMembrane,
     val ripples: List<Ripple>,
     val warmAccents: List<WarmAccent>,
+    // ---- Organism Visual Breakthrough 新体积层（§10–§14/§26）----
+    /** 体积叶（nebula lobes；多层低 alpha 叠加；默认空 = 旧帧兼容）。 */
+    val volumeLobes: List<VolumeLobeV> = emptyList(),
+    /** 有机生命膜（null = 退回 frontMembrane 细环表达）。 */
+    val membrane: MembraneSpec? = null,
+    /** 下方空间能量环（Home 最明显；Wrist 空）。 */
+    val groundRings: List<GroundRing> = emptyList(),
+    /** 核心辉光（暗腔周围的心脏光）。 */
+    val coreGlow: CoreGlow? = null,
 )
