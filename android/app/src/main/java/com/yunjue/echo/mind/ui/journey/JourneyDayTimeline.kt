@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.yunjue.echo.mind.journey.JourneyCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyDay
 import java.time.LocalDate
 
@@ -37,6 +38,8 @@ internal fun DayTimeline(
     selectedDate: String?,
     feedback: (String) -> Boolean?,
     onSelectDay: (String) -> Unit,
+    selectedCanonical: JourneyCanonicalDay?,
+    selectedDayExplanation: List<String>,
     detail: @Composable () -> Unit,
 ) {
     val sorted = remember(days) { days.sortedByDescending { it.date } }
@@ -56,6 +59,8 @@ internal fun DayTimeline(
                 isSelected = day.date == selectedDate,
                 feedbackMark = feedback(day.date),
                 onSelect = onSelectDay,
+                selectedCanonical = selectedCanonical,
+                selectedDayExplanation = selectedDayExplanation,
             )
         }
         item { detail() }
@@ -69,6 +74,8 @@ private fun DayTimelineRow(
     isSelected: Boolean,
     feedbackMark: Boolean?,
     onSelect: (String) -> Unit,
+    selectedCanonical: JourneyCanonicalDay?,
+    selectedDayExplanation: List<String>,
 ) {
     val shape = RoundedCornerShape(12.dp)
     val highlight = if (isCurrent) {
@@ -76,47 +83,88 @@ private fun DayTimelineRow(
     } else {
         Color.Transparent
     }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(80.dp)
-            .background(highlight, shape)
-            .then(
-                if (isSelected) {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
-                } else {
-                    Modifier
-                },
-            )
-            .clickable { onSelect(day.date) }
-            .testTag("journey_day_item")
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        JourneyPortrait(day = day, size = 40.dp, alpha = 1f)
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                journeyDateLabel(day.date),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isCurrent) FontWeight.SemiBold else null,
-            )
-            val line = day.headline.ifBlank { day.summary }
-            if (line.isNotBlank()) {
-                Text(
-                    line,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .background(highlight, shape)
+                .then(
+                    if (isSelected) {
+                        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
+                    } else {
+                        Modifier
+                    },
                 )
+                .clickable { onSelect(day.date) }
+                .testTag("journey_day_item")
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            JourneyPortrait(day = day, size = 40.dp, alpha = 1f)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    journeyDateLabel(day.date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isCurrent) FontWeight.SemiBold else null,
+                )
+                val line = day.headline.ifBlank { day.summary }
+                if (line.isNotBlank()) {
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (feedbackMark != null) {
+                    Text(
+                        if (feedbackMark) "你觉得像" else "你觉得不太像",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                    )
+                }
             }
-            if (feedbackMark != null) {
-                Text(
-                    if (feedbackMark) "你觉得像" else "你觉得不太像",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
-                )
+        }
+        // 选中即就地展开当天完整详情（无需滚动到底部详情层）
+        if (isSelected) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 68.dp, end = 12.dp, top = 8.dp, bottom = 12.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        RoundedCornerShape(12.dp),
+                    )
+                    .padding(12.dp),
+            ) {
+                JourneyDayOrganismCanvas(day = day, canonical = selectedCanonical, sizeDp = 72.dp)
+                Spacer(Modifier.height(8.dp))
+                if (day.headline.isNotBlank()) {
+                    Text(day.headline, style = MaterialTheme.typography.bodyMedium)
+                }
+                if (day.summary.isNotBlank()) {
+                    Text(
+                        day.summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                selectedDayExplanation.forEach { line ->
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (selectedCanonical == null) {
+                    Text(
+                        "提示：Canonical 快照将从此后每天自动保存。",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }

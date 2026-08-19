@@ -27,6 +27,7 @@ internal fun JourneyDetailSections(
     onEvent: (JourneyEvent) -> Unit,
     feedback: (String) -> Boolean?,
     anchorDate: LocalDate,
+    showDayReconstruction: Boolean = true,
 ) {
     Column(
         Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -69,12 +70,14 @@ internal fun JourneyDetailSections(
         }
         SeasonExplanationSection(lines = state.seasonExplanation)
         YearViewSection(state = state, seed = state.journeySeed)
-        HistoricalReconstructionSection(
-            day = state.selectedDay,
-            canonical = state.selectedCanonical,
-            fallbackSeed = state.journeySeed,
-            explanation = state.selectedDayExplanation,
-        )
+        if (showDayReconstruction) {
+            HistoricalReconstructionSection(
+                day = state.selectedDay,
+                canonical = state.selectedCanonical,
+                fallbackSeed = state.journeySeed,
+                explanation = state.selectedDayExplanation,
+            )
+        }
         HorizontalDivider()
         TextButton(onClick = { onEvent(JourneyEvent.ToggleEvidence) }) {
             Text(if (state.showEvidence) "收起依据" else "查看依据")

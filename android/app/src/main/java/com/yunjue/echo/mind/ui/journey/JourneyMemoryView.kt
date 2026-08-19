@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.journey.JourneyCanonicalDay
 import com.yunjue.echo.mind.journey.JourneyDay
@@ -116,6 +117,51 @@ fun SeasonExplanationSection(lines: List<String>) {
     }
 }
 
+/**
+ * 那一天 ECHO 的 organism 画布（§84 共用）：Canonical 优先，画像 genome fallback，
+ * 无数据 quiet placeholder（不编造）。detail portrait 走全质量 facade request
+ * （JOURNEY_PRIVATE / quality NORMAL / tier LEGACY / canonical 确定时钟，静态无 ticker）。
+ */
+@Composable
+internal fun JourneyDayOrganismCanvas(
+    day: JourneyDay?,
+    canonical: JourneyCanonicalDay?,
+    sizeDp: Dp,
+) {
+    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
+    val canonicalGenome = remember(canonical) {
+        canonical?.let { JourneyOrganismVisuals.genomeFromParams(it.visualParams, it.visualSeed) }
+    }
+    val genome: EchoVisualGenome? = canonicalGenome ?: day?.genome
+    val maturityName = canonical?.maturity?.name ?: "KNOWN"
+    val density = LocalDensity.current
+    val sizePx = with(density) { sizeDp.roundToPx() }.coerceAtLeast(1)
+    val session = remember(genome, sizePx, maturityName) {
+        genome?.let {
+            EchoRendererFacade.createSession(
+                EchoRenderRequest(
+                    genome = it,
+                    surface = EchoSurface.JOURNEY_PRIVATE,
+                    motion = com.yunjue.echo.mind.visual.surface.MotionPolicy.NORMAL,
+                    maturityName = maturityName,
+                    requestedTier = EchoRenderTier.LEGACY,
+                    quality = EchoRenderQuality.NORMAL,
+                ),
+                sizePx,
+                sizePx,
+            )
+        }
+    }
+    Canvas(Modifier.size(sizeDp)) {
+        val s = session
+        if (s == null) {
+            drawCircle(color = placeholderColor, radius = this.size.minDimension * 0.25f)
+        } else {
+            drawIntoCanvas { c -> s.draw(c.nativeCanvas, JOURNEY_CANONICAL_NANOS) }
+        }
+    }
+}
+
 /** §84 — 历史重建：选中那一天的 ECHO（Canonical 优先，画像 fallback，无数据弥散占位）。 */
 @Composable
 fun HistoricalReconstructionSection(
@@ -125,46 +171,9 @@ fun HistoricalReconstructionSection(
     explanation: List<String>,
 ) {
     if (day == null) return
-    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant
     Column(Modifier.padding(top = 12.dp)) {
         Text("那一天的回声 · ${day.date}", style = MaterialTheme.typography.titleSmall)
-        // V3/§AP：历史帧经同一 production organism 管线（Canonical 优先；画像 genome fallback；
-        // 无数据 quiet placeholder，不编造）——detail portrait 走**全质量** facade request
-        // （JOURNEY_PRIVATE / quality NORMAL / tier LEGACY / canonical 确定时钟，静态无 ticker）。
-        val canonicalGenome = remember(canonical) {
-            canonical?.let { JourneyOrganismVisuals.genomeFromParams(it.visualParams, it.visualSeed) }
-        }
-        val genome: EchoVisualGenome? = canonicalGenome ?: day.genome
-        val maturityName = canonical?.maturity?.name ?: "KNOWN"
-        val density = LocalDensity.current
-        val sizePx = with(density) { 96.dp.roundToPx() }.coerceAtLeast(1)
-        val session = remember(genome, sizePx, maturityName) {
-            genome?.let {
-                EchoRendererFacade.createSession(
-                    EchoRenderRequest(
-                        genome = it,
-                        surface = EchoSurface.JOURNEY_PRIVATE,
-                        motion = com.yunjue.echo.mind.visual.surface.MotionPolicy.NORMAL,
-                        maturityName = maturityName,
-                        requestedTier = EchoRenderTier.LEGACY,
-                        quality = EchoRenderQuality.NORMAL,
-                    ),
-                    sizePx,
-                    sizePx,
-                )
-            }
-        }
-        Canvas(Modifier.size(96.dp)) {
-            val s = session
-            if (s == null) {
-                drawCircle(
-                    color = placeholderColor,
-                    radius = this.size.minDimension * 0.25f,
-                )
-            } else {
-                drawIntoCanvas { c -> s.draw(c.nativeCanvas, JOURNEY_CANONICAL_NANOS) }
-            }
-        }
+        JourneyDayOrganismCanvas(day = day, canonical = canonical, sizeDp = 96.dp)
         if (day.headline.isNotBlank()) {
             Text(day.headline, style = MaterialTheme.typography.bodyMedium)
         }
