@@ -24,7 +24,7 @@ object DeterministicRandom {
         return x xor (x ushr 31)
     }
 
-    /** seed + index → [min, max) 区间浮点。 */
+    /** seed + index → [min, max] 区间浮点（at() 返回 [0,1]，含闭端）。 */
     fun range(seed: Long, index: Int, min: Float, max: Float): Float =
         min + at(seed, index) * (max - min)
 

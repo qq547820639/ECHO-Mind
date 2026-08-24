@@ -66,8 +66,13 @@ object GroundingValidator {
         val problems = mutableListOf<String>()
 
         // 1. 情感/推断禁词（任何层级都不允许出现）
+        // 「emo」是拉丁词，用单词边界避免误伤 automatic/system/emotion 等含子串的词；
+        // 中文词组天然具备边界，plain contains 足够。
+        if (Regex("\\bemo\\b").containsMatchIn(text))
+            problems.add("违反 Felt 边界（推断性词汇：emo）")
         for (word in BANNED_INFERENCE_WORDS) {
-            if (text.contains(word)) problems.add("违反 Felt 边界（推断性词汇：$word）")
+            if (word != "emo" && text.contains(word))
+                problems.add("违反 Felt 边界（推断性词汇：$word）")
         }
         if (com.yunjue.echo.mind.model.containsBlockedVocabulary(text)) {
             problems.add("命中产品禁词表（containsBlockedVocabulary）")
