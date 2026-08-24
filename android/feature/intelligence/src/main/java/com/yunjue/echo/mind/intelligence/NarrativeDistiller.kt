@@ -20,8 +20,8 @@ object NarrativeDistiller {
         RegexOption.IGNORE_CASE,
     )
 
-    /** 句尾礼貌/招牌从句（从这些词起截断到结尾；从句内部可含句号）。 */
-    private val TRAILING_CLAUSE = Regex("(希望|如果|如有|请问|基于|下面)[^！？!?]*$")
+    /** 句尾礼貌/招牌从句：仅在句末标点（。！？!?，,）后起头，避免误伤「如果你……」等条件句。 */
+    private val TRAILING_CLAUSE = Regex("(?<=[。！？!?，,]|^)\\s*(希望|如果|如有|请问|基于|下面)[^！？!?]*$")
 
     fun distill(raw: String): String {
         var text = raw.trim()

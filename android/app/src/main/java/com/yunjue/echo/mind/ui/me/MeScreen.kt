@@ -50,6 +50,7 @@ import com.yunjue.echo.mind.me.DataAndSensingEvent
 import com.yunjue.echo.mind.me.MeEvent
 import com.yunjue.echo.mind.me.MeUiState
 import com.yunjue.echo.mind.model.EchoPresenceState
+import com.yunjue.echo.mind.model.learningPhaseHeadline
 import com.yunjue.echo.mind.ui.Page
 
 /**
@@ -431,6 +432,7 @@ private fun MeEchoIdentity(presence: EchoPresenceState?, reduceMotion: Boolean) 
         }
     }
     val maturityName = presence?.maturity?.name ?: "SEED"
+    val maturityLabel = learningPhaseHeadline(presence?.maturity ?: com.yunjue.echo.mind.model.EchoMaturity.SEED)
     val statusLine = com.yunjue.echo.mind.visual.surface.organismDescriptionFor(presence)
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -462,7 +464,7 @@ private fun MeEchoIdentity(presence: EchoPresenceState?, reduceMotion: Boolean) 
         Column {
             Text("我的 ECHO", style = MaterialTheme.typography.titleMedium)
             Text(
-                "$maturityName · $statusLine",
+                "$maturityLabel · $statusLine",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
