@@ -33,8 +33,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 BACKEND_APP = REPO_ROOT / "backend" / "app"
 BACKEND_TESTS = REPO_ROOT / "backend" / "tests"
-ANDROID_MAIN = REPO_ROOT / "android" / "app" / "src" / "main"
-ANDROID_TESTS = REPO_ROOT / "android" / "app" / "src" / "test"
 
 
 def _read(rel: str) -> str:

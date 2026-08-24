@@ -165,7 +165,7 @@ def find_unsigned_apk() -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def artifact_manifest_lines(provenance: dict, version: str, release_notes: Path,
+def artifact_manifest_lines(release_notes: Path,
                             archives: list[Path], root_apk: Path | None,
                             unsigned_apk: Path | None) -> list[str]:
     """§10：只描述最终交付物。"""
@@ -252,7 +252,7 @@ def main() -> int:
     # DAG 末端：RELEASE_ARTIFACT_MANIFEST（最后生成；不参与 provenance，§13 无循环）
     release_notes = ROOT / version_source["release_notes_file"]
     lines = artifact_manifest_lines(
-        provenance, version, release_notes, archives, root_apk, unsigned_apk
+        release_notes, archives, root_apk, unsigned_apk
     )
     (ROOT / "RELEASE_ARTIFACT_MANIFEST.sha256").write_text(
         "\n".join(lines) + "\n", encoding="utf-8"

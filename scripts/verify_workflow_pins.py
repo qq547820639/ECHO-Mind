@@ -26,7 +26,10 @@ def check_file(path: Path) -> list[str]:
     # 结构校验：YAML 必须可解析（防手改 workflow 引入语法错误）
     try:
         import yaml  # noqa: PLC0415
-
+    except ImportError:
+        problems.append(f"{path.name}: PyYAML 未安装（pip install pyyaml），跳过结构校验")
+        return problems
+    try:
         with open(path, encoding="utf-8") as fh:
             yaml.safe_load(fh)
     except Exception as exc:  # noqa: BLE001

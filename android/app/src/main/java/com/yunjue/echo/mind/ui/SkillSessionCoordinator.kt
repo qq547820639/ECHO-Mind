@@ -123,10 +123,6 @@ class SkillSessionCoordinator(private val repository: SkillRepository) {
 
     /** 更新展示时长（计时器驱动；不修改状态机）。 */
     fun touchDuration(skillId: String, durationSeconds: Int) {
-        runtime[skillId]?.let {
-            // SkillRunSession.durationSeconds 是 private set；通过 run 内部结算
-            // UI 计时仅展示用途，持久化时长以 terminal 结算为准。
-        }
         _sessions.value = _sessions.value + (skillId to (_sessions.value[skillId]?.copy(durationSeconds = durationSeconds) ?: return))
     }
 

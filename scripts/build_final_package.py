@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -62,8 +61,8 @@ def main() -> int:
             seen.add(str(idsig.relative_to(repo)))
 
     out = out_dir / f"ECHO_Mind_v{version}.release.zip"
-    dist.write_zip(out, f"ECHO_Mind_v{version}", files,
-                   mtime=datetime.now(timezone.utc).replace(microsecond=0))
+    mtime = dist.commit_timestamp_utc(repo)
+    dist.write_zip(out, f"ECHO_Mind_v{version}", files, mtime=mtime)
     print(json.dumps({"package": str(out), "entries": len(files)}, ensure_ascii=False))
     return 0
 
