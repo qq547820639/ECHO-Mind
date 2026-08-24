@@ -21,7 +21,16 @@ const path = require('path')
 const { execFileSync } = require('child_process')
 const os = require('os')
 
-const SRC_ROOT = path.join(__dirname, '..', 'src')
+// 解析 [--src <path>] 参数（默认 src/）
+const args = process.argv.slice(2)
+let srcRoot = path.join(__dirname, '..', 'src')
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--src' && i + 1 < args.length) {
+    srcRoot = args[i + 1]
+    i++
+  }
+}
+const SRC_ROOT = srcRoot
 const failures = []
 
 function check(name, fn) {
