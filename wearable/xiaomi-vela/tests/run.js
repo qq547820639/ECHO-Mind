@@ -353,6 +353,37 @@ test('action page wires haptic gate into both vibrate entry points', () => {
   }
 })
 
+// ------------------------------------------------------------------ T7-P3: malformed vs forward-compatible semantics
+
+test('action/ack/observation types on band → ok:false without malformed flag', () => {
+  // 手环是 BODY：收到 action/ack/observation 时应静默忽略，不标记 malformed（与「格式错误」区分）。
+  var actionMsg = JSON.stringify(protocol.encodeAction('START_BREATHING'))
+  var ackMsg = JSON.stringify(protocol.encodeAck('test-msg', 1, 'ok'))
+  var obsMsg = JSON.stringify(protocol.encodeObservation({ motionEnergy: 0.5 }, {}))
+  assert.strictEqual(protocol.decodeMessage(actionMsg).ok, false)
+  assert.strictEqual(protocol.decodeMessage(actionMsg).malformed, undefined, 'action 不应标记 malformed')
+  assert.strictEqual(protocol.decodeMessage(ackMsg).ok, false)
+  assert.strictEqual(protocol.decodeMessage(ackMsg).malformed, undefined, 'ack 不应标记 malformed')
+  assert.strictEqual(protocol.decodeMessage(obsMsg).ok, false)
+  assert.strictEqual(protocol.decodeMessage(obsMsg).malformed, undefined, 'observation 不应标记 malformed')
+})
+
+test('degraded branch with missing moment/surface does not throw', () => {
+  // 防御性：旧版手机可能省略 moment/surface；degraded 分支应容错。
+  storage._resetForTest()
+  var c = cache.create(() => 0)
+  c.apply({
+    type: 'presence',
+    revision: 1,
+    identity: { topology: 0.5, symmetry: 0.5, orbit: 0.5, motion: 0.5, texture: 0.5, colorFamily: 2, accent: 0.6 },
+    // 故意省略 moment 和 surface
+  }, 0)
+  var state = c.state(cache.PRESENCE_TTL_MS + 60 * 1000)
+  assert.strictEqual(state.phase, 'degraded')
+  assert.strictEqual(state.envelope.surface.motionLevel, 'QUIET')
+  assert.strictEqual(state.envelope.publicHeadline, null)
+})
+
 // ------------------------------------------------------------------ manifest capability closure (Phase 4)
 
 console.log('# declared vela features (MINIMUM CAPABILITY DECLARATION)')

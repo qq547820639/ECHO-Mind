@@ -145,7 +145,8 @@ function decodeMessage(text) {
     return { ok: true, message: cap }
   }
   // 手环是 BODY：其余类型（action/ack/observation）本端不消费，忽略（forward compatible）。
-  return { ok: false, malformed: true }
+  // 不标记 malformed：这表示"非本端消息类型"而非"消息格式错误"，调用方应静默跳过。
+  return { ok: false }
 }
 
 function decodePresence(root) {

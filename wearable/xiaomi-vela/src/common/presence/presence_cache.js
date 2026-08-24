@@ -83,12 +83,15 @@ function create(nowFn) {
       return { phase: 'fresh', envelope: cached.envelope, ageMs: age }
     }
     // 降级：Identity 保留，Moment → QUIET / LOW_CERTAINTY；headline 隐去。
+    // 防御性：旧版手机可能省略 moment/surface，避免 TypeError。
+    var mom = cached.envelope.moment || {}
+    var surf = cached.envelope.surface || {}
     var degradedMoment = {
-      flow: scale(cached.envelope.moment.flow, 0.2),
-      coherence: scale(cached.envelope.moment.coherence, 0.4),
-      density: scale(cached.envelope.moment.density, 0.35),
+      flow: scale(mom.flow, 0.2),
+      coherence: scale(mom.coherence, 0.4),
+      density: scale(mom.density, 0.35),
       turbulence: 0.05,
-      brightness: scale(cached.envelope.moment.brightness, 0.45),
+      brightness: scale(mom.brightness, 0.45),
     }
     var degraded = JSON.parse(JSON.stringify(cached.envelope))
     degraded.moment = degradedMoment
@@ -98,8 +101,8 @@ function create(nowFn) {
       reducedMotion: true,
       // 表面开关（consent 语义）随缓存保留：降级是 Presence 新鲜度问题，
       // 不是用户开关被重置（触觉开关必须继续生效，防止降级后误振）。
-      motionSummaryEnabled: cached.envelope.surface.motionSummaryEnabled === true,
-      hapticsEnabled: cached.envelope.surface.hapticsEnabled === true,
+      motionSummaryEnabled: surf.motionSummaryEnabled === true,
+      hapticsEnabled: surf.hapticsEnabled === true,
     }
     degraded.publicHeadline = null
     return { phase: 'degraded', envelope: degraded, ageMs: age, expired: expired }
