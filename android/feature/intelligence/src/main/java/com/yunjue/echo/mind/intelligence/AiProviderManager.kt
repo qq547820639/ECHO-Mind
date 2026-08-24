@@ -55,7 +55,8 @@ class AiProviderManager(private val store: ProviderCredentialStore) {
     /** 用已保存配置做健康检查；未配置 → NOT_CONFIGURED。 */
     suspend fun healthCheck(): ProviderHealth {
         val stored = store.load() ?: return ProviderHealth(ProviderStatus.NOT_CONFIGURED)
-        return providerFor(stored.type, stored.baseUrl, stored.model, stored.apiKey).healthCheck()
+        // normalize baseUrl 与 validate() 保持一致（§39 草稿校验即归一化）
+        return providerFor(stored.type, normalizeBaseUrl(stored.baseUrl), stored.model, stored.apiKey).healthCheck()
     }
 
     /** 用已保存配置推理；未配置 → NOT_CONFIGURED（上层走 fallback 链）。 */
@@ -66,7 +67,8 @@ class AiProviderManager(private val store: ProviderCredentialStore) {
                 status = ProviderStatus.NOT_CONFIGURED,
                 detail = "no provider configured",
             )
-        return providerFor(stored.type, stored.baseUrl, stored.model, stored.apiKey).reason(request)
+        // normalize baseUrl 与 validate() 保持一致（§39 草稿校验即归一化）
+        return providerFor(stored.type, normalizeBaseUrl(stored.baseUrl), stored.model, stored.apiKey).reason(request)
     }
 
     /**
