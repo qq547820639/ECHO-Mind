@@ -74,11 +74,13 @@ object QaDaySimulator {
             gaussian(rng, 0.0, 0.03 * noiseBoost)).coerceIn(0.10, 0.95)
 
         // 晚屏：22:00 之后（跨午夜正确累加）
-        val lateScreen = if (end >= LATE_SCREEN_START_MINUTE) {
+        // 先 clamp base 到 [0, 420]，再加噪声，最后整体 clamp 防止越界
+        val lateScreenBase = if (end >= LATE_SCREEN_START_MINUTE) {
             (end - LATE_SCREEN_START_MINUTE) * screenScale
         } else {
             (end + 120.0) * screenScale
-        }.coerceIn(0.0, 420.0) + gaussian(rng, 0.0, 10.0 * noiseBoost).coerceIn(-30.0, 30.0)
+        }.coerceIn(0.0, 420.0)
+        val lateScreen = (lateScreenBase + gaussian(rng, 0.0, 10.0 * noiseBoost)).coerceIn(0.0, 420.0)
 
         val validWindows = (EXPECTED_WINDOWS * coverage).roundToInt().coerceIn(0, EXPECTED_WINDOWS)
 
