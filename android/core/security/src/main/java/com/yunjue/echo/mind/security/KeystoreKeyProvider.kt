@@ -71,10 +71,14 @@ class AndroidKeystoreKeyProvider(
         runCatching { keyStore.deleteEntry(ancientAlias) }
     }
 
+    /** 单例级锁：防止并发调用时 keyStore.getKey() 与 generateKey() 之间的竞态。 */
+    private val keyLock = Any()
+
     private fun key(aliasName: String, randomizedEncryptionRequired: Boolean): SecretKey {
-        val existing = keyStore.getKey(aliasName, null) as? SecretKey
-        if (existing != null) return existing
-        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        synchronized(keyLock) {
+            val existing = keyStore.getKey(aliasName, null) as? SecretKey
+            if (existing != null) return existing
+            val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
             KeyGenParameterSpec.Builder(aliasName, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -84,6 +88,7 @@ class AndroidKeystoreKeyProvider(
                 .setRandomizedEncryptionRequired(randomizedEncryptionRequired)
                 .build()
         )
-        return generator.generateKey()
+            return generator.generateKey()
+        }
     }
 }

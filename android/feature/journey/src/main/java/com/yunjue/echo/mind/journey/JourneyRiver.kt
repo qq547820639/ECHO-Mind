@@ -55,8 +55,12 @@ const val RIVER_DRIFT_STEP = 0.05f
 /** 密集判定：段平均流动速度阈值。 */
 const val RIVER_DENSE_ACTIVITY = 0.55f
 
-/** 两视觉参数间的归一化欧氏距离（0..1；12 维逐维差值平方均值开方）。 */
+/** 两视觉参数间的归一化欧氏距离（0..1；11 维 + pulsePeriodSeconds 归一化后 12 维）。
+ * pulsePeriodSeconds 原始范围 3.6–6.0s，先归一化到 0..1 再参与距离计算，
+ * 避免量纲差异导致 TRANSITION/DRIFT 判定失真。 */
 fun visualDistance(a: EchoVisualParameters, b: EchoVisualParameters): Float {
+    // pulsePeriodSeconds 3.6–6.0s → 归一化到 0..1
+    fun normPulse(p: Float) = (p - 3.6f) / 2.4f
     val diffs = listOf(
         a.flowSpeed - b.flowSpeed,
         a.coherence - b.coherence,
@@ -64,7 +68,7 @@ fun visualDistance(a: EchoVisualParameters, b: EchoVisualParameters): Float {
         a.particleDensity - b.particleDensity,
         a.coreOpenness - b.coreOpenness,
         a.dispersion - b.dispersion,
-        a.pulsePeriodSeconds - b.pulsePeriodSeconds,
+        normPulse(a.pulsePeriodSeconds) - normPulse(b.pulsePeriodSeconds),
         a.depth - b.depth,
         a.brightness - b.brightness,
         a.contrast - b.contrast,

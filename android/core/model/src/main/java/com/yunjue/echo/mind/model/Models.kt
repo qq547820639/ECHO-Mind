@@ -227,6 +227,11 @@ data class PortraitFactDto(
  *
  * 禁止使用 Map<String, String> / optString() 吞掉嵌套对象（Phase 0 审计确认的契约漂移）。
  */
+/**
+ * org.json 例外：PortraitDimensionDto.parse() 使用 JSONObject 与后端 JSON 协议互操作。
+ * 此为必要例外（org.json 为 Android 内置库，不引入额外依赖）；
+ * 其余本文件内容均为纯 Kotlin 逻辑。
+ */
 data class PortraitDimensionDto(
     val value: String,
     val metric: String? = null,
