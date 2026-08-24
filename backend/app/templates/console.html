@@ -313,10 +313,12 @@ function renderCard(x) {
   const threshold = slaWarnThreshold(x);
   const breach = x.ack_sla_breached || x.takeover_sla_breached;
   const amber = !breach && threshold !== null && (x.waiting_seconds ?? 0) > threshold;
-  const cardClass = breach ? 'red' : (amber ? 'amber' : 'red');
+  // 仅 breach（SLA 超时）着红边；接近阈值着琥珀色；正常无特殊边框
+  const cardClass = breach ? 'red' : (amber ? 'amber' : '');
   const amberLine = amber
     ? '<p class="amber-warn">接近 SLA 上限（' + Math.round(((x.waiting_seconds ?? 0) / threshold) * 100) + '%）</p>'
     : '';
+  // 仅告警/错误卡片着红边；普通数据卡片保持默认样式
   return `<article class="card ${cardClass}">
     <div class="status">${esc(x.level)} · ${esc(statusLabel)} · 升级层级：${esc(lvl)}</div>
     <h3>${esc(x.risk_type)} <span class="muted">(${esc(x.trigger)})</span></h3>

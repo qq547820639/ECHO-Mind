@@ -59,7 +59,11 @@ def forbid(
         object_type=object_type,
         object_id=object_id,
     )
-    db.commit()
+    # 仅提交审计日志，不提交调用方未完成的变更（savepoint 语义）
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
     raise HTTPException(status_code=403, detail=detail)
 
 
