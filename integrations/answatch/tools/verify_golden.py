@@ -96,6 +96,9 @@ def extract_kotlin_goldens(test_file: Path):
 
 
 def json_equal(a, b, eps=1e-9):
+    # bool 是 int 子类：True==1，先排除 bool 再进入通用比较
+    if type(a) is bool or type(b) is bool:
+        return a == b and type(a) is type(b)
     if isinstance(a, dict) and isinstance(b, dict):
         if set(a) != set(b):
             return False

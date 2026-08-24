@@ -346,9 +346,13 @@ class PassiveSensingService : Service() {
         }
 
         /** 关闭麦克风采集（感知服务运行中生效；未运行则 no-op）。 */
+        /**
+         * 关闭麦克风采集（感知服务运行中生效；未运行则 no-op）。
+         * 使用 startForegroundService 确保 Android 14+ 后台触发不抛异常。
+         */
         fun stopMic(context: Context) {
             val intent = Intent(context, PassiveSensingService::class.java).setAction(ACTION_STOP_MIC)
-            context.startService(intent)
+            context.startForegroundService(intent)
         }
 
         /**
