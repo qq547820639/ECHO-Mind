@@ -27,6 +27,7 @@ object VisualLabFixtures {
         val structureComplexity: Float = 0.77f,
         val halo: Float = 0.55f,
         val exposure: Float = 0.70f,
+        /** 暖金高光强度（0..1；当前未接线到 genome——需 schema revision bump 后方可生效）。 */
         val warmAccent: Float = 0.23f,
         val motion: Float = 1.0f,
     )

@@ -33,7 +33,9 @@ data class EchoMotionState(
     val particleRotation: Float,
     /** halo 亮度乘数（≤±3% 脉冲；不能像 loading spinner）。 */
     val haloMultiplier: Float,
-    /** 交互包络 0..1（transient；由交互侧按 §29 时间线产生）。 */
+    /** 交互包络 0..1（transient；由交互侧按 §29 时间线产生）。
+     * 注意：当前 renderer 消费 ctx.touch.envelope（EchoInteractionSpec）而非本字段；
+     * 本字段保留供未来 organism frame 内 touch ripple 动画使用。 */
     val interactionEnvelope: Float,
 )
 
