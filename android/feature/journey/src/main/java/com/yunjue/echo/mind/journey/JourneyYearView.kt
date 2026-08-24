@@ -125,7 +125,9 @@ fun buildYearView(
             val start = seasonDays.first().date
             val end = seasonDays.last().date
             val seasonShifts = shifts.filter { it.date in start..end }
-            val seasonPeriods = periods.filter { it.startDate in start..end || it.endDate in start..end }
+            // 跨季 contextPeriod：用区间相交判定（start≤seasonEnd && end≥seasonStart）而非端点包含
+            // 修复：原逻辑对跨季 period（如 5/31→6/1）两季都不命中
+            val seasonPeriods = periods.filter { it.startDate <= end && it.endDate >= start }
             val identity = sortedCanonical.lastOrNull {
                 it.date in start..end
             }?.identityReference

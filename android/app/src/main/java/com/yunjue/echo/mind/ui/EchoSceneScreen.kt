@@ -47,6 +47,14 @@ fun EchoSceneScreen(
 ) {
     val viewModel: EchoSceneViewModel = viewModel(factory = EchoSceneViewModel.factory(container))
     val context = LocalContext.current
+    // §35：三 slot 共享同一 config，读一次 SharedPreferences 避免每次重组重复 IO
+    val visualConfig = remember(container.preferences.presenceMotionLevel, container.preferences.presenceReduceMotion, container.preferences.presenceNightMode) {
+        echoVisualSurfaceConfig(
+            motionLevelPref = container.preferences.presenceMotionLevel,
+            reduceMotion = container.preferences.presenceReduceMotion,
+            nightMode = container.preferences.presenceNightMode,
+        )
+    }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val portrait by viewModel.portrait.collectAsStateWithLifecycle()
@@ -108,22 +116,14 @@ fun EchoSceneScreen(
         visualSurface = {
             EchoVisualSurface(
                 presence = uiState.presence,
-                config = echoVisualSurfaceConfig(
-                    motionLevelPref = container.preferences.presenceMotionLevel,
-                    reduceMotion = container.preferences.presenceReduceMotion,
-                    nightMode = container.preferences.presenceNightMode,
-                ),
+                config = visualConfig,
                 correctionPulseTrigger = correctionPulseTrigger,
             )
         },
         askMiniEcho = {
             EchoAskMiniOrganism(
                 presence = uiState.presence,
-                config = echoVisualSurfaceConfig(
-                    motionLevelPref = container.preferences.presenceMotionLevel,
-                    reduceMotion = container.preferences.presenceReduceMotion,
-                    nightMode = container.preferences.presenceNightMode,
-                ),
+                config = visualConfig,
             )
         },
         actionLayer = {
