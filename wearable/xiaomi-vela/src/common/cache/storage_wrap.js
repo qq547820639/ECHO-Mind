@@ -56,14 +56,6 @@ function remove(key) {
   delete memoryStore[key]
 }
 
-function getSetting(key) {
-  return get('echo_setting_' + key, null)
-}
-
-function setSetting(key, value) {
-  set('echo_setting_' + key, String(value))
-}
-
 /** 键：当前 PUBLIC_SAFE Presence 缓存（唯一允许的腕上持久化）。 */
 var PRESENCE_CACHE_KEY = 'echo_presence_v1'
 
@@ -72,8 +64,6 @@ module.exports = {
   get: get,
   set: set,
   remove: remove,
-  getSetting: getSetting,
-  setSetting: setSetting,
   _resetForTest: function () {
     memoryStore = {}
   },

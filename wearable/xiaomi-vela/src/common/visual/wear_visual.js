@@ -12,8 +12,6 @@
  *
  * 输出为低维参数（供 .ux 模板绑定），无高频 timer、无大对象分配。
  */
-var HEADLINE_NEUTRAL_FALLBACK = 'ECHO'
-
 /** 确定性哈希（identity 浮点 → 伪随机序列；手机不发送 seed，本端不持有 seed）。 */
 function hashIdentity(identity) {
   var s =
@@ -144,5 +142,4 @@ module.exports = {
   hashIdentity: hashIdentity,
   hsvToRgb: hsvToRgb,
   clamp01: clamp01,
-  HEADLINE_NEUTRAL_FALLBACK: HEADLINE_NEUTRAL_FALLBACK,
 }

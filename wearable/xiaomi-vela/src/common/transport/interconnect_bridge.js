@@ -5,7 +5,7 @@
  * - 连接由系统自动建立/维持，应用内不管理连接生命周期；
  * - connect.send({ data: Object }) 发对象（手机端收到其 JSON 文本）；
  * - connect.onmessage 收到手机端文本（data.data 为字符串）；
- * - getReadyState: 1=连接成功 2=断开；onopen(isReconnected) / onclose / onerror。
+ * - onopen(isReconnected) / onclose / onerror。
  *
  * 环境：CommonJS；在 Node 测试中注入 mock 的 interconnect 对象（不 require 系统模块）。
  */
@@ -53,35 +53,8 @@ function sendAction(command) {
   return sendObject(protocol.encodeAction(command))
 }
 
-function sendAck(ackFor, revision, status) {
-  return sendObject(protocol.encodeAck(ackFor, revision, status))
-}
-
 function sendObservation(summary, deviceState) {
   return sendObject(protocol.encodeObservation(summary, deviceState))
-}
-
-function sendCapability(capabilities, screenWidth, screenHeight) {
-  return sendObject(protocol.encodeCapability(capabilities, screenWidth, screenHeight))
-}
-
-function getReadyState() {
-  var connect = getInterconnect()
-  if (!connect) return 2 // 未连接（无法确认）
-  var ready = 2
-  try {
-    connect.getReadyState({
-      success: function (data) {
-        ready = data && data.status === 1 ? 1 : 2
-      },
-      fail: function () {
-        ready = 2
-      },
-    })
-  } catch (e) {
-    ready = 2
-  }
-  return ready
 }
 
 /**
@@ -118,10 +91,7 @@ function init(h) {
 module.exports = {
   init: init,
   sendAction: sendAction,
-  sendAck: sendAck,
   sendObservation: sendObservation,
-  sendCapability: sendCapability,
-  getReadyState: getReadyState,
   _setInterconnectForTest: function (mock) {
     instance = mock
   },
