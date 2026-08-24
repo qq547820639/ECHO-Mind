@@ -69,12 +69,12 @@ data class EchoIdentitySpec(
             val warmHue = 70f + 12f * identityUnit(seed, 22)
             return EchoIdentitySpec(
                 identitySeed = seed,
-                lobeCount = 2 + floor(identityUnit(seed, 1) * 4f).toInt(), // 2..5
+                lobeCount = (2 + floor(identityUnit(seed, 1) * 4f).toInt()).coerceIn(2, 5), // 2..5
                 chirality = if (identityUnit(seed, 2) < .5f) -1 else 1,
                 coreRatio = lerp(.29f, .43f, identityUnit(seed, 3)),
                 primaryTilt = lerp(-.52f, .52f, identityUnit(seed, 4)),
                 secondaryTilt = lerp(-.76f, .76f, identityUnit(seed, 5)),
-                baseFrequency = 2 + floor(identityUnit(seed, 6) * 4f).toInt(), // 2..5
+                baseFrequency = (2 + floor(identityUnit(seed, 6) * 4f).toInt()).coerceIn(2, 5), // 2..5
                 orbitalBias = lerp(-.12f, .12f, identityUnit(seed, 7)),
                 membraneBias = lerp(.86f, 1.14f, identityUnit(seed, 8)),
                 identityPhase = identityUnit(seed, 9),
