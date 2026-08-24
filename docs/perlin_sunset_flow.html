@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流体暮光 — Perlin 噪声粒子流场</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            width: 300px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        
+        #controls h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #fff;
+            text-align: center;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .control-group {
+            margin-bottom: 16px;
+        }
+        
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ff7f50;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(255, 127, 80, 0.5);
+        }
+        
+        .control-group .value {
+            float: right;
+            font-size: 12px;
+            color: #ff7f50;
+            font-weight: 600;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #ff7f50, #ff00ff);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 127, 80, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #fps {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 20, 0.8);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #aaa;
+            z-index: 100;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            z-index: 100;
+        }
+        
+        .color-swatch {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="fps">FPS: --</div>
+    
+    <div id="controls">
+        <h2>流体暮光控制面板</h2>
+        
+        <div class="control-group">
+            <label>粒子数量 <span class="value" id="particleCountValue">5000</span></label>
+            <input type="range" id="particleCount" min="1000" max="20000" value="5000" step="100">
+        </div>
+        
+        <div class="control-group">
+            <label>噪声缩放 <span class="value" id="noiseScaleValue">0.005</span></label>
+            <input type="range" id="noiseScale" min="0.001" max="0.02" value="0.005" step="0.001">
+        </div>
+        
+        <div class="control-group">
+            <label>速度系数 <span class="value" id="speedValue">1.0</span></label>
+            <input type="range" id="speed" min="0.1" max="3.0" value="1.0" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>粒子寿命 <span class="value" id="lifespanValue">200</span></label>
+            <input type="range" id="lifespan" min="50" max="500" value="200" step="10">
+        </div>
+        
+        <div class="control-group">
+            <label>轨迹透明度 <span class="value" id="trailAlphaValue">0.05</span></label>
+            <input type="range" id="trailAlpha" min="0.01" max="0.2" value="0.05" step="0.01">
+        </div>
+        
+        <div class="control-group">
+            <label>粒子大小 <span class="value" id="particleSizeValue">2.0</span></label>
+            <input type="range" id="particleSize" min="0.5" max="5.0" value="2.0" step="0.5">
+        </div>
+        
+        <button id="resetBtn">重置参数</button>
+        <button id="randomizeBtn">随机噪声</button>
+    </div>
+    
+    <div id="info">
+        流体暮光 — 基于 Perlin 噪声的粒子流场生成艺术 | 拖动控制面板调整参数
+    </div>
+
+    <script>
+        // 流体暮光 — Perlin 噪声粒子流场生成艺术
+        // 设计哲学：流体暮光（Fluid Twilight）
+        
+        // ==================== Perlin 噪声实现 ====================
+        class PerlinNoise {
+            constructor(seed = Math.random() * 65536) {
+                this.seed = seed;
+                this.permutation = [];
+                this.gradients = [];
+                this.init();
+            }
+            
+            init() {
+                // 初始化排列表
+                for (let i = 0; i < 256; i++) {
+                    this.permutation[i] = i;
+                }
+                
+                // 随机打乱排列表
+                for (let i = 255; i > 0; i--) {
+                    const j = Math.floor(this.random() * (i + 1));
+                    [this.permutation[i], this.permutation[j]] = [this.permutation[j], this.permutation[i]];
+                }
+                
+                // 扩展排列表以避免溢出
+                for (let i = 0; i < 256; i++) {
+                    this.permutation[256 + i] = this.permutation[i];
+                }
+                
+                // 初始化梯度向量
+                for (let i = 0; i < 256; i++) {
+                    const angle = this.random() * Math.PI * 2;
+                    this.gradients[i] = {
+                        x: Math.cos(angle),
+                        y: Math.sin(angle)
+                    };
+                }
+            }
+            
+            random() {
+                const x = Math.sin(this.seed++) * 10000;
+                return x - Math.floor(x);
+            }
+            
+            fade(t) {
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+            
+            lerp(a, b, t) {
+                return a + t * (b - a);
+            }
+            
+            dot(grad, x, y) {
+                return grad.x * x + grad.y * y;
+            }
+            
+            noise(x, y) {
+                // 找到单元格坐标
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                
+                // 获取相对坐标
+                const xf = x - Math.floor(x);
+                const yf = y - Math.floor(y);
+                
+                // 计算衰减曲线
+                const u = this.fade(xf);
+                const v = this.fade(yf);
+                
+                // 获取梯度索引
+                const aa = this.permutation[this.permutation[X] + Y];
+                const ab = this.permutation[this.permutation[X] + Y + 1];
+                const ba = this.permutation[this.permutation[X + 1] + Y];
+                const bb = this.permutation[this.permutation[X + 1] + Y + 1];
+                
+                // 计算点积并插值
+                const x1 = this.lerp(
+                    this.dot(this.gradients[aa % 256], xf, yf),
+                    this.dot(this.gradients[ba % 256], xf - 1, yf),
+                    u
+                );
+                const x2 = this.lerp(
+                    this.dot(this.gradients[ab % 256], xf, yf - 1),
+                    this.dot(this.gradients[bb % 256], xf - 1, yf - 1),
+                    u
+                );
+                
+                return this.lerp(x1, x2, v);
+            }
+            
+            // 分形布朗运动（增加细节）
+            fbm(x, y, octaves = 4) {
+                let value = 0;
+                let amplitude = 1;
+                let frequency = 1;
+                let maxValue = 0;
+                
+                for (let i = 0; i < octaves; i++) {
+                    value += amplitude * this.noise(x * frequency, y * frequency);
+                    maxValue += amplitude;
+                    amplitude *= 0.5;
+                    frequency *= 2;
+                }
+                
+                return value / maxValue;
+            }
+        }
+        
+        // ==================== 粒子类 ====================
+        class Particle {
+            constructor(x, y, id) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.life = 0;
+                this.maxLife = 100 + Math.random() * 200;
+                this.hue = Math.random() * 360;
+                this.saturation = 70 + Math.random() * 30;
+                this.lightness = 50 + Math.random() * 20;
+                this.alpha = 0;
+                this.size = 1 + Math.random() * 2;
+                this.history = [];
+                this.maxHistory = 20 + Math.floor(Math.random() * 30);
+            }
+            
+            reset(width, height) {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0;
+                this.vy = 0;
+                this.life = 0;
+                this.maxLife = 100 + Math.random() * 200;
+                this.hue = Math.random() * 360;
+                this.alpha = 0;
+                this.history = [];
+            }
+            
+            update(noiseField, noiseScale, speed, width, height) {
+                // 从噪声场获取方向
+                const angle = noiseField.fbm(this.x * noiseScale, this.y * noiseScale) * Math.PI * 4;
+                const magnitude = 0.5 + noiseField.fbm(this.x * noiseScale + 100, this.y * noiseScale + 100) * 0.5;
+                
+                // 更新速度
+                this.vx += Math.cos(angle) * magnitude * speed;
+                this.vy += Math.sin(angle) * magnitude * speed;
+                
+                // 应用阻尼
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                
+                // 更新位置
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // 边界处理（环绕）
+                if (this.x < 0) this.x += width;
+                if (this.x > width) this.x -= width;
+                if (this.y < 0) this.y += height;
+                if (this.y > height) this.y -= height;
+                
+                // 更新生命值
+                this.life++;
+                
+                // 计算透明度（淡入淡出）
+                const lifeRatio = this.life / this.maxLife;
+                if (lifeRatio < 0.1) {
+                    this.alpha = lifeRatio / 0.1;
+                } else if (lifeRatio > 0.9) {
+                    this.alpha = (1 - lifeRatio) / 0.1;
+                } else {
+                    this.alpha = 1;
+                }
+                
+                // 更新颜色（基于速度）
+                const speedMagnitude = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                this.hue = (this.hue + speedMagnitude * 2) % 360;
+                
+                // 记录历史位置
+                this.history.push({ x: this.x, y: this.y });
+                if (this.history.length > this.maxHistory) {
+                    this.history.shift();
+                }
+                
+                // 重置条件
+                if (this.life >= this.maxLife) {
+                    this.reset(width, height);
+                }
+            }
+            
+            draw(ctx, particleSize) {
+                if (this.alpha <= 0) return;
+                
+                // 绘制轨迹
+                if (this.history.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    
+                    for (let i = 1; i < this.history.length; i++) {
+                        ctx.lineTo(this.history[i].x, this.history[i].y);
+                    }
+                    
+                    ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, ${this.lightness}%, ${this.alpha * 0.3})`;
+                    ctx.lineWidth = particleSize * 0.5;
+                    ctx.stroke();
+                }
+                
+                // 绘制粒子
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, particleSize * this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, ${this.lightness}%, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+        
+        // ==================== 主应用 ====================
+        class FluidTwilight {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.particles = [];
+                this.noise = new PerlinNoise();
+                this.frameCount = 0;
+                this.fps = 0;
+                this.lastTime = 0;
+                this.deltaTime = 0;
+                
+                // 默认参数
+                this.params = {
+                    particleCount: 5000,
+                    noiseScale: 0.005,
+                    speed: 1.0,
+                    lifespan: 200,
+                    trailAlpha: 0.05,
+                    particleSize: 2.0
+                };
+                
+                // 日落色调
+                this.sunsetColors = [
+                    { h: 16, s: 100, l: 71 },  // 珊瑚色 #FF7F50
+                    { h: 45, s: 100, l: 50 },   // 琥珀色 #FFBF00
+                    { h: 300, s: 100, l: 50 },  // 品红色 #FF00FF
+                    { h: 275, s: 100, l: 25 }   // 靛蓝色 #4B0082
+                ];
+                
+                this.init();
+                this.bindControls();
+                this.animate();
+            }
+            
+            init() {
+                this.resize();
+                this.createParticles();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                
+                // 重新创建粒子
+                if (this.particles.length > 0) {
+                    this.createParticles();
+                }
+            }
+            
+            createParticles() {
+                this.particles = [];
+                for (let i = 0; i < this.params.particleCount; i++) {
+                    const x = Math.random() * this.width;
+                    const y = Math.random() * this.height;
+                    this.particles.push(new Particle(x, y, i));
+                }
+            }
+            
+            bindControls() {
+                // 绑定滑块
+                const sliders = {
+                    particleCount: { min: 1000, max: 20000, step: 100 },
+                    noiseScale: { min: 0.001, max: 0.02, step: 0.001 },
+                    speed: { min: 0.1, max: 3.0, step: 0.1 },
+                    lifespan: { min: 50, max: 500, step: 10 },
+                    trailAlpha: { min: 0.01, max: 0.2, step: 0.01 },
+                    particleSize: { min: 0.5, max: 5.0, step: 0.5 }
+                };
+                
+                Object.keys(sliders).forEach(key => {
+                    const slider = document.getElementById(key);
+                    const valueDisplay = document.getElementById(`${key}Value`);
+                    
+                    if (slider && valueDisplay) {
+                        slider.addEventListener('input', (e) => {
+                            const value = parseFloat(e.target.value);
+                            this.params[key] = value;
+                            valueDisplay.textContent = value;
+                            
+                            if (key === 'particleCount') {
+                                this.createParticles();
+                            }
+                        });
+                    }
+                });
+                
+                // 重置按钮
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetParams();
+                });
+                
+                // 随机噪声按钮
+                document.getElementById('randomizeBtn').addEventListener('click', () => {
+                    this.noise = new PerlinNoise();
+                });
+            }
+            
+            resetParams() {
+                this.params = {
+                    particleCount: 5000,
+                    noiseScale: 0.005,
+                    speed: 1.0,
+                    lifespan: 200,
+                    trailAlpha: 0.05,
+                    particleSize: 2.0
+                };
+                
+                // 更新 UI
+                document.getElementById('particleCount').value = this.params.particleCount;
+                document.getElementById('particleCountValue').textContent = this.params.particleCount;
+                document.getElementById('noiseScale').value = this.params.noiseScale;
+                document.getElementById('noiseScaleValue').textContent = this.params.noiseScale;
+                document.getElementById('speed').value = this.params.speed;
+                document.getElementById('speedValue').textContent = this.params.speed;
+                document.getElementById('lifespan').value = this.params.lifespan;
+                document.getElementById('lifespanValue').textContent = this.params.lifespan;
+                document.getElementById('trailAlpha').value = this.params.trailAlpha;
+                document.getElementById('trailAlphaValue').textContent = this.params.trailAlpha;
+                document.getElementById('particleSize').value = this.params.particleSize;
+                document.getElementById('particleSizeValue').textContent = this.params.particleSize;
+                
+                this.createParticles();
+            }
+            
+            update() {
+                // 更新粒子
+                this.particles.forEach(particle => {
+                    particle.maxLife = this.params.lifespan;
+                    particle.update(
+                        this.noise,
+                        this.params.noiseScale,
+                        this.params.speed,
+                        this.width,
+                        this.height
+                    );
+                });
+                
+                this.frameCount++;
+            }
+            
+            draw() {
+                // 绘制半透明背景（轨迹效果）
+                this.ctx.fillStyle = `rgba(10, 10, 10, ${this.params.trailAlpha})`;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                // 绘制径向暗角
+                this.drawVignette();
+                
+                // 绘制粒子
+                this.particles.forEach(particle => {
+                    particle.draw(this.ctx, this.params.particleSize);
+                });
+                
+                // 绘制中心光晕
+                this.drawCenterGlow();
+            }
+            
+            drawVignette() {
+                const gradient = this.ctx.createRadialGradient(
+                    this.width / 2, this.height / 2, 0,
+                    this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.7
+                );
+                
+                gradient.addColorStop(0, 'rgba(10, 10, 10, 0)');
+                gradient.addColorStop(0.5, 'rgba(10, 10, 10, 0.1)');
+                gradient.addColorStop(1, 'rgba(10, 10, 10, 0.8)');
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+            }
+            
+            drawCenterGlow() {
+                const gradient = this.ctx.createRadialGradient(
+                    this.width / 2, this.height / 2, 0,
+                    this.width / 2, this.height / 2, 200
+                );
+                
+                gradient.addColorStop(0, 'rgba(255, 127, 80, 0.1)');
+                gradient.addColorStop(1, 'rgba(255, 127, 80, 0)');
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+            }
+            
+            animate(currentTime = 0) {
+                requestAnimationFrame((time) => this.animate(time));
+                
+                // 计算帧率
+                this.deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                
+                if (this.frameCount % 30 === 0) {
+                    this.fps = Math.round(1000 / this.deltaTime);
+                    document.getElementById('fps').textContent = `FPS: ${this.fps}`;
+                }
+                
+                this.update();
+                this.draw();
+            }
+        }
+        
+        // ==================== 启动应用 ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            const app = new FluidTwilight();
+            
+            // 初始绘制深色背景
+            app.ctx.fillStyle = '#0a0a0a';
+            app.ctx.fillRect(0, 0, app.width, app.height);
+            
+            console.log('流体暮光已启动');
+            console.log('设计哲学：流体暮光（Fluid Twilight）');
+            console.log('基于 Perlin 噪声的粒子流场生成艺术');
+        });
+    </script>
+</body>
+</html>

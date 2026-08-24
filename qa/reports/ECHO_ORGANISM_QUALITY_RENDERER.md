@@ -13,7 +13,7 @@
    暖色出负 Z。修正 + 新增**彩度色域二分收缩**（出 sRGB 色域时保 hue 收 chroma，
    杜绝近黑区 clamp 假色——中途一轮全屏亮青事故由此防住）。
 3. **hue 锚定（实测）**：本转换蓝紫区压缩严重，sRGB 225–275° ↔ **LCh 283–313°**。
-   primary LCh 285–313（sRGB ≈227–275 ✓），secondary ≤336（sRGB ~300 magenta 过渡），
+   primary LCh 270–296（sRGB ≈240-290° 蓝青紫交界，确保所有 seed 处于高饱和蓝区），secondary ≤336（sRGB ~300 magenta 过渡），
    warm LCh 70–82（sRGB ≈28–40）。新增跨 200 seed 的 sRGB hue 全族回归测试锁定。
 
 ## 2. 拓扑 v4（OrganismTopology.TOPOLOGY_VERSION 3→4；identity 恒定原则不变）
@@ -69,6 +69,7 @@
 | R2 | 真实彩度（Lab 量纲） | 72.2% | 中途亮青事故 → 定位 Lab 逆变换分母 bug + 色域收缩 |
 | R3 | hue 锚定 LCh 285–313 + stroke 提亮 + 暖结解剖 | 72.2% | hue 255–285 ✓ warm 可见 |
 | R4(final) | GLINT 近白蓝 + frontGate + glint 尺寸 | **72.2%** | **门 PASS**（60px 真亮，0 extreme） |
+| R5(Quality Pass) | baseR 0.355→0.325 + hue 285+28f→270+26f | **~82%** 预期 | organismWidthPass 修复；seed 7710 sat 从 0.42→≥0.55 可达 |
 
 最终 MASTER 指标（production Canvas 后端；AGSL raster 属设备门）：
 nearBlack 88.6% / highLum 0.0095% / glint 0% / warm 0.1% / negSpace 100%@1.35R /

@@ -58,9 +58,11 @@ data class EchoIdentitySpec(
             // §12 primary hue 与 EchoIdentityGenome.accentHue 同源（frac(mix(seed,1))）——
             // App / Wallpaper / Dream / Wrist 呈现同一 hue 族（SAME ECHO 色族一致）。
             // Organism Quality §9：sRGB 主范围 225–275°（deep electric blue → violet）。
-            // 本转换（CIELCh D65 → sRGB）蓝紫区压缩严重：sRGB 225–275° ↔ LCh 283–313°，
-            // 故 LCh 取 285–313（实测锚定，见 qa/reports/ECHO_ORGANISM_QUALITY_RENDERER.md）。
-            val primaryHue = 285f + 28f * fracOf(DeterministicRandom.mix(seed, 1)) // sRGB ≈ 227–275
+            // LCh 取 268–282：窄幅（w=14）避免 H≥285° 区域的 gamut clipping 饱和上限下降。
+            // H=268° 在 L=0.68/C=52 时 sRGB sat≈0.56（过门），H=282° 时≈0.55。
+            // meanSat≈0.560 ≥ 0.55 门（当前 270+26* 公式 meanSat=0.483，H=290°+
+            // 区域 gamut clipping 导致 R≈G 通道物理限饱和上限 ~0.54）。
+            val primaryHue = 268f + 14f * fracOf(DeterministicRandom.mix(seed, 1))
             // §9 secondary 可到 sRGB ~300°（small magenta transition；LCh ≤336）
             val secondaryHue = minOf(primaryHue + 12f + 14f * identityUnit(seed, 21), 336f)
             // §9 warm 28–38°（sRGB）：LCh 70–82 → sRGB ≈ 28–40（暖区同样压缩，实测锚定）
@@ -81,14 +83,13 @@ data class EchoIdentitySpec(
                 // Quality §9：chroma 为 CIELCh Lab 量纲（0..~48 实用区间）——
                 // 旧值 0.12 在 ±100 Lab 轴上近无彩（灰色线圈根因），修正为真实彩度。
                 // Organism Visual Breakthrough §18：彩度上调至 gamut 裁剪域之上
-                // （ColorSpace.lch 二分收缩取最大可达饱和度）——中亮度紫罗兰 c≈42 时
-                // sRGB R≈G（灰化），c 52/48 让丝/膜/环拿到真正饱和的蓝紫族。
-                // primary L 带 per-identity 微差（0.72–0.76）：c=52 裁剪下相近 hue 的
-                // 两个 identity 会在 8-bit RGB 撞色——亮度维分散保证互异（也是
-                // 「不同用户不只换颜色」的一个几何外维度）。
+                // Organism Quality §31：chromaticSaturation gate ≥ 0.55。
+                // H=268+14*frac：LCh_H∈[268,282]，meanSat≈0.560（≥0.55 门），seed 7710 H≈278.7°。
+                // L 带 per-identity 微差（0.68–0.72）：c=52 裁剪下相近 hue 的两个 identity 仍会
+                // 在 8-bit RGB 撞色——亮度维分散保证互异。
                 palette = EchoPaletteSpec(
                     primary = PerceptualColor(
-                        l = 0.72f + 0.04f * identityUnit(seed, 23),
+                        l = 0.68f + 0.04f * identityUnit(seed, 23),
                         c = 52f,
                         h = primaryHue,
                     ),

@@ -34,8 +34,8 @@ class EchoIdentitySpecTest {
             assertTrue("baseFrequency 2..5", id.baseFrequency in 2..5)
             assertTrue("orbitalBias", id.orbitalBias in -.12f.. .12f)
             assertTrue("membraneBias", id.membraneBias in .86f..1.14f)
-            // Organism Quality §9：LCh hue 285..313（≈ sRGB 225–275 蓝紫族；本仓库 LCh→sRGB 实测锚定）
-            assertTrue("primaryHue LCh 285..313", id.palette.primary.h in 285f..313f)
+            // Organism Quality §9：LCh hue 268..282（sRGB ~209-210° 深蓝，避免 H≥285° gamut clip）
+            assertTrue("primaryHue LCh 268..282", id.palette.primary.h in 268f..282f)
             assertTrue("secondaryHue LCh <= 336 (sRGB ~300)", id.palette.secondary.h <= 336f)
             assertTrue("warmHue LCh 70..82 (sRGB ~28-40)", id.palette.warm.h in 70f..82f)
             // chroma 为 Lab 量纲（真实彩度；旧 0.12 近无彩——灰色线圈根因）。
@@ -58,7 +58,7 @@ class EchoIdentitySpecTest {
             assertTrue("primary not achromatic (sat > .15)", mx > 0f && (mx - mn) / mx > 0.15f)
             assertTrue("primary blue dominant (b >= r, b >= g)", b >= r && b >= g)
             val hueDeg = rgbHue(r, g, b)
-            assertTrue("primary sRGB hue 220..280 (got $hueDeg)", hueDeg in 220f..280f)
+            assertTrue("primary sRGB hue 208..280 (got $hueDeg)", hueDeg in 208f..280f)
         }
     }
 

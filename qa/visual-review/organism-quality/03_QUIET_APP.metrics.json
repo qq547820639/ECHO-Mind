@@ -11,23 +11,23 @@
   "reason": "AGSL raster requires hardware canvas — offscreen export uses production CANVAS backend",
   "quality": "NORMAL",
   "metrics": {
-    "nearBlackRatio": 0.74134,
+    "nearBlackRatio": 0.76577,
     "highLuminanceRatio": 0.00024,
     "extremeGlintRatio": 0.00000,
-    "warmRatio": 0.00199,
-    "negativeSpaceRatio": 0.99947,
-    "visualMassInside": 0.86171,
-    "organismWidthFraction": 0.81111,
-    "organismHeightFraction": 0.36752,
-    "edgeDensity": 0.17785,
-    "centerLuminance": 0.24253,
-    "outerLuminance": 0.01788,
-    "heroMeanLuminance": 0.14606,
-    "heroBrightRatio": 0.16211,
-    "chromaticLuminousRatio": 0.46076,
-    "meanChromaticSaturation": 0.42441,
-    "centralVolumeCoverage": 0.41630,
-    "wireframeDominance": 0.14859
+    "warmRatio": 0.00060,
+    "negativeSpaceRatio": 0.99971,
+    "visualMassInside": 0.87861,
+    "organismWidthFraction": 0.74630,
+    "organismHeightFraction": 0.33675,
+    "edgeDensity": 0.18276,
+    "centerLuminance": 0.26036,
+    "outerLuminance": 0.01550,
+    "heroMeanLuminance": 0.14914,
+    "heroBrightRatio": 0.17640,
+    "chromaticLuminousRatio": 0.42768,
+    "meanChromaticSaturation": 0.57838,
+    "centralVolumeCoverage": 0.48588,
+    "wireframeDominance": 0.15017
   },
   "gate": {
     "nearBlackPass": true,
@@ -42,9 +42,9 @@
     "heroLuminancePass": true,
     "heroBrightPass": true,
     "chromaticLuminousPass": true,
-    "chromaticSaturationPass": false,
+    "chromaticSaturationPass": true,
     "centralVolumePass": true,
     "wireframePass": true,
-    "allPass": false
+    "allPass": true
   }
 }
