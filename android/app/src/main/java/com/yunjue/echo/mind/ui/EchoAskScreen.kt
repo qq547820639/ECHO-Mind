@@ -144,7 +144,9 @@ fun EchoAskMiniOrganism(
             )
         }
     }
-    val session = remember(genome, sizePx) {
+    // §AF：session remember 键包含 maturityName，确保成熟度变化时重建 session
+    val maturityName = presence?.maturity?.name ?: "SEED"
+    val session = remember(genome, sizePx, maturityName) {
         genome?.let {
             EchoRendererFacade.createSession(
                 EchoRenderRequest(
