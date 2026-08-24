@@ -37,9 +37,11 @@ class WearableRuntime(
     private val _state = MutableStateFlow(WearableRuntimeState())
     val state: StateFlow<WearableRuntimeState> = _state
 
-    private val revisionCounter = PresenceRevisionCounter(revisionStore.load())
+    // 单次 load revisionStore，避免构造器+start() 内重复 IO
+    private val initialRevision: Long = revisionStore.load()
+    private val revisionCounter = PresenceRevisionCounter(initialRevision)
     private var lastPushedAtMs: Long? = null
-    private var lastSentRevision: Long = revisionStore.load()
+    private var lastSentRevision: Long = initialRevision
     private var lastFingerprint: String? = null
     private var wasConnected: Boolean = false
     private var messageCounter: Long = 0L
