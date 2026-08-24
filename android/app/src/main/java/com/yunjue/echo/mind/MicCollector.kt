@@ -13,6 +13,8 @@ import com.yunjue.echo.mind.sensing.MicFeatureExtractor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -61,7 +63,8 @@ class MicCollector(
     var running: Boolean = false
         private set
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    /** 使用 SupervisorJob 确保子协程异常不级联取消兄弟协程；stop() 时 cancel()。 */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var recordJob: Job? = null
     private var audioRecord: AudioRecord? = null
 
@@ -174,7 +177,7 @@ class MicCollector(
     /** 停止采集并释放 AudioRecord 资源。幂等。（权限撤回检测在录音循环内周期性执行。） */
     fun stop() {
         running = false
-        recordJob?.cancel()
+        scope.cancel()
         recordJob = null
         audioRecord?.let { rec ->
             runCatching { rec.stop() }
