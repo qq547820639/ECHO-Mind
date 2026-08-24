@@ -57,6 +57,17 @@ async def request_context_and_security_headers(request: Request, call_next: Requ
     started = time.perf_counter()
     try:
         response = await call_next(request)
+    except Exception:
+        current_request_id.reset(token)
+        # 异常时仍返回基础安全头，不泄露请求上下文
+        return Response(status_code=500, headers={
+            "X-Request-ID": request_id,
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        })
     finally:
         current_request_id.reset(token)
     response.headers["X-Request-ID"] = request_id
