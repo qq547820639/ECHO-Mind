@@ -40,6 +40,13 @@ def audit_backend() -> dict:
         lines = [ln for ln in reqs.read_text(encoding="utf-8").splitlines() if not ln.startswith("-e ")]
         reqs.write_text("\n".join(lines) + "\n", encoding="utf-8")
         audit = run(["uvx", "pip-audit", "-r", str(reqs)])
+        if audit.returncode == 2:
+            # pip-audit exit code 2 = execution error（网络/工具崩溃），不是漏洞
+            return {
+                "status": "error",
+                "pip_audit_rc": audit.returncode,
+                "summary": (audit.stderr.strip() or audit.stdout.strip()).splitlines()[-1] if audit.stderr.strip() or audit.stdout.strip() else "",
+            }
         return {
             "status": "ok" if audit.returncode == 0 else "vulnerable",
             "pip_audit_rc": audit.returncode,

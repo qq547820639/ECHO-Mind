@@ -108,7 +108,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: cd android && ./gradlew connectedDebugAndroidTest --stacktrace
+          script: cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest --stacktrace
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         if: always()
         with:
