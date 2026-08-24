@@ -2,6 +2,7 @@ package com.yunjue.echo.mind.localportrait
 
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.PortraitDimensionDto
+import com.yunjue.echo.mind.model.PORTRAIT_DIMENSIONS
 import com.yunjue.echo.mind.model.PortraitFactDto
 import java.time.LocalDate
 
@@ -103,9 +104,7 @@ object LocalPortraitEngine {
         "STABILITY" to "CLEARLY_DIFFERENT" to "变化明显"
     )
 
-    val DIMENSION_ORDER: List<String> = listOf(
-        "RHYTHM", "MOVEMENT", "SCREEN_AMOUNT", "SCREEN_TIMING", "DAY_STRUCTURE", "STABILITY"
-    )
+
 
     // ===== explain.py 粗粒度阈值 =====
     val COARSE_BASELINE_THRESHOLDS: Map<String, Double> = mapOf(
@@ -373,7 +372,7 @@ object LocalPortraitEngine {
     fun buildNarrative(dimensions: Map<String, PortraitDimensionDto>): Pair<String, List<String>> {
         val sentences = mutableListOf<String>()
         val headline = mutableListOf<String>()
-        for (dim in DIMENSION_ORDER) {
+        for (dim in PORTRAIT_DIMENSIONS) {
             val entry = dimensions[dim] ?: continue
             val value = entry.value
             sentenceFor(dim, value)?.let { sentences.add(it) }

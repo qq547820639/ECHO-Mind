@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.localportrait
 import com.yunjue.echo.mind.model.DailyPortraitDto
 import com.yunjue.echo.mind.model.MessageDisplay
 import com.yunjue.echo.mind.model.containsBlockedVocabulary
+import com.yunjue.echo.mind.model.PORTRAIT_DIMENSIONS
 import com.yunjue.echo.mind.model.dimensionDisplayName
 import java.security.MessageDigest
 
@@ -23,9 +24,7 @@ object LocalPortraitDigest {
 
     const val MIN_PORTRAIT_DAYS = 3
 
-    val DIMENSION_ORDER: List<String> = listOf(
-        "RHYTHM", "MOVEMENT", "SCREEN_AMOUNT", "SCREEN_TIMING", "DAY_STRUCTURE", "STABILITY"
-    )
+
 
     /** 从画像列表确定性生成小结；不足 MIN_PORTRAIT_DAYS 天返回 null。 */
     fun build(portraits: List<DailyPortraitDto>): MessageDisplay? {
@@ -35,7 +34,7 @@ object LocalPortraitDigest {
 
         val stats = LinkedHashMap<String, Stat>()
         for (portrait in portraits) {
-            for (dim in DIMENSION_ORDER) {
+            for (dim in PORTRAIT_DIMENSIONS) {
                 val value = portrait.dimensionValue(dim) ?: continue
                 val stat = stats.getOrPut(dim) { Stat() }
                 stat.total++
