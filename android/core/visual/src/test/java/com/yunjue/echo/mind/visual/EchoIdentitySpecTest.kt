@@ -11,7 +11,7 @@ import org.junit.Test
  * V3 §10–§13 — Identity 确定性/范围/多样性测试。
  *
  * 锁定：same seed 恒同结果；不同 seed 至少 3 个几何维度明显变化（不只换颜色）；
- * palette 感知色域（primary 218°..262° / secondary +22°..44° / warm 28°..40°）。
+ * palette 感知色域（primary LCh 268°..282° / secondary LCh ≤336° / warm LCh 70°..82°）。
  */
 class EchoIdentitySpecTest {
 
