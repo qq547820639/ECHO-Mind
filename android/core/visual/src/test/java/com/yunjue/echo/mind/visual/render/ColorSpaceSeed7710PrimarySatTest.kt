@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.visual.render
 
-import com.yunjue.echo.mind.visual.math.DeterministicRandom
 import com.yunjue.echo.mind.visual.model.EchoIdentitySpec
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,9 +69,9 @@ class ColorSpaceSeed7710PrimarySatTest {
                 val argb = ColorSpace.lch(l, c, TARGET_PRIMARY_HUE)
                 val sat = rgbSat(argb)
                 allResults.add(Triple(l, c, sat))
-                val r = (argb ushr 16 and 0xFF)
-                val g = (argb ushr 8 and 0xFF)
-                val b = (argb and 0xFF)
+                val r = argb ushr 16 and 0xFF
+                val g = argb ushr 8 and 0xFF
+                val b = argb and 0xFF
                 val hex = "%02X%02X%02X".format(r, g, b)
                 val pass = sat >= SAT_THRESHOLD
                 if (pass) passRows.add("  L=$l  C=$c  →  sat=${"%.4f".format(sat)}  ($hex) PASS")

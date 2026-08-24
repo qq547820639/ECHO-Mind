@@ -14,11 +14,11 @@ class ColorSpaceLchHueSweepTest {
         const val SAT_THRESHOLD = 0.55f
 
         fun rgbSat(argb: Int): Float {
-            val r = (argb ushr 16 and 0xFF) / 255f
-            val g = (argb ushr 8 and 0xFF) / 255f
-            val b = (argb and 0xFF) / 255f
-            val mx = maxOf(r, g, b)
-            val mn = minOf(r, g, b)
+            val r = argb ushr 16 and 0xFF
+            val g = argb ushr 8 and 0xFF
+            val b = argb and 0xFF
+            val mx = maxOf(r, g, b).toFloat()
+            val mn = minOf(r, g, b).toFloat()
             return if (mx > 1e-6f) (mx - mn) / mx else 0f
         }
 
@@ -49,9 +49,9 @@ class ColorSpaceLchHueSweepTest {
             val argb = ColorSpace.lch(l, c, 279f)
             val sat = rgbSat(argb)
             val lum = luma(argb)
-            val r = (argb ushr 16 and 0xFF)
-            val g = (argb ushr 8 and 0xFF)
-            val b = (argb and 0xFF)
+            val r = argb ushr 16 and 0xFF
+            val g = argb ushr 8 and 0xFF
+            val b = argb and 0xFF
             println("  L=$l  C=$c  →  sat=${"%.4f".format(sat)}  lum=${"%.4f".format(lum)}  #${"%02X%02X%02X".format(r, g, b)}  ${if (sat >= SAT_THRESHOLD) "PASS" else "BELOW"}")
             h279Results.add(Result(l, c, sat))
         }
@@ -62,17 +62,17 @@ class ColorSpaceLchHueSweepTest {
             val argb = ColorSpace.lch(l, c, 268f)
             val sat = rgbSat(argb)
             val lum = luma(argb)
-            val r = (argb ushr 16 and 0xFF)
-            val g = (argb ushr 8 and 0xFF)
-            val b = (argb and 0xFF)
+            val r = argb ushr 16 and 0xFF
+            val g = argb ushr 8 and 0xFF
+            val b = argb and 0xFF
             println("  L=$l  C=$c  →  sat=${"%.4f".format(sat)}  lum=${"%.4f".format(lum)}  #${"%02X%02X%02X".format(r, g, b)}  ${if (sat >= SAT_THRESHOLD) "PASS" else "BELOW"}")
             h268Results.add(Result(l, c, sat))
         }
 
         // 报告：哪个 (L,C,hue) 组合 meanChromaticSaturation 最接近 0.55
         data class Entry(val hue: Float, val l: Float, val c: Float, val sat: Float)
-        val allResults = (h279Results.map { Entry(279f, it.l, it.c, it.sat) } +
-            h268Results.map { Entry(268f, it.l, it.c, it.sat) })
+        val allResults = h279Results.map { Entry(279f, it.l, it.c, it.sat) } +
+            h268Results.map { Entry(268f, it.l, it.c, it.sat) }
         val closestTo55 = allResults.minByOrNull { kotlin.math.abs(it.sat - SAT_THRESHOLD) }
         println("\n=== meanChromaticSaturation closest to $SAT_THRESHOLD ===")
         if (closestTo55 != null) {
@@ -109,12 +109,12 @@ class ColorSpaceLchHueSweepTest {
             val lum48 = luma(c48)
             val delta = sat48 - sat62
             totalSatDelta += delta
-            val r62 = (c62 ushr 16 and 0xFF)
-            val g62 = (c62 ushr 8 and 0xFF)
-            val b62 = (c62 and 0xFF)
-            val r48 = (c48 ushr 16 and 0xFF)
-            val g48 = (c48 ushr 8 and 0xFF)
-            val b48 = (c48 and 0xFF)
+            val r62 = c62 ushr 16 and 0xFF
+            val g62 = c62 ushr 8 and 0xFF
+            val b62 = c62 and 0xFF
+            val r48 = c48 ushr 16 and 0xFF
+            val g48 = c48 ushr 8 and 0xFF
+            val b48 = c48 and 0xFF
             println("  softness=$s  L=${"%.4f".format(l)}")
             println("    C=62 : sat=${"%.4f".format(sat62)}  lum=${"%.4f".format(lum62)}  #${"%02X%02X%02X".format(r62, g62, b62)}")
             println("    C=48 : sat=${"%.4f".format(sat48)}  lum=${"%.4f".format(lum48)}  #${"%02X%02X%02X".format(r48, g48, b48)}")
