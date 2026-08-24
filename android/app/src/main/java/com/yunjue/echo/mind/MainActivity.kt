@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                         onSuccess = { com.yunjue.echo.mind.ui.EchoMindApp(it) },
                         onFailure = { e ->
                             ContainerInitFailedScreen(
-                                errorClass = e.javaClass.simpleName.ifBlank { "初始化失败" },
+                                errorClass = e.javaClass.simpleName,
                                 errorDetail = if (BuildConfig.DEBUG) e.message?.take(200).orEmpty() else "",
                                 onRetry = { recreate() },
                                 onExit = { finishAffinity() },

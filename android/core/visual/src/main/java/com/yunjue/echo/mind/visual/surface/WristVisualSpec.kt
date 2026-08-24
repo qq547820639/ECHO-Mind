@@ -34,7 +34,7 @@ data class WristVisualSpec(
     }
 }
 
-/** 腕上投影器（deterministic downsample；纯函数，双端一致）。 */
+/** 腕上投影器（deterministic downsample；纯函数，双端一致）。被 wearable 端通过反射/序列化工具链引用，需保留——ProGuard/R8 配置须标注 @Keep。 */
 object WristVisualProjector {
 
     /** 手机 genome → 腕上低维 spec（identity 保留，moment 降维）。 */

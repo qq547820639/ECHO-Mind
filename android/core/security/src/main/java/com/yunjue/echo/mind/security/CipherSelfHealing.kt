@@ -12,6 +12,20 @@ package com.yunjue.echo.mind.security
  *    生成并持久化新 suffix，换新 alias 重建密钥；
  * 3. 主 alias 失败 且 已有受保护秘密 → **fail-closed 原样抛出**（换钥会丢库，绝不自动降级）。
  */
+/**
+ * 密钥解析自愈：优先持久化 suffix → 尝试空 suffix → fail-closed。
+ *
+ * [build] lambda 约定：
+ * - 入参 suffix 可为空串（全新安装无受保护秘密时）；
+ * - 内部须捕获所有异常并转化为可恢复错误（不得向上抛未处理异常）；
+ * - 调用方须保证 [build] 幂等：相同 suffix 返回等价 cipher 实例。
+ *
+ * 退出策略：
+ * 1. 已持久化 fallback suffix → 直接用 fallback alias（后续启动稳定复现同一把密钥）；
+ * 2. 主 alias 失败 且 本机**尚无受保护秘密**（全新安装，无数据可孤儿化）→
+ *    生成并持久化新 suffix，换新 alias 重建密钥；
+ * 3. 主 alias 失败 且 已有受保护秘密 → **fail-closed 原样抛出**（换钥会丢库，绝不自动降级）。
+ */
 fun resolveCipher(
     persistedSuffix: String?,
     build: (suffix: String) -> AndroidKeystoreFieldCipher,
