@@ -10,12 +10,6 @@
     "action_stop": "End",
     "action_breathing_hint": "Follow the rhythm, breathe slowly.",
     "action_pause_hint": "Stop for a moment. Nothing to do.",
-    "echo_tap_hint": "Tap to see why",
-    "echo_time": "HH:MM",
-    "maturity_seed": "First sight",
-    "maturity_discovering": "Getting to know",
-    "maturity_emerging": "Getting to know",
-    "maturity_known": "Knows you",
-    "maturity_mature": "Together"
+    "echo_tap_hint": "Tap to see why"
   }
 }

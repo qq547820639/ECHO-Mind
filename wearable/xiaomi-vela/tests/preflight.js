@@ -153,7 +153,7 @@ check('no forbidden always-on patterns (red error dashboard / bg color)', () => 
   // 隐私/连续性纪律：断连时不得出现红色 ERROR dashboard。
   for (const f of collectFiles(SRC_ROOT, /\.ux$/)) {
     const text = fs.readFileSync(f, 'utf8')
-    if (/(?:color|background-color)\s*:\s*#(?:f00|ff0000|e[0-9a-f]{4})\b/i.test(text)) {
+    if (/(?:color|background-color)\s*:\s*#(?:f00|ff0000|e[0-9a-f]{4}|d00|d00000|c00|cc0000)\b/i.test(text)) {
       throw new Error(path.basename(f) + ': 出现红色 ERROR 风格样式')
     }
   }

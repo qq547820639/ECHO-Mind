@@ -3,7 +3,6 @@ package com.yunjue.echo.mind.presence
 import com.yunjue.echo.mind.localportrait.LocalBaselineSnapshot
 import com.yunjue.echo.mind.localportrait.LocalDayAggregate
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -104,8 +103,7 @@ object AmbientEngine {
         val screenZ = zOf(today.screenOnMinutes, baseline, "screen_on_minutes")
         val switchZ = zOf(today.appSwitchCount.toDouble(), baseline, "app_switch_count")
         val startZ = zOf(today.activeStartMinute?.toDouble(), baseline, "active_start_minute", circular = true)
-        val deviation = listOf(movementZ, screenZ, switchZ).map { abs(it).toFloat() / 2f }.max()
-            .coerceIn(0f, 1f)
+        val deviation = listOf(movementZ, screenZ, switchZ).map { abs(it).toFloat() / 2f }.maxOrNull()?.coerceIn(0f, 1f) ?: 0f
 
         val baselineDays = baseline?.validDays ?: 0
         val confidence = (
