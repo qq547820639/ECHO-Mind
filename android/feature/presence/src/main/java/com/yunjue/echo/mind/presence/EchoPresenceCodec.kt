@@ -19,7 +19,7 @@ import java.time.Instant
  * Master Prompt PART 60：Wallpaper 只消费 EchoPresenceState）。
  *
  * 格式 v1（'|' 分隔，无敏感字段；快照只含视觉/状态摘要，绝不含叙事文字）：
- * `v1|updatedAtEpochMs|sensingStatus|maturity|activation|regularity|density|deviation|confidence|coverage|seed|accentHue|rhythmDelta`
+ * `v1|updatedAtEpochSec|sensingStatus|maturity|activation|regularity|density|deviation|confidence|coverage|seed|accentHue|rhythmDelta`
  *
  * ERA 53（§52 审计第 3 轮）格式 v2：补齐 Identity 四层（§52 跨进程真值）——
  * 进程死亡后 Wallpaper/Dream 恢复的 ECHO 与前台同一 Identity（全 8 项身份字段 +
