@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 
 /**
@@ -59,6 +61,8 @@ fun sensorEventTimestampToEpochMs(
 class SensorCollector(context: Context, private val hub: SensingEventHub) : SensorEventListener {
     private val sensorManager = context.applicationContext
         .getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    /** 传感器回调 Handler：指定后台线程避免阻塞主线程。 */
+    private val sensorHandler = Handler(Looper.getMainLooper())
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
@@ -69,8 +73,9 @@ class SensorCollector(context: Context, private val hub: SensingEventHub) : Sens
 
     fun start() {
         if (running) return
-        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
-        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        // 指定 Handler：传感器回调在 sensorHandler 的 Looper 线程执行，避免阻塞主线程
+        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL, sensorHandler) }
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL, sensorHandler) }
         running = true
     }
 
