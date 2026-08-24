@@ -169,8 +169,9 @@ private fun shiftedBehaviorAspects(before: List<JourneyDay>, after: List<Journey
         if (kotlin.math.abs(delta) < 0.3f) return@mapNotNull null
         val direction = if (delta > 0) dominantValue(dim, after) else dominantValue(dim, before)
         if (direction.isBlank()) return@mapNotNull null
-        dimensionShiftLabel(dim, direction).takeUnless { it == dim } // 未知组合不得泄漏工程键
-    }.sortedByDescending { kotlin.math.abs(it.length) }
+        val label = dimensionShiftLabel(dim, direction).takeUnless { it == dim } ?: return@mapNotNull null
+        label to kotlin.math.abs(delta)
+    }.sortedByDescending { it.second }.map { it.first }
 }
 
 private fun dominantValue(dim: String, days: List<JourneyDay>): String =
