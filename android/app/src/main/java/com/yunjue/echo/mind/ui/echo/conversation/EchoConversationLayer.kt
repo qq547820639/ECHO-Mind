@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -160,19 +161,16 @@ private fun EchoConversationMessage(
             Text("已记录，感谢反馈。", style = MaterialTheme.typography.bodySmall)
         } else if (!reasonPicked) {
             Text("哪里不太对？", style = MaterialTheme.typography.bodySmall)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                CORRECTION_REASONS.chunked(4).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { reason ->
-                            AssistChip(
-                                onClick = {
-                                    reasonPicked = true
-                                    onFeedback(turn.question, turn.answer, false, reason)
-                                },
-                                label = { Text(reason) },
-                            )
-                        }
-                    }
+            // §AJ：FlowRow——360dp / fontScale 1.5 永不溢出（与 EchoInlineEvidence 一致）
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CORRECTION_REASONS.forEach { reason ->
+                    AssistChip(
+                        onClick = {
+                            reasonPicked = true
+                            onFeedback(turn.question, turn.answer, false, reason)
+                        },
+                        label = { Text(reason) },
+                    )
                 }
             }
         } else {
