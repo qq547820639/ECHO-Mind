@@ -129,8 +129,7 @@ export default {
     if (state.phase !== 'empty') {
       const v = visual.computeVisual(state.envelope, {})
       const identity = state.envelope.identity || {}
-      const bucket = Math.floor(((typeof identity.accent === 'number' ? identity.accent : 0.5) % 1) * 8) % 8
-      this.hueClass = 'hue-' + bucket
+      this.hueClass = 'hue-' + visual.hueBucket(identity.accent)
       const diameter = v.coreRadius * 2
       this.coreSizeClass = diameter < 60 ? 'core-s' : (diameter < 78 ? 'core-m' : 'core-l')
       // 触觉开关来自手机推送的 PUBLIC_SAFE surface（默认 SILENT）。

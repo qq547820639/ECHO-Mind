@@ -78,11 +78,7 @@ function esc(s) {
 
 // ------------------------------------------------------------------ echo 页镜像（echo/index.ux 同几何）
 
-// .ux 的量化映射（与 echo/index.ux 一致：hue 8 桶 + s/m/l 尺寸桶）。
-function hueClassOf(accentHue) {
-  const bucket = Math.floor(((typeof accentHue === 'number' ? accentHue : 0.5) % 1) * 8) % 8
-  return 'hue-' + bucket
-}
+// hue 桶量化：统一从 wear_visual.hueBucket，避免三处重复实现。
 function sizeClassOf(v, small, large, classes) {
   if (v < small) return classes[0]
   if (v < large) return classes[1]
@@ -97,7 +93,7 @@ function echoPageHtml(env, phase, headlineText, hintText, lang) {
     ? { coreRadius: 22, orbitRadius: 70, glowRadius: 44, orbitAlpha: 0.4, coreAlpha: 0.85, accent: 'rgb(190,180,160)', identity: { accent: 0.5 } }
     : visual.computeVisual(env, { phase: phase })
   const identity = (env && env.identity) || { accent: 0.5 }
-  const hue = phase === 'empty' ? 'hue-neutral' : hueClassOf(identity.accent)
+  const hue = phase === 'empty' ? 'hue-neutral' : visual.hueBucket(identity.accent)
   // EMPTY 分支镜像 echo/index.ux refresh() 空缓存固定类（ring-m/ring-a-2/glow-m/core-m），
   // 不经 sizeClassOf 推导（曾推导为 glow-s/core-s 与生产不一致——已修正）。
   const ringSize = phase === 'empty' ? 'ring-m' : sizeClassOf(v.orbitRadius * 2, 120, 160, ['ring-s', 'ring-m', 'ring-l'])

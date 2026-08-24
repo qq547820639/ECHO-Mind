@@ -91,9 +91,7 @@ const accel = require('../common/sensor/accel_summary.js')
 let clockTimer = null
 
 function hueClass(accentHue) {
-  // 手机 WearPresenceProjector 同源：accent ∈ [0,1) → 8 桶（确定性，同一 ECHO 同一色）。
-  const bucket = Math.floor(((typeof accentHue === 'number' ? accentHue : 0.5) % 1) * 8) % 8
-  return 'hue-' + bucket
+  return 'hue-' + visual.hueBucket(accentHue)
 }
 
 function sizeClass(value, small, large, classes) {

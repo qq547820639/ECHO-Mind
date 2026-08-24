@@ -137,9 +137,18 @@ function computeVisual(envelope, options) {
   }
 }
 
+/**
+ * 确定性 hue 桶量化（accent ∈ [0,1) → 8 桶）。
+ * 三处同源实现：echo/index.ux、action/index.ux、tests/simulator/generate.js，统一为此函数。
+ */
+function hueBucket(accentHue) {
+  return Math.floor(((typeof accentHue === 'number' ? accentHue : 0.5) % 1) * 8) % 8
+}
+
 module.exports = {
   computeVisual: computeVisual,
   hashIdentity: hashIdentity,
   hsvToRgb: hsvToRgb,
   clamp01: clamp01,
+  hueBucket: hueBucket,
 }
