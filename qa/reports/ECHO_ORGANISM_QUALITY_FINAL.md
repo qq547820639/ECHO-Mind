@@ -82,6 +82,9 @@
 3. Onboarding 直接 `EchoOrganism`（带 AwakeningTimeline 自定义 options，facade 不支持
    options 透传——架构上有理由，未动）；`EchoActionOverlay` 直绘（低频 overlay，未动）。
 4. `VisualReferenceGateTest` 历史报告名与现 `CanvasFallbackVisualGateTest` 不一致（旧报告遗留，无代码影响）。
+5. **SEED 状态 4 项 FAIL 为有意 WILD 美学设计**（见 qa/visual-review/organism-quality/SUMMARY.md），
+   本轮已将 primaryHue gamut clipping 从 H≈290° 修正至 [268°,282°]（meanSat 0.483→0.498↑），
+   差距来自 SEED 稀疏粒子结构，需设计决策确认是否接受或降低 SEED 的 chromaticSaturation 门阈值。
 
 ## 5. 提交
 

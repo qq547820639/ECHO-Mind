@@ -41,7 +41,7 @@
 
 | 族 | LCh | 用途 | 份额 |
 |---|---|---|---|
-| primary | L .47–.52 / c 62 / h=identity 285–313 | 主云、丝、膜 | lobe 32% |
+| primary | L .47–.52 / c 62 / h=identity 270–296 | 主云、丝、膜 | lobe 32% |
 | secondary | L .41 / c 56 / h=identity +12–26 | 紫罗兰云层 | lobe 35% |
 | cyan accent | L .62–.67 / c 100(裁剪) / h 198–222 | 电光青高光云、膜亮缘、发射结 | lobe 33% |
 | glint 白 | (0.97, 0.985, 1.0) luma≈.86 | GLINT 粒子、发射结（唯二「真正亮」） | 极少 |

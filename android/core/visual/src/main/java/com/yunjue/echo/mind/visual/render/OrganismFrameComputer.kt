@@ -455,7 +455,7 @@ object OrganismFrameComputer {
 
     /**
      * organism 视觉半径 R（minDim 归一化；公式单一事实源——帧求值与视觉指标度量共用）。
-     * Organism Quality §5：MASTER luminous bbox 宽 72–82% viewport → baseR ≈ 0.40–0.44。
+     * Organism Quality §5：MASTER luminous bbox 宽 72–82% viewport → baseR ≈ 0.35–0.43。
      * breathScale = 1（静态锚点；呼吸只做 ±amp 缩放表现）。
      */
     fun baseRadiusFor(
@@ -463,7 +463,7 @@ object OrganismFrameComputer {
         coreOpenness: Float,
         membraneBias: Float,
         breathScale: Float = 1f,
-    ): Float = (0.355f + radialSpread * 0.10f + coreOpenness * 0.045f) * membraneBias * breathScale
+    ): Float = (0.325f + radialSpread * 0.10f + coreOpenness * 0.045f) * membraneBias * breathScale
 
     /**
      * 空心核暗腔半径（单位 R；公式单一事实源——帧内遮挡带/暗腔半径与后端消费点同源）：
@@ -587,8 +587,8 @@ object OrganismFrameComputer {
                 // 该 L/hue 下最大可达饱和度（中亮度紫罗兰在 c≈44 时 sRGB R≈G、sat≈0.46 的灰化根因）。
                 2 -> ColorSpace.lch(0.62f + 0.05f * lb.softness, 100f, 198f + 24f *
                     EchoIdentitySpec.identityUnit(ctx.identity.identitySeed, 41))
-                1 -> ColorSpace.lch(0.41f, 56f, hueSecondary)
-                else -> ColorSpace.lch(0.47f + 0.05f * lb.softness, 62f, huePrimary)
+                1 -> ColorSpace.lch(0.52f, 48f, hueSecondary)
+                else -> ColorSpace.lch(0.58f + 0.05f * lb.softness, 62f, huePrimary)
             }
             out += VolumeLobeV(
                 x = px,
