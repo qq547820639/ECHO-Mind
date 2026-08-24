@@ -68,13 +68,19 @@ object DatabaseOpenOrchestrator {
                 val fresh = actions.rotateSecret()
                 io.rekey(legacyDb, fresh)
                 if (!io.verify(legacyDb)) {
+                    // verify 失败：rekey 已完成但数据校验未通过；
+                    // 不标记已迁移（防止下次启动用新口令打开时数据不可用）。
+                    // 抛出 IllegalStateException 而非原始 failure，让调用方明确知道是迁移验证失败。
                     throw IllegalStateException("db migration verification failed")
                 }
                 actions.markMigrated()
                 actions.retireAncient()
                 legacyDb
             } catch (migrationFailure: Throwable) {
-                // 失败恢复：rekey 失败不改变旧口令；抛原始异常，下次启动重试迁移
+                // verify 失败（IllegalStateException）直抛，不掩盖真实原因。
+                // rekey / rotateSecret 失败保留旧口令可用；抛原始异常重试。
+                if (migrationFailure is IllegalStateException &&
+                    migrationFailure.message == "db migration verification failed") throw migrationFailure
                 throw failure
             }
         }

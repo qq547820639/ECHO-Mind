@@ -77,8 +77,6 @@ object VisualLabMetrics {
         /** 发光像素中细线像素占比（5×5 网格腐蚀后消失比例；§32 反 wireframe 主导）。 */
         val wireframeDominance: Float = 0f,
     ) {
-        @Deprecated(" renamed to highLuminanceRatio", ReplaceWith("highLuminanceRatio"))
-        val highlightRatio: Float get() = highLuminanceRatio
     }
 
     /** §82 Reference 自动门结果（每项独立判定）。 */

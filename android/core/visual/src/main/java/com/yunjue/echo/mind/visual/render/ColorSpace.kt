@@ -104,10 +104,6 @@ object ColorSpace {
         return argb(alpha, gamma(best.first), gamma(best.second), gamma(best.third))
     }
 
-    /** deep navy / OLED black 底色（宪法 §二）。 */
-    val BG_CENTER = hsv(0.62f, 0.55f, 0.07f)   // ~ #0A1230
-    val BG_EDGE = hsv(0.66f, 0.7f, 0.02f)       // ~ #02040C
-
     /** 暖金高光（仅 allowWarmAccent 且 <5% 面积）。 */
     val WARM_GOLD = hsv(0.10f, 0.75f, 0.9f)
 }

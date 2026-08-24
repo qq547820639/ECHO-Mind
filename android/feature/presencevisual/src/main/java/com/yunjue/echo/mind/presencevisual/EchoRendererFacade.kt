@@ -144,7 +144,7 @@ object EchoRendererFacade {
         request: EchoRenderRequest,
         modifier: Modifier = Modifier,
         aggregateDescription: String? = null,
-        correctionPulseTrigger: Long = 0,
+        correctionPulseTrigger: Int = 0,
     ) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val env = rememberEchoEnvironment(context).value
@@ -161,7 +161,7 @@ object EchoRendererFacade {
                 quality = resolution.quality,
                 interaction = request.interaction,
             ),
-            correctionPulseTrigger = correctionPulseTrigger.toInt(),
+            correctionPulseTrigger = correctionPulseTrigger,
         )
     }
 

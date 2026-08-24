@@ -116,7 +116,7 @@ fun EchoVisualSurface(
             ),
             modifier = modifier.fillMaxSize(),
             aggregateDescription = description,
-            correctionPulseTrigger = correctionPulseTrigger.toLong(),
+            correctionPulseTrigger = correctionPulseTrigger,
         )
     }
 }

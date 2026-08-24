@@ -163,15 +163,17 @@ class DatabaseOpenOrchestratorTest {
     }
 
     @Test
-    fun verifyFailureRethrowsOriginalAndDoesNotMarkMigrated() {
+    fun verifyFailureThrowsMigrationErrorAndDoesNotMarkMigrated() {
         val h = Harness(verifyResult = false)
         try {
             h.run()
-            fail("verify 失败必须抛原始错钥异常")
-        } catch (expected: WrongKeyException) {
-            // expected
+            fail("verify 失败必须抛迁移验证异常")
+        } catch (expected: IllegalStateException) {
+            assertEquals("db migration verification failed", expected.message)
         }
+        // markMigrated / retireAncient 均不应执行
         assertEquals(0, h.markCalls)
+        assertEquals(0, h.retireCalls)
     }
 
     @Test
