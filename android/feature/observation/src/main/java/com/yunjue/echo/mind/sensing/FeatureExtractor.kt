@@ -289,8 +289,11 @@ class FeatureExtractor {
                 }
             } else null
         }
+        var hasCarryThroughWindow = false
         if (carryOn != null) {
             total += carryOn
+            // 若 carry 贯穿整个窗口（无 OFF 事件），标记防止重复累计
+            hasCarryThroughWindow = sorted.firstOrNull { it.state == ScreenCollector.ScreenState.OFF } == null
         }
         var onTime: Long? = null
         for (e in sorted) {
@@ -305,8 +308,11 @@ class FeatureExtractor {
             }
         }
         // 窗口结束时仍为开启状态，截断到 windowEnd（含 carry 段起点之后的事件）
-        onTime?.let { start ->
-            total += (windowEndMs - start).coerceAtLeast(0L)
+        // 注意：若 carry 贯穿整个窗口（hasCarryThroughWindow=true），此处不重复累计
+        if (!hasCarryThroughWindow) {
+            onTime?.let { start ->
+                total += (windowEndMs - start).coerceAtLeast(0L)
+            }
         }
         return total
     }
