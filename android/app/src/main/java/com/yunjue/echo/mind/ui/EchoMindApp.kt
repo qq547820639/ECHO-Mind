@@ -153,6 +153,13 @@ fun dialIntent(number: String): Intent = Intent(Intent.ACTION_DIAL, Uri.parse("t
 @Composable
 private fun QuietWorldBar(selected: Tab, onSelect: (Tab) -> Unit) {
     val bg = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+    // §15：glowBrush 在 Composable 顶层计算，避免每次重组重建 Brush
+    val glowBrush = Brush.radialGradient(
+        listOf(
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+            Color.Transparent,
+        ),
+    )
     Surface(color = bg, tonalElevation = 0.dp, shadowElevation = 0.dp) {
         Row(
             Modifier
@@ -184,14 +191,7 @@ private fun QuietWorldBar(selected: Tab, onSelect: (Tab) -> Unit) {
                             Box(
                                 Modifier
                                     .size(30.dp)
-                                    .background(
-                                        Brush.radialGradient(
-                                            listOf(
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
-                                                Color.Transparent,
-                                            ),
-                                        ),
-                                    ),
+                                    .background(glowBrush),
                             )
                         }
                         Icon(
