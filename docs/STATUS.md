@@ -26,7 +26,7 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `77d19b6d`，2026-08-27 06:03 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `58deb4aa`，2026-08-27 06:04 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
