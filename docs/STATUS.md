@@ -27,7 +27,7 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `43adc931`，2026-08-28 14:04 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `80c89014`，2026-08-28 14:05 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
@@ -186,7 +186,7 @@
 
    | 项 | 状态 | 证据 |
    |---|---|---|
-   | P0-1 主干归位 | **PASS** | `main` = `43adc931`（原 `1c559ea6` + 纯拓扑合并，0 冲突 / 0 文件变化）；本地失序 `main`（391 个 rebase 重复提交）已重建；31 个 dependabot 分支清理（先打归档标签 `archive/20260828/*`） |
+   | P0-1 主干归位 | **PASS** | `main` = 当前可交付真源（原 `1c559ea6` + 纯拓扑合并，0 冲突 / 0 文件变化；归位提交 `e81c52f1`）；本地失序 `main`（391 个 rebase 重复提交）已重建；31 个 dependabot 分支清理（先打归档标签 `archive/20260828/*`） |
    | P0-2 仓库二进制 | **PASS（预防）/ BLOCKED（历史瘦身）** | `scripts/check_repo_bloat.py` + CI 作业生效（禁止新增超限文件与生成物入库）；34 个本地 APK（213MB）归档；`.git` 1059MB 属历史债，不可逆瘦身排 runbook `docs/operations/REPO_HISTORY_SLIM_RUNBOOK.md` |
    | P0-3 escalation 豁免伪造 | **PASS** | 豁免改由 `resolve_rate_limit_exemption()` 依服务端证据裁定（L0 准入 / 红色 RiskSignal，30min 新鲜窗口）；trigger 降为展示标签；新增 `escalation.exemption_denied` / `rate_limit_exempted` 审计；`test_support_rate_limit.py` 4→10 例 |
    | P0-4 交付 = 门禁 | **PASS** | `DELIVERY_MANIFEST` 新增 `validation_evidence` / `validation_environment`；`generate_provenance.py` 增加 requires-python 合规校验（dirty 或解释器不合规 → `release_type=development`）；`package_release.sh` 9/9 `DISTRIBUTION CLOSURE PASS`（clean tree，`git_dirty=false`，python 3.14.3 ≥ 3.12） |
@@ -223,5 +223,6 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
 
 

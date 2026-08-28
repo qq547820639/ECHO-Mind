@@ -2,7 +2,9 @@
 
 > 执行角色：DevOps 交付专家（全授权自主裁决）
 > 基线：`docs/architecture/2026-08-28-repo-deep-review-and-optimization-backlog.md`（深度评审 P0×4 / P1×6 / P2×7）
-> 交付主干：`main`　｜　交付提交：`43adc931`（HEAD，clean tree）
+> 交付主干：`main`（本轮提交区间 `03ddeb5b..main`，终态 SHA 以 `git rev-parse main` 为准）
+> 交付线起止：归位提交 `e81c52f1`（主干归位）→ 语义提交 `f30bdda5` / `1c7abffc` → 终态元数据提交
+> 工作树状态：clean（`git status --porcelain` 为空），`release_type=release`
 > 发布状态：`pilot-candidate`（`production_claim: false`，外部发布门未完成）
 
 ---
