@@ -52,18 +52,18 @@ wearable ──► model, ports
 | data | 24 |
 | di | 2 |
 | intelligence | 18 |
-| journey | 17 |
+| journey | 16 |
 | memory | 7 |
 | model | 7 |
 | observation | 17 |
 | ports | 3 |
 | presence | 10 |
-| presencevisual | 7 |
+| presencevisual | 8 |
 | root | 14 |
 | runtime | 1 |
 | security | 9 |
-| ui | 49 |
-| visual | 20 |
+| ui | 58 |
+| visual | 19 |
 | wearable | 25 |
 
 ## 4. 跨领域边清单

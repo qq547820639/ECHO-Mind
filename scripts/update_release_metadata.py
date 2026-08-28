@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import subprocess
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -145,6 +146,26 @@ def _injected(env_name: str) -> str:
     return os.environ.get(env_name, "not_run")
 
 
+def _evidence_map() -> dict[str, str]:
+    """P0-4（2026-08-28）：门禁结论必须可复现。
+
+    `validation` 只给结论，"passed 是谁跑的、怎么跑的"无从判断——这正是
+    "门禁存在 ≠ 门禁跑在交付上"的根源。这里把每个门禁的执行方式（命令 + 环境 +
+    时间）作为 `validation_evidence` 一并写入清单；未提供的一律不出现（禁止伪造）。
+    """
+    spec = {
+        "backend_tests": "BACKEND_TESTS_EVIDENCE",
+        "alembic_roundtrip": "ALEMBIC_ROUNDTRIP_EVIDENCE",
+        "contract_drift_check": "CONTRACT_DRIFT_CHECK_EVIDENCE",
+        "android_gradle_build": "ANDROID_GRADLE_BUILD_EVIDENCE",
+        "android_instrumentation": "ANDROID_INSTRUMENTATION_EVIDENCE",
+        "static_checks": "STATIC_CHECKS_EVIDENCE",
+        "portrait_golden": "PORTRAIT_GOLDEN_EVIDENCE",
+        "repo_bloat_gate": "REPO_BLOAT_EVIDENCE",
+    }
+    return {key: value for key, env in spec.items() if (value := os.environ.get(env))}
+
+
 def _git_branch() -> str:
     """branch 实测当前 git 分支（替代硬编码 "main"）。"""
     try:
@@ -153,6 +174,26 @@ def _git_branch() -> str:
         ).strip()
     except Exception:
         return "unknown"
+
+
+def _git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+def _git_is_dirty() -> bool:
+    """P0-4：交付必须能自证"跑在干净树上"；脏树一律标 true（release-closure §15 禁 dirty）。"""
+    try:
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain"], cwd=ROOT, text=True
+        )
+        return bool(out.strip())
+    except Exception:
+        return True
 
 
 def _safety_cases_count() -> int | str:
@@ -211,6 +252,17 @@ def main() -> None:
             "contract_drift_check": _injected("CONTRACT_DRIFT_CHECK_RESULT"),
             "android_instrumentation": _injected("ANDROID_INSTRUMENTATION_RESULT"),
             "postgresql_docker_integration": "external_gate_not_run",
+        },
+        # P0-4：门禁结论 → 可复现执行证据（未执行的门禁不出现在此字典）
+        "validation_evidence": _evidence_map(),
+        "validation_environment": {
+            "builder": os.environ.get("BUILDER_ENVIRONMENT", "local-dev"),
+            "python_version": os.environ.get("BUILDER_PYTHON_VERSION") or platform.python_version(),
+            "git_commit": _git_commit(),
+            "git_dirty": _git_is_dirty(),
+            "blocked_by": [
+                item for item in (os.environ.get("DELIVERY_BLOCKED_BY") or "").split("|") if item
+            ],
         },
         "production_claim": False,
         "external_release_gates": [

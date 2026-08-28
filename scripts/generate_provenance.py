@@ -28,6 +28,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -190,11 +191,52 @@ def artifact_manifest_lines(release_notes: Path,
     return sorted(lines)
 
 
+def required_python() -> tuple[int, int] | None:
+    """从 backend/pyproject.toml 读 requires-python 的下界（P0-4）。
+
+    历史缺陷：provenance 曾记录 python_version 3.9.6，而 pyproject 要求 >=3.12
+    ——provenance 只记录"当时用哪个解释器跑的"，不校验它是否合规。
+    """
+    pyproject = ROOT / "backend" / "pyproject.toml"
+    if not pyproject.is_file():
+        return None
+    for line in pyproject.read_text(encoding="utf-8").splitlines():
+        m = re.match(r'\s*requires-python\s*=\s*"[^\d]*(\d+)\.(\d+)', line)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+    return None
+
+
+def check_python_floor(floor: tuple[int, int] | None, strict: bool) -> str | None:
+    """返回违规说明（合规返回 None）。"""
+    if floor is None:
+        return None
+    current = sys.version_info[:2]
+    if current >= floor:
+        return None
+    msg = (
+        f"构建解释器 Python {current[0]}.{current[1]} 低于 backend/pyproject.toml "
+        f"requires-python >= {floor[0]}.{floor[1]}"
+    )
+    if strict:
+        return msg
+    print(f"[WARN] {msg}（本次 provenance 标记为 development，不得作为交付证据）")
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--require-clean", action="store_true",
                     help="git_dirty=true 时直接 FAIL（正式 release 门禁，§15）")
+    ap.add_argument("--strict-python", action="store_true",
+                    help="构建解释器低于 requires-python 时直接 FAIL（默认仅告警）")
     args = ap.parse_args()
+
+    python_floor = required_python()
+    python_compliant = python_floor is None or sys.version_info[:2] >= python_floor
+    if violation := check_python_floor(python_floor, args.strict_python):
+        print(f"FAIL：{violation}")
+        return 1
 
     version_source = json.loads(
         (ROOT / "scripts" / "version_source.json").read_text(encoding="utf-8")
@@ -220,7 +262,10 @@ def main() -> int:
         "release_version": version,
         "git_commit": git("rev-parse", "HEAD"),
         "git_dirty": dirty,
-        "release_type": "development" if dirty else "release",
+        # P0-4：dirty 树 **或** 构建解释器不合规，都只能算 development（不得作为交付证据）
+        "release_type": "development" if (dirty or not python_compliant) else "release",
+        "python_compliant": python_compliant,
+        "python_required": f">={python_floor[0]}.{python_floor[1]}" if python_floor else None,
         "source_tree_sha256": source_tree_sha256(),
         "source_manifest_sha256": sha256_file(ROOT / "SOURCE_MANIFEST.sha256"),
         "android_version_name": version_source["android_version_name"],

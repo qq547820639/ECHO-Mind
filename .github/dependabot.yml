@@ -1,39 +1,83 @@
-# Dependabot version updates（T03）：GitHub Actions + pip（backend）+ gradle（android）。
-# npm 无依赖，故不配置 npm ecosystem。
+# Dependabot version updates（T03 建立；2026-08-28 P1-3 收口）。
+#
+# 历史问题：每个依赖一个 PR + 每 ecosystem 上限 10 → 积压 31 个 dependabot 分支
+# （github-actions ~10 / gradle 10 / pip+uv 11），PR 互相踩、安全补丁被埋没。
+#
+# 收口策略（三选一 → 选「区间 + uv.lock 钉死 + dependabot 分组月度 PR」）：
+#   1. 依赖区间写在 pyproject/版本目录里保持灵活性，uv.lock 与 gradle 锁文件负责可复现；
+#   2. dependabot 改为**分组月度 PR**：minor/patch 合并成一个 PR，major 单独一个 PR
+#      （major 需人工评审，不与 minor/patch 混批）；
+#   3. 每 ecosystem 同时开放 PR 上限降到 3，杜绝再次积压。
+#
+# 清理动作：2026-08-28 的 31 个历史 dependabot 分支已打归档标签
+# archive/20260828/dependabot/* 后删除；dependabot 会按新配置重新开分组 PR。
 version: 2
 updates:
+  # ---------- GitHub Actions（workflow SHA pin 由 scripts/verify_workflow_pins.py 守门） ----------
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
     labels:
       - "dependencies"
       - "ci"
+    groups:
+      github-actions-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      github-actions-major:
+        applies-to: version-updates
+        update-types: ["major"]
 
+  # ---------- Backend Python（uv.lock 为唯一可复现锁源；不再单独配置 pip，避免双源互踩） ----------
   - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build"
+      include: "scope"
     labels:
       - "dependencies"
       - "python"
+    groups:
+      backend-python-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      # major 单独成 PR：mypy/pytest 大版本升级会改变门禁判定，必须人工评审
+      backend-python-major:
+        applies-to: version-updates
+        update-types: ["major"]
 
+  # ---------- Android Gradle（libs.versions.toml 集中管理；major 需本地 assemble 验证） ----------
   - package-ecosystem: "gradle"
     directory: "/android"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build"
+      include: "scope"
     labels:
       - "dependencies"
       - "android"
+    groups:
+      android-gradle-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      android-gradle-major:
+        applies-to: version-updates
+        update-types: ["major"]

@@ -987,7 +987,7 @@
     "/v1/profile/{user_id}/rebuild": {
       "post": {
         "summary": "Rebuild User Profile",
-        "description": "显式重建画像：traits + version+1；仅写路径调用。",
+        "description": "显式重建画像：traits + version+1；仅写路径调用。\n\nP1-1/P1-2 修复：挂 require_write_role（只读角色 403）+\nrequire_active_subscription（订阅到期 402）+ passive_sensing consent 门禁\n（撤回同意 → 412；画像缓存由被动感知派生数据重算）。",
         "operationId": "rebuild_user_profile_v1_profile__user_id__rebuild_post",
         "security": [
           {
@@ -1959,7 +1959,7 @@
     "/v1/skills/completions": {
       "post": {
         "summary": "Create Skill Completion",
-        "description": "Skill 执行完成/停止上报（幂等：同 tenant+event_id 返回同一记录）。\n\n- 校验 skill 属于当前用户且 status=='signed'\n- audit action=skill.completion\n- 服务端只记录执行状态，不承载可执行内容",
+        "description": "Skill 执行完成/停止上报（幂等：同 tenant+event_id 返回同一记录）。\n\n- 校验 skill 属于当前用户且 status=='signed'\n- audit action=skill.completion\n- 服务端只记录执行状态，不承载可执行内容\n- P1-1/P2-1 修复：挂 require_write_role（只读角色 403）+\n  require_active_subscription（订阅到期 402，对齐 GET /skills 门禁）。",
         "operationId": "create_skill_completion_v1_skills_completions_post",
         "requestBody": {
           "content": {
@@ -2241,7 +2241,7 @@
     "/v1/config/flags": {
       "get": {
         "summary": "Get Config Flags",
-        "description": "用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。",
+        "description": "用户拉取本租户的 feature flags（端侧灰度联动；无缓存 fail-closed 由端侧承担）。\n\n审计 P3-5 评估注记：无角色/状态限制为有意设计——端侧冷启动即需拉取 flags，\nwithdrawal_pending（JWT 未过期窗口内）与 vendor_support 可读租户非敏感开关\n可接受；若后续 flags 携带敏感值须重估此边界。",
         "operationId": "get_config_flags_v1_config_flags_get",
         "responses": {
           "200": {
