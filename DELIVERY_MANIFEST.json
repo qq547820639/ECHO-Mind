@@ -2,8 +2,8 @@
   "project": "ECHO Mind Personal Ambient Intelligence",
   "version": "0.11.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-08-28T13:53:45Z",
-  "branch": "agent/organism-visual-breakthrough",
+  "generated_at": "2026-08-28T14:03:39Z",
+  "branch": "main",
   "git_ref": "personal-ambient-intelligence-v0.11.0",
   "scope": [
     "Android phone-first Personal Ambient Intelligence client",
@@ -37,7 +37,7 @@
   "validation_environment": {
     "builder": "local-dev-verified",
     "python_version": "3.14.3",
-    "git_commit": "e81c52f10ff565740337474732f257a44788639f",
+    "git_commit": "36028c6a038543281ee6f68b2d202599809496c3",
     "git_dirty": true,
     "blocked_by": [
       "BLOCKED_ENV_ANDROID_SDK",
