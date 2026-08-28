@@ -1,7 +1,7 @@
 {
   "schema_version": "echo-build-provenance-v2",
   "release_version": "0.11.0",
-  "git_commit": "342fdc71d4a4f7eeb7c34706c276870ea9322752",
+  "git_commit": "e81c52f10ff565740337474732f257a44788639f",
   "git_dirty": false,
   "release_type": "release",
   "python_compliant": true,
@@ -14,7 +14,7 @@
   "jdk_version": "17.0.20",
   "gradle_version": "9.5.0",
   "python_version": "3.12.13",
-  "build_timestamp_utc": "2026-08-28T13:51:31Z",
+  "build_timestamp_utc": "2026-08-28T13:53:46Z",
   "ci_run_id": "unknown",
   "builder_environment": "local-dev-verified",
   "unsigned_apk_path": null,
@@ -26,7 +26,7 @@
   "signature_scheme": "unknown",
   "sbom_sha256": "88a08102d0d1a8b2a4325fb6c8f2c1092e07f73f3526bded08d72bec31cb57bf",
   "source_archive_sha256": {
-    "releases/ECHO_Mind_PortraitCore_v0.11.0.zip": "f157c2ffc26b22a540e0f1d4fb214764a26a0f0a4291285602997246fd4d6543",
-    "releases/ECHO_Mind_PortraitCore_v0.11.0.tar.gz": "279a47d38b95c91123b4524b8f54453ecc29e09fca34d59d253150414d34f334"
+    "releases/ECHO_Mind_PortraitCore_v0.11.0.zip": "57ce4bfc4307350674e1914f75759b93f318e022fd342f0748faf7210271a286",
+    "releases/ECHO_Mind_PortraitCore_v0.11.0.tar.gz": "a8a8af90adbffdd865725ca6666d4ae03475bee2c4dc555bf72c58950ce87be4"
   }
 }
