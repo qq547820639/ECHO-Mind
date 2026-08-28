@@ -2,7 +2,7 @@
   "project": "ECHO Mind Personal Ambient Intelligence",
   "version": "0.11.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-08-28T13:48:05Z",
+  "generated_at": "2026-08-28T13:50:08Z",
   "branch": "agent/organism-visual-breakthrough",
   "git_ref": "personal-ambient-intelligence-v0.11.0",
   "scope": [
@@ -25,19 +25,19 @@
     "postgresql_docker_integration": "external_gate_not_run"
   },
   "validation_evidence": {
-    "backend_tests": "backend/.venv/bin/python -m pytest -q（Python 3.12.13 / SQLite in-memory）→ 1131 passed + 1 skipped（2026-08-28）",
-    "alembic_roundtrip": "DATABASE_URL=sqlite:///<tmp> alembic upgrade head → downgrade base → upgrade head：0 error（2026-08-28 本地实测；PostgreSQL 版本由 CI alembic-postgres job 执行，本环境 docker 不可用）",
+    "backend_tests": "backend/.venv/bin/python -m pytest -q（Python 3.12.13 / SQLite in-memory）→ 1131 passed + 1 skipped，2026-08-28",
+    "alembic_roundtrip": "DATABASE_URL=sqlite:///<tmp> alembic upgrade head → downgrade base → upgrade head：0 error（2026-08-28 本地实测；PostgreSQL 版由 CI alembic-postgres job 执行）",
     "contract_drift_check": "python3 scripts/contract_drift_check.py（61 路径 PASS）+ scripts/fault_injection_check.py（18/18 PASS），2026-08-28 本地实测，与 CI contract-drift job 同源",
-    "android_gradle_build": "未执行：本工作区无 Android SDK（~/Library/Android/sdk 与 local.properties 指向的 /tmp/echo-build/tools/sdk 均不存在）→ BLOCKED_ENV_ANDROID_SDK；权威门禁为 CI android-ci job",
+    "android_gradle_build": "未执行：本工作区无 Android SDK（~/Library/Android/sdk 与 local.properties 指向的 sdk 均不存在）→ BLOCKED_ENV_ANDROID_SDK；权威门禁为 CI android-ci job",
     "android_instrumentation": "未执行：需真机/模拟器 + Android SDK → BLOCKED_ENV_ANDROID_SDK",
     "static_checks": "ruff check app tests（0）+ mypy app strict（0 issues / 69 files）+ claim_scan + check_dynamic_code + safety_eval + validate_content_packs（4 包）+ verify_workflow_pins（5 workflow / 66 uses 全 SHA）",
-    "portrait_golden": "backend/scripts/generate_portrait_golden.py --check：5 cases 规范源与生成物零漂移（2026-08-28）",
-    "repo_bloat_gate": "scripts/check_repo_bloat.py：1616 受控文件 / 180.2MB，无超限文件与生成物二进制；.git 1059MB 触发历史债告警（不可逆瘦身见 docs/operations/REPO_HISTORY_SLIM_RUNBOOK.md）"
+    "portrait_golden": "backend/scripts/generate_portrait_golden.py --check：5 cases 规范源与生成物零漂移，2026-08-28",
+    "repo_bloat_gate": "scripts/check_repo_bloat.py：受控文件无超限、无生成物二进制；.git 历史债告警按 docs/operations/REPO_HISTORY_SLIM_RUNBOOK.md 排期"
   },
   "validation_environment": {
-    "builder": "local-dev-verified-20260828",
-    "python_version": "3.13.12",
-    "git_commit": "f30bdda52f425681e916900f64385093af61f820",
+    "builder": "local-dev-verified",
+    "python_version": "3.14.3",
+    "git_commit": "cd986feee400f2ffe61e8ba13a0e57b45e963b31",
     "git_dirty": true,
     "blocked_by": [
       "BLOCKED_ENV_ANDROID_SDK",
