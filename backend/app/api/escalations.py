@@ -179,8 +179,10 @@ def list_escalations(
         # P1-3 修复：cursor 中的 opened_at 解析回 datetime 再与 DateTime 列比较
         # （str 绑定在 PostgreSQL 下报 operator does not exist → 第二页起 500）；
         # 非法 cursor 统一 422，不透出内部异常。
-        cursor_opened_raw, cursor_id = cursor.split("_", 1)
+        # 2026-08-28 可用性自测修复：`split("_", 1)` 的解包失败此前发生在 try 之外，
+        # 无下划线的畸形 cursor 会直接 500——与"统一 422"的注释承诺相悖。
         try:
+            cursor_opened_raw, cursor_id = cursor.split("_", 1)
             cursor_opened = datetime.fromisoformat(cursor_opened_raw)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail="invalid cursor") from exc

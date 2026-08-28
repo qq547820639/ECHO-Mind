@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ECHO Mind 人工接管工作台</title>
 <style>
+/* 2026-08-28 可用性自测修复（D7）：全局缺 box-sizing 导致 dialog 的
+   width:92% + padding/border 以 content-box 累加，390px 视口下弹窗实测 405px
+   （溢出 15px）且不被 UA 居中，320px 下溢出 20px、右侧被裁切。 */
+*,*::before,*::after{box-sizing:border-box}
 :root{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:#292725;background:#f6f5f2}
 body{margin:0}header{padding:22px 28px;background:white;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2}
 main{padding:22px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
@@ -27,7 +31,7 @@ details.block[open] summary::before{content:"▾ "}
 #banner.err{display:block;background:#fbeaea;border:1px solid #c77;color:#7a2222}
 #banner.info{display:block;background:#eef2f8;border:1px solid #9db8d2;color:#27405f}
 /* 模态 */
-dialog{border:1px solid #ddd;border-radius:14px;padding:22px;max-width:620px;width:92%;max-height:85vh;overflow:auto}
+dialog{border:1px solid #ddd;border-radius:14px;padding:22px;max-width:min(620px,calc(100% - 16px));width:92%;max-height:85vh;overflow:auto;margin:auto}
 dialog::backdrop{background:rgba(20,18,14,.45)}
 dialog h3{margin-top:0}
 .field-row{margin:10px 0}
@@ -35,6 +39,12 @@ dialog h3{margin-top:0}
 .field-row .required::after{content:" *";color:#9b2020}
 .inline-error{color:#9b2020;font-size:13px;margin:4px 0}
 .field-error{border-color:#9b2020!important}
+/* 校验错误摘要：必须紧跟标题置于表单顶部（D2）。此前置于提交按钮上方，
+   在弹窗滚动折叠线之下——小屏下空表单提交后用户看不到任何提示，陷入无反馈死局。 */
+.form-error-summary{color:#9b2020;font-size:13px;margin:0 0 6px;background:#fbeaea;border:1px solid #c77;border-radius:8px;padding:8px 10px}
+.form-error-summary[hidden]{display:none}
+/* 仅供读屏的即时播报（队列刷新不整块朗读，只播结果摘要） */
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 /* 工具条 */
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .toolbar label{white-space:nowrap}
@@ -56,9 +66,14 @@ dialog h3{margin-top:0}
 <button id="clearBtn">清除</button>
 <span id="authState" class="muted" role="status"></span></section>
 
-<section id="metrics" class="grid"></section>
+<section id="metrics" class="grid" aria-labelledby="metricsTitle">
+ <h2 id="metricsTitle" class="visually-hidden">值班指标</h2>
+ <div class="card muted">尚未连接：粘贴 token 并点击「连接」后加载值班指标</div>
+</section>
 
-<section class="card">
+<section class="card" aria-labelledby="queueTitle">
+ <h2 id="queueTitle" style="margin:0 0 10px;font-size:17px">升级事件队列</h2>
+ <div id="queueLive" class="visually-hidden" role="status" aria-live="polite"></div>
  <div class="toolbar">
   <label class="muted" for="fStatus">状态</label>
   <select id="fStatus" aria-label="按状态过滤">
@@ -75,12 +90,14 @@ dialog h3{margin-top:0}
  <div class="toolbar">
   <input id="search" placeholder="客户端搜索：用户 / 风险类型 / 触发词" aria-label="客户端搜索当前页">
   <div class="pager">
-   <button id="prevPage">上一页</button>
-   <span id="pageInfo" class="muted" role="status"></span>
-   <button id="nextPage">下一页</button>
+   <button id="prevPage" disabled>上一页</button>
+   <span id="pageInfo" class="muted" role="status">尚未连接</span>
+   <button id="nextPage" disabled>下一页</button>
   </div>
  </div>
- <div id="queue" aria-busy="false"></div>
+ <div id="queue" aria-busy="false">
+  <div class="empty">尚未连接：粘贴值班 token 并点击「连接」后，这里会显示升级事件队列</div>
+ </div>
 </section>
 
 <section id="caseReview" hidden></section>
@@ -96,6 +113,7 @@ dialog h3{margin-top:0}
 
 <dialog id="closeDialog" aria-labelledby="closeTitle">
  <h3 id="closeTitle">关闭事件：接管处置记录（必填项以 * 标注）</h3>
+ <div id="closeErrors" class="form-error-summary" role="alert" aria-live="assertive" hidden></div>
  <form id="closeForm" novalidate>
   <div class="field-row"><label class="required" for="c_disp">最终处置</label>
    <input id="c_disp" placeholder="最终处置结论"></div>
@@ -114,7 +132,6 @@ dialog h3{margin-top:0}
    <input id="c_follow" placeholder="例如：24 小时内电话随访"></div>
   <div class="field-row"><label class="required" for="c_sign">人工签名</label>
    <input id="c_sign" placeholder="值班人员签名"></div>
-  <div id="closeErrors" class="inline-error" role="alert"></div>
   <button class="primary" type="submit">提交关闭</button>
   <button type="button" id="closeCancel">取消</button>
  </form>
@@ -188,7 +205,7 @@ function showBanner(text, kind = 'info') {
 }
 
 // 提取错误响应的可读 detail（字符串 / {message, missing_fields} 对象）
-async function errorDetail(r, fallback) {
+async function rawDetail(r, fallback) {
   try {
     const t = await r.text();
     const j = JSON.parse(t);
@@ -207,6 +224,15 @@ async function errorDetail(r, fallback) {
   } catch { return fallback; }
 }
 
+// 2026-08-28 可用性自测（D4/D1）：401 的原始 detail（如 "invalid token"）是英文
+// 且不解释下一步；值班人员需要的是"该做什么"。
+async function errorDetail(r, fallback) {
+  const raw = await rawDetail(r, fallback);
+  if (r.status === 401) return '登录凭据无效或已过期：请重新粘贴 token 后点击「连接」';
+  if (r.status === 403) return '当前角色无权限执行此操作（' + raw + '）';
+  return raw;
+}
+
 async function api(path, options = {}) {
   return fetch(path, { ...options, headers: authAdapter.getHeaders() });
 }
@@ -217,21 +243,42 @@ async function loadAll() {
 }
 
 async function loadMetrics() {
+  let problem = null;
   try {
     const r = await api('/v1/escalations/metrics');
-    state.metrics = r.ok ? await r.json() : null;
-  } catch { state.metrics = null; }
+    if (r.ok) {
+      state.metrics = await r.json();
+    } else {
+      state.metrics = null;
+      // 2026-08-28 可用性自测（D1）：此前 403（on_call 无指标权限）也显示
+      // "指标不可用（连接服务端后重试）"，值班人员会误以为没连上而反复重连。
+      problem = await errorDetail(r, '指标加载失败（HTTP ' + r.status + '）');
+    }
+  } catch {
+    state.metrics = null;
+    problem = '网络连接失败：请检查网络后重试';
+  }
+  state.metricsProblem = problem;
   renderMetrics();
 }
 
 function renderMetrics() {
   const x = state.metrics;
-  $('metrics').innerHTML = x ? `
-    <div class="card"><b>事件总数</b><div>${esc(x.total)}</div></div>
-    <div class="card"><b>处理中</b><div>${esc(x.open)}</div></div>
-    <div class="card"><b>ACK P50 / P95</b><div>${esc(x.ack_p50_seconds ?? '—')} / ${esc(x.ack_p95_seconds ?? '—')} 秒</div></div>
-    <div class="card"><b>接管 P50 / P95</b><div>${esc(x.takeover_p50_seconds ?? '—')} / ${esc(x.takeover_p95_seconds ?? '—')} 秒</div></div>
-  ` : '<div class="card muted">指标不可用（连接服务端后重试）</div>';
+  if (x) {
+    $('metrics').innerHTML = `
+      <div class="card"><b>事件总数</b><div>${esc(x.total)}</div></div>
+      <div class="card"><b>处理中</b><div>${esc(x.open)}</div></div>
+      <div class="card"><b>ACK P50 / P95</b><div>${esc(x.ack_p50_seconds ?? '—')} / ${esc(x.ack_p95_seconds ?? '—')} 秒</div></div>
+      <div class="card"><b>接管 P50 / P95</b><div>${esc(x.takeover_p50_seconds ?? '—')} / ${esc(x.takeover_p95_seconds ?? '—')} 秒</div></div>`;
+    return;
+  }
+  const msg = state.metricsProblem || '尚未连接：粘贴 token 并点击「连接」后加载值班指标';
+  const kind = state.metricsProblem ? 'red' : '';
+  $('metrics').innerHTML =
+    `<div class="card ${kind}" role="${state.metricsProblem ? 'alert' : 'status'}">
+       <b>${state.metricsProblem ? '指标不可用' : '值班指标'}</b>
+       <div class="muted">${esc(msg)}</div>
+     </div>`;
 }
 
 function queueUrl() {
@@ -253,9 +300,12 @@ async function loadQueue({ reset = false } = {}) {
   try {
     const r = await api(queueUrl());
     if (!r.ok) {
-      // 请求失败：保留旧列表，仅提示错误条（partial failure）
+      // 请求失败：保留旧列表，仅提示错误条（partial failure）。
+      // 2026-08-28 自测修复（D11）：此前这里直接 return，队列区域停留在
+      // 「加载中…」——首次连接就失败（如 401）会让值班人员永远卡在加载态。
       const msg = await errorDetail(r, '加载失败（HTTP ' + r.status + '）');
       showBanner(msg, 'err');
+      renderQueue();
       return;
     }
     state.rows = await r.json();
@@ -298,10 +348,18 @@ function renderQueue() {
       ? '<div class="empty">无匹配：当前页没有命中搜索/过滤条件</div>'
       : '<div class="empty">当前无事件</div>';
     renderPagination();
+    announce(visible.length);
     return;
   }
   host.innerHTML = visible.map(renderCard).join('');
   renderPagination();
+  announce(visible.length);
+}
+
+// 读屏播报：队列刷新后只播结果摘要，不整块朗读（D8）。
+function announce(count) {
+  const live = $('queueLive');
+  if (live) live.textContent = '队列已刷新，当前 ' + count + ' 条事件';
 }
 
 function renderCard(x) {
@@ -318,11 +376,17 @@ function renderCard(x) {
   const amberLine = amber
     ? '<p class="amber-warn">接近 SLA 上限（' + Math.round(((x.waiting_seconds ?? 0) / threshold) * 100) + '%）</p>'
     : '';
+  // 2026-08-28 可用性自测（D3）：无 step-up 时服务端返回 null，
+  // 此前渲染成空段落——值班人员无从得知"证据是看不到"还是"没有证据"。
+  const evidence = x.evidence_summary;
+  const evidenceHtml = evidence
+    ? '<p>' + esc(evidence) + '</p>'
+    : '<p class="muted">证据摘要需二次认证（step-up）后可见</p>';
   // 仅告警/错误卡片着红边；普通数据卡片保持默认样式
   return `<article class="card ${cardClass}">
     <div class="status">${esc(x.level)} · ${esc(statusLabel)} · 升级层级：${esc(lvl)}</div>
     <h3>${esc(x.risk_type)} <span class="muted">(${esc(x.trigger)})</span></h3>
-    <p>${esc(x.evidence_summary ?? '')}</p>
+    ${evidenceHtml}
     <p class="muted">用户：${esc(x.user_id)}　城市：${esc(x.user_city || '未登记')}　开启：${esc(x.opened_at)}　已等待：${fmtWait(x.waiting_seconds)}　负责人：${esc(x.assigned_to || '未分配')}</p>
     <p class="muted">送达：${delivery}　紧急联系人：${esc(x.emergency_contact_status)}　第二值班：${secondDuty}</p>
     ${x.chain_broken ? '<p class="breach">机构链路失效（chain broken）</p>' : ''}
@@ -418,7 +482,9 @@ const CLOSE_REQUIRED = [
 function openCloseForm(id) {
   closeTargetId = id;
   $('closeForm').reset();
-  $('closeErrors').textContent = '';
+  const errBox = $('closeErrors');
+  errBox.hidden = true;
+  errBox.textContent = '';
   for (const [fieldId] of CLOSE_REQUIRED) $(fieldId).classList.remove('field-error');
   $('closeTitle').textContent = '关闭事件 ' + id + '：接管处置记录（必填项以 * 标注）';
   openDialog($('closeDialog'), '#c_disp');
@@ -434,16 +500,29 @@ function validateCloseForm() {
   }
   return missing;
 }
+// 2026-08-28 可用性自测（D2）：错误摘要与提交按钮此前都位于弹窗滚动折叠线之下，
+// 小屏上空表单提交后用户看不到任何提示。现在：摘要置顶 + 聚焦首个无效字段并滚入视野。
 function showCloseErrors(missing, serverMsg) {
   const box = $('closeErrors');
-  if (serverMsg) { box.textContent = serverMsg; return; }
-  box.textContent = missing.length ? '请填写必填项：' + missing.join('、') : '';
+  const text = serverMsg || (missing.length ? '请填写必填项：' + missing.join('、') : '');
+  if (!text) { box.hidden = true; box.textContent = ''; return; }
+  box.textContent = text;
+  box.hidden = false;
 }
 $('closeCancel').addEventListener('click', () => closeDialog($('closeDialog')));
 $('closeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const missing = validateCloseForm();
-  if (missing.length) { showCloseErrors(missing); return; }
+  if (missing.length) {
+    showCloseErrors(missing);
+    const firstInvalid = CLOSE_REQUIRED.map(([fieldId]) => $(fieldId))
+      .find(el => el.classList.contains('field-error'));
+    if (firstInvalid) {
+      firstInvalid.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      firstInvalid.focus({ preventScroll: true });
+    }
+    return;
+  }
   const body = {
     disposition: $('c_disp').value.trim(),
     contact_method: $('c_method').value,
@@ -479,7 +558,9 @@ let reviewTargetId = null;
 function openReview(id) {
   reviewTargetId = id;
   $('reviewForm').reset();
-  $('reviewErrors').textContent = '';
+  const box = $('reviewErrors');
+  box.hidden = true;
+  box.textContent = '';
   $('reviewNotes').classList.remove('field-error');
   openDialog($('reviewDialog'), '#reviewNotes');
 }
@@ -487,7 +568,14 @@ $('reviewCancel').addEventListener('click', () => closeDialog($('reviewDialog'))
 $('reviewForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const notes = $('reviewNotes').value.trim();
-  if (!notes) { $('reviewErrors').textContent = '复盘结论不能为空'; $('reviewNotes').classList.add('field-error'); return; }
+  const errBox = $('reviewErrors');
+  if (!notes) {
+    errBox.textContent = '复盘结论不能为空';
+    errBox.hidden = false;
+    $('reviewNotes').classList.add('field-error');
+    $('reviewNotes').focus();
+    return;
+  }
   const submitBtn = $('reviewForm').querySelector('button[type=submit]');
   submitBtn.disabled = true;
   try {

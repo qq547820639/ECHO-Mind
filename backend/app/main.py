@@ -58,8 +58,11 @@ async def request_context_and_security_headers(request: Request, call_next: Requ
     try:
         response = await call_next(request)
     except Exception:
-        current_request_id.reset(token)
-        # 异常时仍返回基础安全头，不泄露请求上下文
+        # 异常时仍返回基础安全头，不泄露请求上下文。
+        # 2026-08-28 可用性自测修复：此前 except 分支内先 reset 一次，finally 又
+        # reset 一次——同一 ContextVar token 二次 reset 会抛 RuntimeError，
+        # 把本应干净返回的 500 变成二次异常（任何未处理异常都会踩中）。
+        # 现在 reset 只由 finally 执行一次。
         return Response(status_code=500, headers={
             "X-Request-ID": request_id,
             "X-Content-Type-Options": "nosniff",
