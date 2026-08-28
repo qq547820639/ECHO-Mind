@@ -1,6 +1,6 @@
 # Round 257 — 端到端交付收口（End-to-End Delivery Closure）
 
-日期：2026-08-28　｜　主干：`main`　｜　HEAD：`cc6d5974`　｜　状态：`pilot-candidate`（clean tree，`release_type=release`）
+日期：2026-08-28　｜　主干：`main`　｜　HEAD：`43adc931`　｜　状态：`pilot-candidate`（clean tree，`release_type=release`）
 
 ## 起因
 
@@ -11,7 +11,8 @@
 
 1. **P0-1 主干归位** ✅
    - 远端 `main`（`1c559ea6`）含 PR #46/#47/#51 三个 merge，其二号父节点 `45baef29` 与 HEAD 合并基数一致
-     → 纯拓扑合并（实测 0 冲突 / 0 文件变化）→ 快进 `main` 到 `cc6d5974`。无 force-push、无历史重写。
+     → 纯拓扑合并（实测 0 冲突 / 0 文件变化）→ 快进 `main`（归位提交 `e81c52f1`，本轮终态 `43adc931`）。
+     无 force-push、无历史重写。
    - 33 个待清理分支先打归档标签 `archive/20260828/*` 并推送远端，再删除 31 个 dependabot 分支。
    - 本地失序 `main`（391 个 rebase 重复提交）以 `git branch -f main HEAD` 重建。
    - 收益：五套 CI（backend-ci / android-ci / release-closure / security-ci / source-integrity）从此跑在交付 HEAD 上。

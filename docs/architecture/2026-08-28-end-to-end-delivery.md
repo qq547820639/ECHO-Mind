@@ -2,7 +2,7 @@
 
 > 执行角色：DevOps 交付专家（全授权自主裁决）
 > 基线：`docs/architecture/2026-08-28-repo-deep-review-and-optimization-backlog.md`（深度评审 P0×4 / P1×6 / P2×7）
-> 交付主干：`main`　｜　交付提交：`cc6d5974`（HEAD，clean tree）
+> 交付主干：`main`　｜　交付提交：`43adc931`（HEAD，clean tree）
 > 发布状态：`pilot-candidate`（`production_claim: false`，外部发布门未完成）
 
 ---
