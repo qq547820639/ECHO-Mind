@@ -151,6 +151,7 @@
       "name": "empty_baseline"
     }
   ],
+  "generated_from": "qa/golden/portrait_vectors.json",
   "golden_version": 1,
   "source": "backend/app/services/portrait/dimensions.py::compute_dimensions"
 }

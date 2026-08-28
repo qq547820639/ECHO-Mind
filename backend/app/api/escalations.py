@@ -29,9 +29,10 @@ from app.models import EmergencyContact, Escalation, User
 from app.schemas import EscalationClose, EscalationCreate, EscalationReview
 from app.services.audit import append_audit
 from app.services.escalation import (
-    ESCALATION_CREATE_EXEMPT_TRIGGERS,
+    CRISIS_SIGNAL_TRIGGERS,
     ESCALATION_CREATE_LIMIT_MAX,
     count_recent_escalations,
+    resolve_rate_limit_exemption,
     scan_sla_breaches,
 )
 
@@ -78,16 +79,39 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL) -
     ))
     if existing:
         return {"id": existing.id, "status": existing.status, "idempotent_replay": True}
-    # ERA 42 安全复核：支持请求创建频率上限（防支持刷屏/值班疲劳）。
-    # 红色信号触发豁免——429 永不阻断危机信号；幂等重放已在上面短路，不计入窗口。
-    # FOLLOW_UP（审计 T6-P2-4，安全设计待评审，本轮不改行为）：trigger 为客户端
-    # 自由字符串，传豁免词（help_requested 等）即可绕过 20/h 上限；豁免判定须改为
-    # 服务端可验证的信号源（如 L0/passive 评估链路标记），删除前须安全评审。
-    if payload.trigger not in ESCALATION_CREATE_EXEMPT_TRIGGERS:
+    # ERA 42 安全复核 + 2026-08-28 P0-3 收口：支持请求创建频率上限（防支持刷屏/值班疲劳）。
+    #
+    # 豁免判定的**唯一**依据是服务端可验证的危机证据（L0 准入筛查 / 服务端红色风险信号），
+    # 由 resolve_rate_limit_exemption 裁定。客户端提交的 trigger 仅作队列展示标签——
+    # 修复前"客户端自称危机触发即免限流"可被一句话绕过 20/h 上限，用于刷 L3 队列
+    # 制造值班疲劳或掩盖真实红色信号（审计 T6-P2-4，本次兑现）。
+    #
+    # 幂等重放（同 event_id）已在上面短路，不计入窗口。
+    exemption_reason = resolve_rate_limit_exemption(
+        db, tenant_id=principal.tenant_id, user_id=payload.user_id
+    )
+    if exemption_reason is None:
         recent = count_recent_escalations(
             db, tenant_id=principal.tenant_id, user_id=payload.user_id
         )
         if recent >= ESCALATION_CREATE_LIMIT_MAX:
+            # 自称危机信号但服务端无对应证据 → 单独留痕（可观测的伪造/误报信号，
+            # 不额外惩罚：限流结果本身已由 escalation.rate_limited 记录）。
+            if payload.trigger in CRISIS_SIGNAL_TRIGGERS:
+                append_audit(
+                    db,
+                    tenant_id=principal.tenant_id,
+                    actor_type=principal.role,
+                    actor_id=principal.subject,
+                    action="escalation.exemption_denied",
+                    object_type="escalation",
+                    object_id=payload.user_id,
+                    metadata={
+                        "declared_trigger": payload.trigger,
+                        "window_recent": recent,
+                        "reason": "no_server_verifiable_crisis_evidence",
+                    },
+                )
             append_audit(
                 db,
                 tenant_id=principal.tenant_id,
@@ -109,6 +133,18 @@ def create_escalation(payload: EscalationCreate, db: DB, principal: PRINCIPAL) -
         actor_id=principal.subject,
         source_event_id=payload.event_id,
     )
+    if exemption_reason is not None:
+        # 豁免放行留痕：值班需要能回答"这条为什么跳过了频控"。
+        append_audit(
+            db,
+            tenant_id=principal.tenant_id,
+            actor_type=principal.role,
+            actor_id=principal.subject,
+            action="escalation.rate_limit_exempted",
+            object_type="escalation",
+            object_id=row.id,
+            metadata={"declared_trigger": payload.trigger, "reason": exemption_reason},
+        )
     db.commit()
     return {"id": row.id, "status": row.status}
 

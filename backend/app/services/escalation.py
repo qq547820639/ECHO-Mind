@@ -18,23 +18,84 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import Escalation
+from app.models import Escalation, OnboardingScreening, RiskSignal
 from app.services.audit import append_audit
 from typing import Any
 
 CLOSED_STATUSES = ("closed", "reviewed")
 
 #: ERA 42 安全复核：支持请求创建频率上限（每用户每小时）。
-#: 红色信号触发（危机/主动求助）豁免——429 永不阻断危机信号；幂等重放不计入窗口。
+#: 豁免**只**授予服务端可验证的危机证据（见 resolve_rate_limit_exemption）；
+#: 客户端提交的 trigger 仅作展示标签，不再具备自证豁免的能力。
+#: 幂等重放（同 event_id）不计入窗口。
 ESCALATION_CREATE_LIMIT_MAX = 20
 ESCALATION_CREATE_LIMIT_WINDOW = timedelta(hours=1)
-ESCALATION_CREATE_EXEMPT_TRIGGERS = frozenset({
+
+#: 危机信号标签（队列展示用 + 伪造检测用）。
+#: 这些标签历史上曾直接授予限流豁免；2026-08-28 收口后仅作**声明**，
+#: 是否豁免由 resolve_rate_limit_exemption 依服务端证据裁定。
+#: 注：`help_requested`（Me → 请求人工支持按钮）不在其列——它是用户自助动作，
+#: 表达"我想要人工支持"，不是服务端可验证的危机证据，恒计入频控窗口。
+CRISIS_SIGNAL_TRIGGERS = frozenset({
     "l0_current_danger",
-    "help_requested",
     "text_red_signal",
     "journal_red_signal",
     "phq9_item9_positive",
 })
+
+#: 服务端可验证豁免信号的回溯窗口（信号必须"新鲜"才构成当前危机上下文）。
+ESCALATION_EXEMPTION_LOOKBACK = timedelta(minutes=30)
+
+#: 豁免原因常量（写审计，供值班/SOC 区分真伪危机）。
+EXEMPTION_L0_CURRENT_DANGER = "l0_current_danger"
+EXEMPTION_SERVER_RED_SIGNAL = "server_red_signal"
+
+
+def resolve_rate_limit_exemption(
+    db: Session,
+    *,
+    tenant_id: str,
+    user_id: str,
+    now: datetime | None = None,
+) -> str | None:
+    """判定该用户当前是否持有**服务端可验证**的危机证据（豁免频控的依据）。
+
+    设计约束（2026-08-28 P0-3 收口）：
+    - 证据必须来自服务端自己写入的行（L0 准入筛查 / 服务端红色风险信号），
+      客户端提交的字符串一律不作为证据；
+    - 证据必须"新鲜"（ESCALATION_EXEMPTION_LOOKBACK 内），避免陈年筛查
+      被当作永久免限流通行证；
+    - 返回 None 表示该请求必须计入频控窗口。
+
+    Returns:
+        豁免原因字符串（写入审计），或 None。
+    """
+    moment = now or datetime.now(timezone.utc)
+    cutoff = moment - ESCALATION_EXEMPTION_LOOKBACK
+
+    l0_hit = db.scalar(
+        select(OnboardingScreening.id).where(
+            OnboardingScreening.tenant_id == tenant_id,
+            OnboardingScreening.user_id == user_id,
+            OnboardingScreening.current_danger.is_(True),
+            OnboardingScreening.created_at >= cutoff,
+        )
+    )
+    if l0_hit:
+        return EXEMPTION_L0_CURRENT_DANGER
+
+    red_hit = db.scalar(
+        select(RiskSignal.id).where(
+            RiskSignal.tenant_id == tenant_id,
+            RiskSignal.user_id == user_id,
+            RiskSignal.severity == "red",
+            RiskSignal.created_at >= cutoff,
+        )
+    )
+    if red_hit:
+        return EXEMPTION_SERVER_RED_SIGNAL
+
+    return None
 
 
 def count_recent_escalations(

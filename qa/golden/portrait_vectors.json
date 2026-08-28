@@ -1,0 +1,392 @@
+{
+  "cases": [
+    {
+      "baseline_metrics": {
+        "active_end_minute": {
+          "mad": 9.0,
+          "median": 1385.0,
+          "p25": 1372.0,
+          "p75": 1398.0
+        },
+        "active_hour_spread": {
+          "mad": 0.04,
+          "median": 0.5,
+          "p25": 0.46,
+          "p75": 0.54
+        },
+        "active_start_minute": {
+          "mad": 12.0,
+          "median": 554.0,
+          "p25": 542.0,
+          "p75": 568.0
+        },
+        "late_screen_minutes": {
+          "mad": 8.0,
+          "median": 40.0,
+          "p25": 32.0,
+          "p75": 48.0
+        },
+        "movement_index": {
+          "mad": 0.12,
+          "median": 1.15,
+          "p25": 1.05,
+          "p75": 1.25
+        },
+        "screen_on_minutes": {
+          "mad": 25.0,
+          "median": 300.0,
+          "p25": 280.0,
+          "p75": 325.0
+        }
+      },
+      "comment": "全部 SIMILAR（minimum meaningful delta 内）→ STABILITY VERY_SIMILAR",
+      "expected_dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 0,
+          "metric": null,
+          "value": "VERY_SIMILAR",
+          "z": null
+        }
+      },
+      "name": "typical_day",
+      "today": {
+        "active_end_minute": 1392,
+        "active_hour_spread": 0.51,
+        "active_start_minute": 560,
+        "late_screen_minutes": 44.0,
+        "movement_index": 1.2,
+        "screen_on_minutes": 310.0
+      }
+    },
+    {
+      "baseline_metrics": {
+        "active_end_minute": {
+          "mad": 9.0,
+          "median": 1385.0,
+          "p25": 1372.0,
+          "p75": 1398.0
+        },
+        "active_hour_spread": {
+          "mad": 0.04,
+          "median": 0.5,
+          "p25": 0.46,
+          "p75": 0.54
+        },
+        "active_start_minute": {
+          "mad": 12.0,
+          "median": 554.0,
+          "p25": 542.0,
+          "p75": 568.0
+        },
+        "late_screen_minutes": {
+          "mad": 8.0,
+          "median": 40.0,
+          "p25": 32.0,
+          "p75": 48.0
+        },
+        "movement_index": {
+          "mad": 0.12,
+          "median": 1.15,
+          "p25": 1.05,
+          "p75": 1.25
+        },
+        "screen_on_minutes": {
+          "mad": 25.0,
+          "median": 300.0,
+          "p25": 280.0,
+          "p75": 325.0
+        }
+      },
+      "comment": "五维全超阈值 → 全部方向词 + STABILITY CLEARLY_DIFFERENT",
+      "expected_dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "MORE_FRAGMENTED",
+          "z": 4.2156
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "MORE",
+          "z": 5.9018
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "LATER",
+          "z": 8.2063
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "MORE",
+          "z": 5.3959
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "LATER",
+          "z": 6.7449
+        },
+        "STABILITY": {
+          "diff_count": 5,
+          "metric": null,
+          "value": "CLEARLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "big_late_drift",
+      "today": {
+        "active_end_minute": 1490,
+        "active_hour_spread": 0.75,
+        "active_start_minute": 700,
+        "late_screen_minutes": 120.0,
+        "movement_index": 2.2,
+        "screen_on_minutes": 500.0
+      }
+    },
+    {
+      "baseline_metrics": {
+        "active_end_minute": {
+          "mad": 9.0,
+          "median": 1385.0,
+          "p25": 1372.0,
+          "p75": 1398.0
+        },
+        "active_hour_spread": {
+          "mad": 0.04,
+          "median": 0.5,
+          "p25": 0.46,
+          "p75": 0.54
+        },
+        "active_start_minute": {
+          "mad": 12.0,
+          "median": 554.0,
+          "p25": 542.0,
+          "p75": 568.0
+        },
+        "late_screen_minutes": {
+          "mad": 8.0,
+          "median": 40.0,
+          "p25": 32.0,
+          "p75": 48.0
+        },
+        "movement_index": {
+          "mad": 0.12,
+          "median": 1.15,
+          "p25": 1.05,
+          "p75": 1.25
+        },
+        "screen_on_minutes": {
+          "mad": 25.0,
+          "median": 300.0,
+          "p25": 280.0,
+          "p75": 325.0
+        }
+      },
+      "comment": "active_start_minute 缺失 → RHYTHM 省略（missing != irregular）；MOVEMENT 超阈值 → SLIGHTLY_DIFFERENT",
+      "expected_dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "MORE",
+          "z": 1.1242
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 1,
+          "metric": null,
+          "value": "SLIGHTLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "missing_start",
+      "today": {
+        "active_end_minute": 1400,
+        "active_hour_spread": 0.5,
+        "active_start_minute": null,
+        "late_screen_minutes": 40.0,
+        "movement_index": 1.35,
+        "screen_on_minutes": 300.0
+      }
+    },
+    {
+      "baseline_metrics": {
+        "active_end_minute": {
+          "mad": 0.0,
+          "median": 1385.0,
+          "p25": 1385.0,
+          "p75": 1385.0
+        },
+        "active_hour_spread": {
+          "mad": 0.0,
+          "median": 0.5,
+          "p25": 0.5,
+          "p75": 0.5
+        },
+        "active_start_minute": {
+          "mad": 0.0,
+          "median": 554.0,
+          "p25": 554.0,
+          "p75": 554.0
+        },
+        "late_screen_minutes": {
+          "mad": 0.0,
+          "median": 40.0,
+          "p25": 40.0,
+          "p75": 40.0
+        },
+        "movement_index": {
+          "mad": 0.0,
+          "median": 1.15,
+          "p25": 1.15,
+          "p75": 1.15
+        },
+        "screen_on_minutes": {
+          "mad": 0.0,
+          "median": 300.0,
+          "p25": 300.0,
+          "p75": 300.0
+        }
+      },
+      "comment": "基线 mad≈0/p25=p75 → scale 走 MIN_ABS_DELTA floor；start +66min → LATER（z=6.6）",
+      "expected_dimensions": {
+        "DAY_STRUCTURE": {
+          "metric": "active_hour_spread",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "MOVEMENT": {
+          "metric": "movement_index",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "RHYTHM": {
+          "metric": "active_start_minute",
+          "value": "LATER",
+          "z": 6.6
+        },
+        "SCREEN_AMOUNT": {
+          "metric": "screen_on_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "SCREEN_TIMING": {
+          "metric": "late_screen_minutes",
+          "value": "SIMILAR",
+          "z": 0.0
+        },
+        "STABILITY": {
+          "diff_count": 1,
+          "metric": null,
+          "value": "SLIGHTLY_DIFFERENT",
+          "z": null
+        }
+      },
+      "name": "near_zero_baseline",
+      "today": {
+        "active_end_minute": 1385,
+        "active_hour_spread": 0.5,
+        "active_start_minute": 620,
+        "late_screen_minutes": 40.0,
+        "movement_index": 1.15,
+        "screen_on_minutes": 300.0
+      }
+    },
+    {
+      "baseline_metrics": {},
+      "comment": "无基线 → 维度全部省略，仅 STABILITY VERY_SIMILAR（不伪造）",
+      "expected_dimensions": {
+        "STABILITY": {
+          "diff_count": 0,
+          "metric": null,
+          "value": "VERY_SIMILAR",
+          "z": null
+        }
+      },
+      "name": "empty_baseline",
+      "today": {
+        "active_end_minute": 1392,
+        "active_hour_spread": 0.51,
+        "active_start_minute": 560,
+        "late_screen_minutes": 44.0,
+        "movement_index": 1.2,
+        "screen_on_minutes": 310.0
+      }
+    }
+  ],
+  "consumers": [
+    {
+      "path": "backend/tests/test_mirror_golden.py",
+      "role": "backend 真值零漂移门",
+      "status": "wired"
+    },
+    {
+      "path": "backend/tests/test_golden_single_source.py",
+      "role": "单一数据源与消费方登记一致性门",
+      "status": "wired"
+    },
+    {
+      "path": "android/feature/qa/src/test/java/com/yunjue/echo/mind/qa/QaPortraitMirrorGoldenTest.kt",
+      "role": "QaPortraitMirror 跨语言对拍",
+      "status": "wired_via_generated_pair"
+    },
+    {
+      "blocked_by": "BLOCKED_ENV_ANDROID_SDK（本工作区无 Android SDK，Kotlin 改动不可编译验证；接线补丁见 docs/architecture/2026-08-28-end-to-end-delivery.md §P1-1）",
+      "path": "android/app/src/test/java/com/yunjue/echo/mind/localportrait/LocalPortraitGoldenTest.kt",
+      "role": "LocalPortraitEngine 端侧镜像对拍（当前用例硬编码在 Kotlin 内，未消费共享向量）",
+      "status": "not_wired"
+    }
+  ],
+  "declared_divergences": [
+    {
+      "description": "v0.7.4 UX 有意让端侧第 1 天（WARMING_UP）在 summary 后附加一句事实句，服务端保持固定文案。两端 summary 不再逐字节一致；维度（dimensions）仍逐字段一致，故本 golden 只锁定维度语义，不锁定 summary 文案。",
+      "id": "local_warming_up_extra_fact",
+      "recorded_at": "2026-08-28",
+      "scope": "LocalPortraitEngine.kt（仅本地模式生效）"
+    },
+    {
+      "description": "驱动指标是晚间屏幕分钟数（量），标签却用 EARLIER/LATER（时间词）。已登记为产品待裁定项（LEDGER T3-P2-4），未改语义；golden 锁定当前行为，裁定后须 --update 重生成并同步两端。",
+      "id": "screen_timing_quantity_vs_time_wording",
+      "recorded_at": "2026-08-28",
+      "scope": "dimensions.py SCREEN_TIMING / LocalPortraitEngine.kt:318-323"
+    }
+  ],
+  "notes": "画像维度语义的唯一 golden 数据源（P1-1 收口）。today = 当日聚合字段；baseline_metrics = 后端 personal_baselines.metrics 同构；expected_dimensions = backend compute_dimensions 输出（产品真值）。禁止手工编辑 expected_dimensions：语义变更请改实现后跑 backend/scripts/generate_portrait_golden.py --update，并同步两端镜像（Android 侧消费生成物 qa/reports/mirror_goldens/）。",
+  "schema_version": "portrait-vectors-v1",
+  "source_of_truth": "backend/app/services/portrait/dimensions.py::compute_dimensions"
+}

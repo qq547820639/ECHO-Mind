@@ -105,6 +105,8 @@ jobs:
       - run: pip install uv
       - run: uv sync --project backend --extra dev --frozen
       - run: uv run --project backend python scripts/validate_content_packs.py
+      # P1-1 单一 golden 数据源：规范源 == backend compute_dimensions，且生成物是规范源的真投影
+      - run: uv run --project backend python backend/scripts/generate_portrait_golden.py --check
       - run: uv run --project backend python scripts/claim_scan.py
       - run: uv run --project backend python scripts/check_dynamic_code.py
       - run: uv run --project backend python scripts/safety_eval.py

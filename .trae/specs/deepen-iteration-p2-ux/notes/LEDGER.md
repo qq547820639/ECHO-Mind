@@ -44,7 +44,7 @@
 | T6-P2-1 | T6-backend.md P2#1 | app/api/skills.py:144-168 | POST /v1/skills/completions 无订阅门禁 | 已消失：skills.py:163-168 已挂 require_write_role + require_active_subscription（代码注释标明「P1-1/P2-1 修复」） | ABSORBED（被 c598143 P1-1/P1-2 修复吸收） | — |
 | T6-P2-2 | T6-backend.md P2#2 | app/api/portraits.py:99（现 106） | fallback 有效日查询硬编码 `coverage_score >= 0.25`，与 baseline.calculator.MIN_COVERAGE 重复字面量 | 仍存在：portraits.py:106 字面量原样，无 MIN_COVERAGE 引用 | FIX_THIS_ROUND（改引用常量） | T6 |
 | T6-P2-3 | T6-backend.md P2#3 | app/api/skills.py:97-147 + app/api/admin.py:94-110 | GET 路由写副作用（append_audit + db.commit），违背「GET 绝不写库」自家约定 | 仍存在：skills.py L104/114、L137/147；admin.py L80/90、L101/110 | FIX_THIS_ROUND（GET 去写副作用 + 测试同步） | T6 |
-| T6-P2-4 | T6-backend.md P2#4 | app/api/escalations.py:83 + services/escalation.py:31-37 | trigger 为客户端自由字符串，传豁免词（help_requested 等）即绕过 20/h 上限 | 仍存在：L83 `payload.trigger not in ESCALATION_CREATE_EXEMPT_TRIGGERS` 原样 | FOLLOW_UP（豁免须改为服务端可验证的信号源判定（如 L0/passive 评估链路标记），涉及安全设计需评审） | T6 |
+| T6-P2-4 | T6-backend.md P2#4 | app/api/escalations.py:83 + services/escalation.py:31-37 | trigger 为客户端自由字符串，传豁免词（help_requested 等）即绕过 20/h 上限 | **已清偿（2026-08-28 端到端交付轮，P0-3）**：删除 `ESCALATION_CREATE_EXEMPT_TRIGGERS` 客户端自证豁免；新增 `resolve_rate_limit_exemption()`，豁免只授予**服务端写入的证据**（L0 准入 `current_danger=True` / 服务端红色 `RiskSignal`），且须落在 30 分钟新鲜窗口内；`trigger` 降级为展示标签；伪造留痕 `escalation.exemption_denied`、放行留痕 `escalation.rate_limit_exempted`。`backend/tests/test_support_rate_limit.py` 扩至 10 例（含伪造豁免负向、跨用户证据、陈旧证据不豁免）全绿 | DONE | T6 |
 | T6-P2-5 | T6-backend.md P2#5 | models.py Escalation 表 | 列表按 (opened_at desc, id desc) keyset 分页但缺 (tenant_id, opened_at) 复合索引 | 仍存在：Escalation `__table_args__` 仅唯一约束（models.py:275），opened_at 无索引；alembic 无新迁移 | FIX_THIS_ROUND（迁移 + 复合索引） | T6 |
 | T6-P2-6 | T6-backend.md P2#6 | app/api/narratives.py:64-92 | from/to 无范围上限：1970→9999 可生成约 3M 个 missing_dates（认证用户 DoS 面） | 仍存在：L64-66 仅校验 from<=to，无任何 clamp | FIX_THIS_ROUND（范围上限 clamp + 测试） | T6 |
 | T6-P2-7 | T6-backend.md P2#7 | app/api/data_rights.py DSR delete | 删除后 users.refresh_token_hash/refresh_expires_at 未清除，已「删除」用户凭证仍可换新 token | 仍存在：data_rights.py 全文无 refresh_token 处理（grep 0 hits；P0-1/P1-6 修复未覆盖此项） | FIX_THIS_ROUND（delete 时吊销凭证 + 测试） | T6 |
@@ -174,14 +174,13 @@
 - ○ affective_eval.py --mock-provider/--endpoint 模式忽略 --fixtures（已知行为设计）
 - ✓ verify_golden.py json_equal 修正 bool/int 混同（type 优先检查）（R25）
 
-- ○ android-ci.yml connected-test：gradlew 已有 +x 权限（LEDGER stale）
 - ✓ pip install uv/pytest 版本锁定（R11）
 
 ### T8 测试质量（8 项）
 - ★ E2EFlowTest 类注释「E2E 数据流」名实不符（随 T8-P2-7 同文件顺手改名或补真实链路）
-- ○ EchoIdentitySpecTest KDoc + 测试断言可改进（非阻塞，备忘）
-- ○ VisualRegressionGoldenTest.frameHash localFragments 只 feed size（语义：结构不计位置，有意设计）
-- ○ EchoSceneCompilerTest.breathWindowAndSurfaceAmplitudes 仅单 seed 单 surface
+- ✓ EchoIdentitySpecTest KDoc 已修正 palette 色域描述（R32）
+- ✓ VisualRegressionGoldenTest.frameHash localFragments 只 feed size（设计意图：结构指纹不计位置，有意选择）
+- ○ EchoSceneCompilerTest.breathWindowAndSurfaceAmplitudes：单 seed 单 surface 测试覆盖（可考虑多 seed 扩展，非阻塞）
 - ○ OrganismGoldenRenderTest.hash step=17 抽样（有意设计，备忘）
 - ○ HardeningV061Test 手工 set→读回验证（有意设计，备忘）
 - ✓ VisualRuntimeV3RegressionTest oldRenderPipelineStaysDeleted 已实现文件存在性检查（R26）

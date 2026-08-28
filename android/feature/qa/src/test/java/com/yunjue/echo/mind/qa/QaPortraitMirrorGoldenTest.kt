@@ -18,8 +18,10 @@ import kotlin.math.abs
 /**
  * ERA 31 — QaPortraitMirror 跨语言黄金门（QA 测产品，不是 QA 重写产品）。
  *
- * fixture.json（语言中立输入）→ backend compute_dimensions 产出 golden.json（产品真值，
- * 由 backend/scripts/export_mirror_golden.py 生成，backend test_mirror_golden.py 保证零漂移）。
+ * 单一数据源（P1-1 收口）：`qa/golden/portrait_vectors.json`（输入 + 期望维度同源，backend
+ * compute_dimensions = 产品真值）。本目录的 fixture.json / golden.json 是它的**生成物**，
+ * 由 `backend/scripts/generate_portrait_golden.py` 投影产出，禁止手工编辑
+ * （backend tests/test_mirror_golden.py 会对生成物做逐字节一致性门）。
  * 本测试用同一 fixture 构建 Kotlin 结构并对拍 mirror 输出：
  * 镜像漂移在 Android CI 立即变红，且修复必须跨语言同 commit（禁止分叉）。
  */
