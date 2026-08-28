@@ -13,6 +13,7 @@
 | 版本线 | v0.11.0（versionCode 8；开发态，不伪造已发布 v0.12.0——见 §6 批次 8） |
 | 相对 Release Baseline | closure 收口文档提交（发布内容 = LAST_RELEASE_BASELINE `88db3b9`）；ERA 33 为开发态，Release Baseline 不更新 |
 | 状态 | `pilot-candidate`（外部发布门未完成前不得标记生产上线）；Wearable = Developer Preview / Integration Preview（真机验证前不得宣称 Band10 Production Verified）。ERA 33 Production wiring 已接通（Application scoped 唯一启动点 + 入站自动 collect + Integration Test 全绿，见 §6 批次 8 状态表） |
+| 主干 | **`main` = 当前可交付真源**（2026-08-28 归位：远端 3 个 PR merge 与 HEAD 合并基数一致 → 纯拓扑合并，0 冲突 / 0 文件变化；`agent/organism-visual-breakthrough` 降级为历史工作分支）。五套 CI 从此跑在交付 HEAD 上。详见 §6 批次 12 |
 
 ## 2. Last Verified Release
 
@@ -26,12 +27,12 @@
 
 <!-- AUTO:BUILD_STATUS:BEGIN -->
 
-> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `101ace35`，2026-08-27 11:20 UTC）；缺失实测产物处如实标注，禁止手写数字。
+> 自动生成（`scripts/refresh_status_numbers.py`，git HEAD `cc6d5974`，2026-08-28 13:58 UTC）；缺失实测产物处如实标注，禁止手写数字。
 
 | 面 | 实测结果 |
 |---|---|
 | Android 单测（testDebugUnitTest） | **1387 全绿**（app 981 / core:visual 70 / feature:intelligence 46 / feature:journey 16 / feature:memory 7 / feature:presence 27 / feature:presencevisual 30 / feature:qa 113 / feature:wearable 97） |
-| backend pytest | **1120 passed + 1 skipped**（全绿） |
+| backend pytest | **1131 passed + 1 skipped**（全绿） |
 | Production Kotlin | 240 |
 | Test Kotlin | 173 |
 | QA Kotlin（:feature:qa，非 Production Runtime） | 38 |
@@ -180,6 +181,28 @@
    四条端到端链路/改进点索引）。门禁：Android **1375 全绿**+detekt+lint；backend **1120+1**；
    Vela Node **31/31**；assembleDebug 无空格路径实测；SOURCE_MANIFEST **1321** verify OK。
 
+12. **端到端交付收口（End-to-End Delivery Closure）**（2026-08-28）✅——按
+   `docs/architecture/2026-08-28-repo-deep-review-and-optimization-backlog.md` 的 P0/P1 逐项核销：
+
+   | 项 | 状态 | 证据 |
+   |---|---|---|
+   | P0-1 主干归位 | **PASS** | `main` = `cc6d5974`（原 `1c559ea6` + 纯拓扑合并，0 冲突 / 0 文件变化）；本地失序 `main`（391 个 rebase 重复提交）已重建；31 个 dependabot 分支清理（先打归档标签 `archive/20260828/*`） |
+   | P0-2 仓库二进制 | **PASS（预防）/ BLOCKED（历史瘦身）** | `scripts/check_repo_bloat.py` + CI 作业生效（禁止新增超限文件与生成物入库）；34 个本地 APK（213MB）归档；`.git` 1059MB 属历史债，不可逆瘦身排 runbook `docs/operations/REPO_HISTORY_SLIM_RUNBOOK.md` |
+   | P0-3 escalation 豁免伪造 | **PASS** | 豁免改由 `resolve_rate_limit_exemption()` 依服务端证据裁定（L0 准入 / 红色 RiskSignal，30min 新鲜窗口）；trigger 降为展示标签；新增 `escalation.exemption_denied` / `rate_limit_exempted` 审计；`test_support_rate_limit.py` 4→10 例 |
+   | P0-4 交付 = 门禁 | **PASS** | `DELIVERY_MANIFEST` 新增 `validation_evidence` / `validation_environment`；`generate_provenance.py` 增加 requires-python 合规校验（dirty 或解释器不合规 → `release_type=development`）；`package_release.sh` 9/9 `DISTRIBUTION CLOSURE PASS`（clean tree，`git_dirty=false`，python 3.14.3 ≥ 3.12） |
+   | P1-1 画像 golden 单一源 | **PASS（backend）/ 登记未接线（LocalPortraitEngine）** | `qa/golden/portrait_vectors.json` 为唯一源，mirror_goldens 降为生成物；`test_golden_single_source.py` 消费方登记门把 `LocalPortraitEngine` 未接线登记为 `not_wired + blocked_by` |
+   | P1-3 依赖策略 | **PASS** | dependabot 改分组月度 PR（minor/patch 合批、major 单独，每 ecosystem 上限 3）；清理后 dependabot 已按新配置重新开出**分组**分支（实测生效） |
+
+   实测门禁：backend **1131 passed + 1 skipped**；ruff 0；mypy strict 0；contract drift 61 路径 OK；
+   故障注入 18/18；workflow pins 66/66；alembic 迁移回路（SQLite）upgrade→downgrade→upgrade OK；
+   source archive 双向校验 1597 文件 PASS；final package §18 PASS。
+   **环境阻塞（非代码缺陷）**：`BLOCKED_ENV_ANDROID_SDK`（本工作区无 Android SDK，Android 侧
+   1387 单测 / lint / detekt / assemble 无法本地复跑，权威结果以 CI 为准）、
+   `BLOCKED_ENV_DOCKER_POSTGRES`（colima 未启动，PG 覆盖率与 PG 迁移回路以 CI 为准）、
+   `BLOCKED_ENV_APKSIGNER`（无 apksigner，`signing_stage=unknown`；APK 二进制 sha256 与
+   既有 provenance 一致 `e6468e9f…`，早前实测为 v2,v3 签名）。
+   完整交付报告：`docs/architecture/2026-08-28-end-to-end-delivery.md`。
+
 ## 7. Governance（冻结纪律）
 
 - **架构冻结**：14 个 Gradle module 体系冻结，以 `android/settings.gradle.kts` 为唯一事实源
@@ -200,3 +223,4 @@
   `docs/CHANGELOG/`（历史轮次记录，禁止作为当前要求来源）。
 - **数字纪律**：README/STATUS 不手写测试计数；数字由 `scripts/refresh_status_numbers.py` 从实测产物生成，
   或干脆不写。
+
