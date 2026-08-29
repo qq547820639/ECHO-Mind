@@ -523,7 +523,7 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
                 color = Color(0xFFE8ECF5).copy(alpha = timeline.headlineAlpha),
             )
             // V3 §54 / 设计稿图3：进度条 + 阶段文案 + 前台提示（真实时间驱动，非假数值）
-            val progressPct = ((elapsedMs.toFloat() / AWAKENING_DURATION_MS.toFloat()) * 100f).toInt().coerceIn(0, 100)
+            val progressPct = (elapsedMs.toFloat() / AWAKENING_DURATION_MS.toFloat() * 100f).toInt().coerceIn(0, 100)
             Text(
                 "$progressPct%  ·  正在生成你的第一份数字生命",
                 style = MaterialTheme.typography.bodyMedium,
