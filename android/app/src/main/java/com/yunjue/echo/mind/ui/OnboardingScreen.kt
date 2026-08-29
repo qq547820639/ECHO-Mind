@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.PassiveSensingService
@@ -227,6 +228,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             },
             onSkipNotifPermission = { notifPermAuthorized = false },
             onOpenSafety = { showSafety = true },
+            // 设计稿 1/2：可选登录入口（无后端时显示一行文本；登录为可选，现状不变）
+            onOpenLogin = { /* 登录为可选：保留锚点；未登录时全功能本地可用 */ },
         ),
     )
 }
@@ -279,6 +282,8 @@ data class OnboardingStepActions(
     val onRequestNotifPermission: () -> Unit,
     val onSkipNotifPermission: () -> Unit,
     val onOpenSafety: () -> Unit,
+    /** 设计稿 1/2：已有账号登录入口（可选；未登录时全功能本地可用，不强制）。 */
+    val onOpenLogin: () -> Unit = {},
 )
 
 /**
@@ -326,12 +331,23 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需云端同步与专业支持，可稍后在「支持」页订阅（可选）。",
                     style = MaterialTheme.typography.bodySmall
                 )
-                Button(
+                EchoGradientButton(
                     onClick = actions.onContinueToPrivacy,
+                    text = "开启 ECHO",
                     enabled = state.ageConfirmed && state.boundaryConfirmed,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "开启 ECHO",
+                )
+                // 设计稿 1/2：已有账号入口（可选登录，不强制；保留现状无强制同步）
+                TextButton(
+                    onClick = actions.onOpenLogin,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 ) {
-                    Text("开始")
+                    Text(
+                        text = "已有账号？登录 ›",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety, copy = EMERGENCY_HINT_COPY)
             }
