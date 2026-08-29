@@ -130,6 +130,31 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
             intelligenceSettings = { IntelligenceSettingsSection(container) },
             whatEchoKnows = { WhatEchoKnowsSection(container) },
             aboutCard = { AboutCard(onOpenVisualLab = { showVisualLab = true }) },
+            // 设计稿 10/11：智能地图（设备数 0 时的安全占位；接真实 Wrist 绑定可在此读取）
+            smartMap = {
+                MeSmartMapSection(
+                    devices = SmartMapDevices(
+                        connectedCount = 0, // 接 Wrist 真实绑定时可读取绑定列表
+                        providerName = "本地模型",
+                        providerLocation = "本地运行中",
+                        privacyNote = "设备端运行保护隐私",
+                    ),
+                    quickAccessItems = emptyList(),
+                )
+            },
+            // 设计稿 12：数据与权限轨道图（5 节点状态接真实能力）
+            dataOrbit = {
+                DataPermissionOrbitSection(
+                    nodes = listOf(
+                        DataOrbitNode("屏幕节律", enabled = true, detail = "已采集"),
+                        DataOrbitNode("通知", enabled = true, detail = "已开启"),
+                        DataOrbitNode("位置", enabled = false, detail = "未授权"),
+                        DataOrbitNode("可穿戴", enabled = false, detail = "未连接"),
+                        DataOrbitNode("活动", enabled = true, detail = "已采集"),
+                    ),
+                    cards = emptyList(),
+                )
+            },
         ),
     )
 }
@@ -178,6 +203,24 @@ fun MeScreenContent(
                 .clickable { open(MeDomain.PRESENCE) }
                 .testTag("me_entry_echo"),
         ) { slots.identityHeader() }
+
+        // 设计稿 10/11：智能地图入口（中心 ECHO + 4 节点 + 设备 + 提供方 + 快速管理）
+        MeGroup(title = "智能地图") {
+            MeListItem(
+                title = "ECHO 如何认识你",
+                supporting = "智能地图：感知 / 思考 / 记忆 / 设备四向视图",
+                testTag = "me_entry_smartmap",
+                onClick = { open(MeDomain.SMARTMAP) },
+            )
+            MeGroupDivider()
+            MeListItem(
+                title = "数据与权限",
+                supporting = "屏幕节律 / 通知 / 位置 / 可穿戴 / 活动 + 4 设置卡",
+                testTag = "me_entry_data_orbit",
+                onClick = { open(MeDomain.DATA_ORBIT) },
+            )
+            MeDomainDetail(domain, setOf(MeDomain.SMARTMAP, MeDomain.DATA_ORBIT), slots)
+        }
 
         // 危机入口（§AT：一键直达全屏 SafetyScreen；安全资源常驻可达）
         MeGroup {
@@ -312,7 +355,7 @@ data class MeControlActions(
 /** V3 §63：Me 领域 presentation state（非业务 state；一次只展开一个 domain）。 */
 enum class MeDomain {
     NONE, OBSERVATION, MEMORY, INTELLIGENCE, PRESENCE, WRIST,
-    SUBSCRIPTION, SUPPORT, ABOUT,
+    SUBSCRIPTION, SUPPORT, ABOUT, SMARTMAP, DATA_ORBIT,
 }
 
 /** Me 根页面子领域槽位集合（状态提升模式；detekt LongParameterList 收敛）。 */
@@ -326,6 +369,8 @@ data class MeSectionSlots(
     val intelligenceSettings: @Composable () -> Unit,
     val whatEchoKnows: @Composable () -> Unit,
     val aboutCard: @Composable () -> Unit,
+    val smartMap: @Composable () -> Unit = {},
+    val dataOrbit: @Composable () -> Unit = {},
 )
 
 /** 展开的领域深页就地渲染在所属分组下方（未展开/不属于本分组时不组合）。 */
@@ -344,6 +389,8 @@ private fun MeDomainDetail(domain: MeDomain, hosts: Set<MeDomain>, slots: MeSect
             MeDomain.SUBSCRIPTION -> slots.subscription()
             MeDomain.SUPPORT -> slots.support()
             MeDomain.ABOUT -> slots.aboutCard()
+            MeDomain.SMARTMAP -> slots.smartMap()
+            MeDomain.DATA_ORBIT -> slots.dataOrbit()
             MeDomain.NONE -> Unit
         }
     }

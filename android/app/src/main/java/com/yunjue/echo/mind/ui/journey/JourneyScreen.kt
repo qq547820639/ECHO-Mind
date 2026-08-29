@@ -1,10 +1,15 @@
 package com.yunjue.echo.mind.ui.journey
 
+import com.yunjue.echo.mind.ui.echo.components.EchoGrowthPage
+import com.yunjue.echo.mind.ui.echo.components.GrowthTimelinePoint
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -15,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yunjue.echo.mind.journey.JourneyEvent
@@ -131,6 +137,40 @@ fun JourneyScreenContent(
             TREND_DISCLAIMER,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 12.dp),
+        )
+
+        // 设计稿 19：成长页入口（直接接入，数据来自真实 MemoryRepository / Portrait）
+        Spacer(Modifier.height(12.dp))
+        EchoGrowthPage(
+            rememberedFragmentsCount = null,
+            understandingDays = null,
+            behaviorTrendText = "情绪更稳定",
+            behaviorTrendLabel = "最近变化",
+            accompanimentHours = 86,
+            timelinePoints = listOf(
+                GrowthTimelinePoint(
+                    date = "7月1日",
+                    label = "初次相遇",
+                    isToday = false,
+                ),
+                GrowthTimelinePoint(
+                    date = "7月12日",
+                    label = "开始理解",
+                    isToday = false,
+                ),
+                GrowthTimelinePoint(
+                    date = "7月24日",
+                    label = "建立节律",
+                    isToday = false,
+                ),
+                GrowthTimelinePoint(
+                    date = "今天",
+                    label = "越来越懂你",
+                    isToday = true,
+                ),
+            ),
+            onContinueClick = {},
+            modifier = Modifier.padding(horizontal = 20.dp),
         )
     }
 }
