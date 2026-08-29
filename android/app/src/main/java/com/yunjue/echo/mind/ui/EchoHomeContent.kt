@@ -183,13 +183,12 @@ internal fun EchoHomeContent(
             }
 
             // 3.5 V3 §AK — 设计稿图5 三指标卡（情绪/能量/专注）。
-            // Stage 1：未接派生维度时全部为 abstain（显示 "—"），保留可视骨架。
-            // Stage 2：会由 EchoSceneViewModel 注入真实派生值（StatusCardData）。
+            // 阶段 2：注入真实行为派生值（情绪/能量/专注）。
             Spacer(Modifier.height(12.dp))
             StatusCardsRow(
-                emotion = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
-                energy = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
-                focus = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
+                emotion = mapEmotion(uiState.derivedBehavior.emotion),
+                energy = mapEnergy(uiState.derivedBehavior.energy),
+                focus = mapFocus(uiState.derivedBehavior.focus),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
@@ -247,4 +246,34 @@ private fun resolveSceneNarrative(
     PortraitStatus.SENSING_DISABLED -> SceneNarrative(uiState.headline, PORTRAIT_COPY_SENSING_DISABLED)
     // §43：Error —— identity 继续存在，Retry secondary，无红色全屏
     PortraitStatus.ERROR -> SceneNarrative(uiState.headline, PORTRAIT_COPY_LOAD_FAILED)
+}
+
+/** 阶段 2：行为派生状态 → 卡片数据映射。 */
+private fun mapEmotion(emotion: com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion): StatusCardData {
+    val (label, value, level) = when (emotion) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.ACTIVE -> Triple("情绪·活跃", "活跃", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.CALM -> Triple("情绪·平静", "平静", StatusLevel.MEDIUM)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.FATIGUED -> Triple("情绪·疲惫", "疲惫", StatusLevel.LOW)
+        else -> Triple("情绪·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
+}
+
+private fun mapEnergy(energy: com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy): StatusCardData {
+    val (label, value, level) = when (energy) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.HIGH -> Triple("能量", "高", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.MEDIUM -> Triple("能量", "中", StatusLevel.MEDIUM)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.LOW -> Triple("能量", "低", StatusLevel.LOW)
+        else -> Triple("能量·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
+}
+
+private fun mapFocus(focus: com.yunjue.echo.mind.features.behaviorderived.DerivedFocus): StatusCardData {
+    val (label, value, level) = when (focus) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedFocus.FOCUSED -> Triple("专注", "较专注", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedFocus.DIVIDED -> Triple("专注", "较分散", StatusLevel.LOW)
+        else -> Triple("专注·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
 }

@@ -14,6 +14,8 @@ import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.model.SensingRuntimeStatus
+import com.yunjue.echo.mind.features.behaviorderived.DerivedBehaviorState
+import com.yunjue.echo.mind.features.behaviorderived.deriveFromPortrait
 
 /**
  * ECHO Scene 统一 UI 状态（Master Prompt v2 §16）：
@@ -39,6 +41,8 @@ data class EchoSceneUiState(
     val intelligenceAvailable: Boolean,
     /** Intervention Policy L2：是否展示「让自己慢一点」温和建议。 */
     val suggestedAction: Boolean,
+    /** 阶段 2 行为派生状态（情绪/能量/专注）：由现有 Portrait 行为特征计算（非心理诊断）。 */
+    val derivedBehavior: DerivedBehaviorState = DerivedBehaviorState(),
 )
 
 /**
@@ -93,6 +97,7 @@ fun assembleEchoSceneUiState(
         )
     ) >= InterventionLevel.L2_SUGGEST_WHEN_OPENED
 
+    val derived = deriveFromPortrait(portraitState)
     return EchoSceneUiState(
         presence = presence,
         sensing = sensing,
@@ -106,6 +111,7 @@ fun assembleEchoSceneUiState(
         maturity = maturity,
         intelligenceAvailable = intelligenceAvailable,
         suggestedAction = suggested,
+        derivedBehavior = derived,
     )
 }
 
