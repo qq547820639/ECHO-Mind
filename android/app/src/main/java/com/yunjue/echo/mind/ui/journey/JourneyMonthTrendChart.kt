@@ -122,7 +122,7 @@ private fun TrendLines(dimensions: List<Pair<String, List<String>>>) {
 
         // 网格背景（4 段）
         for (g in 0..3) {
-            val gy = padding + (chartH * g / 3)
+            val gy = padding + chartH * g.toFloat() / 3
             drawLine(
                 color = Color.White.copy(alpha = 0.06f),
                 start = Offset(padding, gy),
