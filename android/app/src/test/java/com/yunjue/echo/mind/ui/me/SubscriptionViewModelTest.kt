@@ -58,6 +58,9 @@ class SubscriptionViewModelTest {
         advanceUntilIdle()
         assertEquals(0, calls)
         assertEquals("激活码格式不正确，请检查后重试。", viewModel.uiState.value.bindMessage)
+        // 2026-08-29 可用性自测（A1）：格式错误属失败语义，bindError 必须为 true
+        //（UI 据此用 error 色渲染，用户可一眼分辨）。
+        assertTrue(viewModel.uiState.value.bindError)
         assertFalse(viewModel.uiState.value.binding)
     }
 
@@ -90,6 +93,7 @@ class SubscriptionViewModelTest {
         assertEquals(1, syncEnqueued)
         val state = viewModel.uiState.value
         assertFalse(state.binding)
+        assertFalse(state.bindError) // A1：开通成功不是错误语义
         assertEquals("", state.bindCode)
         assertFalse(state.localMode)
         assertEquals("订阅已开通。云端同步与专业支持现在可用。", state.bindMessage)
@@ -110,6 +114,7 @@ class SubscriptionViewModelTest {
         assertEquals(0, flagsRefreshed)
         assertEquals(0, syncEnqueued)
         assertEquals("该激活码已受限，请联系客服。", viewModel.uiState.value.bindMessage)
+        assertTrue(viewModel.uiState.value.bindError) // A1：受限属失败语义
     }
 
     @Test
@@ -119,6 +124,7 @@ class SubscriptionViewModelTest {
         viewModel.onEvent(SubscriptionEvent.Bind)
         advanceUntilIdle()
         assertEquals("激活码无效，请检查后重试，或联系客服获取订阅激活码。", viewModel.uiState.value.bindMessage)
+        assertTrue(viewModel.uiState.value.bindError) // A1：无效码属失败语义
     }
 
     @Test
@@ -128,6 +134,7 @@ class SubscriptionViewModelTest {
         viewModel.onEvent(SubscriptionEvent.Bind)
         advanceUntilIdle()
         assertEquals("暂时无法验证激活信息，请检查网络后重试。", viewModel.uiState.value.bindMessage)
+        assertTrue(viewModel.uiState.value.bindError) // A1：网络失败属失败语义
     }
 
     @Test
@@ -139,5 +146,6 @@ class SubscriptionViewModelTest {
         assertTrue(viewModel.uiState.value.bindMessage != null)
         viewModel.onEvent(SubscriptionEvent.UpdateBindCode("EFGH5678"))
         assertNull(viewModel.uiState.value.bindMessage)
+        assertFalse(viewModel.uiState.value.bindError) // A1：重新输入清除错误语义
     }
 }

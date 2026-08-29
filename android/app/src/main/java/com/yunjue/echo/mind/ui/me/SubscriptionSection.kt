@@ -68,7 +68,14 @@ fun SubscriptionContent(
                 modifier = Modifier.fillMaxWidth()
             )
             state.bindMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                // 2026-08-29 可用性自测（A1）：成功/失败信息用不同颜色渲染，
+                // 用户一眼可辨开通是否成功（此前一律 primary 色）。
+                Text(
+                    it,
+                    color = if (state.bindError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             Button(
                 onClick = { onEvent(SubscriptionEvent.Bind) },
