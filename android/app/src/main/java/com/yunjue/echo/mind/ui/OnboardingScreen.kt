@@ -392,11 +392,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
                     )
                 }
-                Button(
+                EchoGradientButton(
                     onClick = actions.onContinueToCoreSensing,
+                    text = "我理解了，继续",
                     enabled = allCoreChecked,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("我理解并继续") }
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "我理解了，继续",
+                )
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
 
@@ -457,11 +459,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     "ECHO 会安静地在后台了解你的日常节奏，不会打扰你。",
                     style = MaterialTheme.typography.bodySmall
                 )
-                // ERA 1：主 CTA = 苏醒；不再有 DONE /「进入应用」。
-                Button(
+                // ERA 1：主 CTA = 苏醒（设计稿 3，渐变主按钮）
+                EchoGradientButton(
                     onClick = actions.onAwaken,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("让 ECHO 开始了解我") }
+                    text = "开启 ECHO",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "开启 ECHO 开始苏醒",
+                )
                 // 拒绝 = abstain（不阻断离开）：不启动感知，直接进入应用
                 TextButton(
                     onClick = actions.onAbstain,

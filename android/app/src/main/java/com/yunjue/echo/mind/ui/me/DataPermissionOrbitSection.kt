@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -167,7 +166,7 @@ private fun DataOrbitCanvas(nodes: List<DataOrbitNode>) {
         val n = nodes.size.coerceAtMost(5).coerceAtLeast(1)
         val angle0 = -Math.PI.toFloat() / 2f // 起始：正上方
         for (i in 0 until n) {
-            val angle = angle0 + (2 * Math.PI.toFloat() * i / n)
+            val angle = angle0 + 2 * Math.PI.toFloat() * i / n
             val px = cx + rx * kotlin.math.cos(angle)
             val py = cy + ry * kotlin.math.sin(angle)
             val enabled = nodes[i].enabled
@@ -202,7 +201,7 @@ private fun DataOrbitCanvas(nodes: List<DataOrbitNode>) {
         val n = nodes.size.coerceAtMost(5).coerceAtLeast(1)
         val angle0 = -Math.PI.toFloat() / 2f
         for (i in 0 until n) {
-            val angle = angle0 + (2 * Math.PI.toFloat() * i / n)
+            val angle = angle0 + 2 * Math.PI.toFloat() * i / n
             // 节点在画布中的相对位置（粗略估算 280dp × 280dp）
             val rxRel = 0.40f
             val ryRel = 0.32f

@@ -49,8 +49,30 @@ fun JourneyMonthTrendChart(
     val cardBg = Color(0xFF0E1426)
     val labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     val mutedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    // 无障碍：构造可朗读的趋势摘要（按维度统计 SIMILAR/MORE/LESS 数量）
+    val summary = if (isEmptyData) {
+        "数据尚不足以形成趋势"
+    } else {
+        val parts = dimensions.take(4).map { (name, values) ->
+            val clean = values.filter { it.isNotBlank() && it != "—" }
+            val more = clean.count { it == "MORE" || it == "UP" || it == "MORE_CONCENTRATED" || it == "CLEARLY_DIFFERENT" }
+            val less = clean.count { it == "LESS" || it == "DOWN" || it == "MORE_FRAGMENTED" }
+            val similar = clean.size - more - less
+            "$name：相似 $similar 段、偏高 $more 段、偏低 $less 段"
+        }
+        "四维趋势：" + parts.joinToString("；")
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // 屏读器先读摘要文字（design 9 趋势图用语言化摘要表达非文字信息）
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.labelSmall,
+            color = mutedColor,
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .semantics { contentDescription = summary },
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -58,7 +80,7 @@ fun JourneyMonthTrendChart(
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .padding(horizontal = 12.dp, vertical = 12.dp)
-                .semantics { contentDescription = "月画像四维趋势折线图" },
+                .semantics { contentDescription = "月画像四维趋势折线图（同上文字摘要）" },
         ) {
             if (isEmptyData) {
                 Text(
