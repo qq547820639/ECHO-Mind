@@ -518,9 +518,28 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
                 )
             }
             Text(
-                "ECHO 已开始了解你",
+                "ECHO 正在苏醒",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color(0xFFE8ECF5).copy(alpha = timeline.headlineAlpha),
+            )
+            // V3 §54 / 设计稿图3：进度条 + 阶段文案 + 前台提示（真实时间驱动，非假数值）
+            val progressPct = ((elapsedMs.toFloat() / AWAKENING_DURATION_MS.toFloat()) * 100f).toInt().coerceIn(0, 100)
+            Text(
+                "$progressPct%  ·  正在生成你的第一份数字生命",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFB9C0D4).copy(alpha = timeline.headlineAlpha),
+            )
+            // 阶段文案（真实阶段描述，不编造）
+            Text(
+                "正在为你生成专属的生命节律…",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF8E8EA8).copy(alpha = timeline.headlineAlpha),
+            )
+            // 前台运行提示（设计稿图3 底部提示）
+            Text(
+                "请保持应用在前台运行",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6E6E8C).copy(alpha = timeline.headlineAlpha),
             )
             Text(
                 "今天是我们认识的第一天。",
