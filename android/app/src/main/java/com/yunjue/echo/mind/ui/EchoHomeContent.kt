@@ -45,7 +45,12 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
+import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.ui.echo.components.EchoStatusOverlay
+import com.yunjue.echo.mind.ui.echo.components.StatusCardData
+import com.yunjue.echo.mind.ui.echo.components.StatusCardIcon
+import com.yunjue.echo.mind.ui.echo.components.StatusLevel
+import com.yunjue.echo.mind.ui.echo.components.StatusCardsRow
 import com.yunjue.echo.mind.ui.echo.components.UnlockBanner
 
 /**
@@ -182,25 +187,31 @@ internal fun EchoHomeContent(
                 )
             }
 
-            // 4. Ask（52dp quiet surface；§AF 1-tap 全屏目的地；testTag: echo_scene_ask）
-            Row(
-                Modifier
+            // 3.5 V3 §AK — 设计稿图5 三指标卡（情绪/能量/专注）。
+            // Stage 1：未接派生维度时全部为 abstain（显示 "—"），保留可视骨架。
+            // Stage 2：会由 EchoSceneViewModel 注入真实派生值（StatusCardData）。
+            Spacer(Modifier.height(12.dp))
+            StatusCardsRow(
+                emotion = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
+                energy = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
+                focus = StatusCardData(displayValue = "—", level = StatusLevel.UNKNOWN),
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .heightIn(min = 52.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                    .clickable(onClick = onOpenAsk)
-                    .padding(horizontal = 20.dp)
+                    .testTag("echo_scene_status_cards"),
+            )
+            Spacer(Modifier.height(14.dp))
+
+            // 4. Ask（§AF 1-tap 全屏目的地；设计稿图5 渐变主按钮 "✦ 问 ECHO"）。
+            // V3 §AJ：紫→青蓝渐变胶囊（#7C3AED → #38BDF8），保留 testTag。
+            EchoGradientButton(
+                onClick = onOpenAsk,
+                text = "✦  问 ECHO",
+                modifier = Modifier
+                    .fillMaxWidth()
                     .testTag(ECHO_SCENE_TAG_ASK),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "问 ECHO",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                )
-            }
+                contentDescription = "问 ECHO",
+            )
 
             // 5. §AG：降级行动入口（Ask 之下 quiet 展开区；空 actions 不渲染）
             EchoActionEntry(
