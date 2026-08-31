@@ -139,11 +139,12 @@ class OnboardingStepContentSmokeTest {
                 )
             }
         }
-        compose.onNode(hasClickAction() and hasText("开始")).assertIsNotEnabled()
+        // WELCOME 主 CTA 为渐变按钮「开启 ECHO」（设计稿统一文案；禁用态保留 OnClick + Enabled=false）
+        compose.onNode(hasClickAction() and hasText("开启 ECHO")).assertIsNotEnabled()
         compose.onAllNodes(isToggleable())[0].performClick()
         compose.onAllNodes(isToggleable())[1].performClick()
         compose.runOnIdle { age = true; boundary = true }
-        compose.onNode(hasClickAction() and hasText("开始")).performClick()
+        compose.onNode(hasClickAction() and hasText("开启 ECHO")).performClick()
         assertTrue(recorder.privacy.isNotEmpty())
         assertEquals(listOf(true), recorder.age)
         assertEquals(listOf(true), recorder.boundary)
@@ -162,10 +163,11 @@ class OnboardingStepContentSmokeTest {
             }
         }
         compose.onNodeWithText("ECHO 的承诺只有三句话：", substring = true).assertExists()
-        compose.onNode(hasClickAction() and hasText("我理解并继续")).performScrollTo().assertIsNotEnabled()
+        // PRIVACY_PLEDGE 主 CTA 为「我理解了，继续」（设计稿统一文案）
+        compose.onNode(hasClickAction() and hasText("我理解了，继续")).performScrollTo().assertIsNotEnabled()
         compose.onAllNodes(isToggleable())[0].performScrollTo().performClick()
         compose.runOnIdle { checks = listOf(true, true, true, true, true) }
-        compose.onNode(hasClickAction() and hasText("我理解并继续")).performScrollTo().performClick()
+        compose.onNode(hasClickAction() and hasText("我理解了，继续")).performScrollTo().performClick()
         assertTrue(recorder.sensing.isNotEmpty())
     }
 
@@ -217,7 +219,8 @@ class OnboardingStepContentSmokeTest {
     fun awakenAndAbstainCallbacksFire() {
         val recorder = Recorder()
         setContent(state(step = OnboardingStep.CORE_SENSING), recorder)
-        compose.onNode(hasClickAction() and hasText("让 ECHO 开始了解我")).performScrollTo().performClick()
+        // CORE_SENSING 主 CTA（苏醒）为渐变按钮「开启 ECHO」；次级「暂不开启」= abstain
+        compose.onNode(hasClickAction() and hasText("开启 ECHO")).performScrollTo().performClick()
         compose.onNode(hasClickAction() and hasText("暂不开启")).performScrollTo().performClick()
         assertEquals(listOf(true), recorder.awaken)
         assertEquals(listOf(true), recorder.abstain)

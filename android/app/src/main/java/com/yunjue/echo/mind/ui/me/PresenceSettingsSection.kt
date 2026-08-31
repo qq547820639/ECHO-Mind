@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -91,7 +92,10 @@ fun PresenceSettingsContent(
                     Text("动态壁纸")
                     Text("ECHO 持续存在于主屏与锁屏。不可见时停止持续绘制，以降低额外耗电。", style = MaterialTheme.typography.bodySmall)
                 }
-                Button(onClick = onSelectWallpaper) { Text("选择 ECHO 壁纸") }
+                Button(
+                    onClick = onSelectWallpaper,
+                    modifier = Modifier.testTag("me_entry_wallpaper"),
+                ) { Text("选择 ECHO 壁纸") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -102,7 +106,10 @@ fun PresenceSettingsContent(
                     Text("充电屏保")
                     Text("充电放在桌面时，ECHO 成为环境的一部分（部分设备需在系统设置中手动启用）。", style = MaterialTheme.typography.bodySmall)
                 }
-                Button(onClick = onDreamSettings) { Text("系统屏保设置") }
+                Button(
+                    onClick = onDreamSettings,
+                    modifier = Modifier.testTag("me_entry_dream"),
+                ) { Text("系统屏保设置") }
             }
             Text("锁屏隐私：动态壁纸仅渲染视觉，不含任何文字——Public Safe 由构造保证。", style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()

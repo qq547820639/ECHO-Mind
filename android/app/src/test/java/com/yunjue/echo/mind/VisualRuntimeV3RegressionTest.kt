@@ -24,7 +24,12 @@ class VisualRuntimeV3RegressionTest {
             .listFiles { f -> f.extension == "kt" }?.joinToString("\n") { it.readText() } ?: ""
     }
     private val onboarding = "src/main/java/com/yunjue/echo/mind/ui/OnboardingScreen.kt"
-    private val me = "src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt"
+
+    /** Me L0+L1 拆分后：me_entry_* 锚点分散在包内各 Section（如 me_entry_wallpaper 在 PresenceSettingsSection），整包读取。 */
+    private val meDir = "src/main/java/com/yunjue/echo/mind/ui/me"
+    private val me: String by lazy {
+        File(meDir).listFiles { f -> f.extension == "kt" }?.joinToString("\n") { it.readText() } ?: ""
+    }
     private val shell = "src/main/java/com/yunjue/echo/mind/ui/EchoMindApp.kt"
 
     @Test
@@ -50,17 +55,25 @@ class VisualRuntimeV3RegressionTest {
 
     @Test
     fun meIsGroupedControlCenterWithoutIntelligenceMap() {
-        // V3 §AR/§AS/§BQ：Me 是熟悉的分组控制中心（ListItem/chevron，全部 ≤1 tap）；
-        // 概念地图（MeIntelligenceMap）不得作为主功能导航回归。
-        val s = read(me)
+        // V3 §AR/§AS/§BQ：Me 是 L0 四分区 + MeRoute 次级页（全部 ≤1 tap）；
+        // 概念地图（MeIntelligenceMap）与就地展开（me_domain_detail）不得回归。
+        val s = me
         assertFalse("Me 不得回归概念地图导航", s.contains("me_intelligence_map") || s.contains("MeIntelligenceMap"))
+        assertFalse("Me 就地展开机制不得回归", s.contains("me_domain_detail"))
         assertFalse(
             "MeIntelligenceMap 源文件不得复活",
-            File(me).parentFile.resolve("MeIntelligenceMap.kt").exists(),
+            File(meDir).resolve("MeIntelligenceMap.kt").exists(),
+        )
+        assertFalse(
+            "DataPermissionOrbitSection（装饰画布）不得复活",
+            File(meDir).resolve("DataPermissionOrbitSection.kt").exists(),
         )
         for (entry in listOf("me_entry_data", "me_entry_memory", "me_entry_ai", "me_entry_wallpaper", "me_entry_wrist")) {
             assertTrue("Me 分组入口缺失：$entry", s.contains(entry))
         }
+        // V3 §AR：路由式次级页锚点（全屏 L1 页容器）
+        assertTrue("MeRoute 路由枚举缺失", s.contains("enum class MeRoute"))
+        assertTrue("Me L1 页锚点缺失", s.contains("me_page_"))
     }
 
     @Test

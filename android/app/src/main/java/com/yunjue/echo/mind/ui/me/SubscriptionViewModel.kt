@@ -46,7 +46,7 @@ class SubscriptionViewModel(
     fun onEvent(event: SubscriptionEvent) {
         when (event) {
             is SubscriptionEvent.UpdateBindCode ->
-                _state.update { it.copy(bindCode = event.value, bindMessage = null) }
+                _state.update { it.copy(bindCode = event.value, bindMessage = null, bindError = false) }
             SubscriptionEvent.Bind -> bind()
         }
     }
@@ -54,15 +54,15 @@ class SubscriptionViewModel(
     private fun bind() {
         val code = uiState.value.bindCode.trim()
         if (code.length < 8) {
-            _state.update { it.copy(bindMessage = "激活码格式不正确，请检查后重试。") }
+            _state.update { it.copy(bindMessage = "激活码格式不正确，请检查后重试。", bindError = true) }
             return
         }
-        _state.update { it.copy(binding = true, bindMessage = null) }
+        _state.update { it.copy(binding = true, bindMessage = null, bindError = false) }
         viewModelScope.launch {
             try {
                 val result = verifyCode(code)
                 if (result.restricted) {
-                    _state.update { it.copy(binding = false, bindMessage = "该激活码已受限，请联系客服。") }
+                    _state.update { it.copy(binding = false, bindMessage = "该激活码已受限，请联系客服。", bindError = true) }
                 } else {
                     refreshFlags()
                     enqueueSync()
@@ -71,6 +71,7 @@ class SubscriptionViewModel(
                         it.copy(
                             binding = false,
                             bindMessage = "订阅已开通。云端同步与专业支持现在可用。",
+                            bindError = false,
                             bindCode = "",
                         )
                     }
@@ -79,6 +80,7 @@ class SubscriptionViewModel(
                 _state.update {
                     it.copy(
                         binding = false,
+                        bindError = true,
                         bindMessage = when ((e as? OnboardingVerifyException)?.reason) {
                             "invalid_code" -> "激活码无效，请检查后重试，或联系客服获取订阅激活码。"
                             "restricted" -> "该激活码已受限，请联系客服。"

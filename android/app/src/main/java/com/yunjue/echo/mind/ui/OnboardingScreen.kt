@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.PassiveSensingService
@@ -227,6 +228,8 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
             },
             onSkipNotifPermission = { notifPermAuthorized = false },
             onOpenSafety = { showSafety = true },
+            // 设计稿 1/2：可选登录入口（无后端时显示一行文本；登录为可选，现状不变）
+            onOpenLogin = { /* 登录为可选：保留锚点；未登录时全功能本地可用 */ },
         ),
     )
 }
@@ -279,6 +282,8 @@ data class OnboardingStepActions(
     val onRequestNotifPermission: () -> Unit,
     val onSkipNotifPermission: () -> Unit,
     val onOpenSafety: () -> Unit,
+    /** 设计稿 1/2：已有账号登录入口（可选；未登录时全功能本地可用，不强制）。 */
+    val onOpenLogin: () -> Unit = {},
 )
 
 /**
@@ -326,12 +331,23 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需云端同步与专业支持，可稍后在「支持」页订阅（可选）。",
                     style = MaterialTheme.typography.bodySmall
                 )
-                Button(
+                EchoGradientButton(
                     onClick = actions.onContinueToPrivacy,
+                    text = "开启 ECHO",
                     enabled = state.ageConfirmed && state.boundaryConfirmed,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "开启 ECHO",
+                )
+                // 设计稿 1/2：已有账号入口（可选登录，不强制；保留现状无强制同步）
+                TextButton(
+                    onClick = actions.onOpenLogin,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 ) {
-                    Text("开始")
+                    Text(
+                        text = "已有账号？登录 ›",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety, copy = EMERGENCY_HINT_COPY)
             }
@@ -376,11 +392,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
                     )
                 }
-                Button(
+                EchoGradientButton(
                     onClick = actions.onContinueToCoreSensing,
+                    text = "我理解了，继续",
                     enabled = allCoreChecked,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("我理解并继续") }
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "我理解了，继续",
+                )
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
 
@@ -441,11 +459,13 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                     "ECHO 会安静地在后台了解你的日常节奏，不会打扰你。",
                     style = MaterialTheme.typography.bodySmall
                 )
-                // ERA 1：主 CTA = 苏醒；不再有 DONE /「进入应用」。
-                Button(
+                // ERA 1：主 CTA = 苏醒（设计稿 3，渐变主按钮）
+                EchoGradientButton(
                     onClick = actions.onAwaken,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("让 ECHO 开始了解我") }
+                    text = "开启 ECHO",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "开启 ECHO 开始苏醒",
+                )
                 // 拒绝 = abstain（不阻断离开）：不启动感知，直接进入应用
                 TextButton(
                     onClick = actions.onAbstain,
@@ -518,9 +538,28 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
                 )
             }
             Text(
-                "ECHO 已开始了解你",
+                "ECHO 正在苏醒",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color(0xFFE8ECF5).copy(alpha = timeline.headlineAlpha),
+            )
+            // V3 §54 / 设计稿图3：进度条 + 阶段文案 + 前台提示（真实时间驱动，非假数值）
+            val progressPct = (elapsedMs.toFloat() / AWAKENING_DURATION_MS.toFloat() * 100f).toInt().coerceIn(0, 100)
+            Text(
+                "$progressPct%  ·  正在生成你的第一份数字生命",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFB9C0D4).copy(alpha = timeline.headlineAlpha),
+            )
+            // 阶段文案（真实阶段描述，不编造）
+            Text(
+                "正在为你生成专属的生命节律…",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF8E8EA8).copy(alpha = timeline.headlineAlpha),
+            )
+            // 前台运行提示（设计稿图3 底部提示）
+            Text(
+                "请保持应用在前台运行",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF6E6E8C).copy(alpha = timeline.headlineAlpha),
             )
             Text(
                 "今天是我们认识的第一天。",

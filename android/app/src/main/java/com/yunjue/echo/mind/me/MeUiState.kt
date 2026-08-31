@@ -234,6 +234,8 @@ data class SubscriptionUiState(
     val bindCode: String = "",
     val binding: Boolean = false,
     val bindMessage: String? = null,
+    /** 2026-08-29 可用性自测（A1）：bindMessage 区分成功/失败语义，错误用 error 色渲染。 */
+    val bindError: Boolean = false,
     val localMode: Boolean = true,
     val subscriptionExpiresAt: Long? = null,
     val subscriptionExpired: Boolean = false,

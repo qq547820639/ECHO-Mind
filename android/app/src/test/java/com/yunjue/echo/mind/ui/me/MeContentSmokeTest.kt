@@ -1,10 +1,12 @@
 package com.yunjue.echo.mind.ui.me
 
 import android.content.Context
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -23,12 +25,17 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * V3 §AR/§AS/§AT — Me 分组控制中心 smoke test（Robolectric + Compose）：
- * 分组入口全部距根 ≤1 步（me_entry_* 锚点）/ 概念图（me_intelligence_map）已删除 /
- * 紧急支持行触发 onEmergency（SafetyScreen 直达）/ 数据·记忆·AI·壁纸·手环入口行为 /
- * 领域深页就地展开且互斥 / 支持二次确认对话框 / 根消息渲染。
+ * V3 §AR/§AT — Me L0 四分区 + MeRoute 次级页 smoke test（Robolectric + Compose）：
+ * L0 根层入口全部 ≤1 步（me_entry_* 锚点语义不变，宿主容器可换）/
+ * 概念图（me_intelligence_map）与就地展开（me_domain_detail）已删除 /
+ * Z2 状态网格与账户组路由到 me_page_* 次级页（全屏互斥，Back 返回根）/
+ * 紧急支持行触发 onEmergency（SafetyScreen 直达）/ 通知行触发系统设置回调 /
+ * SMARTMAP 快速管理页内路由 / 支持二次确认对话框 / 根消息渲染。
  *
  * 子领域全部以槽位注入（无 AppContainer / 子 ViewModel 依赖）。
+ * 壁纸/Dream（me_entry_wallpaper/dream）已迁入 PRESENCE 页、
+ * 导出/删除（me_entry_export/delete）已迁入 SENSING 危险区，
+ * 行为断言由各自 Content smoke suite 承担。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -39,38 +46,27 @@ class MeContentSmokeTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    /** §AR：根层常驻入口锚点（全部 ≤1 步可达）。 */
+    /** §AR：L0 根层常驻入口锚点（全部 ≤1 步可达）。 */
     private val rootEntryTags = listOf(
         "me_entry_echo",
-        "me_entry_emergency",
+        "me_entry_smartmap",
         "me_entry_data",
         "me_entry_memory",
-        "me_entry_ai",
-        "me_entry_wallpaper",
-        "me_entry_dream",
         "me_entry_wrist",
-        "me_entry_export",
-        "me_entry_delete",
-        "me_entry_notifications",
-        "me_entry_subscription",
+        "me_entry_emergency",
         "me_entry_support",
+        "me_entry_subscription",
+        "me_entry_ai",
+        "me_entry_notifications",
         "me_entry_about",
     )
 
     private class Recorder {
         val emergency = mutableListOf<Boolean>()
-        val export = mutableListOf<Boolean>()
-        val delete = mutableListOf<Boolean>()
-        val wallpaper = mutableListOf<Boolean>()
-        val dream = mutableListOf<Boolean>()
         val notifications = mutableListOf<Boolean>()
 
         fun actions() = MeControlActions(
             onEmergency = { emergency += true },
-            onExportData = { export += true },
-            onDeleteData = { delete += true },
-            onSelectWallpaper = { wallpaper += true },
-            onDreamSettings = { dream += true },
             onNotificationSettings = { notifications += true },
         )
     }
@@ -97,10 +93,22 @@ class MeContentSmokeTest {
                         intelligenceSettings = { Text("slot-intelligence") },
                         whatEchoKnows = { Text("slot-memory") },
                         aboutCard = { Text("slot-about") },
+                        // 槽位收到真实快速管理条目（Task 2.2 不再传 emptyList()），由真实 Section 渲染
+                        smartMap = { items ->
+                            Column {
+                                Text("slot-smartmap")
+                                MeSmartMapSection(devices = SmartMapDevices(), quickAccessItems = items)
+                            }
+                        },
                     ),
                 )
             }
         }
+    }
+
+    /** L1 次级页顶部返回（TopAppBar navigationIcon；返回根层）。 */
+    private fun backToRoot() {
+        compose.onNodeWithContentDescription("返回").performClick()
     }
 
     @Test
@@ -114,10 +122,11 @@ class MeContentSmokeTest {
     }
 
     @Test
-    fun intelligenceMapIsGone() {
-        // §BQ/§AR：概念图不再是 Me 导航（节点与文件均已删除）
+    fun legacyInPlaceExpansionIsGone() {
+        // §BQ/§AR：概念图不再作为 Me 导航；MeDomain 就地展开机制（me_domain_detail）已删除
         setContent()
         compose.onNodeWithTag("me_intelligence_map").assertDoesNotExist()
+        compose.onNodeWithTag("me_domain_detail").assertDoesNotExist()
     }
 
     @Test
@@ -130,74 +139,74 @@ class MeContentSmokeTest {
     }
 
     @Test
-    fun domainEntriesOpenSectionsInPlaceAndExclusively() {
-        setContent()
-        // 默认无展开详情
-        compose.onNodeWithText("slot-data").assertDoesNotExist()
-        // 数据与感知 → 深页就地出现
-        compose.onNodeWithTag("me_entry_data").performScrollTo().performClick()
-        compose.onNodeWithText("slot-data").assertExists()
-        compose.onNodeWithTag("me_domain_detail").assertExists()
-        // 记忆 → 前一深页收起（一次只展开一个）
-        compose.onNodeWithTag("me_entry_memory").performScrollTo().performClick()
-        compose.onNodeWithText("slot-memory").assertExists()
-        compose.onNodeWithText("slot-data").assertDoesNotExist()
-        // AI
-        compose.onNodeWithTag("me_entry_ai").performScrollTo().performClick()
-        compose.onNodeWithText("slot-intelligence").assertExists()
-        compose.onNodeWithText("slot-memory").assertDoesNotExist()
-        // 手环
-        compose.onNodeWithTag("me_entry_wrist").performScrollTo().performClick()
-        compose.onNodeWithText("slot-wrist").assertExists()
-        compose.onNodeWithText("slot-intelligence").assertDoesNotExist()
+    fun notificationEntryFiresPlatformAction() {
+        val recorder = Recorder()
+        setContent(recorder = recorder)
+        compose.onNodeWithTag("me_entry_notifications").performScrollTo().performClick()
+        assertEquals(listOf(true), recorder.notifications)
     }
 
     @Test
-    fun identityHeaderOpensPresenceDomain() {
+    fun stateGridEntriesRouteToSubPagesExclusively() {
+        setContent()
+        // Z2 网格 → SENSING 次级页（全屏替换；根层不再组合）
+        compose.onNodeWithTag("me_entry_data").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_sensing").assertExists()
+        compose.onNodeWithText("slot-data").assertExists()
+        compose.onNodeWithText("我的").assertDoesNotExist()
+        backToRoot()
+        compose.onNodeWithTag("me_entry_echo").assertExists()
+        // MEMORY / INTELLIGENCE / WRIST 同理（一次只有一个路由活跃）
+        compose.onNodeWithTag("me_entry_memory").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_memory").assertExists()
+        compose.onNodeWithText("slot-memory").assertExists()
+        backToRoot()
+        compose.onNodeWithTag("me_entry_ai").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_intelligence").assertExists()
+        compose.onNodeWithText("slot-intelligence").assertExists()
+        backToRoot()
+        compose.onNodeWithTag("me_entry_wrist").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_wrist").assertExists()
+        compose.onNodeWithText("slot-wrist").assertExists()
+    }
+
+    @Test
+    fun identityHeaderOpensPresenceSubPage() {
         setContent()
         compose.onNodeWithTag("me_entry_echo").performClick()
+        compose.onNodeWithTag("me_page_presence").assertExists()
         compose.onNodeWithText("slot-presence").assertExists()
-        compose.onNodeWithTag("me_domain_detail").assertExists()
     }
 
     @Test
-    fun surfaceEntriesFirePlatformActions() {
-        // 壁纸选择 / Dream 设置 / 通知设置为既有系统动作直达（不展开分节）
-        val recorder = Recorder()
-        setContent(recorder = recorder)
-        compose.onNodeWithTag("me_entry_wallpaper").performScrollTo().performClick()
-        compose.onNodeWithTag("me_entry_dream").performScrollTo().performClick()
-        compose.onNodeWithTag("me_entry_notifications").performScrollTo().performClick()
-        assertEquals(listOf(true), recorder.wallpaper)
-        assertEquals(listOf(true), recorder.dream)
-        assertEquals(listOf(true), recorder.notifications)
-        compose.onNodeWithTag("me_domain_detail").assertDoesNotExist()
-    }
-
-    @Test
-    fun dataRightsEntriesFireExistingActions() {
-        // §AS：导出 = 既有导出动作；删除 = 既有删除流程（经数据 ViewModel 回调注入）
-        val recorder = Recorder()
-        setContent(recorder = recorder)
-        compose.onNodeWithTag("me_entry_export").performScrollTo().performClick()
-        assertEquals(listOf(true), recorder.export)
-        // 删除入口同时强制展开数据分节（确认对话框在分节内呈现）
-        compose.onNodeWithTag("me_entry_delete").performScrollTo().performClick()
-        assertEquals(listOf(true), recorder.delete)
+    fun smartMapEntryOpensSmartMapPageWithQuickAccessRouting() {
+        setContent()
+        compose.onNodeWithTag("me_entry_smartmap").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_smartmap").assertExists()
+        compose.onNodeWithText("slot-smartmap").assertExists()
+        // 快速管理：真实条目（4 项）经槽位注入，SMARTMAP 页内 me_entry_* 行路由到对应次级页
+        listOf("me_entry_wrist", "me_entry_data", "me_entry_memory", "me_entry_ai").forEach { tag ->
+            compose.onNodeWithTag(tag).performScrollTo().assertExists()
+        }
+        compose.onNodeWithTag("me_entry_data").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_sensing").assertExists()
         compose.onNodeWithText("slot-data").assertExists()
     }
 
     @Test
-    fun otherGroupEntriesExpandSections() {
+    fun accountEntriesRouteToSubPages() {
         setContent()
         compose.onNodeWithTag("me_entry_subscription").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_subscription").assertExists()
         compose.onNodeWithText("slot-subscription").assertExists()
+        backToRoot()
         compose.onNodeWithTag("me_entry_support").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_support").assertExists()
         compose.onNodeWithText("slot-support").assertExists()
-        compose.onNodeWithText("slot-subscription").assertDoesNotExist()
+        backToRoot()
         compose.onNodeWithTag("me_entry_about").performScrollTo().performClick()
+        compose.onNodeWithTag("me_page_about").assertExists()
         compose.onNodeWithText("slot-about").assertExists()
-        compose.onNodeWithText("slot-support").assertDoesNotExist()
     }
 
     @Test

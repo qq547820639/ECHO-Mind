@@ -2,19 +2,16 @@ package com.yunjue.echo.mind.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -45,7 +41,11 @@ import com.yunjue.echo.mind.model.PORTRAIT_COPY_SENSING_DISABLED
 import com.yunjue.echo.mind.model.PortraitStatus
 import com.yunjue.echo.mind.model.PortraitUiState
 import com.yunjue.echo.mind.ui.echo.EchoSceneUiState
+import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.ui.echo.components.EchoStatusOverlay
+import com.yunjue.echo.mind.ui.echo.components.StatusCardData
+import com.yunjue.echo.mind.ui.echo.components.StatusLevel
+import com.yunjue.echo.mind.ui.echo.components.StatusCardsRow
 import com.yunjue.echo.mind.ui.echo.components.UnlockBanner
 
 /**
@@ -182,25 +182,30 @@ internal fun EchoHomeContent(
                 )
             }
 
-            // 4. Ask（52dp quiet surface；§AF 1-tap 全屏目的地；testTag: echo_scene_ask）
-            Row(
-                Modifier
+            // 3.5 V3 §AK — 设计稿图5 三指标卡（情绪/能量/专注）。
+            // 阶段 2：注入真实行为派生值（情绪/能量/专注）。
+            Spacer(Modifier.height(12.dp))
+            StatusCardsRow(
+                emotion = mapEmotion(uiState.derivedBehavior.emotion),
+                energy = mapEnergy(uiState.derivedBehavior.energy),
+                focus = mapFocus(uiState.derivedBehavior.focus),
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .heightIn(min = 52.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                    .clickable(onClick = onOpenAsk)
-                    .padding(horizontal = 20.dp)
+                    .testTag("echo_scene_status_cards"),
+            )
+            Spacer(Modifier.height(14.dp))
+
+            // 4. Ask（§AF 1-tap 全屏目的地；设计稿图5 渐变主按钮 "✦ 问 ECHO"）。
+            // V3 §AJ：紫→青蓝渐变胶囊（#7C3AED → #38BDF8），保留 testTag。
+            EchoGradientButton(
+                onClick = onOpenAsk,
+                text = "问 ECHO",
+                modifier = Modifier
+                    .fillMaxWidth()
                     .testTag(ECHO_SCENE_TAG_ASK),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "问 ECHO",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                )
-            }
+                contentDescription = "问 ECHO",
+            )
 
             // 5. §AG：降级行动入口（Ask 之下 quiet 展开区；空 actions 不渲染）
             EchoActionEntry(
@@ -241,4 +246,34 @@ private fun resolveSceneNarrative(
     PortraitStatus.SENSING_DISABLED -> SceneNarrative(uiState.headline, PORTRAIT_COPY_SENSING_DISABLED)
     // §43：Error —— identity 继续存在，Retry secondary，无红色全屏
     PortraitStatus.ERROR -> SceneNarrative(uiState.headline, PORTRAIT_COPY_LOAD_FAILED)
+}
+
+/** 阶段 2：行为派生状态 → 卡片数据映射。 */
+private fun mapEmotion(emotion: com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion): StatusCardData {
+    val (label, value, level) = when (emotion) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.ACTIVE -> Triple("情绪·活跃", "活跃", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.CALM -> Triple("情绪·平静", "平静", StatusLevel.MEDIUM)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEmotion.FATIGUED -> Triple("情绪·疲惫", "疲惫", StatusLevel.LOW)
+        else -> Triple("情绪·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
+}
+
+private fun mapEnergy(energy: com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy): StatusCardData {
+    val (label, value, level) = when (energy) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.HIGH -> Triple("能量", "高", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.MEDIUM -> Triple("能量", "中", StatusLevel.MEDIUM)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedEnergy.LOW -> Triple("能量", "低", StatusLevel.LOW)
+        else -> Triple("能量·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
+}
+
+private fun mapFocus(focus: com.yunjue.echo.mind.features.behaviorderived.DerivedFocus): StatusCardData {
+    val (label, value, level) = when (focus) {
+        com.yunjue.echo.mind.features.behaviorderived.DerivedFocus.FOCUSED -> Triple("专注", "较专注", StatusLevel.HIGH)
+        com.yunjue.echo.mind.features.behaviorderived.DerivedFocus.DIVIDED -> Triple("专注", "较分散", StatusLevel.LOW)
+        else -> Triple("专注·—", "—", StatusLevel.UNKNOWN)
+    }
+    return StatusCardData(displayValue = value, level = level)
 }

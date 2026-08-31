@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECHO Mind · Me 世界信息架构诊断与重构方案</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* 报告页专属微调 */
+  .diag-code {
+    margin: var(--s4) 0 0; padding: 12px 16px;
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font-family: var(--mono); font-size: 12px; color: var(--ink-62);
+    overflow-x: auto; line-height: 1.7; white-space: pre;
+  }
+  .diag-code b { color: var(--accent-deep); font-weight: 600; }
+  .diag-code .cm { color: var(--ink-28); }
+</style>
+</head>
+<body data-page="report">
+
+<header class="rp-topbar">
+  <div class="brand"><span class="dot" aria-hidden="true"></span>ECHO MIND · IA RESTRUCTURE</div>
+  <nav class="top-actions" aria-label="页间导航">
+    <a class="btn" href="prototype.html">交互原型
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+  </nav>
+</header>
+
+<section class="rp-header">
+  <div>
+    <p class="rp-eyebrow">分析报告 · restructure-ia-progressive-disclosure</p>
+    <h1>把「我的」，<br>还给<em>安静的层级</em></h1>
+    <p class="rp-lead">ECHO Mind 的三世界导航（ECHO / Journey / Me）是清晰的——问题在 Me 世界内部：7 个分组、13 行列表、11 个就地手风琴挤在同一页连续滚动里。本报告给出诊断证据、优先级矩阵与目标信息架构，并附可在浏览器中直接操作的高保真原型。</p>
+    <div class="rp-meta">
+      <span class="chip">2026-08-30</span>
+      <span class="chip">范围 android/ui/me/* · ui/journey</span>
+      <span class="chip">交付：诊断 + IA + 交互原型</span>
+    </div>
+    <div class="rp-cta-row">
+      <a class="btn-cta" href="prototype.html">打开交互原型（可点击操作）
+        <svg class="arr" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn" href="#d1">直接查看诊断</a>
+    </div>
+  </div>
+  <div class="rp-header-visual" aria-hidden="true">
+    <svg width="200" height="200" viewBox="0 0 200 200" fill="none">
+      <defs>
+        <radialGradient id="hg" cx="50%" cy="42%" r="55%">
+          <stop offset="0%" stop-color="#C0762F" stop-opacity=".85"/>
+          <stop offset="55%" stop-color="#C0762F" stop-opacity=".25"/>
+          <stop offset="100%" stop-color="#C0762F" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="100" cy="86" r="64" fill="url(#hg)"/>
+      <circle cx="100" cy="86" r="30" fill="#C0762F" opacity=".9"/>
+      <circle cx="100" cy="86" r="44" stroke="#C0762F" stroke-opacity=".35" stroke-width="1.4"/>
+      <circle cx="100" cy="86" r="58" stroke="#C0762F" stroke-opacity=".18" stroke-width="1"/>
+      <path d="M100 8v22M100 142v22M22 86h22M156 86h22" stroke="#1C1915" stroke-opacity=".28" stroke-width="1.2" stroke-linecap="round"/>
+      <rect x="34" y="158" width="132" height="1.2" fill="#1C1915" opacity=".18"/>
+      <rect x="34" y="170" width="88" height="1.2" fill="#1C1915" opacity=".12"/>
+      <rect x="34" y="182" width="52" height="1.2" fill="#1C1915" opacity=".08"/>
+    </svg>
+  </div>
+</section>
+
+<div class="rp-layout">
+
+  <aside class="rp-toc" aria-label="报告目录">
+    <p class="rp-toc-title">目录</p>
+    <ol>
+      <li><a href="#summary" data-toc><span class="no">01</span>执行摘要</a></li>
+      <li><a href="#diagnosis" data-toc><span class="no">02</span>现状诊断 D1–D6</a></li>
+      <li><a href="#matrix" data-toc><span class="no">03</span>功能分类与优先级</a></li>
+      <li><a href="#before-after" data-toc><span class="no">04</span>重构前后对照</a></li>
+      <li><a href="#ia" data-toc><span class="no">05</span>目标信息架构</a></li>
+      <li><a href="#principles" data-toc><span class="no">06</span>渐进式披露原则</a></li>
+      <li><a href="#invariants" data-toc><span class="no">07</span>不变量与落地边界</a></li>
+      <li><a href="#prototype" data-toc><span class="no">08</span>交互原型</a></li>
+    </ol>
+  </aside>
+
+  <main class="rp-main">
+
+    <!-- ============ 01 执行摘要 ============ -->
+    <section class="rp-section" id="summary">
+      <div class="rp-sec-head"><span class="rp-sec-no">01</span><h2>执行摘要</h2></div>
+      <p class="rp-sec-sub">用户反馈聚焦为四点：功能挤在同一个界面、没有清晰层级与分组、难找功能、易误操作。逐条溯源后，四点都指向同一个根因——<b>Me 世界把「控制中心」错做成了「一页平面」</b>：没有层级间的能量差，重内容与轻内容、日常项与危险项获得同等排版权重。</p>
+      <div class="rp-summary-grid">
+        <div class="rp-card">
+          <div class="card-title">根因：一页平面的三个代价</div>
+          <div class="findings">
+            <div class="finding"><b>空间记忆</b><span>就地手风琴展开后，分组被推离视口、无 TopAppBar 与返回键，用户失去「我在哪、怎么回去」的锚点。</span></div>
+            <div class="finding"><b>入口通胀</b><span>同一主题最多三处入口（数据/权限、壁纸/屏保），入口之间互相稀释信任：「哪个才是真的？」</span></div>
+            <div class="finding"><b>权重倒置</b><span>280dp 纯装饰画布占首屏黄金区，危机入口以普通红行混排在中部；关键性没有变成视觉重量。</span></div>
+          </div>
+        </div>
+        <div class="rp-card">
+          <div class="card-title">解法：两级渐进式披露</div>
+          <div class="findings">
+            <div class="finding"><b>L0</b><span>四分区 + 2×2 状态网格，滚动长度 ≤2 屏，每卡一行真实状态摘要。</span></div>
+            <div class="finding"><b>L1</b><span>9 个全屏次级页（TopAppBar + 返回），复用 EchoAskScreen 已验证的导航范式。</span></div>
+            <div class="finding"><b>D 区</b><span>SENSING 页内四分区，数据权利独立为视觉隔离的危险区置底，删除保留强确认。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 02 诊断 ============ -->
+    <section class="rp-section" id="diagnosis">
+      <div class="rp-sec-head"><span class="rp-sec-no">02</span><h2>现状诊断 D1–D6</h2></div>
+      <p class="rp-sec-sub">每条诊断附源码行号锚点（本地 file:// 链接，需在本机打开本页可点击），并给出可直接执行的一句话结论。</p>
+
+      <div class="diag-list">
+
+        <article class="diag" id="d1">
+          <div class="diag-head"><span class="diag-no">D1</span><h3>就地手风琴破坏空间记忆与返回预期</h3></div>
+          <div class="diag-body">
+            <p><code>expandedDomain</code> 一次只展开一个域，域深页就地渲染在所属分组下方。重内容（数据与感知 ≈190 行）展开后整页滚动长度爆炸、其他分组被推离视口，且无 TopAppBar 与返回键——与产品内已有的正确范式（EchoAskScreen 全屏次级页 + BackHandler）不一致。</p>
+            <div class="diag-code"><b>MeScreen.kt</b>
+<span class="cm">// §63：presentation state（一次只展开一个 domain；不建立新业务 state）</span>
+var expandedDomain by rememberSaveable { mutableStateOf(MeDomain.NONE.name) }
+fun open(target: MeDomain) { ... }</div>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt#L192-L196"><code>MeScreen.kt</code><span class="loc">L192-196</span><em>expandedDomain 就地展开状态机</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt#L378-L397"><code>MeScreen.kt</code><span class="loc">L378-397</span><em>MeDomainDetail 域深页就地渲染于分组下方</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>轻内容可就地展开（Why 证据），重内容必须次级页。</p>
+          </div>
+        </article>
+
+        <article class="diag" id="d2">
+          <div class="diag-head"><span class="diag-no">D2</span><h3>同一主题多入口（违反「一个概念一个家」）</h3></div>
+          <div class="diag-body">
+            <p>数据/权限主题三处入口：① 智能地图组「数据与权限」→ DataOrbit（纯装饰）；② 「了解我的方式」组「数据与感知」→ 真实控制；③ 「我的数据」组导出/删除——且删除还要<b>跨分组强制展开</b> OBSERVATION 域再弹确认，而 DataAndSensingSection 内部本就有完整的数据权利块。壁纸/屏保同样双入口（L0 行 + PresenceSettingsSection 内部按钮）。</p>
+            <div class="diag-code"><b>MeScreen.kt</b>
+<span class="cm">// 删除确认对话框在数据与感知分节内呈现：强制展开该分节再触发删除流程</span>
+expandedDomain = MeDomain.OBSERVATION.name
+actions.onDeleteData()</div>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt#L216-L221"><code>MeScreen.kt</code><span class="loc">L216-221</span><em>入口①：「数据与权限」→ 纯装饰 DataOrbit</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt#L287-L305"><code>MeScreen.kt</code><span class="loc">L287-305</span><em>入口③：「我的数据」导出/删除 + 跨分组强制展开</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/DataAndSensingSection.kt#L254-L281"><code>DataAndSensingSection.kt</code><span class="loc">L254-281</span><em>域内已有的完整数据权利块（导出/删除/撤回）</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/PresenceSettingsSection.kt#L85-L106"><code>PresenceSettingsSection.kt</code><span class="loc">L85-106</span><em>壁纸/屏保第二入口</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>入口必须去重：数据权利唯一入口 = SENSING 页 D 区；壁纸/屏保唯一入口 = PRESENCE 页。</p>
+          </div>
+        </article>
+
+        <article class="diag" id="d3">
+          <div class="diag-head"><span class="diag-no">D3</span><h3>装饰内容占用黄金区且零可供性</h3></div>
+          <div class="diag-body">
+            <p>SmartMap 与 DataOrbit 两张 280dp Canvas 的节点与 Chip 均不可点；「快速管理」行与 4 张设置卡传入 <code>emptyList()</code> 占位——标题仍在，内容为空。视觉耗费了用户最多的注意力，却不承载任何信息或可供性。</p>
+            <div class="diag-code"><b>MeScreen.kt</b>
+MeSmartMapSection(devices = SmartMapDevices(...), quickAccessItems = <b>emptyList()</b>)
+DataPermissionOrbitSection(nodes = listOf(...), cards = <b>emptyList()</b>)</div>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeSmartMapSection.kt#L182-L192"><code>MeSmartMapSection.kt</code><span class="loc">L182-192</span><em>快速管理 5 入口实际为 emptyList 占位</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/DataPermissionOrbitSection.kt#L104-L112"><code>DataPermissionOrbitSection.kt</code><span class="loc">L104-112</span><em>4 设置卡 emptyList 占位</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>视觉必须承载信息或可供性，否则降级为小尺寸入口卡或退役（DataPermissionOrbitSection.kt 整文件删除）。</p>
+          </div>
+        </article>
+
+        <article class="diag" id="d4">
+          <div class="diag-head"><span class="diag-no">D4</span><h3>数据与感知域 9 类主题平铺（信任中心变杂物间）</h3></div>
+          <div class="diag-body">
+            <p>consent 总控 / 4 权限行 / 观测文本 / 立即同步 / 麦克风（二次确认）/ 本机面板 / 数据权利（导出/删除/撤回）/ 身份 / 免责，约 190 行<b>全部同级连续渲染</b>。危险操作与日常开关之间没有任何视觉分离——「删除本机数据」和「每晚小结提醒」长得一样重。</p>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/DataAndSensingSection.kt#L99-L288"><code>DataAndSensingSection.kt</code><span class="loc">L99-288</span><em>9 类主题连续渲染：开关→权限→观测→同步→麦克风→面板→数据权利→身份→免责</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>域内需要二级分区（A 总控与节奏 / B 感知通道 / C 本机面板 / D 数据权利）+ 危险区视觉隔离。</p>
+          </div>
+        </article>
+
+        <article class="diag" id="d5">
+          <div class="diag-head"><span class="diag-no">D5</span><h3>次级拥挤</h3></div>
+          <div class="diag-body">
+            <p>WristSection 单卡塞入 8 个功能点（Device / Connection / availability / 佩戴 / 睡眠 / 运动 / 触觉 / Privacy），虽有 Advanced 折叠但一级仍全部平铺。JourneyScreen 的趋势内容尾部<b>硬编码追加</b>成长页（<code>onContinueClick = {}</code> 空实现），两个主题挤一屏，免责声明夹在中间。</p>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/WristSection.kt#L44-L226"><code>WristSection.kt</code><span class="loc">L44-226</span><em>单卡 8 功能点连续平铺</em></a>
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/journey/JourneyScreen.kt#L144-L174"><code>JourneyScreen.kt</code><span class="loc">L144-174</span><em>成长页无条件追加在趋势尾部</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>手环页整合为「状态头卡 + 偏好 + 连接管理 + 高级折叠」；Journey 顶部「趋势 | 成长」分段切换，不再追加。</p>
+          </div>
+        </article>
+
+        <article class="diag" id="d6">
+          <div class="diag-head"><span class="diag-no">D6</span><h3>优先级倒置：危机入口埋在首屏中部</h3></div>
+          <div class="diag-body">
+            <p>危机入口（全 App 关键性最高的元素）以一条普通红行混排在首屏中部；而它上方，是两张 280dp 的纯装饰画布。排布顺序传达的优先级与功能的关键性完全相反。</p>
+            <div class="evidence">
+              <a class="ev" href="file:///Volumes/Extra/CodeProj/ECHO%20Workspace/ECHO%20Mind/android/app/src/main/java/com/yunjue/echo/mind/ui/me/MeScreen.kt#L226-L234"><code>MeScreen.kt</code><span class="loc">L226-234</span><em>「紧急支持」红行位于智能地图组之后、了解我的方式组之前</em></a>
+            </div>
+            <p class="verdict"><strong>结论</strong>安全常驻 + 归入 Z3「支持与安全」分区并保持行首位置；全局紧急 FAB 行为不变（不变量 1）。装饰画布退役后，关键路径上方不再有噪声。</p>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ============ 03 矩阵 ============ -->
+    <section class="rp-section" id="matrix">
+      <div class="rp-sec-head"><span class="rp-sec-no">03</span><h2>功能分类与优先级矩阵</h2></div>
+      <p class="rp-sec-sub">排序依据：<b>使用频率 × 关键性 × 心智归属</b>。每个功能被唯一地分配到「归属分区 × 展示层级」，不允许出现第二入口。</p>
+      <div class="matrix-wrap">
+        <table class="matrix">
+          <thead>
+            <tr><th>优先级</th><th>功能</th><th>归属</th><th>展示层级</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="prio prio-safe">安全常驻</span></td>
+              <td>紧急支持<div class="note">ECHO Mind 不是紧急服务；立即危险请优先联系紧急服务和身边可信任的人。</div></td>
+              <td>Me-Z3 支持与安全 + 全局 FAB（不变）</td>
+              <td>L0 常驻</td>
+            </tr>
+            <tr>
+              <td><span class="prio">P0 高频</span></td>
+              <td>身份状态 / 感知与同步状态 / 记忆入口 / 手环状态</td>
+              <td>Me-Z2 状态网格</td>
+              <td>L0 卡片 → L1 页</td>
+            </tr>
+            <tr>
+              <td><span class="prio">P1 周期性</span></td>
+              <td>Presence 偏好（壁纸/屏保/动态程度）/ 智能地图 / 记忆管理</td>
+              <td>Z1 / Z2 入口</td>
+              <td>L1 次级页</td>
+            </tr>
+            <tr>
+              <td><span class="prio">P2 低频</span></td>
+              <td>AI Intelligence / 订阅 / 专业支持 / 通知（系统）/ 关于</td>
+              <td>Me-Z3 / Z4</td>
+              <td>L1 次级页或行</td>
+            </tr>
+            <tr>
+              <td><span class="prio prio-risk">危险隔离</span></td>
+              <td>导出 / 删除 / 撤回同意</td>
+              <td>仅 SENSING 页 D 区</td>
+              <td>L1 域内危险区（置底 + 强确认）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ 04 前后对照 ============ -->
+    <section class="rp-section" id="before-after">
+      <div class="rp-sec-head"><span class="rp-sec-no">04</span><h2>重构前后对照</h2></div>
+      <p class="rp-sec-sub">左：现状——7 分组 13 行 11 域手风琴挤一页（线框中每一格都是一行真实列表项，红色为危险操作与装饰画布的错位）。右：目标——L0 四分区 + 2×2 状态网格，深度全部下沉 L1。</p>
+      <div class="ba-grid">
+        <div class="ba ba-before">
+          <span class="ba-tag">BEFORE · 现状</span>
+          <h3>一页平面：7 分组 · 13 行 · 11 域手风琴</h3>
+          <p class="ba-desc">装饰画布在危机入口上方；删除操作跨分组强制展开；展开数据与感知后滚动长度 ≈190 行。</p>
+          <div class="wire" aria-hidden="true">
+            <div class="w-row tall acc"></div>
+            <div class="w-row tall acc"></div>
+            <div class="w-row"></div>
+            <div class="w-row dgr"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row dgr"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-nav"></div>
+          </div>
+          <ul class="ba-tree">
+            <li class="root"><b>我的（L0）</b> <span class="dim bad">≈190 行连续滚动</span></li>
+            <li><b>我的 ECHO</b> <span class="dim">身份摘要卡 → 就地展开 PRESENCE</span></li>
+            <li><b>智能地图</b> <span class="dim">「ECHO 如何认识你」+「数据与权限」→ 280dp 装饰画布 ×2</span></li>
+            <li><b>紧急支持</b> <span class="dim bad">普通红行 · 混排首屏中部</span></li>
+            <li><b>了解我的方式</b> <span class="dim">数据与感知 / 记忆 / AI → 就地展开</span></li>
+            <li><b>ECHO 出现在哪里</b> <span class="dim">动态壁纸 / Dream / 手环 → 就地展开</span></li>
+            <li><b>我的数据</b> <span class="dim bad">导出 / 删除（跨分组强制展开再确认）</span></li>
+            <li><b>其他</b> <span class="dim">通知 / 订阅 / 专业支持 / 关于 → 就地展开</span></li>
+          </ul>
+        </div>
+        <div class="ba ba-after">
+          <span class="ba-tag">AFTER · 目标</span>
+          <h3>两级渐进：L0 四分区 + 2×2 网格 → 9 个 L1 全屏页</h3>
+          <p class="ba-desc">L0 ≤2 屏；每张状态卡一行真实摘要；危险操作收敛到 SENSING 页 D 区并置底隔离。</p>
+          <div class="wire" aria-hidden="true">
+            <div class="w-row tall acc"></div>
+            <div class="w-2col">
+              <div class="w-row tall"></div><div class="w-row tall"></div>
+              <div class="w-row tall"></div><div class="w-row tall"></div>
+            </div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-row"></div>
+            <div class="w-nav"></div>
+          </div>
+          <ul class="ba-tree">
+            <li class="root"><b>我的（L0，≤2 屏）</b> <span class="dim good">4 个可感知分区</span></li>
+            <li><b>Z1 身份区</b> <span class="dim">ECHO 头像 + 成熟度 + 一句话 → PRESENCE</span></li>
+            <li><b>Z2 状态总览（2×2）</b> <span class="dim">认识你 / 感知与同步 / 记忆 / 手环</span></li>
+            <li><b>Z3 支持与安全</b> <span class="dim good">紧急支持（红，行首）/ 专业支持 / 订阅</span></li>
+            <li><b>Z4 账户与设置</b> <span class="dim">AI Intelligence / 通知 / 关于</span></li>
+            <li><b>L1 × 9</b> <span class="dim good">PRESENCE · SMARTMAP · SENSING · MEMORY · WRIST · INTELLIGENCE · SUBSCRIPTION · SUPPORT · ABOUT</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 05 目标 IA ============ -->
+    <section class="rp-section" id="ia">
+      <div class="rp-sec-head"><span class="rp-sec-no">05</span><h2>目标信息架构</h2></div>
+      <p class="rp-sec-sub">两级结构：Me L0 只保留「身份 / 状态 / 支持 / 账户」四个分区语义；所有重内容成为独立 L1 全屏页（TopAppBar + 返回 + BackHandler，rememberSaveable 持久化路由）。</p>
+
+      <div class="rp-card">
+        <div class="card-title">Me L0 —— 四分区</div>
+        <div class="ia-l0">
+          <div class="ia-zone"><span class="z-label">Z1 身份</span><span class="z-body">ECHO 头像（identity glow）+ 成熟度 headline（初见。/ 我开始看到一些属于你的节奏。）+ 一句话状态，点按 → PRESENCE 页</span></div>
+          <div class="ia-zone z2"><span class="z-label">Z2 状态</span>
+            <div class="z-grid">
+              <div class="z-cell"><b>ECHO 如何认识你</b>智能地图 · 四向视图 → SMARTMAP</div>
+              <div class="z-cell"><b>感知与同步</b>2/4 通道活跃 · 上次同步 → SENSING</div>
+              <div class="z-cell"><b>我的记忆</b>N 条记忆（空态：还没有长期记忆）→ MEMORY</div>
+              <div class="z-cell"><b>手环</b>已连接 / 未连接 → WRIST</div>
+            </div>
+          </div>
+          <div class="ia-zone"><span class="z-label">Z3 支持与安全</span><span class="z-body">紧急支持（红行，行首，直达全屏 SafetyScreen）/ 专业支持 / 订阅</span></div>
+          <div class="ia-zone"><span class="z-label">Z4 账户与设置</span><span class="z-body">AI Intelligence / 通知（系统设置）/ 关于</span></div>
+        </div>
+      </div>
+
+      <div class="l1-grid">
+        <div class="l1-card"><b>PRESENCE</b><span>「ECHO 的样子」——壁纸 / 屏保唯一入口、动态程度、夜间模式、减少动画、应用内建议</span></div>
+        <div class="l1-card"><b>SMARTMAP</b><span>「ECHO 如何认识你」——智能地图大图、提供方、快速管理行接线真实入口</span></div>
+        <div class="l1-card"><b>SENSING</b><span>「数据与感知」——四分区重构 + 危险区（见下）</span></div>
+        <div class="l1-card"><b>MEMORY</b><span>「ECHO 记得什么」——What ECHO Knows 原内容，含空态</span></div>
+        <div class="l1-card"><b>WRIST</b><span>「ECHO on Wrist」——状态头卡 + 偏好 + 连接管理 + 高级折叠</span></div>
+        <div class="l1-card"><b>INTELLIGENCE</b><span>「AI Intelligence」——服务 / 模型 / 连接 / 高级设置</span></div>
+        <div class="l1-card"><b>SUBSCRIPTION</b><span>「订阅」——开通订阅（可选）+ 激活码</span></div>
+        <div class="l1-card"><b>SUPPORT</b><span>「专业支持」——请求人工支持 + 最近请求状态</span></div>
+        <div class="l1-card"><b>ABOUT</b><span>「关于」——版本 / 构建 / 「ECHO 是支持性工具，不是医生。」</span></div>
+      </div>
+
+      <div class="rp-card" style="margin-top: var(--s5);">
+        <div class="card-title">SENSING 页域内二级分区 —— 9 类主题 → 4 分区</div>
+        <div class="sensing-zones">
+          <div class="szone"><b>A 总控与节奏</b><span>被动感知总开关 / 每晚小结提醒（每天 21:00…）/ 立即同步</span></div>
+          <div class="szone"><b>B 感知通道</b><span>传感器 / 屏幕 / 使用情况 / 通知使用权 / 麦克风（含二次确认弹层）</span></div>
+          <div class="szone"><b>C 本机面板</b><span>footprint 计数 / 上传状态 / 「还不知道什么」/ 观测时间戳（折叠）</span></div>
+          <div class="szone danger"><b>D 数据权利（危险区）</b><span>导出 / 撤回同意 / 删除——红色描边视觉隔离、置底；删除弹强确认对话框，就地完成、不再跨分组展开</span></div>
+        </div>
+        <p class="card-note" style="margin-top: 12px;">原 DataOrbit 的声明语义（「原始数据仅在本机处理，不上传、不读取、不分享 · 权限可随时撤销」）并入 SENSING 页头部说明。</p>
+      </div>
+    </section>
+
+    <!-- ============ 06 原则 ============ -->
+    <section class="rp-section" id="principles">
+      <div class="rp-sec-head"><span class="rp-sec-no">06</span><h2>渐进式披露原则</h2></div>
+      <p class="rp-sec-sub">五条原则构成裁剪每个新增功能时的判据——先问层级，再问排版。</p>
+      <div class="principles">
+        <div class="principle">
+          <h3><span class="pn">一</span>L0 保持 ≤2 屏</h3>
+          <p>L0 是「控制中心」不是「内容页」。任何新功能先问：它的状态摘要能否用一行说清？能 → 进状态卡；不能 → 它属于某个 L1 页。</p>
+          <span class="rule">判据：L0 新增任何行之前，先数 Z1–Z4 之外还有没有东西</span>
+        </div>
+        <div class="principle">
+          <h3><span class="pn">二</span>重内容进次级页，轻内容才就地</h3>
+          <p>预期超过一屏、或含表单/弹层/危险操作的内容一律 L1 全屏页（TopAppBar + 返回）。只有 1–2 行的轻内容（如一条免责说明）允许就地展开。</p>
+          <span class="rule">判据：滚动长度是否会因展开而翻倍</span>
+        </div>
+        <div class="principle">
+          <h3><span class="pn">三</span>危险区隔离、置底、强确认</h3>
+          <p>导出/删除/撤回与日常开关永不同级同貌：独立分区、红色描边、置于页面底部，删除需勾选强确认。路径收敛到一个入口（SENSING 页 D 区）。</p>
+          <span class="rule">判据：误触的最大代价是否不可逆</span>
+        </div>
+        <div class="principle">
+          <h3><span class="pn">四</span>视觉必须承载信息或可供性</h3>
+          <p>280dp 装饰画布不可点、占位 emptyList() 的区块一律退役或降级为小尺寸入口卡。智能地图保留，但移入 SMARTMAP 页并让快速管理行指向真实功能。</p>
+          <span class="rule">判据：点按它会发生什么——答不出来就删</span>
+        </div>
+        <div class="principle">
+          <h3><span class="pn">五</span>认知负荷随层级递减</h3>
+          <p>L0 读「状态」，L1 读「控制」，L2（折叠/Advanced）读「诊断」。每一层的信息密度和措辞专业度逐层上升，默认层永远是最安静的。</p>
+          <span class="rule">判据：首屏出现的文案里有没有超过一行的术语</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 07 不变量 ============ -->
+    <section class="rp-section" id="invariants">
+      <div class="rp-sec-head"><span class="rp-sec-no">07</span><h2>不变量与落地边界</h2></div>
+      <p class="rp-sec-sub">重构期间绝不破坏的六条约束（与 spec 一致）；原型已按此设计交互。</p>
+      <ul class="invariants">
+        <li><b>安全常驻</b><span>全局紧急 FAB 与 shouldShowEmergencyFab 不变；Me-Z3 紧急支持行直达全屏 SafetyScreen，IA 精简绝不隐藏安全资源。</span></li>
+        <li><b>testTag 契约</b><span>me_entry_* 系列锚点全部保留，语义不变，宿主允许换父容器。</span></li>
+        <li><b>无障碍</b><span>48dp 触达、图标 + contentDescription 双语义、Role.Tab / Role.Button、导航态 rememberSaveable。</span></li>
+        <li><b>业务状态零改动</b><span>MeUiState / MeViewModel / DataAndSensingViewModel / WristViewModel 状态装配不动，仅 presentation 层重排。</span></li>
+        <li><b>视觉语言</b><span>V3 §48 安静三世界规范（near-black .92、identity glow、warm accent）与 EchoMindTheme 令牌不变。</span></li>
+        <li><b>架构边界</b><span>仅动 ui/ 展示层与测试；不引入 Navigation-Compose 新依赖，沿用状态切换范式。</span></li>
+      </ul>
+    </section>
+
+    <!-- ============ 08 原型 ============ -->
+    <section class="rp-section" id="prototype">
+      <div class="rp-sec-head"><span class="rp-sec-no">08</span><h2>交互原型</h2></div>
+      <div class="rp-final">
+        <div>
+          <h2>在浏览器里走一遍新的 Me 世界</h2>
+          <p>原型以 390×844 手机框架呈现：L0 四分区、2×2 状态网格、9 个 L1 全屏页、SENSING 四分区与危险区全部可操作——开关、折叠、弹层、强确认、hash 路由保持当前页。支持有数据态与空态切换。</p>
+        </div>
+        <a class="btn-cta" href="prototype.html">打开交互原型
+          <svg class="arr" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer class="rp-footer">
+  <span>ECHO Mind · Me 世界信息架构重构提案 · change-id: restructure-ia-progressive-disclosure</span>
+  <a href="prototype.html">交互原型 →</a>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

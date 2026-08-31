@@ -15,8 +15,12 @@ import java.time.format.DateTimeFormatter
  * 本文件只保留 UI 文本锚点与系统设置 intent。
  */
 
-/** 趋势页固定免责文案（契约点 2，作为单测锚点）。 */
-internal const val TREND_DISCLAIMER = "这些趋势来自设备上的行为派生特征，不能知道或判断你的真实情绪。"
+/** 趋势页固定免责文案（契约点 2，作为单测锚点）。
+ *
+ * ERA 授权边界更新：呈现"基于行为派生的状态倾向"，
+ * 明确标注"非心理/医学判断"——区分'行为观察'与'心理诊断'。
+ */
+internal const val TREND_DISCLAIMER = "这些趋势来自设备上的行为派生特征，只反映你日常行为模式的状态倾向，不是对你心理或医学状态的判断。"
 
 /** 打开本应用系统设置页（修复权限用 deep link，Settings.ACTION_APPLICATION_DETAILS_SETTINGS）。 */
 internal fun appSettingsIntent(context: Context): Intent =

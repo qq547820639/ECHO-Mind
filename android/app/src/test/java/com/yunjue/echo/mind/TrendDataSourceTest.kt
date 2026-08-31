@@ -130,10 +130,10 @@ class TrendDataSourceTest {
     @Test
     fun trendDisclaimerTextIsFixed() {
         assertEquals(
-            "这些趋势来自设备上的行为派生特征，不能知道或判断你的真实情绪。",
+            "这些趋势来自设备上的行为派生特征，只反映你日常行为模式的状态倾向，不是对你心理或医学状态的判断。",
             TREND_DISCLAIMER
         )
-        assertTrue("免责文案应明确'不能判断情绪'", TREND_DISCLAIMER.contains("不能知道或判断你的真实情绪"))
+        assertTrue("免责文案应明确'行为派生观察/非心理诊断'", TREND_DISCLAIMER.contains("行为派生特征") && TREND_DISCLAIMER.contains("不是对你心理或医学状态的判断"))
     }
 
     @Test
@@ -181,7 +181,7 @@ class TrendDataSourceTest {
     fun portraitSummaryIsDeterministicAndNonDiagnostic() {
         // 28 日综述（Milestone G）：最稳定 = SIMILAR 比例最高；变化较明显 = 非 SIMILAR 最多。
         // 纯函数计算详见 PortraitTimelineTest；此处仅验证不包含情绪/诊断措辞的锚点文案存在。
-        assertTrue(TREND_DISCLAIMER.contains("不能知道或判断你的真实情绪"))
+        assertTrue(TREND_DISCLAIMER.contains("行为派生特征") && TREND_DISCLAIMER.contains("不是对你心理或医学状态的判断"))
     }
 
     // ---------- ProfileDisplay loadFailed 语义 ----------

@@ -1,6 +1,5 @@
 package com.yunjue.echo.mind.intelligence
 
-import com.yunjue.echo.mind.intelligence.EvidenceItem
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

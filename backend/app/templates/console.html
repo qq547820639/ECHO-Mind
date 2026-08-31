@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- 2026-08-29 可用性自测（E3）：此前无 favicon，浏览器请求 /favicon.ico → 404
+     控制台报错。改为内联 SVG data-URI（ECHO 呼吸圆点），零外部请求、零死链接。 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='%23292725'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%239db8d2'/%3E%3C/svg%3E">
 <title>ECHO Mind 人工接管工作台</title>
 <style>
 /* 2026-08-28 可用性自测修复（D7）：全局缺 box-sizing 导致 dialog 的
@@ -204,13 +207,22 @@ function showBanner(text, kind = 'info') {
   bannerTimer = setTimeout(() => { b.className = ''; }, kind === 'err' ? 8000 : 4000);
 }
 
-// 提取错误响应的可读 detail（字符串 / {message, missing_fields} 对象）
+// 提取错误响应的可读 detail（字符串 / {message, missing_fields} 对象 /
+// pydantic 校验错误数组——2026-08-29 E2 补充：数组形式否则会原样 JSON 化展示）
 async function rawDetail(r, fallback) {
   try {
     const t = await r.text();
     const j = JSON.parse(t);
     const d = j && j.detail;
     if (typeof d === 'string') return d;
+    if (Array.isArray(d)) {
+      const items = d.map(e => {
+        const loc = (e.loc || []).filter(x => x !== 'body').join('.');
+        const msg = (e.msg || '').replace(/^Value error, /, '');
+        return (loc ? loc + '：' : '') + msg;
+      });
+      return items.length ? '字段校验失败：' + items.join('；') : JSON.stringify(d);
+    }
     if (d && typeof d === 'object') {
       const parts = [];
       if (d.message) parts.push(d.message);
@@ -226,10 +238,20 @@ async function rawDetail(r, fallback) {
 
 // 2026-08-28 可用性自测（D4/D1）：401 的原始 detail（如 "invalid token"）是英文
 // 且不解释下一步；值班人员需要的是"该做什么"。
+// 2026-08-29 可用性自测（E2）：除 401/403 外，关闭/复盘等操作被状态机拒绝时的
+// 409 detail 也是英文原文（"takeover required before close"），值班人员无法理解
+// 也不能据此行动 → 对已知状态机拒绝给出中文 + 下一步指引，未知错误保留原文兜底。
+const ERROR_HINTS = {
+  'takeover required before close': '该事件尚未接管，不能关闭：请先对该事件点击「接管」，完成接管后再关闭',
+  'already closed': '该事件已关闭，无需重复操作',
+  'already reviewed': '该事件已完成复盘，无需重复操作',
+  'close required before review': '该事件尚未关闭，不能复盘：请先完成「关闭」后再复盘',
+};
 async function errorDetail(r, fallback) {
   const raw = await rawDetail(r, fallback);
   if (r.status === 401) return '登录凭据无效或已过期：请重新粘贴 token 后点击「连接」';
   if (r.status === 403) return '当前角色无权限执行此操作（' + raw + '）';
+  if (r.status === 409) return ERROR_HINTS[raw] || raw;
   return raw;
 }
 
@@ -301,19 +323,26 @@ async function loadQueue({ reset = false } = {}) {
     const r = await api(queueUrl());
     if (!r.ok) {
       // 请求失败：保留旧列表，仅提示错误条（partial failure）。
-      // 2026-08-28 自测修复（D11）：此前这里直接 return，队列区域停留在
-      // 「加载中…」——首次连接就失败（如 401）会让值班人员永远卡在加载态。
+      // 2026-08-29 自测修复（E1）：加载失败后必须先把 loading 置 false 再渲染，
+      // 否则 renderQueue 仍看到 loading=true 且 rows 为空 → 永久卡在「加载中…」。
+      // 首次连接即失败（如 401）或过滤到空集都要回到空态/旧列表，绝不卡加载态。
       const msg = await errorDetail(r, '加载失败（HTTP ' + r.status + '）');
       showBanner(msg, 'err');
+      state.loading = false;
       renderQueue();
       return;
     }
     state.rows = await r.json();
     state.nextCursor = r.headers.get('X-Next-Cursor') || '';
     state.totalFiltered = r.headers.get('X-Total-Filtered');
+    // 2026-08-29 自测修复（E6）：成功但结果为空（rows=[]）时同样要先清 loading
+    // 再渲染，否则空结果被 loading 态覆盖，正常过滤到 0 条也会卡「加载中…」。
+    state.loading = false;
     renderQueue();
   } catch (e) {
     showBanner((e && e.message) ? e.message : '加载失败', 'err');
+    state.loading = false;
+    renderQueue();
   } finally {
     state.loading = false;
     $('queue').setAttribute('aria-busy', 'false');
@@ -321,6 +350,39 @@ async function loadQueue({ reset = false } = {}) {
 }
 
 // ===== 队列渲染 =====
+// 2026-08-29 可用性自测（E4）：按事件状态禁用必然失败的操作（与后端状态机对齐）：
+// open/acknowledged 不可关闭（需先接管）；非 closed 不可复盘；closed/reviewed 不再
+// 确认/接管。禁用按钮带 title 说明原因，避免值班人员点击后收到 409「结果不可预期」。
+// case-review 取决于 step-up 与角色，客户端无法判定 → 保持可用并给出引导。
+const ACTION_HINTS = {
+  ack: '该事件已关闭/已复盘，无需再确认',
+  takeover: '该事件已关闭/已复盘，无需再接管',
+  close: '需先对该事件点击「接管」后才能关闭',
+  review: '需先对该事件点击「关闭」后才能复盘',
+};
+function actionDisabled(status, action) {
+  if (action === 'close') {
+    if (status === 'taken_over') return '';
+    // closed/reviewed 是"已关闭"，open/acknowledged 是"尚未接管"，提示需区分。
+    const hint = (status === 'closed' || status === 'reviewed')
+      ? '该事件已关闭，无需重复关闭'
+      : '需先对该事件点击「接管」后才能关闭';
+    return ' disabled title="' + esc(hint) + '"';
+  }
+  const allowed =
+    action === 'ack'      ? !(status === 'closed' || status === 'reviewed') :
+    action === 'takeover' ? !(status === 'closed' || status === 'reviewed') :
+    action === 'review'   ? status === 'closed' :
+    true;
+  return allowed ? '' : ' disabled title="' + esc(ACTION_HINTS[action] || '当前状态不支持该操作') + '"';
+}
+// 2026-08-29 可用性自测（E5）：清除/切换会话时复位个案复核区，避免上一段证据残留屏幕。
+function resetCaseReview() {
+  const el = $('caseReview');
+  el.hidden = true;
+  el.innerHTML = '';
+}
+
 // 接近 SLA 上限（>80% SLA）→ amber 警示；服务端 breach 字段 → 红色超时。
 function slaWarnThreshold(x) {
   const m = state.metrics;
@@ -394,10 +456,10 @@ function renderCard(x) {
     ${x.takeover_sla_breached ? '<p class="breach">接管 SLA 已超时</p>' : ''}
     ${amberLine}
     <div class="queue-actions">
-      <button data-action="ack" data-id="${esc(x.id)}">确认</button>
-      <button data-action="takeover" data-id="${esc(x.id)}">接管</button>
-      <button data-action="close" data-id="${esc(x.id)}">关闭</button>
-      <button data-action="review" data-id="${esc(x.id)}">复盘</button>
+      <button data-action="ack" data-id="${esc(x.id)}"${actionDisabled(x.status, 'ack')}>确认</button>
+      <button data-action="takeover" data-id="${esc(x.id)}"${actionDisabled(x.status, 'takeover')}>接管</button>
+      <button data-action="close" data-id="${esc(x.id)}"${actionDisabled(x.status, 'close')}>关闭</button>
+      <button data-action="review" data-id="${esc(x.id)}"${actionDisabled(x.status, 'review')}>复盘</button>
       <button data-action="case-review" data-id="${esc(x.id)}">个案复核</button>
     </div>
   </article>`;
@@ -479,6 +541,9 @@ const CLOSE_REQUIRED = [
   ['c_disp', '最终处置'], ['c_method', '联系方式'], ['c_succeeded', '是否联系成功'],
   ['c_safety', '当前安全状况'], ['c_follow', '后续随访计划'], ['c_sign', '人工签名'],
 ];
+// 2026-08-29 可用性自测（E2 细化）：与后端 EscalationClose 的 min_length=2 对齐，
+// 文本字段需至少 2 个字，避免 1 字输入落到服务端 422（英文 pydantic 文案）。
+const CLOSE_MIN_LEN = { c_disp: 2, c_safety: 2, c_follow: 2, c_sign: 2 };
 function openCloseForm(id) {
   closeTargetId = id;
   $('closeForm').reset();
@@ -491,20 +556,33 @@ function openCloseForm(id) {
 }
 function validateCloseForm() {
   const missing = [];
+  const tooShort = [];
   for (const [fieldId, label] of CLOSE_REQUIRED) {
     const el = $(fieldId);
-    const ok = fieldId === 'c_method' ? !!el.value
-      : (fieldId === 'c_succeeded' ? el.value !== '' : !!el.value.trim());
+    const val = fieldId === 'c_method' || fieldId === 'c_succeeded' ? el.value : el.value.trim();
+    const min = CLOSE_MIN_LEN[fieldId] || 1;
+    const ok = fieldId === 'c_method' ? !!val
+      : (fieldId === 'c_succeeded' ? val !== '' : val.length >= min);
     el.classList.toggle('field-error', !ok);
-    if (!ok) missing.push(label);
+    if (!ok) {
+      if (fieldId in CLOSE_MIN_LEN && val.length > 0 && val.length < min) {
+        tooShort.push('「' + label + '」至少 ' + min + ' 个字');
+      } else {
+        missing.push(label);
+      }
+    }
   }
-  return missing;
+  return { missing, tooShort };
 }
 // 2026-08-28 可用性自测（D2）：错误摘要与提交按钮此前都位于弹窗滚动折叠线之下，
 // 小屏上空表单提交后用户看不到任何提示。现在：摘要置顶 + 聚焦首个无效字段并滚入视野。
-function showCloseErrors(missing, serverMsg) {
+function showCloseErrors(missing, tooShort, serverMsg) {
   const box = $('closeErrors');
-  const text = serverMsg || (missing.length ? '请填写必填项：' + missing.join('、') : '');
+  const parts = [];
+  if (serverMsg) parts.push(serverMsg);
+  if (missing.length) parts.push('请填写必填项：' + missing.join('、'));
+  if (tooShort.length) parts.push(tooShort.join('；'));
+  const text = parts.join('；');
   if (!text) { box.hidden = true; box.textContent = ''; return; }
   box.textContent = text;
   box.hidden = false;
@@ -512,9 +590,9 @@ function showCloseErrors(missing, serverMsg) {
 $('closeCancel').addEventListener('click', () => closeDialog($('closeDialog')));
 $('closeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const missing = validateCloseForm();
-  if (missing.length) {
-    showCloseErrors(missing);
+  const { missing, tooShort } = validateCloseForm();
+  if (missing.length || tooShort.length) {
+    showCloseErrors(missing, tooShort);
     const firstInvalid = CLOSE_REQUIRED.map(([fieldId]) => $(fieldId))
       .find(el => el.classList.contains('field-error'));
     if (firstInvalid) {
@@ -546,10 +624,10 @@ $('closeForm').addEventListener('submit', async (e) => {
       loadAll();
     } else {
       const msg = await errorDetail(r, '关闭失败');
-      showCloseErrors([], msg);
+      showCloseErrors([], [], msg);
     }
   } catch (err) {
-    showCloseErrors([], (err && err.message) ? err.message : '关闭请求失败');
+    showCloseErrors([], [], (err && err.message) ? err.message : '关闭请求失败');
   } finally { submitBtn.disabled = false; }
 });
 
@@ -571,6 +649,14 @@ $('reviewForm').addEventListener('submit', async (e) => {
   const errBox = $('reviewErrors');
   if (!notes) {
     errBox.textContent = '复盘结论不能为空';
+    errBox.hidden = false;
+    $('reviewNotes').classList.add('field-error');
+    $('reviewNotes').focus();
+    return;
+  }
+  // 2026-08-29 E2 细化：与 EscalationReview min_length=2 对齐，避免落服务端 422。
+  if (notes.length < 2) {
+    errBox.textContent = '复盘结论至少 2 个字';
     errBox.hidden = false;
     $('reviewNotes').classList.add('field-error');
     $('reviewNotes').focus();
@@ -692,12 +778,14 @@ function updateAuthState() {
 $('connectBtn').addEventListener('click', () => {
   authAdapter.saveToken($('token').value.trim());
   updateAuthState();
+  resetCaseReview(); // E5：换会话不残留上一段个案复核证据
   loadAll();
 });
 $('clearBtn').addEventListener('click', () => {
   authAdapter.clearToken();
   $('token').value = '';
   updateAuthState();
+  resetCaseReview(); // E5：清除会话时清空并隐藏个案复核区
   showBanner('会话凭据已清除', 'info');
   loadAll();
 });
