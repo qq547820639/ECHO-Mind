@@ -201,7 +201,8 @@ class JourneyTimeNavigationTest {
     fun dayTimelineHasSingleVerticalScrollOwner() {
         val source = journeyPackageSource()
         assertFalse("Journey 不得再有 verticalScroll 包裹（§AK）", source.contains(".verticalScroll("))
-        assertFalse("Journey 不得回到 Page(verticalScroll) 包裹（§AK）", source.contains("Page("))
+        // EchoGrowthPage( 是成长分段组件，非 legacy Page wrapper——断言用词边界只匹配独立 Page(
+        assertFalse("Journey 不得回到 Page(verticalScroll) 包裹（§AK）", Regex("\\bPage\\(").containsMatchIn(source))
         assertTrue("每个尺度应有 LazyColumn 主滚动容器", source.contains("LazyColumn"))
     }
 

@@ -43,8 +43,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun JourneyMonthTrendChart(
     dimensions: List<Pair<String, List<String>>>,
-    isEmptyData: Boolean = false,
     modifier: Modifier = Modifier,
+    isEmptyData: Boolean = false,
 ) {
     val cardBg = Color(0xFF0E1426)
     val labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)

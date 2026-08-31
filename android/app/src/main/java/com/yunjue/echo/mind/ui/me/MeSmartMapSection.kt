@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -55,11 +56,12 @@ data class SmartMapDevices(
     val privacyNote: String = "设备端运行保护隐私",
 )
 
-/** 快速管理入口。 */
+/** 快速管理入口（testTag 承载 me_entry_* 锚点，语义不变）。 */
 data class QuickAccessItem(
     val title: String,
     val description: String,
     val onClick: () -> Unit,
+    val testTag: String? = null,
 )
 
 @Composable
@@ -80,7 +82,7 @@ fun MeSmartMapSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(vertical = 12.dp)
             .semantics { contentDescription = "ECHO 智能地图" },
     ) {
         Text(
@@ -352,6 +354,7 @@ private fun QuickAccessRow(item: QuickAccessItem) {
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF0E1426))
             .clickable(onClick = item.onClick)
+            .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .semantics { contentDescription = "${item.title}：${item.description}" },
         verticalAlignment = Alignment.CenterVertically,

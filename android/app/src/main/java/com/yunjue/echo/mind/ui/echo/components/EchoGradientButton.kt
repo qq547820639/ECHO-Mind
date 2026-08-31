@@ -58,13 +58,8 @@ fun EchoGradientButton(
             .sizeIn(minHeight = minHeight)
             .clip(shape)
             .background(if (enabled) gradient else disabledBrush)
-            .then(
-                if (enabled) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
+            // 禁用态保留 OnClick action + Enabled=false（对齐 M3 Button 语义，读屏可发现按钮）
+            .clickable(enabled = enabled, onClick = onClick)
             .semantics {
                 role = Role.Button
                 contentDescription?.let { this.contentDescription = it }

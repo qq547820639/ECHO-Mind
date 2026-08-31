@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.ui.me
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,22 +12,29 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -46,26 +55,26 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.R
-import com.yunjue.echo.mind.me.DataAndSensingEvent
 import com.yunjue.echo.mind.me.MeEvent
 import com.yunjue.echo.mind.me.MeUiState
 import com.yunjue.echo.mind.model.EchoPresenceState
 import com.yunjue.echo.mind.model.learningPhaseHeadline
 import com.yunjue.echo.mind.ui.Page
+import com.yunjue.echo.mind.wearable.WearableConnectionState
 
 /**
- * Me 我的（V3 §AR/§AS — 分组控制中心）。
+ * Me 我的（V3 §AR/§AT — 渐进披露：四分区根 + 九个全屏次级页）。
  *
- * 熟悉的 Android 设置范式（ListItem + 分组 + 分隔线 + chevron）取代概念图导航：
- * 1. 我的 ECHO —— 身份摘要卡（48dp ECHO 头像 + 成熟度/一句话状态；点按 → Presence 设置）
- * 2. 了解我的方式 —— 数据与感知 / 记忆 / AI
- * 3. ECHO 出现在哪里 —— 动态壁纸 / Dream 屏保 / 手环
- * 4. 我的数据 —— 导出 / 删除
- * 5. 其他 —— 通知 / 订阅 / 专业支持 / 关于
+ * L0 四分区（≤2 屏）：
+ * 1. Z1 身份 —— 我的 ECHO（48dp 头像 + 成熟度/一句话状态；点按 → PRESENCE）
+ * 2. Z2 状态网格 —— 2×2 卡片：智能地图 / 数据与感知 / 记忆 / 手环（每卡一行真实状态摘要）
+ * 3. Z3 支持与安全 —— 紧急支持（一键直达 SafetyScreen）/ 专业支持
+ * 4. Z4 账户与设置 —— 订阅 / AI / 通知 / 关于
  *
- * 危机入口（§AT）：红色「紧急支持」行直达全屏 SafetyScreen（一键），不再内嵌 CrisisCard；
- * 领域深页（Data/Memory/Intelligence/Presence/Wrist）以既有 in-place domain 机制展开，
- * 全部入口距 Me 根 ≤1 步（testTag：me_entry_*）。
+ * L1 全屏次级页（MeRoute；TopAppBar + back + BackHandler，复用 EchoAskScreen 范式）：
+ * PRESENCE / SMARTMAP / SENSING / MEMORY / WRIST / INTELLIGENCE / SUBSCRIPTION / SUPPORT / ABOUT。
+ * 危机入口（§AT）：红色「紧急支持」行直达全屏 SafetyScreen（一键）；全部入口距 Me 根 ≤1 步
+ * （testTag：me_entry_* 锚点全保留）。
  */
 @Composable
 fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
@@ -80,17 +89,13 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
         return
     }
 
-    // §AS：根层「我的数据」直达动作复用数据分节同一 ViewModel（同 ViewModelStore 实例）
-    val dataVm: DataAndSensingViewModel = viewModel(factory = DataAndSensingViewModel.factory(container))
-    // 本地导出分享提升到 Me 根层收集：根层入口触发导出时数据分节可能尚未组合
-    LaunchedEffect(dataVm) {
-        dataVm.exportJson.collect { json ->
-            val share = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, json)
-            }
-            runCatching { context.startActivity(Intent.createChooser(share, "导出本地数据")) }
-        }
+    // Z2 状态摘要：手环连接真值（§63 presentation state；不建立新业务 state）
+    val wristRuntime by container.wearable.runtime.state.collectAsStateWithLifecycle()
+    val wristStatusLine = when (wristRuntime.connection) {
+        WearableConnectionState.CONNECTED ->
+            "已连接${wristRuntime.device?.model?.let { " · $it" } ?: ""}"
+        WearableConnectionState.CONNECTING -> "连接中"
+        WearableConnectionState.DISCONNECTED -> "未连接设备"
     }
 
     MeScreenContent(
@@ -98,14 +103,6 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
         onEvent = meVm::onEvent,
         actions = MeControlActions(
             onEmergency = onEmergency,
-            onExportData = { dataVm.onEvent(DataAndSensingEvent.RequestExport) },
-            onDeleteData = { dataVm.onEvent(DataAndSensingEvent.RequestDelete) },
-            onSelectWallpaper = {
-                runCatching { context.startActivity(echoWallpaperSelectionIntent(context)) }
-            },
-            onDreamSettings = {
-                runCatching { context.startActivity(dreamSettingsIntent()) }
-            },
             onNotificationSettings = {
                 runCatching {
                     context.startActivity(
@@ -115,6 +112,7 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
                 }
             },
         ),
+        wristStatusLine = wristStatusLine,
         slots = MeSectionSlots(
             identityHeader = { MeEchoIdentity(presence, state.presence.reduceMotion) },
             subscription = { SubscriptionSection(container) },
@@ -130,29 +128,16 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
             intelligenceSettings = { IntelligenceSettingsSection(container) },
             whatEchoKnows = { WhatEchoKnowsSection(container) },
             aboutCard = { AboutCard(onOpenVisualLab = { showVisualLab = true }) },
-            // 设计稿 10/11：智能地图（设备数 0 时的安全占位；接真实 Wrist 绑定可在此读取）
-            smartMap = {
+            // SMARTMAP 页：智能地图接真实设备绑定；快速管理条目由 MeScreenContent 经槽位注入（不再传 emptyList()）
+            smartMap = { items ->
                 MeSmartMapSection(
                     devices = SmartMapDevices(
-                        connectedCount = 0, // 接 Wrist 真实绑定时可读取绑定列表
+                        connectedCount = if (wristRuntime.connection == WearableConnectionState.CONNECTED) 1 else 0,
                         providerName = "本地模型",
                         providerLocation = "本地运行中",
                         privacyNote = "设备端运行保护隐私",
                     ),
-                    quickAccessItems = emptyList(),
-                )
-            },
-            // 设计稿 12：数据与权限轨道图（5 节点状态接真实能力）
-            dataOrbit = {
-                DataPermissionOrbitSection(
-                    nodes = listOf(
-                        DataOrbitNode("屏幕节律", enabled = true, detail = "已采集"),
-                        DataOrbitNode("通知", enabled = true, detail = "已开启"),
-                        DataOrbitNode("位置", enabled = false, detail = "未授权"),
-                        DataOrbitNode("可穿戴", enabled = false, detail = "未连接"),
-                        DataOrbitNode("活动", enabled = true, detail = "已采集"),
-                    ),
-                    cards = emptyList(),
+                    quickAccessItems = items,
                 )
             },
         ),
@@ -160,8 +145,8 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
 }
 
 /**
- * V3 §AR — Me 根控制中心纯状态内容（state-in / event-out / action-out + 组合槽位）。
- * 分组列表常驻；领域深页在所属分组下方就地展开（一次只展开一个 domain）。
+ * V3 §AR — Me 根四分区 + MeRoute 路由（state-in / event-out / action-out + 组合槽位）。
+ * L1 次级页为全屏替换（TopAppBar + back + BackHandler）；一次只有一个路由活跃。
  */
 @Composable
 fun MeScreenContent(
@@ -169,6 +154,7 @@ fun MeScreenContent(
     onEvent: (MeEvent) -> Unit,
     actions: MeControlActions,
     slots: MeSectionSlots,
+    wristStatusLine: String = "未连接设备",
 ) {
     if (state.showSupportConfirm) {
         AlertDialog(
@@ -188,42 +174,56 @@ fun MeScreenContent(
         )
     }
 
-    // §63：presentation state（一次只展开一个 domain；不建立新业务 state）
-    var expandedDomain by rememberSaveable { mutableStateOf(MeDomain.NONE.name) }
-    val domain = runCatching { MeDomain.valueOf(expandedDomain) }.getOrDefault(MeDomain.NONE)
-    fun open(target: MeDomain) {
-        expandedDomain = if (domain == target) MeDomain.NONE.name else target.name
+    // §63：presentation state（当前路由；String? 存取，进程重建恢复）
+    var routeName by rememberSaveable { mutableStateOf<String?>(null) }
+    val route = routeName?.let { runCatching { MeRoute.valueOf(it) }.getOrNull() }
+    fun open(target: MeRoute) {
+        routeName = target.name
+    }
+
+    if (route != null) {
+        MeSubPage(
+            title = route.pageTitle(),
+            testTag = "me_page_${route.name.lowercase()}",
+            onBack = { routeName = null },
+        ) {
+            when (route) {
+                MeRoute.PRESENCE -> slots.presenceSettings()
+                // 快速管理：真实条目经槽位注入 MeSmartMapSection（页内路由；me_entry_* 锚点语义不变）
+                MeRoute.SMARTMAP -> slots.smartMap(meQuickAccessItems { open(it) })
+                MeRoute.SENSING -> slots.dataAndSensing()
+                MeRoute.MEMORY -> slots.whatEchoKnows()
+                MeRoute.WRIST -> slots.wrist()
+                MeRoute.INTELLIGENCE -> slots.intelligenceSettings()
+                MeRoute.SUBSCRIPTION -> slots.subscription()
+                MeRoute.SUPPORT -> slots.support()
+                MeRoute.ABOUT -> slots.aboutCard()
+            }
+        }
+        return
     }
 
     Page("我的") {
-        // 1. 我的 ECHO —— 身份摘要（点按 → Presence 设置）
+        // Z1 身份 —— 我的 ECHO（点按 → PRESENCE）
         Box(
             Modifier
                 .fillMaxWidth()
-                .clickable { open(MeDomain.PRESENCE) }
+                .clickable { open(MeRoute.PRESENCE) }
                 .testTag("me_entry_echo"),
         ) { slots.identityHeader() }
 
-        // 设计稿 10/11：智能地图入口（中心 ECHO + 4 节点 + 设备 + 提供方 + 快速管理）
-        MeGroup(title = "智能地图") {
-            MeListItem(
-                title = "ECHO 如何认识你",
-                supporting = "智能地图：感知 / 思考 / 记忆 / 设备四向视图",
-                testTag = "me_entry_smartmap",
-                onClick = { open(MeDomain.SMARTMAP) },
-            )
-            MeGroupDivider()
-            MeListItem(
-                title = "数据与权限",
-                supporting = "屏幕节律 / 通知 / 位置 / 可穿戴 / 活动 + 4 设置卡",
-                testTag = "me_entry_data_orbit",
-                onClick = { open(MeDomain.DATA_ORBIT) },
-            )
-            MeDomainDetail(domain, setOf(MeDomain.SMARTMAP, MeDomain.DATA_ORBIT), slots)
-        }
+        // Z2 状态网格 —— 2×2 卡片（每卡一行真实状态摘要）
+        MeStateGrid(
+            smartMapStatus = "感知${if (state.sensingEnabled) "开启" else "关闭"} · $wristStatusLine",
+            sensingStatus = "感知${if (state.sensingEnabled) "已开启" else "已关闭"}" +
+                " · 待同步 ${state.sync.pendingCount} 项",
+            memoryStatus = "已存 ${state.memory.total} 条 · ${state.memory.uncertain} 条待确认",
+            wristStatus = wristStatusLine,
+            onOpenRoute = ::open,
+        )
 
-        // 危机入口（§AT：一键直达全屏 SafetyScreen；安全资源常驻可达）
-        MeGroup {
+        // Z3 支持与安全（§AT：紧急一键直达全屏 SafetyScreen）
+        MeGroup(title = "支持与安全") {
             MeListItem(
                 title = "紧急支持",
                 supporting = stringResource(R.string.crisis_not_emergency_service),
@@ -231,81 +231,31 @@ fun MeScreenContent(
                 destructive = true,
                 onClick = actions.onEmergency,
             )
-        }
-
-        // 2. 了解我的方式
-        MeGroup(title = "了解我的方式") {
-            MeListItem(
-                title = "数据与感知",
-                supporting = "权限、采集、同步与数据权利",
-                testTag = "me_entry_data",
-                onClick = { open(MeDomain.OBSERVATION) },
-            )
             MeGroupDivider()
             MeListItem(
-                title = "记忆",
-                supporting = "ECHO 记得什么，由你管理",
-                testTag = "me_entry_memory",
-                onClick = { open(MeDomain.MEMORY) },
+                title = "专业支持",
+                supporting = "请求人工支持",
+                testTag = "me_entry_support",
+                onClick = { open(MeRoute.SUPPORT) },
+            )
+        }
+
+        // Z4 账户与设置
+        MeGroup(title = "账户与设置") {
+            MeListItem(
+                title = "订阅",
+                supporting = "云端同步与专业支持订阅",
+                testTag = "me_entry_subscription",
+                onClick = { open(MeRoute.SUBSCRIPTION) },
             )
             MeGroupDivider()
             MeListItem(
                 title = "AI",
                 supporting = "解读模型与连接",
                 testTag = "me_entry_ai",
-                onClick = { open(MeDomain.INTELLIGENCE) },
-            )
-            MeDomainDetail(domain, setOf(MeDomain.OBSERVATION, MeDomain.MEMORY, MeDomain.INTELLIGENCE), slots)
-        }
-
-        // 3. ECHO 出现在哪里
-        MeGroup(title = "ECHO 出现在哪里") {
-            MeListItem(
-                title = "动态壁纸",
-                supporting = "把 ECHO 设为手机动态壁纸",
-                testTag = "me_entry_wallpaper",
-                onClick = actions.onSelectWallpaper,
+                onClick = { open(MeRoute.INTELLIGENCE) },
             )
             MeGroupDivider()
-            MeListItem(
-                title = "Dream · 充电屏保",
-                supporting = "充电放在桌面时 ECHO 成为环境的一部分",
-                testTag = "me_entry_dream",
-                onClick = actions.onDreamSettings,
-            )
-            MeGroupDivider()
-            MeListItem(
-                title = "手环",
-                supporting = "同一个 ECHO 的另一具身体",
-                testTag = "me_entry_wrist",
-                onClick = { open(MeDomain.WRIST) },
-            )
-            MeDomainDetail(domain, setOf(MeDomain.PRESENCE, MeDomain.WRIST), slots)
-        }
-
-        // 4. 我的数据
-        MeGroup(title = "我的数据") {
-            MeListItem(
-                title = "导出数据",
-                supporting = "导出本机保存的数据",
-                testTag = "me_entry_export",
-                onClick = actions.onExportData,
-            )
-            MeGroupDivider()
-            MeListItem(
-                title = "删除数据",
-                supporting = "删除本机保存的数据（二次确认）",
-                testTag = "me_entry_delete",
-                onClick = {
-                    // 删除确认对话框在数据与感知分节内呈现：强制展开该分节再触发删除流程
-                    expandedDomain = MeDomain.OBSERVATION.name
-                    actions.onDeleteData()
-                },
-            )
-        }
-
-        // 5. 其他
-        MeGroup(title = "其他") {
             MeListItem(
                 title = "通知",
                 supporting = "系统通知设置",
@@ -314,26 +264,11 @@ fun MeScreenContent(
             )
             MeGroupDivider()
             MeListItem(
-                title = "订阅",
-                supporting = "云端同步与专业支持订阅",
-                testTag = "me_entry_subscription",
-                onClick = { open(MeDomain.SUBSCRIPTION) },
-            )
-            MeGroupDivider()
-            MeListItem(
-                title = "专业支持",
-                supporting = "请求人工支持",
-                testTag = "me_entry_support",
-                onClick = { open(MeDomain.SUPPORT) },
-            )
-            MeGroupDivider()
-            MeListItem(
                 title = "关于",
                 supporting = "版本与构建信息",
                 testTag = "me_entry_about",
-                onClick = { open(MeDomain.ABOUT) },
+                onClick = { open(MeRoute.ABOUT) },
             )
-            MeDomainDetail(domain, setOf(MeDomain.SUBSCRIPTION, MeDomain.SUPPORT, MeDomain.ABOUT), slots)
         }
 
         state.message?.let {
@@ -342,23 +277,60 @@ fun MeScreenContent(
     }
 }
 
-/** §AR：Me 根控制中心动作面（危机直达/数据权利/系统意图经回调注入；纯渲染可测）。 */
+/** §AR：Me 根动作面（危机直达 / 系统通知设置经回调注入；纯渲染可测）。 */
 data class MeControlActions(
     val onEmergency: () -> Unit,
-    val onExportData: () -> Unit,
-    val onDeleteData: () -> Unit,
-    val onSelectWallpaper: () -> Unit,
-    val onDreamSettings: () -> Unit,
     val onNotificationSettings: () -> Unit,
 )
 
-/** V3 §63：Me 领域 presentation state（非业务 state；一次只展开一个 domain）。 */
-enum class MeDomain {
-    NONE, OBSERVATION, MEMORY, INTELLIGENCE, PRESENCE, WRIST,
-    SUBSCRIPTION, SUPPORT, ABOUT, SMARTMAP, DATA_ORBIT,
+/** V3 §63：Me 全屏次级页路由（String name 存入 rememberSaveable）。 */
+enum class MeRoute {
+    PRESENCE, SMARTMAP, SENSING, MEMORY, WRIST,
+    INTELLIGENCE, SUBSCRIPTION, SUPPORT, ABOUT,
 }
 
-/** Me 根页面子领域槽位集合（状态提升模式；detekt LongParameterList 收敛）。 */
+/** 路由 → L1 页标题。 */
+private fun MeRoute.pageTitle(): String = when (this) {
+    MeRoute.PRESENCE -> "ECHO 出现在哪里"
+    MeRoute.SMARTMAP -> "智能地图"
+    MeRoute.SENSING -> "数据与感知"
+    MeRoute.MEMORY -> "记忆"
+    MeRoute.WRIST -> "手环"
+    MeRoute.INTELLIGENCE -> "AI"
+    MeRoute.SUBSCRIPTION -> "订阅"
+    MeRoute.SUPPORT -> "专业支持"
+    MeRoute.ABOUT -> "关于"
+}
+
+/** SMARTMAP 页快速管理条目（路由闭包由 MeScreenContent 提供；detekt LongParameterList 收敛于列表）。 */
+private fun meQuickAccessItems(open: (MeRoute) -> Unit): List<QuickAccessItem> = listOf(
+    QuickAccessItem(
+        title = "手环",
+        description = "连接与偏好",
+        testTag = "me_entry_wrist",
+        onClick = { open(MeRoute.WRIST) },
+    ),
+    QuickAccessItem(
+        title = "数据与感知",
+        description = "感知通道与数据权利",
+        testTag = "me_entry_data",
+        onClick = { open(MeRoute.SENSING) },
+    ),
+    QuickAccessItem(
+        title = "记忆",
+        description = "ECHO 记得什么，由你管理",
+        testTag = "me_entry_memory",
+        onClick = { open(MeRoute.MEMORY) },
+    ),
+    QuickAccessItem(
+        title = "AI",
+        description = "解读模型与连接",
+        testTag = "me_entry_ai",
+        onClick = { open(MeRoute.INTELLIGENCE) },
+    ),
+)
+
+/** Me L1 次级页槽位集合（状态提升模式；detekt LongParameterList 收敛）。 */
 data class MeSectionSlots(
     val identityHeader: @Composable () -> Unit,
     val subscription: @Composable () -> Unit,
@@ -369,29 +341,117 @@ data class MeSectionSlots(
     val intelligenceSettings: @Composable () -> Unit,
     val whatEchoKnows: @Composable () -> Unit,
     val aboutCard: @Composable () -> Unit,
-    val smartMap: @Composable () -> Unit = {},
-    val dataOrbit: @Composable () -> Unit = {},
+    val smartMap: @Composable (List<QuickAccessItem>) -> Unit = {},
 )
 
-/** 展开的领域深页就地渲染在所属分组下方（未展开/不属于本分组时不组合）。 */
+/**
+ * Me L1 全屏次级页容器（EchoAskScreen 范式：TopAppBar + back + BackHandler + verticalScroll）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MeDomainDetail(domain: MeDomain, hosts: Set<MeDomain>, slots: MeSectionSlots) {
-    if (domain == MeDomain.NONE || domain !in hosts) {
-        return
+private fun MeSubPage(
+    title: String,
+    testTag: String,
+    onBack: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+        modifier = Modifier.fillMaxSize().testTag(testTag),
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            content()
+            Spacer(Modifier.height(64.dp))
+        }
     }
-    Column(Modifier.fillMaxWidth().testTag("me_domain_detail")) {
-        when (domain) {
-            MeDomain.OBSERVATION -> slots.dataAndSensing()
-            MeDomain.MEMORY -> slots.whatEchoKnows()
-            MeDomain.INTELLIGENCE -> slots.intelligenceSettings()
-            MeDomain.PRESENCE -> slots.presenceSettings()
-            MeDomain.WRIST -> slots.wrist()
-            MeDomain.SUBSCRIPTION -> slots.subscription()
-            MeDomain.SUPPORT -> slots.support()
-            MeDomain.ABOUT -> slots.aboutCard()
-            MeDomain.SMARTMAP -> slots.smartMap()
-            MeDomain.DATA_ORBIT -> slots.dataOrbit()
-            MeDomain.NONE -> Unit
+}
+
+/** Z2 状态网格：2×2 卡片（每卡标题 + 一行真实状态摘要）。 */
+@Composable
+private fun MeStateGrid(
+    smartMapStatus: String,
+    sensingStatus: String,
+    memoryStatus: String,
+    wristStatus: String,
+    onOpenRoute: (MeRoute) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MeStateCard(
+                title = "智能地图",
+                status = smartMapStatus,
+                testTag = "me_entry_smartmap",
+                onClick = { onOpenRoute(MeRoute.SMARTMAP) },
+                modifier = Modifier.weight(1f),
+            )
+            MeStateCard(
+                title = "数据与感知",
+                status = sensingStatus,
+                testTag = "me_entry_data",
+                onClick = { onOpenRoute(MeRoute.SENSING) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MeStateCard(
+                title = "记忆",
+                status = memoryStatus,
+                testTag = "me_entry_memory",
+                onClick = { onOpenRoute(MeRoute.MEMORY) },
+                modifier = Modifier.weight(1f),
+            )
+            MeStateCard(
+                title = "手环",
+                status = wristStatus,
+                testTag = "me_entry_wrist",
+                onClick = { onOpenRoute(MeRoute.WRIST) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** Z2 状态卡：≥88dp 触达 + Role.Button 双语义。 */
+@Composable
+private fun MeStateCard(
+    title: String,
+    status: String,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(modifier = modifier.fillMaxWidth().heightIn(min = 88.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .clickable(role = Role.Button, onClick = onClick)
+                .testTag(testTag)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                status,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
