@@ -1,10 +1,22 @@
 package com.yunjue.echo.mind.ui.me
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -19,9 +31,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.wearable.WearableConnectionState
 import kotlinx.coroutines.launch
 
@@ -46,6 +63,136 @@ fun WristSection(container: AppContainer) {
     val connected = runtimeState.connection == WearableConnectionState.CONNECTED
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // ===== 设计稿 17：表盘定制（样机预览 + 四样式 + 复杂信息 + 同步 CTA）=====
+        var faceStyle by remember { mutableStateOf(wearable.prefs.watchFaceStyle) }
+        var complications by remember { mutableStateOf(wearable.prefs.watchFaceComplications) }
+        var syncHint by remember { mutableStateOf<String?>(null) }
+
+        Card {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("WRIST · 手环表盘", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "抬腕可见，随时感知 ECHO 的状态。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                // 手表样机预览（真实 identitySeed 生命体 + 真实时钟 + 真实连接态；不编造心率/电量）
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    WatchFacePreview(
+                        styleIndex = faceStyle,
+                        showComplications = complications,
+                        connected = connected,
+                        identitySeed = container.preferences.identitySeed,
+                    )
+                }
+                // 表盘样式四缩略图（确定性风格变体；选中 = 渐变描边 + ✓）
+                Text("表盘样式", style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(4) { index ->
+                        val selected = faceStyle == index
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                                .background(Color(0xFF0E1426))
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(
+                                            2.dp,
+                                            Brush.linearGradient(listOf(Color(0xFF7C3AED), Color(0xFF38BDF8))),
+                                            androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                                        )
+                                    } else {
+                                        Modifier.border(1.dp, Color(0xFF2A3550), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                                    },
+                                )
+                                .clickable {
+                                    faceStyle = index
+                                    wearable.prefs.watchFaceStyle = index
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Canvas(modifier = Modifier.size(40.dp)) {
+                                drawWatchFaceOrb(styleIndex = index)
+                            }
+                            if (selected) {
+                                Text(
+                                    "✓",
+                                    color = Color(0xFF38BDF8),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.align(Alignment.TopEnd),
+                                )
+                            }
+                        }
+                    }
+                }
+                // 复杂信息开关（真实持久化；影响预览与腕上信息行）
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("复杂信息", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "显示更多信息（时钟与状态行）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                    }
+                    Switch(
+                        checked = complications,
+                        onCheckedChange = {
+                            complications = it
+                            wearable.prefs.watchFaceComplications = it
+                            scope.launch { wearable.notifySurfacePrefsChanged() }
+                        },
+                    )
+                }
+                // 真实连接状态行（不编造电量/固件）
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (connected) "✓" else "○",
+                        color = if (connected) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (connected) {
+                            "已连接 ${runtimeState.device?.model ?: "ECHO 手环"}"
+                        } else {
+                            "未连接手环（连接后自动同步）"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                // 同步 CTA（真实推送 presence/prefs；未连接时禁用 + 提示）
+                EchoGradientButton(
+                    onClick = {
+                        scope.launch {
+                            wearable.notifySurfacePrefsChanged()
+                            syncHint = "已同步——表盘将自动生效"
+                        }
+                    },
+                    text = "同步到手环",
+                    enabled = connected,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "同步到手环",
+                )
+                syncHint?.let {
+                    Text(
+                        "✦ $it",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                }
+                if (!connected) {
+                    Text(
+                        "✦ 连接手环后即可同步表盘",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                }
+            }
+        }
+
         // 状态头卡（原 Device / Connection / availability 三行平铺整合）
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -224,4 +371,135 @@ private fun WristPreferenceRow(
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
+}
+
+/**
+ * 设计稿 17 — 手表样机预览：表带 + 表体 + 真实 identitySeed 生命体 + 真实时钟 +
+ * 连接态状态行（不编造心率/电量/固件）。样式经 [styleIndex] 影响光环/环密度。
+ */
+@Composable
+private fun WatchFacePreview(
+    styleIndex: Int,
+    showComplications: Boolean,
+    connected: Boolean,
+    identitySeed: Long,
+) {
+    val seedPresence = remember(identitySeed) {
+        com.yunjue.echo.mind.presence.dayZeroSeedPresence(identitySeed = identitySeed)
+    }
+    val genome = remember(seedPresence) {
+        com.yunjue.echo.mind.visual.model.VisualGenomeCompiler.compile(
+            com.yunjue.echo.mind.presence.EchoVisualMapper.map(seedPresence, 12f, reduceMotion = false),
+            seedPresence.identityGenome,
+        )
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 上表带
+        Box(
+            Modifier
+                .width(96.dp)
+                .height(30.dp)
+                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                .background(Color(0xFF151A28)),
+        )
+        // 表体 + 屏幕
+        Box(
+            Modifier
+                .size(width = 208.dp, height = 248.dp)
+                .clip(RoundedCornerShape(48.dp))
+                .background(Color(0xFF0B0F1C))
+                .border(3.dp, Color(0xFF2A3550), RoundedCornerShape(48.dp))
+                .padding(10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(40.dp))
+                    .background(Color(0xFF05070F)),
+                contentAlignment = Alignment.Center,
+            ) {
+                com.yunjue.echo.mind.presencevisual.EchoOrganism(
+                    genome = genome,
+                    modifier = Modifier.fillMaxSize(),
+                    maturityName = seedPresence.maturity.name,
+                    options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
+                        maturityName = seedPresence.maturity.name,
+                        haloScale = listOf(1f, 1.25f, 0.85f, 1.1f)[styleIndex.coerceIn(0, 3)],
+                        detailScale = listOf(1f, 0.85f, 1.15f, 1f)[styleIndex.coerceIn(0, 3)],
+                        ringAlphaScale = listOf(1f, 1.3f, 1f, 0.7f)[styleIndex.coerceIn(0, 3)],
+                    ),
+                )
+                if (showComplications) {
+                    Column(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            java.time.LocalTime.now().let { "%02d:%02d".format(it.hour, it.minute) },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFFE8ECF5),
+                        )
+                        Text(
+                            if (connected) "正在陪伴你" else "等待连接",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (connected) Color(0xFF8F7CF0) else Color(0xFF6E6E8C),
+                        )
+                    }
+                }
+            }
+        }
+        // 下表带
+        Box(
+            Modifier
+                .width(96.dp)
+                .height(30.dp)
+                .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                .background(Color(0xFF151A28)),
+        )
+    }
+}
+
+/** 表盘样式缩略球（确定性 Canvas 风格变体：色调 + 环密度 + 光晕差异）。 */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawWatchFaceOrb(styleIndex: Int) {
+    val w = size.width
+    val h = size.height
+    val c = androidx.compose.ui.geometry.Offset(w / 2f, h / 2f)
+    val palettes = listOf(
+        listOf(Color(0xFF8F7CF0), Color(0xFF38BDF8)),
+        listOf(Color(0xFF38BDF8), Color(0xFF2563EB)),
+        listOf(Color(0xFFE879F9), Color(0xFF8F7CF0)),
+        listOf(Color(0xFF34D399), Color(0xFF38BDF8)),
+    )
+    val palette = palettes[styleIndex.coerceIn(0, 3)]
+    drawCircle(
+        brush = Brush.radialGradient(listOf(palette[0], palette[1], Color(0xFF05070F)), center = c, radius = w * 0.5f),
+        radius = w * 0.30f,
+        center = c,
+    )
+    drawCircle(
+        color = palette[1].copy(alpha = 0.5f),
+        radius = w * (0.38f + 0.04f * styleIndex),
+        center = c,
+        style = Stroke(width = 1.4f),
+    )
+    if (styleIndex % 2 == 1) {
+        drawCircle(
+            color = palette[0].copy(alpha = 0.3f),
+            radius = w * 0.47f,
+            center = c,
+            style = Stroke(width = 1f),
+        )
+    }
+    drawCircle(
+        brush = Brush.radialGradient(
+            listOf(palette[0].copy(alpha = 0.25f), Color.Transparent),
+            center = c,
+            radius = w * 0.5f,
+        ),
+        radius = w * 0.5f,
+        center = c,
+    )
 }

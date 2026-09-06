@@ -7,8 +7,11 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +32,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -119,6 +129,12 @@ fun DataAndSensingContent(
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("数据与感知", style = MaterialTheme.typography.titleMedium)
+                // 设计稿 12：感知轨道 hero（中心生命体 + 五通道卫星节点；声明语义插画）
+                DataOrbitHero(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                )
                 // 数据通道声明：本机数据通道全景（声明语义，不编造状态；实时状态见 B 区能力行）
                 Text(
                     "本机数据通道：屏幕节律 · 通知使用权 · 应用使用情况 · 运动传感器 · 麦克风（可选）。" +
@@ -374,6 +390,95 @@ private fun CapabilityStatusRow(
             Text(statusText, style = MaterialTheme.typography.labelMedium)
             if (degraded && recoveryLabel != null && onRecover != null) {
                 TextButton(onClick = onRecover) { Text(recoveryLabel) }
+            }
+        }
+    }
+}
+
+/**
+ * 设计稿 12 — 感知轨道 hero（声明语义插画，纯 Canvas 确定性）：
+ * 中心暖色生命体 + 双同心环 + 五通道卫星节点（屏幕节律/活动/通知/可穿戴/位置）。
+ * 节点常亮 = 通道全景声明；实时授权状态见 B 区能力行（此处不编造状态）。
+ */
+@Composable
+private fun DataOrbitHero(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .size(width = 0.dp, height = 190.dp)
+                .semantics { contentDescription = "感知轨道图：中心 ECHO 与五个数据通道节点" },
+        ) {
+            val w = size.width
+            val h = size.height
+            val c = Offset(w / 2f, h / 2f)
+            // 双同心环
+            drawCircle(color = Color(0xFF8F7CF0).copy(alpha = 0.20f), radius = h * 0.44f, center = c, style = Stroke(width = 1.2f))
+            drawCircle(color = Color(0xFF38BDF8).copy(alpha = 0.14f), radius = h * 0.30f, center = c, style = Stroke(width = 1f))
+            // 虚线外环（分段圆弧模拟）
+            val dashes = 36
+            for (i in 0 until dashes) {
+                if (i % 2 == 0) {
+                    val a0 = Math.toRadians((i * 360f / dashes).toDouble())
+                    val a1 = Math.toRadians(((i + 1) * 360f / dashes).toDouble())
+                    val r = h * 0.44f
+                    drawLine(
+                        color = Color(0xFF8F7CF0).copy(alpha = 0.28f),
+                        start = Offset(c.x + r * kotlin.math.cos(a0).toFloat(), c.y + r * kotlin.math.sin(a0).toFloat()),
+                        end = Offset(c.x + r * kotlin.math.cos(a1).toFloat(), c.y + r * kotlin.math.sin(a1).toFloat()),
+                        strokeWidth = 1.2f,
+                    )
+                }
+            }
+            // 中心暖色生命体核（径向渐变）
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color(0xFFF59E0B), Color(0xFF7C3AED), Color(0xFF0B0F1C)),
+                    center = c,
+                    radius = h * 0.20f,
+                ),
+                radius = h * 0.18f,
+                center = c,
+            )
+            drawCircle(
+                color = Color(0xFFF59E0B).copy(alpha = 0.35f),
+                radius = h * 0.24f,
+                center = c,
+                style = Stroke(width = 1.4f),
+            )
+            // 五通道节点（72° 均布，内环半径）
+            val nodeColors = listOf(
+                Color(0xFF38BDF8), // 屏幕节律
+                Color(0xFF34D399), // 活动
+                Color(0xFFE879F9), // 通知
+                Color(0xFFFB923C), // 可穿戴
+                Color(0xFFA855F7), // 位置（可选）
+            )
+            val r = h * 0.30f
+            nodeColors.forEachIndexed { i, color ->
+                val angle = Math.toRadians((i * 72.0) - 90.0)
+                val p = Offset(c.x + r * kotlin.math.cos(angle).toFloat(), c.y + r * kotlin.math.sin(angle).toFloat())
+                drawLine(
+                    color = color.copy(alpha = 0.35f),
+                    start = c,
+                    end = p,
+                    strokeWidth = 1.1f,
+                )
+                drawCircle(color = color.copy(alpha = 0.22f), radius = 14f, center = p)
+                drawCircle(color = color, radius = 7f, center = p)
+            }
+        }
+        // 通道标签行（与节点一一对应）
+        androidx.compose.foundation.layout.Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly,
+        ) {
+            listOf("节律", "活动", "通知", "手环", "位置").forEach { label ->
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                )
             }
         }
     }

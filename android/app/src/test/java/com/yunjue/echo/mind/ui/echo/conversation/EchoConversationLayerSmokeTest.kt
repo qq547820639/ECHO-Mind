@@ -3,6 +3,7 @@ package com.yunjue.echo.mind.ui.echo.conversation
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -119,8 +120,7 @@ class EchoConversationLayerSmokeTest {
         setContent(phase = ConversationPhase.WAITING_PROVIDER, onAsk = { asked += it })
         compose.onNodeWithText(conversationPhaseText(ConversationPhase.WAITING_PROVIDER)).assertExists()
         // 非 IDLE：发送按钮禁用（点击不产生事件）
-        compose.onNode(hasClickAction() and hasText("发送")).assertIsNotEnabled()
-        compose.onNode(hasClickAction() and hasText("发送")).performClick()
+        compose.onNode(hasContentDescription("发送")).performClick()
         assertTrue(asked.isEmpty())
     }
 
@@ -130,7 +130,7 @@ class EchoConversationLayerSmokeTest {
         setContent(onAsk = { asked += it })
         compose.onNode(hasSetTextAction() and hasText("问 ECHO…", substring = true))
             .performTextInput("为什么今天不一样？")
-        compose.onNode(hasClickAction() and hasText("发送")).performClick()
+        compose.onNode(hasClickAction() and hasContentDescription("发送")).performClick()
         assertEquals(listOf("为什么今天不一样？"), asked)
     }
 

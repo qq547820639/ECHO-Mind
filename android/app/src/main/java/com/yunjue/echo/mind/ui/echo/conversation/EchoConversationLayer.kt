@@ -1,6 +1,7 @@
 package com.yunjue.echo.mind.ui.echo.conversation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.yunjue.echo.mind.intelligence.ConversationPhase
@@ -77,6 +83,7 @@ fun EchoConversationLayer(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
             )
         }
+        // 设计稿 6：胶囊输入框 + 圆形渐变发送钮
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = question,
@@ -85,23 +92,42 @@ fun EchoConversationLayer(
                 placeholder = { Text("问 ECHO…") },
                 singleLine = true,
                 enabled = phase == ConversationPhase.IDLE,
+                shape = RoundedCornerShape(24.dp),
             )
             Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    val q = question.trim()
-                    if (q.isNotBlank()) {
-                        question = ""
-                        onAsk(q)
-                    }
-                },
-                enabled = phase == ConversationPhase.IDLE && question.isNotBlank(),
-            ) { Text("发送") }
+            val sendEnabled = phase == ConversationPhase.IDLE && question.isNotBlank()
+            val currentSendEnabled by androidx.compose.runtime.rememberUpdatedState(sendEnabled)
+            val currentQuestion by androidx.compose.runtime.rememberUpdatedState(question)
+            val currentOnAsk by androidx.compose.runtime.rememberUpdatedState(onAsk)
+            val currentClearInput by androidx.compose.runtime.rememberUpdatedState({ question = "" })
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF7C3AED), Color(0xFF38BDF8))
+                        )
+                    )
+                    .semantics { contentDescription = "发送" }
+                    .clickable {
+                        if (currentSendEnabled) {
+                            val q = currentQuestion.trim()
+                            if (q.isNotBlank()) {
+                                currentClearInput()
+                                currentOnAsk(q)
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("↑", style = MaterialTheme.typography.titleMedium, color = Color.White)
+            }
         }
     }
 }
 
-/** 单条问答（user tinted bubble + ECHO plain text & identity glyph + 依据双清单 + 反馈）。 */
+/** 单条问答（设计稿 6：user 渐变气泡居右 + ECHO 头像深色气泡居左 + 理由卡 + 反馈）。 */
 @Composable
 private fun EchoConversationMessage(
     turn: ConversationTurn,
@@ -111,42 +137,74 @@ private fun EchoConversationMessage(
     var basisExpanded by remember { mutableStateOf(false) }
     var feedback by remember(turn.id) { mutableStateOf<Boolean?>(null) }
     var reasonPicked by remember(turn.id) { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        // user message：轻 tinted bubble
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // user message：右对齐渐变气泡（设计稿 6）
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp))
+                    .background(
+                        Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6366F1)))
+                    )
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
-                Text(turn.question, style = MaterialTheme.typography.bodySmall)
+                Text(turn.question, style = MaterialTheme.typography.bodySmall, color = Color.White)
             }
         }
-        // ECHO answer：plain text + small identity glyph（无气泡墙）
+        // ECHO answer：生命体色头像 + 深色气泡（设计稿 6）
         Row(verticalAlignment = Alignment.Top) {
             Box(
                 Modifier
-                    .padding(top = 5.dp)
-                    .size(8.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
-                    .background(identityColor.copy(alpha = 0.85f)),
-            )
+                    .background(
+                        Brush.radialGradient(
+                            listOf(identityColor, identityColor.copy(alpha = 0.35f))
+                        )
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("E", style = MaterialTheme.typography.labelMedium, color = Color.White)
+            }
             Spacer(Modifier.width(8.dp))
-            Text(turn.answer, style = MaterialTheme.typography.bodyMedium)
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .background(Color(0xFF16203A))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text(turn.answer, style = MaterialTheme.typography.bodyMedium)
+            }
         }
-        // 依据（v2 §51：参考了 / 没有使用 双清单）
+        // 理由卡（v2 §51：参考了 / 没有使用 双清单；设计稿 6 绿勾语义）
         TextButton(onClick = { basisExpanded = !basisExpanded }) {
             Text(if (basisExpanded) "收起依据" else "依据")
         }
         if (basisExpanded) {
-            Text(
-                "参考了：" + if (turn.sources.isEmpty()) "（无可追溯来源——请谨慎看待）"
-                else turn.sources.joinToString("、") { dataSourceLabelForConversation(it) },
-                style = MaterialTheme.typography.bodySmall,
-            )
-            // ERA 32 R09（§52）：精确词表——「原始音频」而非「麦克风」
-            Text("没有使用：原始音频、通知正文、精确位置", style = MaterialTheme.typography.bodySmall)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF0E1426))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("✓", color = Color(0xFF34D399), style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "参考了：" + if (turn.sources.isEmpty()) "（无可追溯来源——请谨慎看待）"
+                        else turn.sources.joinToString("、") { dataSourceLabelForConversation(it) },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                // ERA 32 R09（§52）：精确词表——「原始音频」而非「麦克风」
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("✓", color = Color(0xFF34D399).copy(alpha = 0.55f), style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(6.dp))
+                    Text("没有使用：原始音频、通知正文、精确位置", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
         // 反馈（v3 §17：走 EchoCorrectionService，不直接创建 MemoryEntity）
         if (feedback == null) {

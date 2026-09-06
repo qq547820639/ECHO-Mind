@@ -120,7 +120,7 @@ class DataAndSensingContentSmokeTest {
         val events = mutableListOf<DataAndSensingEvent>()
         val toggles = mutableListOf<Boolean>()
         setContent(state(), events, onToggleSensing = { toggles += it })
-        compose.onAllNodes(isToggleable())[1].performClick()
+        compose.onAllNodes(isToggleable())[1].performScrollTo().performClick()
         assertEquals(listOf(true), toggles)
         assertTrue(events.isEmpty())
     }
@@ -237,7 +237,7 @@ class DataAndSensingContentSmokeTest {
         val events = mutableListOf<DataAndSensingEvent>()
         val toggles = mutableListOf<Boolean>()
         setContent(state().copy(sensingEnabled = true), events, onToggleSensing = { toggles += it })
-        compose.onAllNodes(isToggleable())[1].performClick()
+        compose.onAllNodes(isToggleable())[1].performScrollTo().performClick()
         assertEquals(listOf(false), toggles)
     }
 }
