@@ -1,12 +1,9 @@
 package com.yunjue.echo.mind.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -14,20 +11,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.unit.sp
 import com.yunjue.echo.mind.AppContainer
 import com.yunjue.echo.mind.ui.echo.components.EchoGradientButton
 import com.yunjue.echo.mind.data.AppPreferences
 import com.yunjue.echo.mind.SyncWorker
 import com.yunjue.echo.mind.PassiveSensingService
-import com.yunjue.echo.mind.sensing.hasCoreSensorHardware
+import com.yunjue.echo.mind.ui.artwork.drawPrivacyLineIcon
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -88,34 +86,10 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     val context = LocalContext.current
     val preferences = container.preferences
 
-    // ERA 32 R26：rememberSaveable——配置变更（旋转/深浅色）不再丢失勾选进度；
-    // 进程死亡恢复由 onboardingState（CONSENT_PENDING → 隐私承诺页）承担。
-    var ageConfirmed by rememberSaveable { mutableStateOf(false) }
-    var boundaryConfirmed by rememberSaveable { mutableStateOf(false) }
-
-    // 核心数据同意：5 项（全部勾选才可继续；拒绝 = abstain）
-    var coreChecks by rememberSaveable(
-        stateSaver = Saver(
-            save = { state -> state.joinToString("") { if (it) "1" else "0" } },
-            restore = { saved -> saved.map { it == '1' } },
-        )
-    ) { mutableStateOf(listOf(false, false, false, false, false)) }
-    val allCoreChecked = coreChecks.all { it }
-
-    // Android 13+ 持续通知权限（可选降级：拒绝仅通知不可见，采集继续）。
-    // 初始状态按系统当前真实授权回填；回调同样只信系统结果。
-    var notifPermAuthorized by remember {
-        mutableStateOf(
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    val notifPermLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted -> notifPermAuthorized = granted }
-
+    // 设计稿 1/2/3 流程（唯一真相）：WELCOME（零门禁）→ PRIVACY_PLEDGE（四承诺卡 +
+    // 页脚披露行 + CTA 即整包同意）→ 苏醒。历史实现自创的「5 勾选 + 感知能力页」已按
+    // 设计稿移除；18+ 与「专业判断由人工承担」两个合规门保留为隐私页页脚一行确认
+    // （随 CTA 一并记录，不设勾选框）。撤回能力不變（Me / 数据与感知）。
     var showSafety by rememberSaveable { mutableStateOf(false) }
     var step by rememberSaveable {
         mutableStateOf(
@@ -152,9 +126,9 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
                 onComplete()
                 return@launch
             }
-            // ERA 32 R26：abstain（暂不开启）不再写 granted 同意——
-            // 同意证据只在真正开启采集时产生；旅程页「已关闭」状态如实反映 abstain。
-            if (coreChecks.all { it } && sensingOn) {
+            // 设计稿 2 流程：CTA 即整包同意（隐私页四卡 + 页脚已完整披露）。
+            // 同意证据 = CTA 时刻的 granted 记录；撤回入口保留在「数据与感知」。
+            if (sensingOn) {
                 container.consentRepository.savePassiveSensingConsent(granted = true)
                 container.preferences.setPassiveSensingEnabled(true)
                 container.preferences.consentSyncPending = true
@@ -192,78 +166,41 @@ fun OnboardingScreen(container: AppContainer, onComplete: () -> Unit) {
     OnboardingStepContent(
         state = OnboardingStepState(
             step = step,
-            ageConfirmed = ageConfirmed,
-            boundaryConfirmed = boundaryConfirmed,
-            coreChecks = coreChecks,
-            notifPermAuthorized = notifPermAuthorized,
-            sensorHardwareAvailable = hasCoreSensorHardware(context),
             // V3 §51/§53：Seed ECHO 视觉（与 Awakening/Home 同一 identitySeed）
             seedPresence = remember { com.yunjue.echo.mind.presence.dayZeroSeedPresence(preferences.identitySeed) },
             // UX-B2：Onboarding 视觉尊重「减少动画」（与 EchoVisualSurface 同源偏好）
             reduceMotion = preferences.presenceReduceMotion,
         ),
         actions = OnboardingStepActions(
-            onAgeConfirmed = { ageConfirmed = it },
-            onBoundaryConfirmed = { boundaryConfirmed = it },
-            onCoreCheck = { index, value -> coreChecks = coreChecks.withIndexed(value, index) },
+            onBackToWelcome = {
+                preferences.onboardingState = ""
+                step = OnboardingStep.WELCOME
+            },
             onContinueToPrivacy = {
                 // ERA 32 R26：进入隐私承诺页即持久化进度（进程死亡后从这里恢复，
                 // 不再回到 WELCOME 重来）
                 preferences.onboardingState = AppPreferences.ONBOARDING_CONSENT_PENDING
                 step = OnboardingStep.PRIVACY_PLEDGE
             },
-            onContinueToCoreSensing = { step = OnboardingStep.CORE_SENSING },
             onAwaken = {
-                // 苏醒瞬间锚点（Day-0 SEED 的「已观察 N 分钟」起点）
+                // 苏醒瞬间锚点（Day-0 SEED 的「已观察 N 分钟」起点）；
+                // 隐私页 CTA = 整包同意（页脚 18+ / 人工边界随 CTA 一并记录）。
                 preferences.awakenedAtEpochMs = System.currentTimeMillis()
                 awakening = true
             },
-            onAbstain = { scope.launch { finishOnboarding(sensingOn = false) } },
-            onRequestNotifPermission = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    notifPermAuthorized = true
-                }
-            },
-            onSkipNotifPermission = { notifPermAuthorized = false },
             onOpenSafety = { showSafety = true },
-            // 设计稿 1/2：可选登录入口（无后端时显示一行文本；登录为可选，现状不变）
+            // 设计稿 1/2：已有账号登录入口（可选；未登录时全功能本地可用）
             onOpenLogin = { /* 登录为可选：保留锚点；未登录时全功能本地可用 */ },
         ),
     )
 }
 
-/** ERA 1 Onboarding 三步（DONE / BASELINE_WARMING_UP 已删除）。 */
-enum class OnboardingStep { WELCOME, PRIVACY_PLEDGE, CORE_SENSING }
-
-/**
- * V3 §AV/§BK — 核心能力行类型化状态（结构化真值，取代字符串嗅探）。
- * 「是否就绪」由枚举结构判定；"此设备不可用"（UNAVAILABLE）永远不可能被解析为 ready。
- */
-enum class SensingCapabilityStatus { READY, NOT_GRANTED, UNAVAILABLE }
-
-/** 能力行是否就绪（结构判定：仅 READY；状态文案永远无法反向推断 ready）。 */
-val SensingCapabilityStatus.isReady: Boolean get() = this == SensingCapabilityStatus.READY
-
-/** 能力行状态文案（唯一映射；readyLabel 默认为无需权限文案，通知行传「已开启」）。 */
-fun sensingCapabilityLabelText(
-    status: SensingCapabilityStatus,
-    readyLabel: String = "可用（无需权限）",
-): String = when (status) {
-    SensingCapabilityStatus.READY -> readyLabel
-    SensingCapabilityStatus.NOT_GRANTED -> "未开启（可跳过）"
-    SensingCapabilityStatus.UNAVAILABLE -> "此设备不可用"
-}
+/** 设计稿 1/2/3 — Onboarding 两步（欢迎 → 隐私承诺）；苏醒为过渡而非步骤。 */
+enum class OnboardingStep { WELCOME, PRIVACY_PLEDGE }
 
 /** ERA 38 — Onboarding 步骤纯状态（渲染输入；编排留在 OnboardingScreen）。 */
 data class OnboardingStepState(
     val step: OnboardingStep,
-    val ageConfirmed: Boolean,
-    val boundaryConfirmed: Boolean,
-    val coreChecks: List<Boolean>,
-    val notifPermAuthorized: Boolean,
-    val sensorHardwareAvailable: Boolean,
     /** V3 §51/§53：Seed ECHO（真实 identitySeed 派生；null = 不渲染视觉，测试友好）。 */
     val seedPresence: com.yunjue.echo.mind.model.EchoPresenceState? = null,
     /** UX-B2：减少动画（与 EchoVisualSurface 同源偏好；开启时 seed genome 走 REDUCED 语义）。 */
@@ -272,41 +209,69 @@ data class OnboardingStepState(
 
 /** ERA 38 — Onboarding 步骤回调（state-in / event-out）。 */
 data class OnboardingStepActions(
-    val onAgeConfirmed: (Boolean) -> Unit,
-    val onBoundaryConfirmed: (Boolean) -> Unit,
-    val onCoreCheck: (Int, Boolean) -> Unit,
-    val onContinueToPrivacy: () -> Unit,
-    val onContinueToCoreSensing: () -> Unit,
-    val onAwaken: () -> Unit,
-    val onAbstain: () -> Unit,
-    val onRequestNotifPermission: () -> Unit,
-    val onSkipNotifPermission: () -> Unit,
-    val onOpenSafety: () -> Unit,
-    /** 设计稿 1/2：已有账号登录入口（可选；未登录时全功能本地可用，不强制）。 */
+    val onBackToWelcome: () -> Unit = {},
+    val onContinueToPrivacy: () -> Unit = {},
+    /** 隐私页 CTA（设计稿 2）：= 整包同意 + 苏醒。 */
+    val onAwaken: () -> Unit = {},
+    val onOpenSafety: () -> Unit = {},
+    /** 设计稿 1/2：已有账号登录入口（可选；未登录时全功能本地可用）。 */
     val onOpenLogin: () -> Unit = {},
 )
 
 /**
- * ERA 38 — Onboarding 纯步骤内容（state-in / event-out）。
- * 三步渲染矩阵 + 门禁判定（18+/边界 → 五同意 → 能力行真实状态）；
- * 苏醒过渡 / 安全屏 / 权限 launcher / 服务启动全部在 OnboardingScreen 编排层。
+ * 设计稿 1/2 — Onboarding 纯步骤内容（state-in / event-out）。
+ * WELCOME：字标 + 大标题 + 副句 + 生命体 + CTA + 登录（零勾选）；
+ * PRIVACY_PLEDGE：返回 + 标题「你的数据，只属于你」+ 四承诺卡（可展开细则）+
+ * 页脚披露（含 18+ / 人工边界一行）+ CTA（= 整包同意 + 苏醒）。
  */
 @Composable
 fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepActions) {
-    val allCoreChecked = state.coreChecks.all { it }
     // V3 §50–§53：quiet 全屏场景（无 legacy Page wrapper / 无大 Card）
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Spacer(Modifier.height(20.dp))
         when (state.step) {
             OnboardingStep.WELCOME -> {
-                // §51：Seed ECHO（260–300dp）是主要视觉
+                Spacer(Modifier.height(28.dp))
+                // 设计稿 1：字标
+                Wordmark()
+                Spacer(Modifier.height(48.dp))
+                // 设计稿 1：大标题两行
+                Text(
+                    "每个人都值得，",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "被充分理解。",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "你的个人 AI 伙伴，常驻设备，理解你的日常节律，在恰当的时机，给你恰到好处的支持。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                )
+                Spacer(Modifier.height(16.dp))
+                // Seed ECHO 主视觉 + 星空 + 涟漪（设计稿 1）
                 state.seedPresence?.let { seed ->
                     Box(
-                        Modifier.fillMaxWidth().height(280.dp).testTag("onboarding_visual"),
+                        Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .testTag("onboarding_visual"),
                     ) {
+                        com.yunjue.echo.mind.ui.artwork.StarfieldCanvas(
+                            modifier = Modifier.fillMaxSize(),
+                            maxYFraction = 0.9f,
+                        )
+                        com.yunjue.echo.mind.ui.artwork.RippleRings(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(130.dp)
+                                .align(androidx.compose.ui.Alignment.BottomCenter),
+                        )
                         com.yunjue.echo.mind.presencevisual.EchoOrganism(
                             genome = rememberSeedGenome(seed, state.reduceMotion),
                             modifier = Modifier.fillMaxSize(),
@@ -318,161 +283,197 @@ fun OnboardingStepContent(state: OnboardingStepState, actions: OnboardingStepAct
                         )
                     }
                 }
+                Spacer(Modifier.height(20.dp))
                 // ERA 1 定位句（契约锚点保留：「不会判断情绪/不做心理诊断」，单测锁定）。
                 Text(
                     ONBOARDING_WELCOME_CORE_COPY,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                 )
-                CheckLine(state.ageConfirmed, actions.onAgeConfirmed, "我已年满 18 周岁")
-                CheckLine(state.boundaryConfirmed, actions.onBoundaryConfirmed, "我理解专业判断和危机处置由人工承担")
-                HorizontalDivider()
-                Text("本机使用", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "无需账号和激活码即可开始。画像由手机本机数据生成，数据默认只保存在你的设备里。如需云端同步与专业支持，可稍后在「支持」页订阅（可选）。",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Spacer(Modifier.height(16.dp))
                 EchoGradientButton(
                     onClick = actions.onContinueToPrivacy,
                     text = "开启 ECHO",
-                    enabled = state.ageConfirmed && state.boundaryConfirmed,
                     modifier = Modifier.fillMaxWidth(),
                     contentDescription = "开启 ECHO",
                 )
-                // 设计稿 1/2：已有账号入口（可选登录，不强制；保留现状无强制同步）
+                // 设计稿 1：登录入口（居中）
                 TextButton(
                     onClick = actions.onOpenLogin,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
                 ) {
                     Text(
                         text = "已有账号？登录 ›",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     )
                 }
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety, copy = EMERGENCY_HINT_COPY)
             }
 
             OnboardingStep.PRIVACY_PLEDGE -> {
-                Text("隐私承诺", style = MaterialTheme.typography.titleMedium)
-                // ERA 1 三句承诺（Master Prompt PART 63 / 产品宪法 §3）
-                Text(
-                    "ECHO 的承诺只有三句话：\n\n" +
-                        "1. 原始数据不离开设备。原始传感器数据只在本机处理，不保存、不上传。\n" +
-                        "2. 你随时可以暂停。所有同意都可以随时撤回，撤回后 ECHO 停止学习。\n" +
-                        "3. ECHO 不会因为一个行为就定义你的心理状态。它只做行为观察，不做心理诊断。",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                HorizontalDivider()
-                Text("需要你同意的数据处理", style = MaterialTheme.typography.titleSmall)
-                CheckLine(
-                    state.coreChecks[0], { actions.onCoreCheck(0, it) },
-                    "授权 ECHO 在后台采集加速度 / 陀螺仪等运动传感器数据，用于了解你一天的移动与作息节奏。"
-                )
-                CheckLine(
-                    state.coreChecks[1], { actions.onCoreCheck(1, it) },
-                    "传感器数据只在本机处理成行为摘要（如移动量、屏幕使用时长、应用切换次数），原始传感器数据不落盘、不上传。"
-                )
-                CheckLine(
-                    state.coreChecks[2], { actions.onCoreCheck(2, it) },
-                    "ECHO 会用你过去几天的数据学习「通常的你」，形成个人基线。"
-                )
-                CheckLine(
-                    state.coreChecks[3], { actions.onCoreCheck(3, it) },
-                    "每天生成「今天的你 vs 通常的你」的画像描述，只做行为观察，不做心理诊断。"
-                )
-                CheckLine(
-                    state.coreChecks[4], { actions.onCoreCheck(4, it) },
-                    "你可以随时撤回同意、申请导出或删除数据；撤回后 ECHO 停止学习。"
-                )
-                if (!allCoreChecked) {
-                    // §52：CTA disabled + 中性提示；不要 red blame message
-                    Text(
-                        "完成以上同意后即可继续；不授权则无法生成每日画像。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
-                    )
+                Spacer(Modifier.height(20.dp))
+                // 设计稿 2：返回箭头
+                IconButton(onClick = actions.onBackToWelcome, modifier = Modifier.size(40.dp)) {
+                    Text("←", style = MaterialTheme.typography.titleLarge)
                 }
+                Spacer(Modifier.height(4.dp))
+                Wordmark()
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "你的数据，只属于你",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "ECHO 默认在设备内理解你",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                )
+                Spacer(Modifier.height(20.dp))
+                // 设计稿 2：四承诺卡（细线图标 + 标题 + 描述 + chevron；点按展开细则，无死链）
+                PrivacyPledgeCard(
+                    icon = com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType.HOME,
+                    tint = Color(0xFF34D399),
+                    title = "本地优先",
+                    description = "数据主要在你的设备本地处理",
+                    detail = "原始传感器数据只在本机处理成行为摘要（如移动量、屏幕使用时长、应用切换次数），不保存、不上传。",
+                    tag = "privacy_card_local",
+                )
+                PrivacyPledgeCard(
+                    icon = com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType.LOCK,
+                    tint = Color(0xFF38BDF8),
+                    title = "最小化记录",
+                    description = "只保留必要的派生特征，不保存原始流",
+                    detail = "画像只依据派生特征（节律/分布/次数）生成；原始传感器流不落盘。",
+                    tag = "privacy_card_minimal",
+                )
+                PrivacyPledgeCard(
+                    icon = com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType.PERSON,
+                    tint = Color(0xFF818CF8),
+                    title = "你完全掌控",
+                    description = "可随时暂停、导出、删除",
+                    detail = "你随时可以暂停、撤回同意、申请导出或删除数据；撤回后 ECHO 停止学习。",
+                    tag = "privacy_card_control",
+                )
+                PrivacyPledgeCard(
+                    icon = com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType.HISTORY,
+                    tint = Color(0xFFA855F7),
+                    title = "随时可撤回",
+                    description = "权限可以稍后再开",
+                    detail = "通知等权限可以稍后再开；全部授权入口都在「Me / 数据与感知」。",
+                    tag = "privacy_card_revoke",
+                )
+                Spacer(Modifier.height(24.dp))
+                // 设计稿 2：页脚披露行（CTA 即同意）
+                Text(
+                    "继续即表示你同意《隐私政策》与《用户协议》",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                // 合规保留：18+ 与「专业判断/危机处置由人工承担」随 CTA 一并确认（无勾选框）
+                Text(
+                    "继续即确认你已年满 18 周岁，并理解专业判断和危机处置由人工承担。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 4.dp),
+                )
+                Spacer(Modifier.height(12.dp))
                 EchoGradientButton(
-                    onClick = actions.onContinueToCoreSensing,
+                    onClick = actions.onAwaken,
                     text = "我理解了，继续",
-                    enabled = allCoreChecked,
                     modifier = Modifier.fillMaxWidth(),
                     contentDescription = "我理解了，继续",
                 )
                 OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
 
-            OnboardingStep.CORE_SENSING -> {
-                // §53：Seed ECHO 约 210–240dp
-                state.seedPresence?.let { seed ->
-                    Box(
-                        Modifier.fillMaxWidth().height(224.dp).testTag("onboarding_visual"),
-                    ) {
-                        com.yunjue.echo.mind.presencevisual.EchoOrganism(
-                            genome = rememberSeedGenome(seed, state.reduceMotion),
-                            modifier = Modifier.fillMaxSize(),
-                            maturityName = seed.maturity.name,
-                            options = com.yunjue.echo.mind.visual.render.OrganismFrameComputer.EchoRenderOptions(
-                                maturityName = seed.maturity.name,
-                                reducedMotion = state.reduceMotion,
-                            ),
-                        )
-                    }
+/** 设计稿 1/2：ECHO Mind 字标（ECHO 加粗字距 + Mind 细体）。 */
+@Composable
+private fun Wordmark() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "ECHO",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 4.sp,
+        )
+        Text(
+            " Mind",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Light,
+        )
+    }
+}
+
+/**
+ * 设计稿 2 — 隐私承诺卡：圆形细线图标徽章 + 标题 + 描述 + chevron；
+ * 点按展开实施细则（真实数据处理披露，不设死链）。
+ */
+@Composable
+private fun PrivacyPledgeCard(
+    icon: com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType,
+    tint: Color,
+    title: String,
+    description: String,
+    detail: String,
+    tag: String,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF0E1426))
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .testTag(tag),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(22.dp)) {
+                    drawPrivacyLineIcon(type = icon, color = tint)
                 }
-                Text("让 ECHO 开始了解你", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "ECHO 只需要最少的权限就能开始工作。以下核心能力已就绪；" +
-                        "更多信息（应用使用情况、通知使用权、麦克风）可以在之后逐步开启。",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                HorizontalDivider()
-                // ERA 1 + V3 §AV/§BK：核心能力行以系统真实状态为唯一事实来源，
-                // 状态经类型化枚举传入（sensor 硬件真值 / screen 恒可用 / notification 授权真值）。
-                SensingCapabilityRow(
-                    name = "运动传感器（加速度 / 陀螺仪）",
-                    description = "用于了解移动与作息节奏。这是 ECHO 的核心，无需系统权限。",
-                    status = if (state.sensorHardwareAvailable) {
-                        SensingCapabilityStatus.READY
-                    } else {
-                        SensingCapabilityStatus.UNAVAILABLE
-                    },
-                )
-                SensingCapabilityRow(
-                    name = "屏幕状态",
-                    description = "用于了解一天中的屏幕使用分布。无需额外权限。",
-                    status = SensingCapabilityStatus.READY,
-                )
-                SensingCapabilityRow(
-                    name = "持续运行通知",
-                    description = "后台了解期间显示常驻通知，让你随时看到 ECHO 正在工作（Android 13+ 需授权）。拒绝后了解仍会继续，但通知不可见。",
-                    status = if (state.notifPermAuthorized) {
-                        SensingCapabilityStatus.READY
-                    } else {
-                        SensingCapabilityStatus.NOT_GRANTED
-                    },
-                    readyLabel = "已开启",
-                    onAuthorize = actions.onRequestNotifPermission,
-                    onSkip = actions.onSkipNotifPermission
-                )
-                HorizontalDivider()
-                Text(
-                    "ECHO 会安静地在后台了解你的日常节奏，不会打扰你。",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                // ERA 1：主 CTA = 苏醒（设计稿 3，渐变主按钮）
-                EchoGradientButton(
-                    onClick = actions.onAwaken,
-                    text = "开启 ECHO",
-                    modifier = Modifier.fillMaxWidth(),
-                    contentDescription = "开启 ECHO 开始苏醒",
-                )
-                // 拒绝 = abstain（不阻断离开）：不启动感知，直接进入应用
-                TextButton(
-                    onClick = actions.onAbstain,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) { Text("暂不开启") }
-                OnboardingEmergencyEntry(onOpenSafety = actions.onOpenSafety)
             }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                )
+                if (expanded) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (expanded) "⌃" else "›",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
         }
     }
 }
@@ -542,8 +543,25 @@ private fun AwakeningScreen(preferences: AppPreferences, onFinished: () -> Unit)
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color(0xFFE8ECF5).copy(alpha = timeline.headlineAlpha),
             )
-            // V3 §54 / 设计稿图3：进度条 + 阶段文案 + 前台提示（真实时间驱动，非假数值）
+            // V3 §54 / 设计稿图3：图形化进度条 + 百分比 + 阶段文案 + 前台提示（真实时间驱动，非假数值）
             val progressPct = (elapsedMs.toFloat() / AWAKENING_DURATION_MS.toFloat() * 100f).toInt().coerceIn(0, 100)
+            Box(
+                Modifier
+                    .fillMaxWidth(0.66f)
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF232C44)),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(progressPct / 100f)
+                        .height(6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFF38BDF8)))
+                        ),
+                )
+            }
             Text(
                 "$progressPct%  ·  正在生成你的第一份数字生命",
                 style = MaterialTheme.typography.bodyMedium,
@@ -591,74 +609,9 @@ private fun ColumnScope.OnboardingEmergencyEntry(
     }
 }
 
-/** 能力行：能力名 + 说明 + 类型化真实状态（§AV/§BK）+ 可选授权/跳过。 */
-@Composable
-private fun SensingCapabilityRow(
-    name: String,
-    description: String,
-    status: SensingCapabilityStatus,
-    readyLabel: String = "可用（无需权限）",
-    onAuthorize: (() -> Unit)? = null,
-    onSkip: (() -> Unit)? = null
-) {
-    // §53：quiet row（small status point；optional 未授权 = neutral，无红色失败语义）
-    // §AV/§BK：ready 由枚举结构判定（isReady），禁止字符串嗅探。
-    val statusText = sensingCapabilityLabelText(status, readyLabel)
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (status.isReady) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f),
-                        ),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(name, style = MaterialTheme.typography.titleSmall)
-            }
-            Text(
-                statusText,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-            )
-        }
-        Text(description, style = MaterialTheme.typography.bodySmall)
-        if (onAuthorize != null || onSkip != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                onAuthorize?.let {
-                    Button(onClick = it) { Text("授权") }
-                }
-                onSkip?.let {
-                    OutlinedButton(onClick = it) { Text("跳过") }
-                }
-            }
-        }
-        HorizontalDivider()
-    }
-}
-
 /** 定位核心句（ERA 1 文案；单测锚点：必须含「不会判断情绪/不做心理诊断」契约句）。 */
 internal const val ONBOARDING_WELCOME_CORE_COPY =
     "ECHO 会安静地生活在你的手机里，慢慢认识属于你的生活节律。它会告诉你今天和平常的自己有什么不同。它不会判断你的情绪，也不会做心理诊断。"
 
 /** 紧急入口常驻文案（单测锚点）。 */
 internal const val EMERGENCY_HINT_COPY = "存在立即危险时，请直接联系身边可信任的人、110 或 120。"
-
-@Composable
-private fun CheckLine(checked: Boolean, onChecked: (Boolean) -> Unit, label: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Checkbox(checked, onChecked)
-        Text(label, modifier = Modifier.weight(1f))
-    }
-}
-
-/** List<Boolean> 便捷更新（核心同意勾选按索引更新）。 */
-private fun List<Boolean>.withIndexed(value: Boolean, index: Int): List<Boolean> =
-    mapIndexed { i, v -> if (i == index) value else v }

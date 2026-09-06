@@ -1,21 +1,15 @@
 package com.yunjue.echo.mind.ui
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -24,10 +18,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * ERA 38 — OnboardingStepContent 三步渲染矩阵 smoke test：
- * WELCOME（契约句/18+/边界门禁/紧急入口）/ PRIVACY_PLEDGE（三句承诺/五同意门禁）/
- * CORE_SENSING（能力行真实状态/授权·跳过回调/苏醒 CTA/abstain 入口）。
- * 纯状态渲染（编排与权限 launcher 在 OnboardingScreen）。
+ * 设计稿 1/2/3 — OnboardingStepContent 两步渲染矩阵 smoke test：
+ * WELCOME（字标/大标题/零勾选/紧急入口/CTA 直通隐私页）/
+ * PRIVACY_PLEDGE（四承诺卡/页脚披露行/CTA=整包同意+苏醒）。
+ * 设计稿即唯一真相：无 5 勾选页、无感知能力页、无 abstain 文案。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -55,13 +49,13 @@ class OnboardingStepContentSmokeTest {
         assertTrue("AWAKENING_DURATION_MS 超出 Time-to-ECHO 预算", AWAKENING_DURATION_MS <= 3000L)
     }
 
-    /** V3 §AW/§BL：步骤枚举结构性锁定——无 DONE、无 enhanced optional permission wall 步骤。 */
+    /** 设计稿流程结构性锁定：恰为两步（欢迎 + 隐私承诺）；苏醒为过渡；无 DONE、无勾选页。 */
     @Test
-    fun onboardingStepsExactlyWelcomePrivacyCoreSensing() {
+    fun onboardingStepsExactlyWelcomeAndPrivacy() {
         val names = OnboardingStep.entries.map { it.name }.toSet()
         assertEquals(
-            "Onboarding 步骤必须恰为三步（不得回归 DONE / 可选权限墙）",
-            setOf("WELCOME", "PRIVACY_PLEDGE", "CORE_SENSING"),
+            "Onboarding 步骤必须恰为设计稿两步（WELCOME / PRIVACY_PLEDGE）",
+            setOf("WELCOME", "PRIVACY_PLEDGE"),
             names,
         )
     }
@@ -69,45 +63,21 @@ class OnboardingStepContentSmokeTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun state(
-        step: OnboardingStep = OnboardingStep.WELCOME,
-        ageConfirmed: Boolean = false,
-        boundaryConfirmed: Boolean = false,
-        coreChecks: List<Boolean> = listOf(false, false, false, false, false),
-        notifPermAuthorized: Boolean = false,
-        sensorHardwareAvailable: Boolean = true,
-    ) = OnboardingStepState(
-        step = step,
-        ageConfirmed = ageConfirmed,
-        boundaryConfirmed = boundaryConfirmed,
-        coreChecks = coreChecks,
-        notifPermAuthorized = notifPermAuthorized,
-        sensorHardwareAvailable = sensorHardwareAvailable,
-    )
+    private fun state(step: OnboardingStep = OnboardingStep.WELCOME) = OnboardingStepState(step = step)
 
     private class Recorder {
-        val age = mutableListOf<Boolean>()
-        val boundary = mutableListOf<Boolean>()
-        val core = mutableListOf<Pair<Int, Boolean>>()
         val privacy = mutableListOf<Boolean>()
-        val sensing = mutableListOf<Boolean>()
         val awaken = mutableListOf<Boolean>()
-        val abstain = mutableListOf<Boolean>()
-        val notifRequest = mutableListOf<Boolean>()
-        val notifSkip = mutableListOf<Boolean>()
+        val back = mutableListOf<Boolean>()
         val safety = mutableListOf<Boolean>()
+        val login = mutableListOf<Boolean>()
 
         fun actions() = OnboardingStepActions(
-            onAgeConfirmed = { age += it },
-            onBoundaryConfirmed = { boundary += it },
-            onCoreCheck = { i, v -> core += i to v },
+            onBackToWelcome = { back += true },
             onContinueToPrivacy = { privacy += true },
-            onContinueToCoreSensing = { sensing += true },
             onAwaken = { awaken += true },
-            onAbstain = { abstain += true },
-            onRequestNotifPermission = { notifRequest += true },
-            onSkipNotifPermission = { notifSkip += true },
             onOpenSafety = { safety += true },
+            onOpenLogin = { login += true },
         )
     }
 
@@ -120,117 +90,65 @@ class OnboardingStepContentSmokeTest {
     }
 
     @Test
-    fun welcomeCopyAnchorsRendered() {
-        setContent(state(), Recorder())
+    fun welcomeRendersDesignOneLayoutWithZeroCheckboxes() {
+        val recorder = Recorder()
+        setContent(state(), recorder)
+        // 设计稿 1：大标题 / 副标题句 / 定位契约句 / CTA / 登录 / 紧急入口
+        compose.onNodeWithText("每个人都值得，").assertExists()
+        compose.onNodeWithText("被充分理解。").assertExists()
         compose.onNodeWithText(ONBOARDING_WELCOME_CORE_COPY).assertExists()
         compose.onNodeWithText(EMERGENCY_HINT_COPY).assertExists()
+        compose.onNodeWithText("开启 ECHO").assertExists()
+        compose.onNodeWithText("已有账号？登录 ›").assertExists()
+        // 零勾选框、零「本机使用」自创区块、零感知能力页文案
+        compose.onNodeWithText("我已年满 18 周岁").assertDoesNotExist()
+        compose.onNodeWithText("本机使用").assertDoesNotExist()
+        compose.onNodeWithText("让 ECHO 开始了解你").assertDoesNotExist()
     }
 
     @Test
-    fun welcomeStartGatedUntilBothChecks() {
+    fun welcomeCtaGoesStraightToPrivacy() {
         val recorder = Recorder()
-        var age by mutableStateOf(false)
-        var boundary by mutableStateOf(false)
-        compose.setContent {
-            MaterialTheme {
-                OnboardingStepContent(
-                    state = state(ageConfirmed = age, boundaryConfirmed = boundary),
-                    actions = recorder.actions(),
-                )
-            }
-        }
-        // WELCOME 主 CTA 为渐变按钮「开启 ECHO」（设计稿统一文案；禁用态保留 OnClick + Enabled=false）
-        compose.onNode(hasClickAction() and hasText("开启 ECHO")).assertIsNotEnabled()
-        compose.onAllNodes(isToggleable())[0].performClick()
-        compose.onAllNodes(isToggleable())[1].performClick()
-        compose.runOnIdle { age = true; boundary = true }
+        setContent(state(), recorder)
         compose.onNode(hasClickAction() and hasText("开启 ECHO")).performClick()
         assertTrue(recorder.privacy.isNotEmpty())
-        assertEquals(listOf(true), recorder.age)
-        assertEquals(listOf(true), recorder.boundary)
     }
 
     @Test
-    fun privacyPledgeCopyAndFiveCheckGate() {
+    fun privacyRendersFourPledgeCardsAndDisclosureFooter() {
         val recorder = Recorder()
-        var checks by mutableStateOf(listOf(false, false, false, false, false))
-        compose.setContent {
-            MaterialTheme {
-                OnboardingStepContent(
-                    state = state(step = OnboardingStep.PRIVACY_PLEDGE, coreChecks = checks),
-                    actions = recorder.actions(),
-                )
-            }
-        }
-        compose.onNodeWithText("ECHO 的承诺只有三句话：", substring = true).assertExists()
-        // PRIVACY_PLEDGE 主 CTA 为「我理解了，继续」（设计稿统一文案）
-        compose.onNode(hasClickAction() and hasText("我理解了，继续")).performScrollTo().assertIsNotEnabled()
-        compose.onAllNodes(isToggleable())[0].performScrollTo().performClick()
-        compose.runOnIdle { checks = listOf(true, true, true, true, true) }
+        setContent(state(OnboardingStep.PRIVACY_PLEDGE), recorder)
+        compose.onNodeWithText("你的数据，只属于你").assertExists()
+        compose.onNodeWithText("本地优先").assertExists()
+        compose.onNodeWithText("最小化记录").assertExists()
+        compose.onNodeWithText("你完全掌控").assertExists()
+        compose.onNodeWithText("随时可撤回").assertExists()
+        compose.onNodeWithText("继续即表示你同意《隐私政策》与《用户协议》").assertExists()
+        compose.onNodeWithText("我理解了，继续").assertExists()
+    }
+
+    @Test
+    fun privacyCtaIsBundleConsentAndAwaken() {
+        val recorder = Recorder()
+        setContent(state(OnboardingStep.PRIVACY_PLEDGE), recorder)
         compose.onNode(hasClickAction() and hasText("我理解了，继续")).performScrollTo().performClick()
-        assertTrue(recorder.sensing.isNotEmpty())
-    }
-
-    @Test
-    fun coreSensingRowsRenderTruthAndCallbacks() {
-        val recorder = Recorder()
-        setContent(state(step = OnboardingStep.CORE_SENSING, sensorHardwareAvailable = true), recorder)
-        // 运动传感器 + 屏幕状态两行均为「可用（无需权限）」（类型化 READY）
-        compose.onAllNodesWithText("可用（无需权限）").assertCountEquals(2)
-        compose.onNodeWithText("未开启（可跳过）").assertExists()
-        compose.onNode(hasClickAction() and hasText("授权")).performScrollTo().performClick()
-        compose.onNode(hasClickAction() and hasText("跳过")).performScrollTo().performClick()
-        assertEquals(listOf(true), recorder.notifRequest)
-        assertEquals(listOf(true), recorder.notifSkip)
-    }
-
-    @Test
-    fun notificationAuthorizedRowShowsReadyLabel() {
-        // §AV/§BK：通知行授权后为 READY（文案「已开启」，非通用 ready 文案）
-        setContent(state(step = OnboardingStep.CORE_SENSING, notifPermAuthorized = true), Recorder())
-        compose.onNodeWithText("已开启").performScrollTo().assertExists()
-        compose.onNodeWithText("未开启（可跳过）").assertDoesNotExist()
-    }
-
-    @Test
-    fun unavailableNeverReady() {
-        // §AV/§BK 结构回归：「此设备不可用」永远不可能被判定为 ready——
-        // ready 由 SensingCapabilityStatus 枚举结构判定（isReady），状态文案是唯一映射的输出。
-        assertTrue(SensingCapabilityStatus.READY.isReady)
-        assertFalse(SensingCapabilityStatus.NOT_GRANTED.isReady)
-        assertFalse(SensingCapabilityStatus.UNAVAILABLE.isReady)
-        assertEquals("可用（无需权限）", sensingCapabilityLabelText(SensingCapabilityStatus.READY))
-        assertEquals("已开启", sensingCapabilityLabelText(SensingCapabilityStatus.READY, "已开启"))
-        assertEquals("未开启（可跳过）", sensingCapabilityLabelText(SensingCapabilityStatus.NOT_GRANTED))
-        assertEquals("此设备不可用", sensingCapabilityLabelText(SensingCapabilityStatus.UNAVAILABLE))
-        // 任意 readyLabel 都无法改变 UNAVAILABLE 的输出（映射与输入标签无关）
-        assertEquals("此设备不可用", sensingCapabilityLabelText(SensingCapabilityStatus.UNAVAILABLE, "已开启"))
-    }
-
-    @Test
-    fun sensorUnavailableShowsTruth() {
-        setContent(state(step = OnboardingStep.CORE_SENSING, sensorHardwareAvailable = false), Recorder())
-        compose.onNodeWithText("此设备不可用").performScrollTo().assertExists()
-        // 传感器不可用时仅屏幕行保持 ready 文案（结构上 UNAVAILABLE ≠ ready）
-        compose.onAllNodesWithText("可用（无需权限）").assertCountEquals(1)
-    }
-
-    @Test
-    fun awakenAndAbstainCallbacksFire() {
-        val recorder = Recorder()
-        setContent(state(step = OnboardingStep.CORE_SENSING), recorder)
-        // CORE_SENSING 主 CTA（苏醒）为渐变按钮「开启 ECHO」；次级「暂不开启」= abstain
-        compose.onNode(hasClickAction() and hasText("开启 ECHO")).performScrollTo().performClick()
-        compose.onNode(hasClickAction() and hasText("暂不开启")).performScrollTo().performClick()
         assertEquals(listOf(true), recorder.awaken)
-        assertEquals(listOf(true), recorder.abstain)
+    }
+
+    @Test
+    fun privacyBackReturnsToWelcome() {
+        val recorder = Recorder()
+        setContent(state(OnboardingStep.PRIVACY_PLEDGE), recorder)
+        compose.onNodeWithText("←").performClick()
+        assertTrue(recorder.back.isNotEmpty())
     }
 
     @Test
     fun emergencyEntryFiresOnEveryStep() {
         val recorder = Recorder()
-        setContent(state(step = OnboardingStep.CORE_SENSING), recorder)
-        compose.onNode(hasClickAction() and hasText("紧急支持")).performScrollTo().performClick()
+        setContent(state(), recorder)
+        // 欢迎页紧急入口按钮文案 = 长提示句（EMERGENCY_HINT_COPY）
+        compose.onNode(hasClickAction() and hasText(EMERGENCY_HINT_COPY)).performScrollTo().performClick()
         assertEquals(listOf(true), recorder.safety)
     }
 }
