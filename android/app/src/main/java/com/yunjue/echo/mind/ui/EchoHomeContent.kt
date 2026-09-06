@@ -1,8 +1,11 @@
 package com.yunjue.echo.mind.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import com.yunjue.echo.mind.ui.artwork.drawGrowthLineIcon
+import com.yunjue.echo.mind.ui.artwork.drawPrivacyLineIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,6 +81,8 @@ internal fun EchoHomeContent(
     val portrait = state.portrait
     // §AD：WHY 内联展开状态（1 tap 展开证据；无 sheet）
     var whyOpen by remember { mutableStateOf(false) }
+    // 设计稿 4：Day-0 问候态（SEED 且无基线=第一天；随真实基线生成退出）
+    val dayZero = uiState.maturity == com.yunjue.echo.mind.model.EchoMaturity.SEED && uiState.baselineDays <= 0
 
     Column(Modifier.fillMaxSize()) {
         // 1. 视觉区（第一眼是 ECHO；testTag: echo_scene_visual）
@@ -102,110 +113,257 @@ internal fun EchoHomeContent(
                 onDismiss = feedbackActions.onDismissWallpaperPrompt,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+            // 设计稿 5 顶栏（overlay：字标+波形居中 / 头像+在线绿点居右；不改布局流）
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "ECHO",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = 3.sp,
+                )
+                Spacer(Modifier.width(6.dp))
+                val waveformColor = MaterialTheme.colorScheme.primary
+                Canvas(modifier = Modifier.size(16.dp)) {
+                    drawGrowthLineIcon(
+                        type = com.yunjue.echo.mind.ui.artwork.GrowthLineIconType.WAVEFORM,
+                        color = waveformColor,
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 16.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1A2438))
+                    .clickable { navigation.onGoToMe }
+                    .testTag("echo_topbar_avatar"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(modifier = Modifier.size(16.dp)) {
+                    drawPrivacyLineIcon(
+                        type = com.yunjue.echo.mind.ui.artwork.PrivacyLineIconType.PERSON,
+                        color = Color(0xFFB9C0D4),
+                    )
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF34D399)),
+                )
+            }
         }
 
         // 视觉区以下（narrative + Why/Ask/Action）允许滚动（§79：fontScale 1.5 不裁剪信息）
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            // 2. narrative（左右 24dp；testTag: echo_scene_narrative）
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .testTag(ECHO_SCENE_TAG_NARRATIVE),
-            ) {
-                Text(
-                    "今天 · ${rememberTodayMd()}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
-                )
-                Spacer(Modifier.height(6.dp))
-                val narrative = resolveSceneNarrative(uiState, portrait)
-                Text(
-                    narrative.headline,
-                    fontSize = 22.sp,
-                    lineHeight = 29.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                narrative.secondary?.let {
-                    Spacer(Modifier.height(4.dp))
+            if (dayZero) {
+                // ===== 设计稿 4：Day-0 问候态（唯一真相：首日无画像，只有问候与了解卡）=====
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .testTag(ECHO_SCENE_TAG_NARRATIVE),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        it,
+                        "你好，我是你的 ECHO",
+                        fontSize = 24.sp,
+                        lineHeight = 32.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "今天是我们认识的第一天",
                         fontSize = 15.sp,
-                        lineHeight = 21.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                            .background(Color(0xE60E1426))
+                            .padding(20.dp)
+                            .testTag("echo_day0_card"),
+                    ) {
+                        Column {
+                            Text(
+                                "我目前了解：",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            val lines = listOf(
+                                Color(0xFF38BDF8) to "还在学习你的日常习惯",
+                                Color(0xFF22D3EE) to "需要更多的时间和模式",
+                                Color(0xFF8F7CF0) to "建立我们的共同语言",
+                                Color(0xFF34D399) to "让我们一起慢慢了解彼此",
+                            )
+                            lines.forEach { (dotColor, line) ->
+                                androidx.compose.foundation.layout.Row(
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 5.dp),
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(dotColor),
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        line,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            // 成长进度（真实：基线天数 / 28 天基线窗口；Day-0 = 0%，不编造设计稿的 3%）
+                            val pct = ((uiState.baselineDays * 100) / 28).coerceIn(0, 100)
+                            androidx.compose.foundation.layout.Row(
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .weight(1f)
+                                        .height(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF232C44)),
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth(pct / 100f)
+                                            .height(6.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    listOf(Color(0xFF7C3AED), Color(0xFF38BDF8))
+                                                )
+                                            ),
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    "$pct%",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 2. narrative（左右 24dp；testTag: echo_scene_narrative）
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .testTag(ECHO_SCENE_TAG_NARRATIVE),
+                ) {
+                    Text(
+                        "今天 · ${rememberTodayMd()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    val narrative = resolveSceneNarrative(uiState, portrait)
+                    Text(
+                        narrative.headline,
+                        fontSize = 22.sp,
+                        lineHeight = 29.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    narrative.secondary?.let {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            it,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        )
+                    }
+                    // SENSING_DISABLED / ERROR：真实动作（re-enable / retry secondary）
+                    when (portrait.status) {
+                        PortraitStatus.SENSING_DISABLED -> TextButton(
+                            onClick = coreActions.onReEnableSensing,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) { Text(PORTRAIT_COPY_REENABLE) }
+                        PortraitStatus.ERROR -> TextButton(
+                            onClick = coreActions.onRetryPortrait,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) { Text(PORTRAIT_COPY_RETRY) }
+                        PortraitStatus.READY -> UnlockBanner(
+                            consumeUnlocked = coreActions.onConsumeUnlocked,
+                            state = portrait,
+                        )
+                        else -> Unit
+                    }
+                    // 感知状态透明（非 ACTIVE 才可见；安静文案，无卡片）
+                    EchoStatusOverlay(
+                        sensing = uiState.sensing,
+                        onGoToMe = navigation.onGoToMe,
                     )
                 }
-                // SENSING_DISABLED / ERROR：真实动作（re-enable / retry secondary）
-                when (portrait.status) {
-                    PortraitStatus.SENSING_DISABLED -> TextButton(
-                        onClick = coreActions.onReEnableSensing,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) { Text(PORTRAIT_COPY_REENABLE) }
-                    PortraitStatus.ERROR -> TextButton(
-                        onClick = coreActions.onRetryPortrait,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) { Text(PORTRAIT_COPY_RETRY) }
-                    PortraitStatus.READY -> UnlockBanner(
-                        consumeUnlocked = coreActions.onConsumeUnlocked,
-                        state = portrait,
+
+                Spacer(Modifier.height(10.dp))
+
+                // 3. Why（48dp touch target；§AD 1-tap 内联证据；testTag: echo_scene_why）
+                TextButton(
+                    onClick = { whyOpen = !whyOpen },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .heightIn(min = 48.dp)
+                        .testTag(ECHO_SCENE_TAG_WHY),
+                ) { Text(PORTRAIT_COPY_SECTION_WHY) }
+                AnimatedVisibility(whyOpen) {
+                    EchoInlineEvidence(
+                        uiState = uiState,
+                        portrait = portrait,
+                        feedbackActions = feedbackActions,
+                        onGoToJourney = navigation.onGoToJourney,
                     )
-                    else -> Unit
                 }
-                // 感知状态透明（非 ACTIVE 才可见；安静文案，无卡片）
-                EchoStatusOverlay(
-                    sensing = uiState.sensing,
-                    onGoToMe = navigation.onGoToMe,
+
+                // 3.5 V3 §AK — 设计稿图5 三指标卡（情绪/能量/专注）。
+                // 阶段 2：注入真实行为派生值（情绪/能量/专注）。
+                Spacer(Modifier.height(12.dp))
+                StatusCardsRow(
+                    emotion = mapEmotion(uiState.derivedBehavior.emotion),
+                    energy = mapEnergy(uiState.derivedBehavior.energy),
+                    focus = mapFocus(uiState.derivedBehavior.focus),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .testTag("echo_scene_status_cards"),
+                )
+                Spacer(Modifier.height(14.dp))
+
+                // 4. Ask（§AF 1-tap 全屏目的地；设计稿图5 渐变主按钮 "✦ 问 ECHO"）。
+                // V3 §AJ：紫→青蓝渐变胶囊（#7C3AED → #38BDF8），保留 testTag。
+                EchoGradientButton(
+                    onClick = onOpenAsk,
+                    text = "问 ECHO",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(ECHO_SCENE_TAG_ASK),
+                    contentDescription = "问 ECHO",
                 )
             }
-
-            Spacer(Modifier.height(10.dp))
-
-            // 3. Why（48dp touch target；§AD 1-tap 内联证据；testTag: echo_scene_why）
-            TextButton(
-                onClick = { whyOpen = !whyOpen },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .heightIn(min = 48.dp)
-                    .testTag(ECHO_SCENE_TAG_WHY),
-            ) { Text(PORTRAIT_COPY_SECTION_WHY) }
-            AnimatedVisibility(whyOpen) {
-                EchoInlineEvidence(
-                    uiState = uiState,
-                    portrait = portrait,
-                    feedbackActions = feedbackActions,
-                    onGoToJourney = navigation.onGoToJourney,
-                )
-            }
-
-            // 3.5 V3 §AK — 设计稿图5 三指标卡（情绪/能量/专注）。
-            // 阶段 2：注入真实行为派生值（情绪/能量/专注）。
-            Spacer(Modifier.height(12.dp))
-            StatusCardsRow(
-                emotion = mapEmotion(uiState.derivedBehavior.emotion),
-                energy = mapEnergy(uiState.derivedBehavior.energy),
-                focus = mapFocus(uiState.derivedBehavior.focus),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .testTag("echo_scene_status_cards"),
-            )
-            Spacer(Modifier.height(14.dp))
-
-            // 4. Ask（§AF 1-tap 全屏目的地；设计稿图5 渐变主按钮 "✦ 问 ECHO"）。
-            // V3 §AJ：紫→青蓝渐变胶囊（#7C3AED → #38BDF8），保留 testTag。
-            EchoGradientButton(
-                onClick = onOpenAsk,
-                text = "问 ECHO",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(ECHO_SCENE_TAG_ASK),
-                contentDescription = "问 ECHO",
-            )
 
             // 5. §AG：降级行动入口（Ask 之下 quiet 展开区；空 actions 不渲染）
             EchoActionEntry(

@@ -34,12 +34,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yunjue.echo.mind.ui.artwork.SmartMapIconType
+import com.yunjue.echo.mind.ui.artwork.drawSmartMapIcon
 
 /** 智能地图节点。 */
 data class SmartMapNode(
@@ -48,12 +51,12 @@ data class SmartMapNode(
     val enabled: Boolean = true,
 )
 
-/** 智能地图设备/提供方真实数据。 */
+/** 智能地图设备/提供方真实数据（默认值为弃权语义；真实值由 MeScreen 从 AiProviderManager/可穿戴状态注入）。 */
 data class SmartMapDevices(
     val connectedCount: Int = 0,
-    val providerName: String = "本地模型",
-    val providerLocation: String = "本地运行中",
-    val privacyNote: String = "设备端运行保护隐私",
+    val providerName: String = "未配置",
+    val providerLocation: String = "—",
+    val privacyNote: String = "未连接外部模型服务",
 )
 
 /** 快速管理入口（testTag 承载 me_entry_* 锚点，语义不变）。 */
@@ -235,36 +238,63 @@ private fun SmartMapCanvas(nodes: List<SmartMapNode>) {
             style = Stroke(width = 1f),
         )
 
-        // 节点位置（上 / 右 / 下 / 左）
+        // 节点位置（上 / 右 / 下 / 左）；配色对齐设计稿 10（青/品红/紫/橙）
         val nodeOffsets = listOf(
             Offset(cx, cy - orbitRadius), // 上
             Offset(cx + orbitRadius, cy), // 右
             Offset(cx, cy + orbitRadius), // 下
             Offset(cx - orbitRadius, cy), // 左
         )
-        val nodeColor = Color(0xFF38BDF8)
-        // 连线（中心 → 节点）
+        val nodeColors = listOf(
+            Color(0xFF22D3EE), // 感知世界 — 青
+            Color(0xFFE879F9), // 如何思考 — 品红
+            Color(0xFFA855F7), // 记住什么 — 紫
+            Color(0xFFFB923C), // 我的设备 — 橙
+        )
+        val nodeIcons = listOf(
+            SmartMapIconType.EYE,
+            SmartMapIconType.SPARK,
+            SmartMapIconType.BOOK,
+            SmartMapIconType.GEAR,
+        )
+        // 弧形轨道连线（设计稿 10：向外弓起的曲线，非直线）
         for (i in nodes.indices) {
             val p = nodeOffsets[i]
-            drawLine(
-                color = accent.copy(alpha = 0.45f),
-                start = Offset(cx, cy),
-                end = p,
-                strokeWidth = 1.4f,
-                cap = StrokeCap.Round,
+            val midX = (cx + p.x) / 2f
+            val midY = (cy + p.y) / 2f
+            val dx = p.x - cx
+            val dy = p.y - cy
+            val ctrl = Offset(midX + dy * 0.20f, midY - dx * 0.20f)
+            val arcPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(cx, cy)
+                quadraticBezierTo(ctrl.x, ctrl.y, p.x, p.y)
+            }
+            drawPath(
+                arcPath,
+                color = nodeColors[i].copy(alpha = if (nodes[i].enabled) 0.40f else 0.18f),
+                style = Stroke(width = 1.4f, cap = StrokeCap.Round),
             )
-            // 节点圆点
-            val nColor = if (nodes[i].enabled) nodeColor else nodeColor.copy(alpha = 0.35f)
+            // 节点：光晕 + 细环 + 图标徽章（启用态实色 / 未启用降透明）
+            val nColor = if (nodes[i].enabled) nodeColors[i] else nodeColors[i].copy(alpha = 0.35f)
             drawCircle(
-                color = nColor.copy(alpha = 0.25f),
+                color = nColor.copy(alpha = 0.20f),
                 radius = 24f,
                 center = p,
             )
             drawCircle(
                 color = nColor,
-                radius = 12f,
+                radius = 15f,
                 center = p,
+                style = Stroke(width = 1.6f),
             )
+            val iconBox = 18f
+            translate(p.x - iconBox / 2f, p.y - iconBox / 2f) {
+                drawSmartMapIcon(
+                    type = nodeIcons[i],
+                    color = nColor,
+                    iconBox = androidx.compose.ui.geometry.Size(iconBox, iconBox),
+                )
+            }
         }
     }
 

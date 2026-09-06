@@ -24,6 +24,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yunjue.echo.mind.ui.artwork.StatusLineIconType
+import com.yunjue.echo.mind.ui.artwork.drawStatusLineIcon
 
 /**
  * V3 §AK — 三指标状态卡片（情绪 / 能量 / 专注）。
@@ -90,23 +92,23 @@ fun StatusCard(
     }
 }
 
-/** 图标文字（emoji），避免 Canvas 绘制导入冲突。 */
+/** 图标区（圆形彩色底 + 设计稿 5 细线图标，替代 emoji）。 */
 @Composable
 private fun StatusCardIconView(icon: StatusCardIcon, size: androidx.compose.ui.unit.Dp) {
-    val iconText: String
     val iconColor: Color
+    val iconType: StatusLineIconType
     when (icon) {
         StatusCardIcon.EMOTION -> {
-            iconText = "🌊"
             iconColor = Color(0xFF22D3EE)
+            iconType = StatusLineIconType.WAVE
         }
         StatusCardIcon.ENERGY -> {
-            iconText = "⚡"
             iconColor = Color(0xFF34D399)
+            iconType = StatusLineIconType.BOLT
         }
         StatusCardIcon.FOCUS -> {
-            iconText = "✦"
             iconColor = Color(0xFFA855F7)
+            iconType = StatusLineIconType.RINGS
         }
     }
     Box(
@@ -116,11 +118,9 @@ private fun StatusCardIconView(icon: StatusCardIcon, size: androidx.compose.ui.u
             .background(iconColor.copy(alpha = 0.15f)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = iconText,
-            style = MaterialTheme.typography.titleSmall,
-            color = iconColor,
-        )
+        androidx.compose.foundation.Canvas(modifier = Modifier.size(size * 0.56f)) {
+            drawStatusLineIcon(type = iconType, color = iconColor)
+        }
     }
 }
 
