@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.yunjue.echo.mind.AppContainer
+import com.yunjue.echo.mind.data.MemoryRepository
 import com.yunjue.echo.mind.journey.JourneyEvent
 import com.yunjue.echo.mind.journey.JourneyMemoryAssemblyInputs
 import com.yunjue.echo.mind.journey.JourneyNarrative
@@ -18,6 +19,7 @@ import com.yunjue.echo.mind.journey.JourneyUiState
 import com.yunjue.echo.mind.journey.assembleJourneyUiState
 import com.yunjue.echo.mind.journey.journeyWindowDays
 import com.yunjue.echo.mind.model.PortraitTimelineUiState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,6 +42,8 @@ import kotlinx.coroutines.launch
 class JourneyViewModel(
     app: Application,
     private val repository: JourneyPort,
+    /** 成长段记忆计数源（可空；未注入时计数恒 null → UI 弃权显示 "—"）。 */
+    private val memoryRepository: MemoryRepository? = null,
 ) : AndroidViewModel(app) {
 
     private val _scale = MutableStateFlow(JourneyScale.DAY)
@@ -82,34 +87,53 @@ class JourneyViewModel(
             )
         }.distinctUntilChanged()
 
-    /** 单一 UI 状态（纯函数装配；Screen 只消费）。 */
-    val uiState: StateFlow<JourneyUiState> = combine(
-        memoryState,
+    /** 成长段：已记住片段数（observeMemories 实时计数，排除软删；未注入记忆源时恒 null）。 */
+    private val rememberedFragments: Flow<Int?> = memoryRepository
+        ?.observeMemories()
+        ?.map { list -> list.count { !it.deleted } }
+        ?: flowOf(null)
+
+    /** UI 轻量输入打包（combine 类型化重载上限 5 流；memoryState 重计算流单独成流）。 */
+    private data class JourneyLightInputs(
+        val permissionEnabled: Boolean,
+        val narrative: JourneyNarrative?,
+        val runtime: JourneyRuntimeSnapshot?,
+        val showEvidence: Boolean,
+        val rememberedFragmentsCount: Int?,
+    )
+
+    private val lightInputs: Flow<JourneyLightInputs> = combine(
         permissionEnabled,
         _narrative,
         _runtime,
         _showEvidence,
-    ) { mem, perm, narrative, runtime, showEvidence ->
-        val snapshot = runtime
+        rememberedFragments,
+    ) { perm, narrative, runtime, showEvidence, remembered ->
+        JourneyLightInputs(perm, narrative, runtime, showEvidence, remembered)
+    }
+
+    /** 单一 UI 状态（纯函数装配；Screen 只消费）。 */
+    val uiState: StateFlow<JourneyUiState> = combine(memoryState, lightInputs) { mem, light ->
+        val snapshot = light.runtime
         val sync = JourneySyncStatus(
             lastCollectedAt = snapshot?.availability?.lastCollectedAt ?: 0L,
             lastSyncedAt = snapshot?.availability?.lastSyncedAt ?: 0L,
             pendingUploads = snapshot?.diagnostics?.pendingUploadCount ?: 0,
             persistenceFailures = snapshot?.diagnostics?.consecutivePersistenceFailures ?: 0,
-            consent = perm,
-            permissionEnabled = perm,
+            consent = light.permissionEnabled,
+            permissionEnabled = light.permissionEnabled,
         )
         assembleJourneyUiState(
             memoryState = mem,
-            permissionEnabled = perm,
-            narrative = narrative,
+            permissionEnabled = light.permissionEnabled,
+            narrative = light.narrative,
             runtimeAvailability = snapshot?.availability,
             runtimeDiagnostics = snapshot?.diagnostics,
-            showEvidence = showEvidence,
+            showEvidence = light.showEvidence,
             intelligenceAvailable = repository.intelligenceAvailable(),
             syncStatus = sync,
             journeySeed = journeySeed,
-        )
+        ).copy(rememberedFragmentsCount = light.rememberedFragmentsCount)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -185,6 +209,7 @@ class JourneyViewModel(
                 JourneyViewModel(
                     container.applicationContext as Application,
                     container.journeyRepository,
+                    container.memoryRepository,
                 )
             }
         }

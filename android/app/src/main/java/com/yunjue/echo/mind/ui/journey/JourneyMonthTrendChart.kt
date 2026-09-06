@@ -1,8 +1,9 @@
 /**
- * 阶段 2C — Journey 月画像四维趋势折线图（设计稿 9，纯确定性渲染）。
+ * 阶段 2C — Journey 月画像卡（设计稿 9「本月画像」，纯确定性渲染）。
  *
- * 来源：相对维度序列（emotion / energy / focus / connection）。
- * 渲染：Compose Canvas 纯绘制（无 AI 生图），确定性输出。
+ * 结构对齐设计稿：卡片标题 + 叙事文字 + 四线趋势图 + 维度图例 + 日期轴。
+ * 数据全部来自真实画像维度（MOVEMENT / SCREEN_AMOUNT / SCREEN_TIMING / DAY_STRUCTURE，
+ * 见 buildMonthTrendSeries）；标签为行为观察语义，不使用设计稿示意值与心理词。
  * 当数据不足时显示 "数据尚不足以形成趋势"，不编造示例值。
  */
 package com.yunjue.echo.mind.ui.journey
@@ -32,53 +33,80 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * 月画像四维趋势折线图。
+ * 月画像四维趋势卡。
  *
- * @param dimensions 四条线的相对取值序列：[(维度名, 序列值)]，序列值用相对标签（"SIMILAR"/"MORE"/"LESS"）表达
+ * @param dimensions 四条线的相对取值序列：[(维度名, 序列值)]，序列值用相对标签（"SIMILAR"/"MORE"/"LESS" 等）表达
  * @param isEmptyData 当数据完全为空时，显示 "数据尚不足以形成趋势" 文案
+ * @param title 卡片标题（默认设计稿 9 的「本月画像」）
+ * @param narrativeLines 本月叙事行（来自真实 narrative 结果；空 → 弃权文案，不编造）
+ * @param xLabels 日期轴标签（自画像日期等距取样，≤5 个；空 → 不渲染轴行）
  */
 @Composable
 fun JourneyMonthTrendChart(
     dimensions: List<Pair<String, List<String>>>,
     modifier: Modifier = Modifier,
     isEmptyData: Boolean = false,
+    title: String = "本月画像",
+    narrativeLines: List<String> = emptyList(),
+    xLabels: List<String> = emptyList(),
 ) {
     val cardBg = Color(0xFF0E1426)
     val labelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     val mutedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-    // 无障碍：构造可朗读的趋势摘要（按维度统计 SIMILAR/MORE/LESS 数量）
+    // 无障碍：构造可朗读的趋势摘要（按维度统计 SIMILAR/差异 段数）
     val summary = if (isEmptyData) {
         "数据尚不足以形成趋势"
     } else {
         val parts = dimensions.take(4).map { (name, values) ->
             val clean = values.filter { it.isNotBlank() && it != "—" }
-            val more = clean.count { it == "MORE" || it == "UP" || it == "MORE_CONCENTRATED" || it == "CLEARLY_DIFFERENT" }
-            val less = clean.count { it == "LESS" || it == "DOWN" || it == "MORE_FRAGMENTED" }
-            val similar = clean.size - more - less
-            "$name：相似 $similar 段、偏高 $more 段、偏低 $less 段"
+            val similar = clean.count { it == "SIMILAR" }
+            val diff = clean.size - similar
+            "$name：相似 $similar 段、差异 $diff 段"
         }
         "四维趋势：" + parts.joinToString("；")
     }
+    val lines = if (narrativeLines.isEmpty()) {
+        listOf("记录尚少，暂未形成本月画像叙事。")
+    } else {
+        narrativeLines
+    }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        // 屏读器先读摘要文字（design 9 趋势图用语言化摘要表达非文字信息）
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(cardBg)
+            .padding(16.dp)
+            .semantics { contentDescription = "$title（$summary）" },
+    ) {
+        // 卡片标题（设计稿 9：本月画像）
         Text(
-            text = summary,
-            style = MaterialTheme.typography.labelSmall,
-            color = mutedColor,
-            modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-                .semantics { contentDescription = summary },
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
+        // 本月叙事（真实 narrative；缺省为弃权文案）
+        lines.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(top = 12.dp)
                 .height(160.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(cardBg)
+                .background(Color(0xFF0A1020))
                 .padding(horizontal = 12.dp, vertical = 12.dp)
                 .semantics { contentDescription = "月画像四维趋势折线图（同上文字摘要）" },
         ) {
@@ -95,27 +123,43 @@ fun JourneyMonthTrendChart(
                 TrendLines(dimensions)
             }
         }
-        // 维度图例（4 个）
-        val legendLabels = listOf("情绪", "能量", "专注", "连接")
+        // 日期轴（等距取样；设计稿 9 的 8/1…8/31 结构）
+        if (xLabels.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                xLabels.forEach { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = mutedColor,
+                    )
+                }
+            }
+        }
+        // 维度图例（与序列一一对应；配色对齐设计稿 9：蓝/橙/紫/绿）
         val legendColors = listOf(
             Color(0xFF38BDF8),
-            Color(0xFF34D399),
+            Color(0xFFF59E0B),
             Color(0xFF8F7CF0),
-            Color(0xFF6EE7B7),
+            Color(0xFF34D399),
         )
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 0.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            legendLabels.forEachIndexed { i, label ->
+            dimensions.take(4).forEachIndexed { i, (name, _) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(legendColors[i], shape = CircleShape),
+                            .background(legendColors[i % legendColors.size], shape = CircleShape),
                     )
                     Text(
-                        text = label,
+                        text = name,
                         style = MaterialTheme.typography.labelSmall,
                         color = labelColor,
                         modifier = Modifier.padding(start = 4.dp),
@@ -123,16 +167,26 @@ fun JourneyMonthTrendChart(
                 }
             }
         }
+        // 屏读器摘要（不可见文本，语义锚点）
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.labelSmall,
+            color = mutedColor,
+            modifier = Modifier
+                .padding(vertical = 2.dp)
+                .semantics { contentDescription = summary },
+        )
     }
 }
 
 @Composable
 private fun TrendLines(dimensions: List<Pair<String, List<String>>>) {
+    // 设计稿 9 配色：情绪位=蓝 / 能量位=橙 / 专注位=紫 / 连接位=绿
     val colors = listOf(
-        Color(0xFF38BDF8), // 情绪 — 青色
-        Color(0xFF34D399), // 能量 — 绿
-        Color(0xFF8F7CF0), // 专注 — 紫
-        Color(0xFF6EE7B7), // 连接 — 浅绿
+        Color(0xFF38BDF8),
+        Color(0xFFF59E0B),
+        Color(0xFF8F7CF0),
+        Color(0xFF34D399),
     )
 
     Canvas(modifier = Modifier.fillMaxWidth().height(136.dp)) {
@@ -164,24 +218,38 @@ private fun TrendLines(dimensions: List<Pair<String, List<String>>>) {
                 .mapIndexed { i, v ->
                     val x = padding + i * stepX
                     val y = when (v) {
+                        // 中性：与基线相似
                         "SIMILAR", "STABLE", "VERY_SIMILAR", "SLIGHTLY_DIFFERENT" -> padding + chartH * 0.5f
-                        "MORE", "UP", "MORE_CONCENTRATED", "CLEARLY_DIFFERENT" -> padding + chartH * 0.2f
-                        "LESS", "DOWN", "MORE_FRAGMENTED" -> padding + chartH * 0.8f
+                        // 相对上行：更多 / 更集中 / 更早
+                        "MORE", "UP", "MORE_CONCENTRATED", "CLEARLY_DIFFERENT", "EARLIER" -> padding + chartH * 0.2f
+                        // 相对下行：更少 / 更碎 / 更晚
+                        "LESS", "DOWN", "MORE_FRAGMENTED", "LATER" -> padding + chartH * 0.8f
                         "IRREGULAR" -> padding + chartH * 0.35f
                         else -> padding + chartH * 0.5f
                     }
                     Offset(x, y)
                 }
             if (points.isNotEmpty()) {
+                val color = colors[idx % colors.size]
+                // 设计稿 9：平滑曲线（水平单调三次贝塞尔）+ 数据点发光圆点
                 val path = Path()
                 path.moveTo(points.first().x, points.first().y)
-                points.drop(1).forEach { p -> path.lineTo(p.x, p.y) }
+                points.drop(1).forEachIndexed { i, p ->
+                    val prev = points[i]
+                    val midX = (prev.x + p.x) / 2f
+                    path.cubicTo(midX, prev.y, midX, p.y, p.x, p.y)
+                }
                 drawPath(
                     path = path,
-                    color = colors[idx % colors.size],
+                    color = color,
                     style = Stroke(width = 2.5f, cap = StrokeCap.Round),
                     alpha = 0.9f,
                 )
+                points.forEach { p ->
+                    // 外圈光晕 + 内点
+                    drawCircle(color = color.copy(alpha = 0.22f), radius = 6.5f, center = p)
+                    drawCircle(color = color, radius = 3f, center = p)
+                }
             }
         }
     }

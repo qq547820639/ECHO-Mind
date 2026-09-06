@@ -123,7 +123,8 @@ fun EchoMindApp(container: AppContainer) {
                         viewModel(factory = com.yunjue.echo.mind.ui.journey.JourneyViewModel.factory(container))
                     com.yunjue.echo.mind.ui.journey.JourneyScreen(
                         viewModel = journeyViewModel,
-                        onGoToSupport = { tabName = Tab.ME.name }
+                        onGoToSupport = { tabName = Tab.ME.name },
+                        onGoToEcho = { tabName = Tab.ECHO.name }
                     )
                 }
                 Tab.ME -> com.yunjue.echo.mind.ui.me.MeScreen(

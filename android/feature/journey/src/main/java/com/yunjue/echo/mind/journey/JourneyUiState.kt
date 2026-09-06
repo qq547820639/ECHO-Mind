@@ -85,6 +85,8 @@ data class JourneyUiState(
     /** §41 90 天测试：期间故事 + 现在 vs 一个月前（自 JourneyMemoryState 透传）。 */
     val periodStory: String = "",
     val monthAgoLines: List<String> = emptyList(),
+    /** 成长段：已记住的重要片段数（MemoryRepository 实时计数；数据不可用时 null → UI 弃权显示 "—"）。 */
+    val rememberedFragmentsCount: Int? = null,
     /** 选中历史日期（§84 历史重建：那天 ECHO 的视觉事实）。 */
     val selectedDay: JourneyDay? = null,
     val selectedCanonical: JourneyCanonicalDay? = null,

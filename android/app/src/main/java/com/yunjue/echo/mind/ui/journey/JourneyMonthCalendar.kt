@@ -1,6 +1,6 @@
 package com.yunjue.echo.mind.ui.journey
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -61,11 +64,14 @@ internal fun MonthCalendar(
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // 设计稿 9：左右 chevron 导航（非文字按钮）
                 TextButton(
                     onClick = { monthOffset-- },
                     enabled = canPrevious,
                     modifier = Modifier.testTag("journey_month_previous"),
-                ) { Text("上个月", style = MaterialTheme.typography.labelMedium) }
+                ) {
+                    Text("‹", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                }
                 Text(
                     "${ym.year}年${ym.monthValue}月",
                     style = MaterialTheme.typography.titleMedium,
@@ -78,7 +84,9 @@ internal fun MonthCalendar(
                     onClick = { monthOffset++ },
                     enabled = canNext,
                     modifier = Modifier.testTag("journey_month_next"),
-                ) { Text("下个月", style = MaterialTheme.typography.labelMedium) }
+                ) {
+                    Text("›", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
         item {
@@ -145,7 +153,9 @@ private fun MonthGrid(
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = if (isToday || selected) FontWeight.SemiBold else null,
                                 color = when {
-                                    selected || isToday -> MaterialTheme.colorScheme.primary
+                                    // 选中日：实心渐变球上用白字（设计稿 9）
+                                    selected -> Color.White
+                                    isToday -> MaterialTheme.colorScheme.primary
                                     journeyDay != null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.87f)
                                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                 },
@@ -156,7 +166,18 @@ private fun MonthGrid(
                                     .size(34.dp)
                                     .then(
                                         if (selected) {
-                                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                            // 设计稿 9：选中日 = 实心渐变球（非描边圈）
+                                            Modifier
+                                                .clip(CircleShape)
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        colors = listOf(
+                                                            Color(0xFF7CC7F5),
+                                                            Color(0xFF38BDF8),
+                                                            Color(0xFF2563EB),
+                                                        )
+                                                    )
+                                                )
                                         } else {
                                             Modifier
                                         },

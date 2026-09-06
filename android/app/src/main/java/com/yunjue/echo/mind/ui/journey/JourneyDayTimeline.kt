@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +62,8 @@ internal fun DayTimeline(
                 day = day,
                 isCurrent = day.date == currentDate,
                 isSelected = day.date == selectedDate,
+                isFirst = index == 0,
+                isLast = index == sorted.lastIndex,
                 feedbackMark = feedback(day.date),
                 onSelect = onSelectDay,
                 selectedCanonical = selectedCanonical,
@@ -67,11 +74,66 @@ internal fun DayTimeline(
     }
 }
 
+/**
+ * 设计稿 8 — 垂直生命体时间线的左侧光轨：上下连接光线 + 当日发光节点。
+ */
+@Composable
+private fun TimelineRail(isFirst: Boolean, isLast: Boolean, isCurrent: Boolean) {
+    val beam = Color(0xFF8F7CF0)
+    Box(Modifier.width(18.dp).height(80.dp)) {
+        if (!isFirst) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .width(2.dp)
+                    .height(34.dp)
+                    .background(beam.copy(alpha = 0.30f)),
+            )
+        }
+        if (!isLast) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .width(2.dp)
+                    .height(34.dp)
+                    .background(beam.copy(alpha = 0.30f)),
+            )
+        }
+        if (isCurrent) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(20.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(Color(0xFF7C3AED).copy(alpha = 0.5f), Color.Transparent)
+                        )
+                    ),
+            )
+        }
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isCurrent) {
+                        Brush.linearGradient(listOf(Color(0xFF7C3AED), Color(0xFF38BDF8)))
+                    } else {
+                        Brush.linearGradient(listOf(beam, beam))
+                    }
+                ),
+        )
+    }
+}
+
 @Composable
 private fun DayTimelineRow(
     day: JourneyDay,
     isCurrent: Boolean,
     isSelected: Boolean,
+    isFirst: Boolean,
+    isLast: Boolean,
     feedbackMark: Boolean?,
     onSelect: (String) -> Unit,
     selectedCanonical: JourneyCanonicalDay?,
@@ -84,23 +146,25 @@ private fun DayTimelineRow(
         Color.Transparent
     }
     Column(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .background(highlight, shape)
-                .then(
-                    if (isSelected) {
-                        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
-                    } else {
-                        Modifier
-                    },
-                )
-                .clickable { onSelect(day.date) }
-                .testTag("journey_day_item")
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(Modifier.fillMaxWidth()) {
+            TimelineRail(isFirst = isFirst, isLast = isLast, isCurrent = isCurrent)
+            Row(
+                Modifier
+                    .weight(1f)
+                    .height(80.dp)
+                    .background(highlight, shape)
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .clickable { onSelect(day.date) }
+                    .testTag("journey_day_item")
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             JourneyPortrait(day = day, size = 40.dp, alpha = 1f)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
@@ -127,6 +191,7 @@ private fun DayTimelineRow(
                     )
                 }
             }
+        }
         }
         // 选中即就地展开当天完整详情（无需滚动到底部详情层）
         if (isSelected) {

@@ -1,7 +1,6 @@
 package com.yunjue.echo.mind.ui.journey
 
 import com.yunjue.echo.mind.ui.echo.components.EchoGrowthPage
-import com.yunjue.echo.mind.ui.echo.components.GrowthTimelinePoint
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -62,6 +61,7 @@ import java.time.LocalDate
 fun JourneyScreen(
     viewModel: JourneyViewModel,
     onGoToSupport: () -> Unit = {},
+    onGoToEcho: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     JourneyScreenContent(
@@ -69,6 +69,7 @@ fun JourneyScreen(
         onEvent = viewModel::onEvent,
         feedback = viewModel::feedback,
         onGoToSupport = onGoToSupport,
+        onGoToEcho = onGoToEcho,
         today = LocalDate.now(),
     )
 }
@@ -85,6 +86,7 @@ fun JourneyScreenContent(
     onEvent: (JourneyEvent) -> Unit,
     feedback: (String) -> Boolean?,
     onGoToSupport: () -> Unit = {},
+    onGoToEcho: () -> Unit = {},
     today: LocalDate,
 ) {
     // V3 §D5：分段 presentation state（进程重建恢复；默认趋势段）
@@ -99,36 +101,30 @@ fun JourneyScreenContent(
         JourneySegmentSwitch(showGrowth = showGrowth, onSelect = { showGrowth = it })
 
         if (showGrowth) {
-            // 成长段：现有 EchoGrowthPage 内容（不再追加在趋势尾部）
+            // 成长段：数据全部来自真实记录（§AI today 注入）；时间线由 Canonical 记录装配。
+            // 中央生命体与 Journey/主 ECHO 同 identitySeed（真实画像 + seed 派生 genome；
+            // 无画像时 quiet ring，不编造）。
+            // behaviorTrend / accompanimentHours 暂无真实量纲数据源 → 显式弃权（渲染 "—"），
+            // 不再编造（V3 §D5 数据真实性契约）。
+            val growthGenome = androidx.compose.runtime.remember(state.timeline.portraits, state.journeySeed) {
+                com.yunjue.echo.mind.journey.JourneyOrganismVisuals.genomeFor(
+                    portrait = state.timeline.portraits.lastOrNull(),
+                    identitySeed = state.journeySeed,
+                )
+            }
             EchoGrowthPage(
-                rememberedFragmentsCount = null,
+                rememberedFragmentsCount = state.rememberedFragmentsCount,
                 understandingDays = state.availability.baselineDays.takeIf { it > 0 },
                 behaviorTrendText = null,
                 behaviorTrendLabel = null,
                 accompanimentHours = null,
-                timelinePoints = listOf(
-                    GrowthTimelinePoint(
-                        date = "7月1日",
-                        label = "初次相遇",
-                        isToday = false,
-                    ),
-                    GrowthTimelinePoint(
-                        date = "7月12日",
-                        label = "开始理解",
-                        isToday = false,
-                    ),
-                    GrowthTimelinePoint(
-                        date = "7月24日",
-                        label = "建立节律",
-                        isToday = false,
-                    ),
-                    GrowthTimelinePoint(
-                        date = "今天",
-                        label = "越来越懂你",
-                        isToday = true,
-                    ),
+                timelinePoints = buildGrowthTimeline(
+                    canonicalDates = state.canonicalDays.map { it.date },
+                    baselineDays = state.availability.baselineDays,
+                    today = today,
                 ),
-                onContinueClick = {},
+                onContinueClick = onGoToEcho,
+                organismGenome = growthGenome,
                 modifier = Modifier.weight(1f),
             )
         } else {

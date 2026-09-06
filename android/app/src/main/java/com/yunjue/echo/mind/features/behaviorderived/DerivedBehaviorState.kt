@@ -25,24 +25,22 @@ data class DerivedBehaviorState(
     val evidenceSummary: String = "数据不足，暂未形成观察。",
 )
 
-/** 由 PortraitUiState 派生（Stage 2 接入点）：若无数据则返回 UNKNOWN + abstain 依据。 */
+/**
+ * 由 PortraitUiState 派生（Stage 2 接入点）。
+ *
+ * Portrait facts 目前只有定性标签，不含真实量纲（分钟/次数）——旧实现把关键词命中
+ * 映射为固定数值（屏幕 90min / 活动 30min / 语音 10min 等）属编造输入，违反本文件头
+ * "禁止编造示例值" 契约，已移除。量纲数据接入前全部维度弃权（UNKNOWN + 依据说明）；
+ * 届时应直接把真实量纲传入 [deriveBehaviorState]。
+ */
 fun deriveFromPortrait(p: PortraitUiState?): DerivedBehaviorState {
-    if (p?.portrait == null) return DerivedBehaviorState(
-        evidenceSummary = "当前无足够行为数据，暂不形成观察。"
-    )
-    val portrait = p!!.portrait!!
-    val facts = portrait.facts
-    // 从 facts 标签提取行为指标（示例：包含"屏幕"/"通知"/"语音"关键词的事实）
-    val labels = facts.map { it.label }
-    val hasScreen = labels.any { it.contains("屏幕") || it.contains("活跃") || it.contains("节律") }
-    val hasNotification = labels.any { it.contains("通知") || it.contains("交互") }
-    val hasVoice = labels.any { it.contains("语音") || it.contains("声音") || it.contains("交流") }
-    return deriveBehaviorState(
-        screenRhythmMinutes = if (hasScreen) 90 else 30,
-        notificationInteracts = if (hasNotification) 4 else 2,
-        appSwitchCount = if (hasNotification) 8 else 3,
-        activityMinutes = 30,
-        voiceSessionMinutes = if (hasVoice) 10 else 2,
+    val hasFacts = p?.portrait?.facts?.isNotEmpty() == true
+    return DerivedBehaviorState(
+        evidenceSummary = if (hasFacts) {
+            "行为特征已采集，但暂无可用量纲（分钟/次数），暂不形成观察。"
+        } else {
+            "当前无足够行为数据，暂不形成观察。"
+        },
     )
 }
 

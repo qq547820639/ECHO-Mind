@@ -129,13 +129,17 @@ fun MeScreen(container: AppContainer, onEmergency: () -> Unit) {
             whatEchoKnows = { WhatEchoKnowsSection(container) },
             aboutCard = { AboutCard(onOpenVisualLab = { showVisualLab = true }) },
             // SMARTMAP 页：智能地图接真实设备绑定；快速管理条目由 MeScreenContent 经槽位注入（不再传 emptyList()）
+            // 提供方信息接 AiProviderManager 真实配置；未配置时诚实显示未连接，不冒充"本地模型"
             smartMap = { items ->
+                val provider = remember {
+                    runCatching { container.intelligence.aiProviderManager.stored() }.getOrNull()
+                }
                 MeSmartMapSection(
                     devices = SmartMapDevices(
                         connectedCount = if (wristRuntime.connection == WearableConnectionState.CONNECTED) 1 else 0,
-                        providerName = "本地模型",
-                        providerLocation = "本地运行中",
-                        privacyNote = "设备端运行保护隐私",
+                        providerName = provider?.displayName?.takeIf { it.isNotBlank() } ?: "未配置",
+                        providerLocation = provider?.model?.takeIf { it.isNotBlank() } ?: "—",
+                        privacyNote = if (provider != null) "对话请求将发送至该模型服务" else "未连接外部模型服务",
                     ),
                     quickAccessItems = items,
                 )

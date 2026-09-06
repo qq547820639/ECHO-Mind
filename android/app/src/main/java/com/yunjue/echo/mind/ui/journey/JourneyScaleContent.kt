@@ -48,7 +48,11 @@ internal fun JourneyScaleContent(
             today = today,
             selectedDate = selectedDate,
             onSelectDay = onSelectDay,
-            detail = { JourneyDetailSections(state = state, onEvent = onEvent, feedback = feedback, anchorDate = anchorDate) },
+            detail = {
+                // 设计稿 9「本月画像」卡：真实叙事 + 四维行为趋势（挂载在月历 detail 槽位）
+                MonthPortraitCard(state = state)
+                JourneyDetailSections(state = state, onEvent = onEvent, feedback = feedback, anchorDate = anchorDate)
+            },
         )
         // §AO：SEASON/YEAR = 按自然月分组列表（river/constellation 不再是导航模型）
         JourneyScale.SEASON -> SeasonYearMonths(
@@ -64,4 +68,22 @@ internal fun JourneyScaleContent(
             detail = { JourneyDetailSections(state = state, onEvent = onEvent, feedback = feedback, anchorDate = anchorDate) },
         )
     }
+}
+
+/**
+ * 设计稿 9「本月画像」卡：真实叙事（state.narrative）+ 四维行为趋势
+ * （buildMonthTrendSeries，全缺数据时组件内弃权渲染）。
+ */
+@Composable
+private fun MonthPortraitCard(state: JourneyUiState) {
+    val series = remember(state.timeline.portraits) { buildMonthTrendSeries(state.timeline.portraits) }
+    val narrativeLines = remember(state.narrative) {
+        listOfNotNull(state.narrative?.result?.text?.takeIf { it.isNotBlank() })
+    }
+    JourneyMonthTrendChart(
+        dimensions = series.dimensions,
+        isEmptyData = series.isEmptyData,
+        narrativeLines = narrativeLines,
+        xLabels = series.xLabels,
+    )
 }
