@@ -2,7 +2,7 @@
   "project": "ECHO Mind Personal Ambient Intelligence",
   "version": "0.11.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-09-13T02:15:49Z",
+  "generated_at": "2026-09-13T02:21:06Z",
   "branch": "main",
   "git_ref": "personal-ambient-intelligence-v0.11.0",
   "scope": [
@@ -34,7 +34,7 @@
   "validation_environment": {
     "builder": "local-dev",
     "python_version": "3.9.6",
-    "git_commit": "5451901c38904650df29b155cfdd305d1863cd08",
+    "git_commit": "e58e824fa79742806c8d244313c2498effaa21b8",
     "git_dirty": true,
     "blocked_by": []
   },
