@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import time
 from pathlib import Path
 from uuid import uuid4
@@ -22,6 +23,7 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 settings = get_settings()
+logger = logging.getLogger("echo.request")
 
 
 @asynccontextmanager
@@ -63,6 +65,12 @@ async def request_context_and_security_headers(request: Request, call_next: Requ
         # reset 一次——同一 ContextVar token 二次 reset 会抛 RuntimeError，
         # 把本应干净返回的 500 变成二次异常（任何未处理异常都会踩中）。
         # 现在 reset 只由 finally 执行一次。
+        # 2026-09-13 可观测性修复：500 必须在服务端留下堆栈（日志只进服务端，
+        # 响应体保持无细节），否则任何未处理异常在生产不可诊断。
+        logger.exception(
+            "unhandled exception request_id=%s path=%s method=%s",
+            request_id, request.url.path, request.method,
+        )
         return Response(status_code=500, headers={
             "X-Request-ID": request_id,
             "X-Content-Type-Options": "nosniff",

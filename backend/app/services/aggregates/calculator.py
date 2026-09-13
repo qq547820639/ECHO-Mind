@@ -117,7 +117,10 @@ def compute_daily_aggregate(features: list[DerivedFeature], tz_name: str, local_
     # active 窗口：screen on / notification / app switch 任一非零
     active = sorted(
         [f for f in eligible if _v(f, 14) > 0 or _v(f, 17) > 0 or _v(f, 20) > 0],
-        key=lambda f: f.window_start,
+        # PG 门禁缺陷修复：排序键不得直接用原始 window_start——SQLite 读回 naive、
+        # PG 读回 aware，跨请求混合比较会抛 TypeError。统一经 _to_local 归一
+        # （同一时区转换为单调映射，排序结果与旧语义一致）。
+        key=lambda f: _to_local(f.window_start, tz),
     )
     if active:
         starts = [_to_local(f.window_start, tz) for f in active]

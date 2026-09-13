@@ -38,18 +38,44 @@ def _dialect_name() -> str:
     return op.get_context().dialect.name
 
 
+def _existing_tables() -> set[str]:
+    return set(sa.inspect(op.get_bind()).get_table_names())
+
+
+def _existing_columns(table: str) -> set[str]:
+    return {col["name"] for col in sa.inspect(op.get_bind()).get_columns(table)}
+
+
+def _add_column_if_missing(table: str, column: sa.Column) -> None:
+    # 幂等护栏：基线 0001 以「当前 models 元数据」create_all，全新 PG 库的 escalations
+    # 已含本迁移全部列；存量旧库（0001 时点元数据）才真正需要补列。两种场景都必须可重放。
+    if table not in _existing_tables():
+        return
+    if column.name in _existing_columns(table):
+        return
+    op.add_column(table, column)
+
+
+def _drop_column_if_present(table: str, column: str) -> None:
+    if table not in _existing_tables():
+        return
+    if column not in _existing_columns(table):
+        return
+    op.drop_column(table, column)
+
+
 def upgrade() -> None:
     if _dialect_name() != "postgresql":
         # SQLite (tests/demo): 0001 baseline already builds current metadata.
         return
-    op.add_column(
+    _add_column_if_missing(
         "escalations",
         sa.Column("escalation_level", sa.Integer(), server_default="0", nullable=False),
     )
-    op.add_column("escalations", sa.Column("notified_l1_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("escalations", sa.Column("notified_l2_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("escalations", sa.Column("chain_broken_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column(
+    _add_column_if_missing("escalations", sa.Column("notified_l1_at", sa.DateTime(timezone=True), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("notified_l2_at", sa.DateTime(timezone=True), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("chain_broken_at", sa.DateTime(timezone=True), nullable=True))
+    _add_column_if_missing(
         "escalations",
         sa.Column("delivery_confirmed_at", sa.DateTime(timezone=True), nullable=True),
     )
@@ -59,4 +85,4 @@ def downgrade() -> None:
     if _dialect_name() != "postgresql":
         return
     for column in reversed(NEW_COLUMNS):
-        op.drop_column("escalations", column)
+        _drop_column_if_present("escalations", column)

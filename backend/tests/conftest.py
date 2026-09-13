@@ -49,6 +49,10 @@ def clean_db():
         db.add(Tenant(id="t_demo", name="Demo"))
         db.add(User(id="u_demo", tenant_id="t_demo", external_ref="demo"))
         db.add(User(id="u_other", tenant_id="t_demo", external_ref="other"))
+        # PG 门禁修复：Consent→users 只有裸 FK（无 relationship()），SQLAlchemy 的
+        # unit-of-work 不按裸 FK 排 insert 顺序——SQLite 默认不强制 FK 掩盖了乱序，
+        # PostgreSQL 会真实报 ForeignKeyViolation。显式 flush 固定父子顺序。
+        db.flush()
         db.add(Consent(id="c_demo", tenant_id="t_demo", user_id="u_demo", consent_type="psychological_data", version="test-v1", granted=True, evidence_hash="0" * 64))
         db.add(Consent(id="c_other", tenant_id="t_demo", user_id="u_other", consent_type="psychological_data", version="test-v1", granted=True, evidence_hash="1" * 64))
         db.commit()

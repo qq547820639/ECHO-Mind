@@ -30,7 +30,9 @@ def test_same_event_id_is_isolated_by_tenant(client, user_headers):
     assert client.post("/v1/checkins", json=payload, headers=user_headers).status_code == 410
     with SessionLocal() as db:
         db.add(Tenant(id="t_second", name="Second"))
+        db.flush()  # PG：裸 FK 父表先行
         db.add(User(id="u_second", tenant_id="t_second", external_ref="second"))
+        db.flush()
         db.add(Consent(id="c_second", tenant_id="t_second", user_id="u_second", consent_type="psychological_data", version="v1", granted=True, evidence_hash="b" * 64))
         db.commit()
     headers = {"Authorization": f"Bearer {create_access_token('u_second', 't_second', 'user')}"}

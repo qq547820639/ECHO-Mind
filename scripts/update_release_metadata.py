@@ -251,7 +251,9 @@ def main() -> None:
             "alembic_roundtrip": _injected("ALEMBIC_ROUNDTRIP_RESULT"),
             "contract_drift_check": _injected("CONTRACT_DRIFT_CHECK_RESULT"),
             "android_instrumentation": _injected("ANDROID_INSTRUMENTATION_RESULT"),
-            "postgresql_docker_integration": "external_gate_not_run",
+            # 2026-09-13 PG 门禁解封：与 alembic 同为 pipeline 注入（未注入如实 not_run），
+            # 不再硬编码 external_gate_not_run（本地 Docker PG 16 可用时该门禁可真实执行）。
+            "postgresql_docker_integration": _injected("POSTGRES_DOCKER_INTEGRATION_RESULT"),
         },
         # P0-4：门禁结论 → 可复现执行证据（未执行的门禁不出现在此字典）
         "validation_evidence": _evidence_map(),

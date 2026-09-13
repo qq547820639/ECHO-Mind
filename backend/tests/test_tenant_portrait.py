@@ -14,10 +14,17 @@ from app.models import DerivedFeature, Escalation, Skill, Tenant, User, UserProf
 
 
 def _seed_user(db, tenant_id: str, user_id: str, external_ref: str) -> None:
+    # PG 门禁修复：裸 FK 无 UOW 排序保证——tenant/user 显式 flush 后再插子表。
+    if db.get(Tenant, tenant_id) is None:
+        db.add(Tenant(id=tenant_id, name=tenant_id))
+        db.flush()
     db.add(User(id=user_id, tenant_id=tenant_id, external_ref=external_ref))
+    db.flush()
 
 
 def _seed_profile(db, tenant_id: str, user_id: str, mood_hint: str, observation_days: int) -> None:
+    # user 已由 _seed_user flush 落库；profile 落库前再 flush 确保父行存在（PG FK 强制）。
+    db.flush()
     db.add(UserProfile(
         tenant_id=tenant_id,
         user_id=user_id,
@@ -90,6 +97,7 @@ def test_cross_tenant_isolation(client, admin_headers):
             _seed_profile(db, "t_demo", f"u_iso_demo_{i}", "平稳", observation_days=5)
         # t_other：5 偏低
         db.add(Tenant(id="t_other", name="Other"))
+        db.flush()  # PG：pending 行对 _seed_user 的 get(Tenant) 不可见，先落库防重复插入
         for i in range(5):
             _seed_user(db, "t_other", f"u_iso_other_{i}", f"iso_other_{i}")
             _seed_profile(db, "t_other", f"u_iso_other_{i}", "偏低", observation_days=9)

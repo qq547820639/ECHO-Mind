@@ -13,12 +13,17 @@
 import threading
 
 from app.database import SessionLocal
-from app.models import ActivationCode, User
+from app.models import ActivationCode, Tenant, User
 from app.services.activation import generate_raw_code, hash_code, issue_code, redeem_code
 
 
 def _seed_user(user_id: str, external_ref: str, *, status: str = "active", tenant_id: str = "t_demo") -> None:
     with SessionLocal() as db:
+        # PG 门禁修复：User.tenant_id 是裸 FK（无 relationship），UOW 不保证父表先插——
+        # SQLite 默认不强制 FK 掩盖了乱序；先 get-or-create tenant 并 flush 固定顺序。
+        if db.get(Tenant, tenant_id) is None:
+            db.add(Tenant(id=tenant_id, name=tenant_id))
+            db.flush()
         db.add(User(id=user_id, tenant_id=tenant_id, external_ref=external_ref, status=status))
         db.commit()
 

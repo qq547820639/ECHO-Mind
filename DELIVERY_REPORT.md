@@ -28,6 +28,33 @@
 > backend pytest 以 junitxml 产物重测 **1137 passed + 1 skipped** 并刷新 STATUS 自动数字
 > （1387→1404 / 1131→1137）。附带修复 `scripts/refresh_status_numbers.py` 每次运行向
 > STATUS.md 追加空行的非幂等缺陷（现两次运行字节稳定）。
+> 14. **第 22 轮 PostgreSQL 门禁解封与两个真实生产缺陷修复（2026-09-13）**：
+> 本工作区 Docker/colima 已可用——此前永久标 `BLOCKED_ENV_DOCKER_POSTGRES` 的两道 CI 同源门禁
+> （`alembic-postgres` 回路 + PG 全量 pytest `-m "not sqlite_only"`）首次本地真实执行，**双双实红并修复**：
+>
+> - **缺陷 1（P0·迁移链不可重放）**：`alembic upgrade head` 在全新 PG 库 0003 即崩
+>   （`DuplicateColumn: escalations.escalation_level`）。根因：基线 0001 以「当前 models 元数据」
+>   `create_all`，全新库已含后续迁移补的列；0003/0004 的 PG 路径仍无条件 `add_column`。
+>   SQLite 演练永远发现不了（0003/0004 对非 PG 方言是 no-op）。修复：与代码库既有幂等约定
+>   （0731_0003/0810_0001 的 `_add_column_if_missing`）对齐，0003/0004 升降级全部加存在性护栏。
+>   修复后 PG 16 全新库 upgrade→downgrade→upgrade 三连通过（29 表）。
+> - **缺陷 2（P0·沙箱子进程在 PG 100% 认证失败）**：`runner.py` 把 `str(engine.url)` 传给子进程，
+>   而 SQLAlchemy 2.x 字符串化默认把密码掩码成 `***`——worker 拿掩码口令建连必败。
+>   SQLite 无口令彻底掩盖。修复：`render_as_string(hide_password=False)`（仅父子进程内存传递）。
+> - **缺陷 3（P1·ingest 在 PG 500）**：`DerivedFeatureIn` 允许 naive 窗口时刻原样入库，
+>   端点只把本地副本归一化。PG timestamptz 读回 aware，聚合 `sorted()` 对
+>   「会话内 naive × 库内 aware」比较抛 `TypeError`（画像链路在 PG 不可用）。
+>   修复：schema 层 `field_validator` 把 naive 按 UTC 归一（与端点既有注释契约一致），存储语义
+>   不再依赖数据库会话时区。
+> - **可观测性补缺**：全局 500 中间件此前静默吞异常（零服务端日志，生产不可诊断）——补
+>   `logger.exception`（响应体保持无细节不泄露）。另修测试基建三类裸 FK 乱序播种
+>   （conftest / activation_codes / tenant_portrait / security_v02，SQLite 默认不强制 FK 掩盖）。
+> - **读路径加固（缺陷 3 的镜像面）**：naive 归一后 SQLite 读回 naive × 会话内 aware 仍会触发
+>   同类 TypeError——`compute_daily_aggregate` 排序键统一经 `_to_local` 归一（单调映射，
+>   排序语义不变）；`observation_days` 的 `.date()` 显式固定 UTC 日口径（双后端同语义）。
+> - **最终实测**：PG 16 全新库 alembic 三连 PASS；PG 全量 `pytest -m "not sqlite_only"`
+>   **1121 passed / 0 failed**；SQLite 全量 **1137 passed + 1 skipped**（junitxml 产物同步刷新）。
+>   `BLOCKED_ENV_DOCKER_POSTGRES` 就此解除（CI 同源门禁可在本地复跑）。
 
 分支：`agent/design-alignment`（基线 `1557e338`，+11 提交）→ 已合入 `main`（PR #59），后续修复见工作区提交。
 目标：把 Android App 改造到完整对齐原始商业设计稿（方向 A，19 屏）。

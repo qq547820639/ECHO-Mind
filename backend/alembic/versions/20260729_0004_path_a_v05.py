@@ -41,24 +41,50 @@ def _dialect_name() -> str:
     return op.get_context().dialect.name
 
 
+def _existing_tables() -> set[str]:
+    return set(sa.inspect(op.get_bind()).get_table_names())
+
+
+def _existing_columns(table: str) -> set[str]:
+    return {col["name"] for col in sa.inspect(op.get_bind()).get_columns(table)}
+
+
+def _add_column_if_missing(table: str, column: sa.Column) -> None:
+    # 幂等护栏（与 0003 同因）：全新 PG 库经基线 0001 create_all 已含全部列，
+    # 只有 0001 时点的存量旧库需要补列；护栏让两种场景都可重放。
+    if table not in _existing_tables():
+        return
+    if column.name in _existing_columns(table):
+        return
+    op.add_column(table, column)
+
+
+def _drop_column_if_present(table: str, column: str) -> None:
+    if table not in _existing_tables():
+        return
+    if column not in _existing_columns(table):
+        return
+    op.drop_column(table, column)
+
+
 def upgrade() -> None:
     if _dialect_name() != "postgresql":
         # SQLite (tests/demo): 0001 baseline already builds current metadata.
         return
-    op.add_column("users", sa.Column("city", sa.String(length=120), nullable=True))
-    op.add_column("escalations", sa.Column("contact_method", sa.String(length=80), nullable=True))
-    op.add_column("escalations", sa.Column("contact_succeeded", sa.Boolean(), nullable=True))
-    op.add_column("escalations", sa.Column("safety_status", sa.String(length=200), nullable=True))
-    op.add_column("escalations", sa.Column("emergency_contact_called", sa.Boolean(), nullable=True))
-    op.add_column("escalations", sa.Column("referred_12356", sa.Boolean(), nullable=True))
-    op.add_column("escalations", sa.Column("called_emergency_services", sa.Boolean(), nullable=True))
-    op.add_column("escalations", sa.Column("follow_up_plan", sa.Text(), nullable=True))
-    op.add_column("escalations", sa.Column("operator_signature", sa.String(length=120), nullable=True))
+    _add_column_if_missing("users", sa.Column("city", sa.String(length=120), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("contact_method", sa.String(length=80), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("contact_succeeded", sa.Boolean(), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("safety_status", sa.String(length=200), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("emergency_contact_called", sa.Boolean(), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("referred_12356", sa.Boolean(), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("called_emergency_services", sa.Boolean(), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("follow_up_plan", sa.Text(), nullable=True))
+    _add_column_if_missing("escalations", sa.Column("operator_signature", sa.String(length=120), nullable=True))
 
 
 def downgrade() -> None:
     if _dialect_name() != "postgresql":
         return
     for column in reversed(ESCALATION_COLUMNS):
-        op.drop_column("escalations", column)
-    op.drop_column("users", "city")
+        _drop_column_if_present("escalations", column)
+    _drop_column_if_present("users", "city")

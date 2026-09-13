@@ -139,7 +139,12 @@ def rebuild_profile(db: Session, *, tenant_id: str, user_id: str) -> UserProfile
         DerivedFeature.user_id == user_id,
         DerivedFeature.window_start >= since_dt,
     )).all()
-    observation_days = len({f.window_start.date() for f in features})
+    # .date() 语义 = UTC 日（与 SQLite naive-UTC 读回的旧口径一致）；PG 读回 aware
+    # 也要先回 UTC 再取日，两条后端路径同语义。
+    observation_days = len({
+        (f.window_start if f.window_start.tzinfo is None else f.window_start.astimezone(timezone.utc)).date()
+        for f in features
+    })
     # v0.6 final：近 7 天观察窗口内实际信号源并集（与 gap_finder 同口径：sources_present
     # 非空取并集，空列表 fallback 到单数 source；供机构工作台观测覆盖度）
     sources_union = (

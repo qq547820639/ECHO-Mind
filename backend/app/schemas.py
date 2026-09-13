@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -278,6 +278,20 @@ class DerivedFeatureIn(BaseModel):
     def validate_schema_version(cls, value: str) -> str:
         if value not in SCHEMA_REGISTRY:
             raise ValueError(f"unsupported feature schema version: {value}")
+        return value
+
+    @field_validator("window_start", "window_end")
+    @classmethod
+    def naive_window_as_utc(cls, value: datetime) -> datetime:
+        """窗口时刻归一化：naive 一律按 UTC 解释（既有契约：features.py 防御分支同语义）。
+
+        PostgreSQL 门禁实测缺陷修复：此前 naive 值被原样入库——SQLite 宽容，
+        但 PG timestamptz 读回 aware，同一聚合查询内「会话内 naive 对象 × 库内
+        aware 行」比较即抛 TypeError（500）。在边界统一为 aware，存储语义不再
+        依赖数据库会话时区。
+        """
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
         return value
 
     @model_validator(mode="after")

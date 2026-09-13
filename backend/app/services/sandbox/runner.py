@@ -108,7 +108,11 @@ class SandboxRunner:
 
     def _execute_subprocess(self, timeout_seconds: float) -> SandboxRun:
         """子进程隔离执行：join(timeout) 超时后 terminate/kill，保证真终止。"""
-        database_url = str(self.db.get_bind().engine.url)
+        # SQLAlchemy 2.x 的 str(engine.url) 默认把密码掩码成 "***"（render_as_string
+        # hide_password=True 语义）。掩码 URL 传给子进程 = 真实口令丢失——SQLite 无口令
+        # 掩盖了该缺陷；PostgreSQL 门禁实测 worker 100% 认证失败。hide_password=False
+        # 仅在此进程内传给子进程，不落日志。
+        database_url = self.db.get_bind().engine.url.render_as_string(hide_password=False)
         context = _process_context()
         process = context.Process(
             target=run_sandbox_worker,
