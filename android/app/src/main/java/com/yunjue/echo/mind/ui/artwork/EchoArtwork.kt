@@ -394,7 +394,7 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSmartMapIcon(
             val inner = w * 0.12f
             val path = Path()
             for (i in 0 until 8) {
-                val angle = Math.toRadians((i * 45.0) - 90.0)
+                val angle = Math.toRadians(i * 45.0 - 90.0)
                 val r = if (i % 2 == 0) outer else inner
                 val x = cx + r * cos(angle).toFloat()
                 val y = cy + r * sin(angle).toFloat()
@@ -420,7 +420,7 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSmartMapIcon(
             drawCircle(color = color, radius = w * 0.20f, style = stroke)
             drawCircle(color = color, radius = w * 0.08f, style = stroke)
             for (i in 0 until 8) {
-                val angle = Math.toRadians((i * 45.0))
+                val angle = Math.toRadians(i * 45.0)
                 val r0 = w * 0.30f
                 val r1 = w * 0.40f
                 drawLine(

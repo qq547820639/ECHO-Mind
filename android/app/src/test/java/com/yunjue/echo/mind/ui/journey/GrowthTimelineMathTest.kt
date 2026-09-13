@@ -108,7 +108,7 @@ class GrowthTimelineMathTest {
     @Test
     fun monthSeriesXLabelsSampledAtFivePoints() {
         val portraits = (0 until 20).map { i ->
-            portrait(String.format("2026-08-%02d", i + 1), "MOVEMENT" to "SIMILAR")
+            portrait(String.format(java.util.Locale.US, "2026-08-%02d", i + 1), "MOVEMENT" to "SIMILAR")
         }
         val series = buildMonthTrendSeries(portraits)
         assertFalse(series.isEmptyData)

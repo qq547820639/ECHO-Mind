@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,7 +31,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -456,7 +454,7 @@ private fun DataOrbitHero(modifier: Modifier = Modifier) {
             )
             val r = h * 0.30f
             nodeColors.forEachIndexed { i, color ->
-                val angle = Math.toRadians((i * 72.0) - 90.0)
+                val angle = Math.toRadians(i * 72.0 - 90.0)
                 val p = Offset(c.x + r * kotlin.math.cos(angle).toFloat(), c.y + r * kotlin.math.sin(angle).toFloat())
                 drawLine(
                     color = color.copy(alpha = 0.35f),

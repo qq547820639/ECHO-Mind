@@ -229,7 +229,7 @@ internal fun EchoHomeContent(
                             }
                             Spacer(Modifier.height(16.dp))
                             // 成长进度（真实：基线天数 / 28 天基线窗口；Day-0 = 0%，不编造设计稿的 3%）
-                            val pct = ((uiState.baselineDays * 100) / 28).coerceIn(0, 100)
+                            val pct = (uiState.baselineDays * 100 / 28).coerceIn(0, 100)
                             androidx.compose.foundation.layout.Row(
                                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                             ) {

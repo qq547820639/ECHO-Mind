@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
@@ -25,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,7 +64,7 @@ fun WristSection(container: AppContainer) {
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // ===== 设计稿 17：表盘定制（样机预览 + 四样式 + 复杂信息 + 同步 CTA）=====
-        var faceStyle by remember { mutableStateOf(wearable.prefs.watchFaceStyle) }
+        var faceStyle by remember { mutableIntStateOf(wearable.prefs.watchFaceStyle) }
         var complications by remember { mutableStateOf(wearable.prefs.watchFaceComplications) }
         var syncHint by remember { mutableStateOf<String?>(null) }
 

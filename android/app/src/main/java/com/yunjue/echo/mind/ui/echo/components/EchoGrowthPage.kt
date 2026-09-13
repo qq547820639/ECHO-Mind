@@ -2,7 +2,6 @@ package com.yunjue.echo.mind.ui.echo.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,8 +75,8 @@ fun EchoGrowthPage(
     accompanimentHours: Int?,
     timelinePoints: List<GrowthTimelinePoint>,
     onContinueClick: () -> Unit,
+    modifier: Modifier = Modifier,
     organismGenome: EchoVisualGenome? = null,
-    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier

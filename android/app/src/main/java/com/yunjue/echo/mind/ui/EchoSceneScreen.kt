@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -64,7 +65,7 @@ fun EchoSceneScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val wallpaperPromptDismissed by viewModel.wallpaperPromptDismissed.collectAsStateWithLifecycle()
     // §45：Correction 成功不只 Toast——触发 organism 900ms 视觉脉冲（halo -8% + phase pause）
-    var correctionPulseTrigger by remember { mutableStateOf(0) }
+    var correctionPulseTrigger by remember { mutableIntStateOf(0) }
 
     EchoSceneContent(
         state = EchoSceneContentState(

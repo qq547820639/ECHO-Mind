@@ -154,7 +154,7 @@ def main() -> None:
         raise SystemExit(f"{STATUS} 缺少 {BEGIN}/{END} 标记")
     head, _, tail = text.partition(BEGIN)
     _, _, tail = tail.partition(END)
-    STATUS.write_text(head + build_block() + tail + "\n", encoding="utf-8")
+    STATUS.write_text((head + build_block() + tail).rstrip("\n") + "\n", encoding="utf-8")
     print(f"wrote {STATUS.relative_to(ROOT)} Build Status 段")
 
 

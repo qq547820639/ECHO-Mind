@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -71,7 +72,7 @@ fun VisualLabScreen(onClose: () -> Unit) {
     var surface by remember { mutableStateOf(EchoSurface.APP_PRIVATE) }
     var backend by remember { mutableStateOf(EchoRenderTier.LEGACY) }
     var knobs by remember { mutableStateOf(VisualLabFixtures.Knobs()) }
-    var seed by remember { mutableStateOf(VisualLabFixtures.LAB_SEED) }
+    var seed by remember { mutableLongStateOf(VisualLabFixtures.LAB_SEED) }
     var reduced by remember { mutableStateOf(false) }
     var exportReport by remember { mutableStateOf<String?>(null) }
 
