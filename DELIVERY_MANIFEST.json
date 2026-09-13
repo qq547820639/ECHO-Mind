@@ -2,7 +2,7 @@
   "project": "ECHO Mind Personal Ambient Intelligence",
   "version": "0.11.0",
   "release_status": "pilot-candidate",
-  "generated_at": "2026-08-28T15:02:04Z",
+  "generated_at": "2026-09-13T02:15:49Z",
   "branch": "main",
   "git_ref": "personal-ambient-intelligence-v0.11.0",
   "scope": [
@@ -13,39 +13,30 @@
     "tests, safety corpus, CI/CD, SBOM and pilot governance pack"
   ],
   "validation": {
-    "backend_tests_passed": 1131,
+    "backend_tests_passed": 1137,
     "backend_tests_failed": 0,
     "backend_tests_skipped": 1,
     "android_gradle_build": "not_run_in_this_pipeline",
     "synthetic_safety_cases": 650,
     "content_packs_validated": 4,
-    "alembic_roundtrip": "passed_sqlite_local_drill_20260828",
-    "contract_drift_check": "passed_local_20260828",
+    "alembic_roundtrip": "passed_pg16_fresh_upgrade_downgrade_upgrade_20260913",
+    "contract_drift_check": "not_run",
     "android_instrumentation": "not_run",
-    "postgresql_docker_integration": "external_gate_not_run"
+    "postgresql_docker_integration": "passed_pg16_1121_passed_0_failed_20260913"
   },
   "validation_evidence": {
-    "backend_tests": "backend/.venv/bin/python -m pytest -q（Python 3.12.13 / SQLite in-memory）→ 1131 passed + 1 skipped，2026-08-28",
-    "alembic_roundtrip": "DATABASE_URL=sqlite:///<tmp> alembic upgrade head → downgrade base → upgrade head：0 error（2026-08-28 本地实测；PostgreSQL 版由 CI alembic-postgres job 执行）",
-    "contract_drift_check": "python3 scripts/contract_drift_check.py（61 路径 PASS）+ scripts/fault_injection_check.py（18/18 PASS），2026-08-28 本地实测，与 CI contract-drift job 同源",
-    "android_gradle_build": "未执行：本工作区无 Android SDK（~/Library/Android/sdk 与 local.properties 指向的 sdk 均不存在）→ BLOCKED_ENV_ANDROID_SDK；权威门禁为 CI android-ci job",
-    "android_instrumentation": "未执行：需真机/模拟器 + Android SDK → BLOCKED_ENV_ANDROID_SDK",
-    "static_checks": "ruff check app tests（0）+ mypy app strict（0 issues / 69 files）+ claim_scan + check_dynamic_code + safety_eval + validate_content_packs（4 包）+ verify_workflow_pins（5 workflow / 66 uses 全 SHA）",
-    "portrait_golden": "backend/scripts/generate_portrait_golden.py --check：5 cases 规范源与生成物零漂移，2026-08-28",
-    "repo_bloat_gate": "scripts/check_repo_bloat.py：受控文件无超限、无生成物二进制；.git 历史债告警按 docs/operations/REPO_HISTORY_SLIM_RUNBOOK.md 排期"
+    "backend_tests": "backend/.venv/bin/python -m pytest -q --junitxml=.pytest_report/junit.xml → 1137 passed + 1 skipped（Python 3.12 / SQLite 内存库），2026-09-13",
+    "alembic_roundtrip": "DATABASE_URL=postgresql+psycopg://localhost:5432/echo（Docker postgres:16-alpine 全新库）alembic upgrade head → downgrade base → upgrade head 三连 0 error，2026-09-13 本地实测",
+    "contract_drift_check": "python3 scripts/contract_drift_check.py → 61 路径 PASS；scripts/fault_injection_check.py → 18/18 PASS，2026-09-13 本地实测",
+    "postgresql_docker_integration": "DATABASE_URL=postgresql+psycopg://localhost:5432/echo（Docker postgres:16-alpine）pytest -q -m 'not sqlite_only' → 1121 passed / 0 failed / 17 deselected，2026-09-13 本地实测",
+    "android_gradle_build": "testDebugUnitTest 1404/0/0 + lintDebug PASS + detekt PASS（本工作区 SDK 可用，make android 同源门禁）；assembleDebug 于无空格路径副本产出 APK 22.9MB（规避 STATUS §5 空格路径 dexing 缺陷），2026-09-13"
   },
   "validation_environment": {
-    "builder": "local-dev-verified",
-    "python_version": "3.13.12",
-    "git_commit": "61a3f1aa62c490a90e91756068e08ed31f4e99f9",
+    "builder": "local-dev",
+    "python_version": "3.9.6",
+    "git_commit": "5451901c38904650df29b155cfdd305d1863cd08",
     "git_dirty": true,
-    "blocked_by": [
-      "BLOCKED_ENV_ANDROID_SDK",
-      "BLOCKED_ENV_DOCKER_POSTGRES",
-      "BLOCKED_EXTERNAL_BAND10_DEVICE",
-      "BLOCKED_EXTERNAL_XIAOMI_SDK",
-      "BLOCKED_EXTERNAL_PRODUCTION_SIGNING"
-    ]
+    "blocked_by": []
   },
   "production_claim": false,
   "external_release_gates": [

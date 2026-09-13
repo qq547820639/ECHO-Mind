@@ -157,6 +157,7 @@ def _evidence_map() -> dict[str, str]:
         "backend_tests": "BACKEND_TESTS_EVIDENCE",
         "alembic_roundtrip": "ALEMBIC_ROUNDTRIP_EVIDENCE",
         "contract_drift_check": "CONTRACT_DRIFT_CHECK_EVIDENCE",
+        "postgresql_docker_integration": "POSTGRES_DOCKER_EVIDENCE",
         "android_gradle_build": "ANDROID_GRADLE_BUILD_EVIDENCE",
         "android_instrumentation": "ANDROID_INSTRUMENTATION_EVIDENCE",
         "static_checks": "STATIC_CHECKS_EVIDENCE",
