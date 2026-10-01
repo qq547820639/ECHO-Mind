@@ -21,14 +21,14 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-      - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11  # v3（原 @main 可变分支）
+      - uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85  # v3（原 @main 可变分支）
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
           extra_args: --only-verified
 
-      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0
+      - uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26  # v0.24.2
         with:
           path: .
           format: spdx-json
@@ -60,12 +60,12 @@ jobs:
       - run: python3 scripts/audit_dependencies.py
 
       # Gradle/全仓依赖审计：osv-scanner（覆盖 gradle lockfile 与 Python 依赖）
-      - uses: google/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1  # v2
+      - uses: google/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc  # v2
         with:
           scan-args: "--recursive ."
 
       # 容器/文件系统扫描：trivy filesystem（backend 依赖目录）
-      - uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8  # 0.24.0（验证 tag 存在）
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # 0.24.0（验证 tag 存在）
         with:
           scan-type: fs
           scan-ref: backend/
