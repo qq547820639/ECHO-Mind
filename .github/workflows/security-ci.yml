@@ -20,7 +20,7 @@ jobs:
       security-events: write
       pull-requests: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11  # v3（原 @main 可变分支）
         with:
           path: ./
@@ -35,26 +35,26 @@ jobs:
           output-file: sbom.spdx.json
 
       # CodeQL：python（autobuild）+ Kotlin SAST（P2 落地：manual build + Android SDK）
-      - uses: github/codeql-action/init@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v3
         with:
           languages: python, java-kotlin
           build-mode: manual
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3  # v4
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6  # v6.0.1
         with: {distribution: temurin, java-version: "17"}
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407  # v3
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd  # v4.0.4
       # ERA 41 对齐 android-ci：显式安装 platform（build-tools 由 AGP 选择兼容版本）
       - run: yes | sdkmanager "platforms;android-37"
       - name: Kotlin/Java 构建（CodeQL build tracing 提取用；仅编译不跑测试）
         run: (cd android && ./gradlew compileDebugKotlin --no-daemon)
-      - uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v3
 
       # dependency-review：仅 PR 触发（需 pull-requests: read）
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v4
         if: github.event_name == 'pull_request'
 
       # Python 依赖审计：pip-audit（§96 收尾：改走 backend/uv.lock 锁定依赖，
       # 与本地 scripts/audit_dependencies.py 同构；osv-scanner 步骤继续覆盖全仓）
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with: {python-version: "3.12"}
       - run: pip install 'uv>=0.7.0,<0.8' pip-audit
       - run: python3 scripts/audit_dependencies.py
@@ -72,11 +72,11 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
-      - uses: github/codeql-action/upload-sarif@f3712979fa5f215279b101dd0a2e3bdfb4353324  # v3
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v3
         with:
           sarif_file: trivy-results.sarif
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: sbom-and-security-reports
           path: |
